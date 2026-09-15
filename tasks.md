@@ -46,14 +46,6 @@ re-checked at the fork base `426967d` (v1.51.0, 2026-09-15): all hold;
     - `just run-ui` is the dev loop (`Justfile:87`)
   - confirm: `source bin/activate-hermit && cargo build -p goose-cli && (cd ui/desktop && pnpm install --frozen-lockfile && pnpm run typecheck); echo exit=$?` → `exit=0`
 
-- 3. Add `scripts/check-spine.sh` that exits 1 when `git diff upstream/main --name-only` lists `crates/goose/src/agents/agent.rs` or anything under `crates/goose/src/agents/state_machine/`.
-  - status: doing · agent: claude-haiku-worker via claude-session (2026-09-15) · worker: low
-  - card: as a reviewer, have the dual-path rule fail mechanically so that no fork commit touches the agent loop by accident
-  - context:
-    - contract named in `ARCHITECTURE.md` §Invariants, last bullet
-    - Goose `AGENTS.md` §Agent Loop Migration is the reason
-  - confirm: `bash scripts/check-spine.sh; echo exit=$?` → `spine clean` then `exit=0`; and `touch crates/goose/src/agents/state_machine/.probe && git add -N crates/goose/src/agents/state_machine/.probe && bash scripts/check-spine.sh; echo exit=$?; git reset -q crates/goose/src/agents/state_machine/.probe; rm crates/goose/src/agents/state_machine/.probe` → `exit=1`
-
 - 4. Add `ui/desktop/.dependency-cruiser.cjs` with the three mechanical invariants from `ARCHITECTURE.md` (new dirs never import `@agentclientprotocol/sdk` / `@aaif/goose-acp-client`; `src/{workspace,native}` never import `src/components/**/internal`; `src/native` ↔ `src/acp` forbidden both ways) and a `depcruise` script in `ui/desktop/package.json`.
   - status: todo · agent: — · worker: medium
   - card: as a planner, have every drawn boundary checked so that a task cannot add an undrawn edge
