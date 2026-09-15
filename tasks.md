@@ -39,7 +39,7 @@ re-checked at the fork base `426967d` (v1.51.0, 2026-09-15): all hold;
 ### docs/2026-09-15-goose-fork-plan-v1.md
 
 - 2. Build the fork once: `source bin/activate-hermit && cargo build -p goose-cli` and `cd ui/desktop && pnpm install && pnpm run typecheck`.
-  - status: todo · agent: — · worker: low
+  - status: doing · agent: claude-session (opus, 2026-09-15) · worker: low
   - card: as the team, know the untouched fork builds so that the first red is ours, not upstream's
   - context:
     - Hermit pins node 24.10.0 / pnpm 10.30.3 / just 1.40.0 (`bin/`); Rust 1.96.1 (`rust-toolchain.toml`)
