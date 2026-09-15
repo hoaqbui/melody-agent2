@@ -95,7 +95,7 @@ re-checked at the fork base `426967d` (v1.51.0, 2026-09-15): all hold;
   - confirm: `source bin/activate-hermit && cargo test -p goose agy_metadata -- --nocapture; echo exit=$?` → `test result: ok.` with ≥1 passed, then `exit=0`
 
 - 7. Write `.agents/agents/orchestrator.md` with frontmatter `name: orchestrator`, `description`, `runtimes:` (`claude-acp` / `claude-opus-5` weight 1; `cursor-acp` / `cursor-grok-4.6-high` weight 0 — fail-over only), and a body holding PRODUCT.md §7.1 responsibilities, §19 delegation rules, §21 invariants, the §14.1 gate → specialist routing, and the advisor `exclude_provider` rule, as imperative rules (source: TUICommander `ORCHESTRATOR.md:1-12`, read 2026-09-15 — rewritten, not copied).
-  - status: todo · agent: — · worker: medium
+  - status: doing · agent: claude-haiku-worker via claude-session (2026-09-15) · worker: medium
   - card: as the user, start an Orchestrate session and get RPI-shaped delegation so that the thesis is testable without UI work
   - context:
     - Goose reads `<cwd>/.agents/agents` (`summon.rs:397-408`); frontmatter parsed by `parse_frontmatter` (`sources.rs:60-67`), unknown keys tolerated — the file parses on stock Goose before task 5 lands
