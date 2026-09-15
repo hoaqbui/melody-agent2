@@ -47,7 +47,7 @@ re-checked at the fork base `426967d` (v1.51.0, 2026-09-15): all hold;
   - confirm: `source bin/activate-hermit && cargo build -p goose-cli && (cd ui/desktop && pnpm install --frozen-lockfile && pnpm run typecheck); echo exit=$?` → `exit=0`
 
 - 3. Add `scripts/check-spine.sh` that exits 1 when `git diff upstream/main --name-only` lists `crates/goose/src/agents/agent.rs` or anything under `crates/goose/src/agents/state_machine/`.
-  - status: todo · agent: — · worker: low
+  - status: doing · agent: claude-haiku-worker via claude-session (2026-09-15) · worker: low
   - card: as a reviewer, have the dual-path rule fail mechanically so that no fork commit touches the agent loop by accident
   - context:
     - contract named in `ARCHITECTURE.md` §Invariants, last bullet
