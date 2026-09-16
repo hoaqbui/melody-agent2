@@ -12,5 +12,6 @@ export enum AppEvents {
   CLEAR_INITIAL_MESSAGE = 'clear-initial-message',
   SCROLL_CHAT_TO_BOTTOM = 'scroll-chat-to-bottom',
   HIDE_ALERT_POPOVER = 'hide-alert-popover',
+  INSERT_INPUT_TEXT = 'insert-input-text',
   RESPONSE_STYLE_CHANGED = 'responseStyleChanged',
 }

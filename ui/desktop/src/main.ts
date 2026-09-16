@@ -371,6 +371,14 @@ function verifyBackendCertificate(hostname: string, fingerprint: string): boolea
   return false;
 }
 
+function isWebUrl(url: string): boolean {
+  try {
+    return WEB_PROTOCOLS.includes(new URL(url).protocol);
+  } catch {
+    return false;
+  }
+}
+
 function isTrustedHost(hostname: string): boolean {
   return getBackendCertificateTrusts(hostname).length > 0;
 }
@@ -1329,6 +1337,8 @@ const createChat = async (
         webSecurity: true,
         nodeIntegration: false,
         contextIsolation: true,
+        // The Browser pane's <webview>; its guest is locked down in will-attach-webview below.
+        webviewTag: true,
         additionalArguments: [
           JSON.stringify({
             ...appConfig,
@@ -1438,6 +1448,31 @@ const createChat = async (
     if (menu.items.length > 0) {
       menu.popup();
     }
+  });
+
+  // The Browser pane's guest page is an arbitrary web origin: no preload, no node, sandboxed,
+  // http(s) only, and a popup it opens loads in place instead of leaving the app.
+  mainWindow.webContents.on('will-attach-webview', (event, webPreferences, params) => {
+    delete webPreferences.preload;
+    webPreferences.nodeIntegration = false;
+    webPreferences.contextIsolation = true;
+    webPreferences.sandbox = true;
+    if (!isWebUrl(params.src)) {
+      event.preventDefault();
+    }
+  });
+  mainWindow.webContents.on('did-attach-webview', (_event, guest) => {
+    guest.setWindowOpenHandler(({ url }) => {
+      if (isWebUrl(url)) {
+        void guest.loadURL(url);
+      }
+      return { action: 'deny' };
+    });
+    guest.on('will-navigate', (event, url) => {
+      if (!isWebUrl(url)) {
+        event.preventDefault();
+      }
+    });
   });
 
   // Handle new window creation for links (fallback for any links not handled by onClick)

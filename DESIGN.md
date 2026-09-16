@@ -11,7 +11,7 @@ The delta over Goose Desktop's design system. Under a section upstream already s
 - **The Nothing Lost Rule** — a pane that leaves the centre keeps its state and its tab slot (PRD `:186-188`, `pane-store.ts:14-15`); a pane that remounts empty on return is a bug.
 - **The Named Runtime Rule** — every step on screen says which runtime did it, in the runtime's own name: the header, the "→ Codex from here" divider, the worker row (PRD `:21-24`, `:96-97`; PRODUCT.md §11); colour or an icon alone never carries it.
 - **The Floating Button Rule** `[direction]` (user, 2026-09-15) — buttons carry a soft shadow beneath them so they read as floating; a flat control the user is meant to press is a bug.
-- **The Into Rule** `[direction]` (user, 2026-09-15) — transitions have things disappear *into* things: a closed pane returns into its tab, a promoted tab grows out of the side panel; a cut, a fade to nothing, or an element that appears from nowhere is forbidden where a source or destination exists.
+- **The Into Rule** `[direction]` (user, 2026-09-15) — transitions have things disappear *into* things: a closed pane returns into its tab, a promoted tab grows out of the side panel; a cut, a fade to nothing, or an element that appears from nowhere is forbidden where a source or destination exists. 2026-09-16 (task 56): the Browser's suggestion list grows out of the address bar and closes back into it.
 - **The One Word Rule** — one word per concept per tier (§Vocabulary); the fork's "Mode" never means Goose's permission gate, and a provider id never reaches the default surface.
 
 ## Frame
@@ -53,6 +53,7 @@ Phone width (≤ PHONE_MAX_WIDTH_PX, `pane-store.ts:10`, `:35-37`)
 | talk to one runtime, no role | **Direct** | direct | no role loaded (PRD `:52`) |
 | Claude owns the request, delegates | **Orchestrate** | orchestrate | orchestrator role loaded (PRD `:51`; PRODUCT.md §4) |
 | a tool surface | **pane** — Files · Editor · Changes · Terminal · Git · Browser · Markdown | pane | `PaneId` (`pane-store.ts:4`); the Changes pane's id stays `diff` |
+| the Browser's controls | **Back · Forward · Refresh · Share** (2026-09-16, task 56); Refresh reads **Stop** while the page loads; Share is **Share with agent** in full | browser toolbar | `browserPane.*` message ids; `data-testid="browser-back"` … `browser-share` (`panes/browser/BrowserPane.tsx`) |
 | where panes live when not promoted | **side panel** | side tabs | `activeSide`, `sideTabs` (`pane-store.ts:20`, `:39`) |
 | a pane beside the chat | **beside the chat**; the action is **Open as pane** (PRD `:85`) | centre | `centre` (`pane-store.ts:18`) |
 | the phone's one-at-a-time strip | **tab rail** | rail | `visible` (`pane-store.ts:22`) |
@@ -101,7 +102,7 @@ Upstream's, unchanged (`main.css:113-135`; values from `theme-tokens.ts`). Delta
 
 ## Iconography
 
-Upstream's, unchanged: `lucide-react` (`ui/desktop/package.json:87`), used by `components/ui/*`. The fork's tabs, pane toolbars and the header's pane menu draw from the same set at upstream's control size; a second set is a bug. One icon per pane wherever it is shown (`WorkspaceShell.tsx` `PANE_ICONS`): Files `FolderTree` · Editor `FileCode` · Changes `GitCompare` · Terminal `Terminal` · Git `GitBranch` · Browser `Globe` · Markdown `BookOpen`; the More button is `Ellipsis`. The Files dot is a dot, not an icon, and is always paired with text (§Accessibility).
+Upstream's, unchanged: `lucide-react` (`ui/desktop/package.json:87`), used by `components/ui/*`. The fork's tabs, pane toolbars and the header's pane menu draw from the same set at upstream's control size; a second set is a bug. One icon per pane wherever it is shown (`WorkspaceShell.tsx` `PANE_ICONS`): Files `FolderTree` · Editor `FileCode` · Changes `GitCompare` · Terminal `Terminal` · Git `GitBranch` · Browser `Globe` · Markdown `BookOpen`; the More button is `Ellipsis`. The Browser's toolbar (task 56): Back `ArrowLeft` · Forward `ArrowRight` · Refresh `RotateCw` (Stop `Square` while loading) · Share `Share`. The Files dot is a dot, not an icon, and is always paired with text (§Accessibility).
 
 ## Motion
 

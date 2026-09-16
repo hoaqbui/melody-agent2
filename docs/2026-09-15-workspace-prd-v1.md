@@ -138,6 +138,10 @@
       dev server if one is listed in `.goose` config)
     - → [Browser pane with address bar]; Markdown tab → [rendered view
       of the file selected in Files]
+    - 2026-09-16 amendment (task 56): the pane is a browser — address
+      bar with history suggestions, Back/Forward/Refresh, Share with
+      agent (the page's title, URL and text land in the chat input on
+      the user's click; the web build shares title and URL only)
 
 13. [Phone, on the tailnet] · P0
     - does: open the workspace URL in Safari (or the installed PWA);

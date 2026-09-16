@@ -37,8 +37,11 @@ export const test = base.extend<GooseTestFixtures>({
 
     try {
       // Assign a unique debug port for this test to enable parallel execution
-      // Base port 9222, offset by worker index * 100 + parallel slot
-      const debugPort = 9222 + (testInfo.parallelIndex * 10);
+      // Base port 9222, offset by worker index * 100 + parallel slot. Two checkouts running
+      // walks at once would attach to each other's app on the same port, so the base can be
+      // moved per checkout.
+      const basePort = Number(process.env.PLAYWRIGHT_DEBUG_PORT_BASE ?? 9222);
+      const debugPort = basePort + (testInfo.parallelIndex * 10);
       console.log(`Using debug port ${debugPort} for parallel test execution`);
 
       // Start the electron-forge process with Playwright remote debugging enabled
