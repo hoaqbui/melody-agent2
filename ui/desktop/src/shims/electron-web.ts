@@ -44,6 +44,7 @@ const implemented: Partial<ElectronApi> = {
   logInfo: (txt) => console.info(txt),
   getAcpUrl: async () =>
     `${window.location.protocol === 'https:' ? 'wss' : 'ws'}://${window.location.host}/acp`,
+  getSidecarUrl: async () => window.location.origin,
   getSetting: async <K extends SettingKey>(key: K): Promise<Settings[K]> =>
     ({ ...defaultSettings, ...readSettings() })[key],
   setSetting: async <K extends SettingKey>(key: K, value: Settings[K]): Promise<void> =>
