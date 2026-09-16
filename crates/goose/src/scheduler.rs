@@ -27,6 +27,7 @@ use crate::recipe::validate_recipe::{
 };
 use crate::recipe::Recipe;
 use crate::scheduler_trait::SchedulerTrait;
+use crate::session::extension_data::ExtensionState;
 use crate::session::session_manager::SessionType;
 use crate::session::{Session, SessionManager};
 
@@ -1000,6 +1001,43 @@ impl Scheduler {
     }
 }
 
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "snake_case")]
+pub enum RunStatus {
+    Done,
+    Failed,
+    Killed,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+pub struct RunOutcome {
+    pub status: RunStatus,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub error: Option<String>,
+}
+
+impl ExtensionState for RunOutcome {
+    const EXTENSION_NAME: &'static str = "scheduler";
+    const VERSION: &'static str = "v0";
+}
+
+// The update builder replaces the whole extension_data blob, so merge into the
+// stored copy rather than writing a fresh one over enabled_extensions.
+async fn record_run_outcome(
+    session_manager: &SessionManager,
+    session_id: &str,
+    outcome: &RunOutcome,
+) -> Result<()> {
+    let session = session_manager.get_session(session_id, false).await?;
+    let mut extension_data = session.extension_data;
+    outcome.to_extension_data(&mut extension_data)?;
+    session_manager
+        .update(session_id)
+        .extension_data(extension_data)
+        .apply()
+        .await
+}
+
 #[allow(clippy::too_many_lines)]
 async fn execute_job(
     job: ScheduledJob,
@@ -1158,14 +1196,14 @@ async fn execute_job(
             user_message,
             session_config,
             crate::agents::state_machine::enabled(),
-            Some(cancel_token),
+            Some(cancel_token.clone()),
         )
         .await?;
 
     use futures::StreamExt;
     let mut stream = std::pin::pin!(stream);
 
-    let mut stream_error = false;
+    let mut stream_error = None;
     while let Some(message_result) = stream.next().await {
         tokio::task::yield_now().await;
 
@@ -1179,15 +1217,37 @@ async fn execute_job(
             Ok(_) => {}
             Err(e) => {
                 tracing::error!("Error in agent stream: {}", e);
-                stream_error = true;
+                stream_error = Some(e.to_string());
                 break;
             }
         }
     }
 
+    let outcome = if cancel_token.is_cancelled() {
+        RunOutcome {
+            status: RunStatus::Killed,
+            error: None,
+        }
+    } else {
+        match stream_error {
+            Some(error) => RunOutcome {
+                status: RunStatus::Failed,
+                error: Some(error),
+            },
+            None => RunOutcome {
+                status: RunStatus::Done,
+                error: None,
+            },
+        }
+    };
+    record_run_outcome(&agent.config.session_manager, &session.id, &outcome).await?;
+
     {
         let session_duration = start_time.elapsed();
-        let exit_type = if stream_error { "error" } else { "normal" };
+        let exit_type = match outcome.status {
+            RunStatus::Failed => "error",
+            RunStatus::Done | RunStatus::Killed => "normal",
+        };
         let (total_tokens, message_count) = agent
             .config
             .session_manager
@@ -1247,7 +1307,10 @@ async fn execute_job(
         });
     }
 
-    Ok(session.id)
+    match outcome.error {
+        Some(error) => Err(anyhow!("Agent stream failed: {}", error)),
+        None => Ok(session.id),
+    }
 }
 
 #[async_trait]
@@ -1788,5 +1851,72 @@ mod tests {
         );
         assert!(scheduler.list_scheduled_jobs().await.is_empty());
         assert!(!temp_dir.path().join("scheduled_recipes").exists());
+    }
+
+    #[tokio::test]
+    async fn scheduler_run_outcome_is_recorded() {
+        let temp_dir = tempdir().unwrap();
+        let session_manager = SessionManager::new(temp_dir.path().to_path_buf());
+        let session = session_manager
+            .create_session(
+                temp_dir.path().to_path_buf(),
+                "Scheduled job: outcome".to_string(),
+                SessionType::Scheduled,
+                GooseMode::Auto,
+            )
+            .await
+            .unwrap();
+
+        let mut seeded = session.extension_data.clone();
+        seeded.set_extension_state("todo", "v0", serde_json::json!({ "content": "keep me" }));
+        session_manager
+            .update(&session.id)
+            .extension_data(seeded)
+            .apply()
+            .await
+            .unwrap();
+
+        let outcome = RunOutcome {
+            status: RunStatus::Failed,
+            error: Some("provider returned 500".to_string()),
+        };
+        record_run_outcome(&session_manager, &session.id, &outcome)
+            .await
+            .unwrap();
+
+        let stored = session_manager
+            .get_session(&session.id, false)
+            .await
+            .unwrap()
+            .extension_data;
+        assert_eq!(
+            stored.get_extension_state("scheduler", "v0"),
+            Some(&serde_json::json!({
+                "status": "failed",
+                "error": "provider returned 500"
+            }))
+        );
+        assert_eq!(RunOutcome::from_extension_data(&stored), Some(outcome));
+        assert_eq!(
+            stored.get_extension_state("todo", "v0"),
+            Some(&serde_json::json!({ "content": "keep me" }))
+        );
+
+        let done = RunOutcome {
+            status: RunStatus::Done,
+            error: None,
+        };
+        record_run_outcome(&session_manager, &session.id, &done)
+            .await
+            .unwrap();
+        let stored = session_manager
+            .get_session(&session.id, false)
+            .await
+            .unwrap()
+            .extension_data;
+        assert_eq!(
+            stored.get_extension_state("scheduler", "v0"),
+            Some(&serde_json::json!({ "status": "done" }))
+        );
     }
 }
