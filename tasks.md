@@ -81,14 +81,13 @@ re-checked at the fork base `426967d` (v1.51.0, 2026-09-15): all hold;
     - record the subscription each run drew on (PRODUCT.md §5) and any quota message — that is the first fail-over datum
   - confirm: `test -f docs/2026-09-15-runtime-matrix-v1.md && grep -c '^| \(codex-acp\|cursor-acp\|claude-acp\|agy\) |' docs/2026-09-15-runtime-matrix-v1.md` → `4`
 
-- 38. Let the Electron renderer call the sidecar across origins: in `ui/sidecar/src/http.ts` `sendJson`/`sendText` (and the JSON route dispatcher in `index.ts:60-70`) answer `access-control-allow-origin: <origin>` plus `access-control-allow-headers: content-type` for exactly the origins passed as `--allowed-origin <origin>` (repeatable), and answer `OPTIONS` preflights on the JSON routes with `204`; `ui/desktop/src/main/sidecar.ts` / `main.ts` pass the renderer's origin (the Vite dev server URL in dev, `main.ts:827-832`; the packaged `file://`/app origin otherwise — read what `webContents.getURL()` reports and pass that origin) when spawning.
-  - status: doing · agent: subagent-t38 via claude-session-opus-2 (23:05, worktree) · worker: medium
-  - card: as the Files, Diff and Git panes in the desktop, reach the sidecar's JSON routes so that the same `sidecarFetch` works in Electron and in the web build (task 37's finding: `webSecurity: true` at `main.ts:1326`, no CORS headers in `http.ts:37-44`; WebSockets unaffected)
+- 39. Reject JSON-route requests whose `content-type` is not `application/json` in `ui/sidecar/src/http.ts` (`415`, before the body is read), with a test beside the CORS ones.
+  - status: todo · agent: — · worker: low
+  - card: as the user, have no web page open in a browser on this Mac able to write files through the sidecar so that CORS's allowlist is a real gate, not a readable-response gate (task 38's finding: a `text/plain` POST is a CORS "simple request" that skips the preflight — the response is unreadable but `fs/write` runs)
   - context:
-    - the web build is same-origin and needs nothing; never answer `*`; an origin not on the list gets no CORS header at all (the browser blocks it) — the sidecar stays gated by Tailscale plus this allowlist, matching `goose serve`'s `--allowed-origin` (`goose-cli/src/cli.rs:1820-1832`)
-    - unit test in `ui/sidecar/src/http.test.ts` (or beside the dispatcher): a listed origin gets the header on a `POST /fs/list` and a `204` on `OPTIONS`; an unlisted origin gets neither
-    - `sidecar.test.ts` in `ui/desktop/src/main/` covers the argument passed
-  - confirm: `cd ui/sidecar && pnpm run typecheck && pnpm vitest run; echo exit=$?` → `exit=0` with ≥2 new tests; and from a built sidecar started with `--allowed-origin http://localhost:5173`: `curl -s -o /dev/null -w '%{http_code} %{header_json}\n' -X OPTIONS -H 'origin: http://localhost:5173' -H 'access-control-request-method: POST' http://127.0.0.1:3285/fs/list | grep -c 'access-control-allow-origin'` → `1` (untouched tree: `0`)
+    - `http.ts` `jsonDispatcher` / `readJson` — check the header first; `sidecarFetch` (`src/native/sidecar.ts`) already sends `content-type: application/json`, so no client changes
+    - with this, an unlisted origin cannot reach a JSON route at all: it fails the preflight (task 38) or the type check (this task)
+  - confirm: `cd ui/sidecar && pnpm vitest run src/http.test.ts; echo exit=$?` → `exit=0` with ≥5 tests (untouched tree: 4)
 
 - 12. Add the Files pane (`src/workspace/panes/files/`) with a tree of the session cwd (a drill-down list at phone width), session-written-file dots, and click → Editor pane; `ui/sidecar/src/fs.ts` serves reads and watches the cwd (`chokidar`).
   - status: doing · agent: subagent-t12 via claude-session-opus-2 (23:15, worktree) · worker: high
