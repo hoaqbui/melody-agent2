@@ -1,4 +1,4 @@
-import { PlaywrightTestConfig } from '@playwright/test';
+import { PlaywrightTestConfig, devices } from '@playwright/test';
 
 const config: PlaywrightTestConfig = {
   testDir: './tests/e2e',
@@ -19,6 +19,7 @@ const config: PlaywrightTestConfig = {
     video: 'retain-on-failure',
     screenshot: 'only-on-failure'
   },
+  projects: [{ name: 'chromium', use: { ...devices['Desktop Chrome'] } }],
   outputDir: 'test-results',
   preserveOutput: 'always'
 };
