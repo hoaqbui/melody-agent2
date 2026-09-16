@@ -33,10 +33,10 @@ export interface PaneLayout {
   dock: readonly Panel[];
   // Phone only: the one thing on screen; there is no split at phone width.
   visible: 'chat' | PaneId;
-  // Until task 42 rewires the shell: the last torn pane, and the pane the side panel shows.
-  centre: PaneId | null;
-  activeSide: PaneId | null;
 }
+
+// A panel as it persists: the id is minted again on restore, since ids are never reused.
+export type SavedPanel = Pick<Panel, 'tabs' | 'active' | 'size'>;
 
 const MIN_PANEL_SIZE = 0.1;
 
@@ -45,7 +45,7 @@ export function modeForWidth(widthPx: number): LayoutMode {
 }
 
 export function initialLayout(mode: LayoutMode = 'desktop'): PaneLayout {
-  return { mode, dock: [], visible: 'chat', centre: null, activeSide: null };
+  return { mode, dock: [], visible: 'chat' };
 }
 
 // Ids are never reused, so a panel that disappears and a later one never share a key.
@@ -62,14 +62,6 @@ function panelOf(dock: readonly Panel[], id: PaneId): number {
 
 function replaceAt(dock: readonly Panel[], index: number, panel: Panel): Panel[] {
   return dock.map((current, i) => (i === index ? panel : current));
-}
-
-// Until task 42: `centre` follows the torn pane while it stays in the dock, and the side
-// panel shows the first panel that is not the centre's own.
-function settle(layout: PaneLayout, dock: readonly Panel[], centre = layout.centre): PaneLayout {
-  const kept = centre !== null && panelOf(dock, centre) >= 0 ? centre : null;
-  const side = dock.find((panel) => panel.active !== kept);
-  return { ...layout, dock, centre: kept, activeSide: side?.active ?? null };
 }
 
 function removeTab(dock: readonly Panel[], id: PaneId): Panel[] {
@@ -104,20 +96,20 @@ export function openPane(layout: PaneLayout, id: PaneId): PaneLayout {
   const index = panelOf(dock, id);
   if (index >= 0) {
     if (dock[index].active === id) return layout;
-    return settle(layout, replaceAt(dock, index, { ...dock[index], active: id }));
+    return { ...layout, dock: replaceAt(dock, index, { ...dock[index], active: id }) };
   }
-  if (dock.length === 0) return settle(layout, [newPanel(id, 1)]);
+  if (dock.length === 0) return { ...layout, dock: [newPanel(id, 1)] };
   const first = { ...dock[0], tabs: [...dock[0].tabs, id], active: id };
-  return settle(layout, replaceAt(dock, 0, first));
+  return { ...layout, dock: replaceAt(dock, 0, first) };
 }
 
 export function tearOff(layout: PaneLayout, id: PaneId): PaneLayout {
   if (layout.mode === 'phone') return show(layout, id);
   const { dock } = layout;
   const index = panelOf(dock, id);
-  if (index < 0) return settle(layout, splitBelow(dock, dock.length - 1, id));
+  if (index < 0) return { ...layout, dock: splitBelow(dock, dock.length - 1, id) };
   if (dock[index].tabs.length === 1) return layout;
-  return settle(layout, splitBelow(removeTab(dock, id), index, id));
+  return { ...layout, dock: splitBelow(removeTab(dock, id), index, id) };
 }
 
 // `panelIndex` counts the dock before the move; the source panel may collapse on the way.
@@ -135,7 +127,7 @@ export function moveTab(
     const tabs = target.tabs.filter((tab) => tab !== id);
     tabs.splice(position, 0, id);
     if (tabs.every((tab, i) => tab === target.tabs[i])) return layout;
-    return settle(layout, replaceAt(dock, panelIndex, { ...target, tabs, active: id }));
+    return { ...layout, dock: replaceAt(dock, panelIndex, { ...target, tabs, active: id }) };
   }
   const moved = removeTab(dock, id).map((panel) => {
     if (panel.id !== target.id) return panel;
@@ -143,7 +135,7 @@ export function moveTab(
     tabs.splice(position, 0, id);
     return { ...panel, tabs, active: id };
   });
-  return settle(layout, moved);
+  return { ...layout, dock: moved };
 }
 
 export function movePanel(layout: PaneLayout, from: number, to: number): PaneLayout {
@@ -151,7 +143,7 @@ export function movePanel(layout: PaneLayout, from: number, to: number): PaneLay
   const dock = [...layout.dock];
   const [panel] = dock.splice(from, 1);
   dock.splice(to, 0, panel);
-  return settle(layout, dock);
+  return { ...layout, dock };
 }
 
 // A seam drag: the panel and its lower neighbour (upper for the last) trade the difference.
@@ -167,13 +159,13 @@ export function resize(layout: PaneLayout, index: number, size: number): PaneLay
     if (i === partner) return { ...panel, size: pair - clamped };
     return panel;
   });
-  return settle(layout, resized);
+  return { ...layout, dock: resized };
 }
 
 export function closePane(layout: PaneLayout, id: PaneId): PaneLayout {
   const shown = layout.visible === id ? show(layout, 'chat') : layout;
   if (panelOf(shown.dock, id) < 0) return shown;
-  return settle(shown, removeTab(shown.dock, id));
+  return { ...shown, dock: removeTab(shown.dock, id) };
 }
 
 export function show(layout: PaneLayout, target: 'chat' | PaneId): PaneLayout {
@@ -189,23 +181,26 @@ export function setMode(layout: PaneLayout, mode: LayoutMode): PaneLayout {
   return layout.visible === 'chat' ? desktop : openPane(desktop, layout.visible);
 }
 
-// Adapters until task 42 rewires the shell to the dock: the old "chat + one centre pane +
-// side tabs" names over the dock. The centre is the last torn pane; the side tabs are the
-// launcher row, every pane but the centre.
-export function sideTabs(layout: PaneLayout): PaneId[] {
-  return PANE_IDS.filter((id) => id !== layout.centre);
-}
-
-export function openCentre(layout: PaneLayout, id: PaneId): PaneLayout {
-  if (layout.mode === 'phone') return show(layout, id);
-  const torn = tearOff(layout, id);
-  return torn.centre === id ? torn : settle(torn, torn.dock, id);
-}
-
-export const selectSide = openPane;
-
-export function closeCentre(layout: PaneLayout): PaneLayout {
-  return layout.centre === null ? layout : closePane(layout, layout.centre);
+// A saved dock comes back with fresh panel ids; a tab that is not a pane, or is listed
+// twice, is dropped, and sizes are made to sum to 1 again. Nothing usable leaves the
+// layout as it is.
+export function restoreDock(layout: PaneLayout, saved: readonly SavedPanel[]): PaneLayout {
+  const seen = new Set<PaneId>();
+  const panels: Panel[] = [];
+  for (const entry of saved) {
+    const tabs = (entry.tabs ?? []).filter((tab): tab is PaneId => {
+      if (!PANE_IDS.includes(tab) || seen.has(tab)) return false;
+      seen.add(tab);
+      return true;
+    });
+    if (tabs.length === 0) continue;
+    const size = Number.isFinite(entry.size) && entry.size > 0 ? entry.size : 1;
+    const panel = newPanel(tabs[0], size);
+    panels.push({ ...panel, tabs, active: tabs.includes(entry.active) ? entry.active : tabs[0] });
+  }
+  if (panels.length === 0) return layout;
+  const total = panels.reduce((sum, panel) => sum + panel.size, 0);
+  return { ...layout, dock: panels.map((panel) => ({ ...panel, size: panel.size / total })) };
 }
 
 export interface PaneStore {
@@ -219,10 +214,6 @@ export interface PaneStore {
   closePane(id: PaneId): void;
   show(target: 'chat' | PaneId): void;
   setMode(mode: LayoutMode): void;
-  // Until task 42.
-  openCentre(id: PaneId): void;
-  closeCentre(): void;
-  selectSide(id: PaneId): void;
 }
 
 export function createPaneStore(initial: PaneLayout = initialLayout()): PaneStore {
@@ -247,8 +238,5 @@ export function createPaneStore(initial: PaneLayout = initialLayout()): PaneStor
     closePane: (id) => apply(closePane(state, id)),
     show: (target) => apply(show(state, target)),
     setMode: (mode) => apply(setMode(state, mode)),
-    openCentre: (id) => apply(openCentre(state, id)),
-    closeCentre: () => apply(closeCentre(state)),
-    selectSide: (id) => apply(selectSide(state, id)),
   };
 }

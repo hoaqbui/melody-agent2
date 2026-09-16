@@ -1,7 +1,7 @@
 import { mkdtempSync, mkdirSync, readFileSync, rmSync, writeFileSync } from 'fs';
 import { homedir, tmpdir } from 'os';
 import { join } from 'path';
-import { test, expect } from './fixtures';
+import { test, expect, emptyDock, openPane } from './fixtures';
 
 // PRD step 4: open a file from Files, type, ⌘S → the file on disk changed. Then the two
 // disk-change paths (a clean buffer follows disk; a dirty one gets the reload bar) and the
@@ -39,7 +39,8 @@ test.describe('editor pane', () => {
     await expect(goosePage.locator('[data-testid="workspace-shell"]')).toBeVisible({
       timeout: 30000,
     });
-    await goosePage.locator('[data-testid="workspace-side-tab-files"]').click();
+    await emptyDock(goosePage);
+    await openPane(goosePage, 'files');
     const files = goosePage.locator('[data-testid="files-pane"]');
     await expect(files).not.toHaveAttribute('data-state', 'loading', { timeout: 15000 });
     await goosePage.locator('[data-testid="files-row"][data-path$="/notes.md"]').click();

@@ -7,11 +7,11 @@ The delta over Goose Desktop's design system. Under a section upstream already s
 ## Principles
 
 - **The Upstream Rule** — chat, tool rows, settings and the session list are Goose's components, composed not restyled (`ARCHITECTURE.md:86`, `:98`); a fork-side copy of an upstream component is a bug.
-- **The One Pane Rule** — the centre is the chat plus at most one pane; a second promoted pane replaces the first, which returns to the side panel (PRD `docs/2026-09-15-workspace-prd-v1.md:86-88`, `pane-store.ts:18`, `:53`); a second split, a floating window, or a modal pane is forbidden.
-- **The Nothing Lost Rule** — a pane that leaves the centre keeps its state and its tab slot (PRD `:186-188`, `pane-store.ts:14-15`); a pane that remounts empty on return is a bug.
+- **The One Dock Rule** (2026-09-15, supersedes the One Pane Rule; tasks 41–42) — the centre is the chat and nothing else; every pane lives in the right dock, in a panel with a tab strip, and a panel holds one visible pane (`pane-store.ts:22-28`, `Dock.tsx`); a pane beside the chat outside the dock, a floating window, or a modal pane is forbidden.
+- **The Nothing Lost Rule** — a pane keeps its state while it is anywhere in the dock: a tab moved between panels, a torn-off tab, a panel reordered or resized is the same mounted pane (`pane-store.ts:20-21`, `Dock.tsx` renders every open pane once); a pane that remounts empty after a move is a bug. A closed pane leaves the dock, and reopening it joins the top panel's tabs (`pane-store.ts:93-104`) — the slot is not kept; the tab strip is the record of what is open, not of what was.
 - **The Named Runtime Rule** — every step on screen says which runtime did it, in the runtime's own name: the header, the "→ Codex from here" divider, the worker row (PRD `:21-24`, `:96-97`; PRODUCT.md §11); colour or an icon alone never carries it.
 - **The Floating Button Rule** `[direction]` (user, 2026-09-15) — buttons carry a soft shadow beneath them so they read as floating; a flat control the user is meant to press is a bug.
-- **The Into Rule** `[direction]` (user, 2026-09-15) — transitions have things disappear *into* things: a closed pane returns into its tab, a promoted tab grows out of the side panel; a cut, a fade to nothing, or an element that appears from nowhere is forbidden where a source or destination exists. 2026-09-16 (task 56): the Browser's suggestion list grows out of the address bar and closes back into it.
+- **The Into Rule** `[direction]` (user, 2026-09-15) — transitions have things disappear *into* things: a closed pane shrinks into its strip, an opened pane grows out of it, a torn-off tab lands where it was dropped; a cut, a fade to nothing, or an element that appears from nowhere is forbidden where a source or destination exists. 2026-09-16 (task 56): the Browser's suggestion list grows out of the address bar and closes back into it.
 - **Surfaces float** `[direction]` (user, 2026-09-16) — the Floating Button Rule extended to surfaces: elevation separates, outlines don't. In dark, every card, panel and popover carries `--shadow-sm` at rest and `--shadow-md` lifted, and the `border-*` tokens are near-invisible hairlines; a surface that separates itself with a line is a bug.
 - **The Glass Rule** `[direction]` (user, 2026-09-16) — a surface is glass only when something scrolls or shows behind it: the header, a dock panel, the chat-input card, a menu over the desk or the transcript; a glass surface with nothing behind it is a bug. Text never sits on glass without the surface's own background at ≥ .72 alpha — the blur is under the surface, never under the letters (`main.css` "Charcoal Monokai", `theme-tokens.test.ts`).
 - **The One Word Rule** — one word per concept per tier (§Vocabulary); the fork's "Mode" never means Goose's permission gate, and a provider id never reaches the default surface.
@@ -27,21 +27,22 @@ Application window
 ├── centre — the chat; never a pane (PRD :84-108, amended 2026-09-15)
 │   ├── RPI strip — `workspace`, above the chat · later (PRD :127-134)
 │   └── chat — `components`: transcript, tool rows, input with ⌘Enter; never moves
-└── right dock — `workspace`: panels stacked top to bottom, each a tab strip over one visible pane;
-    │           sizes are fractions of the dock's height summing to 1 (`pane-store.ts:14-19`, `:25`)
-    ├── panel — tabs Files · Editor · Changes · Terminal · Git · Browser · Markdown open here in launcher order (`pane-store.ts:6`)
-    │           tear a tab off → a new panel below its source, half its height (`pane-store.ts:106`)
-    │           drag a panel → reorder; drag a seam → resize against the neighbour (`:141`, `:150`)
+└── right dock — `workspace` (`Dock.tsx`): panels stacked top to bottom, each a tab strip over one visible pane;
+    │           sizes are fractions of the dock's height summing to 1 (`pane-store.ts:22-28`); absent when nothing is open
+    ├── panel (`Panel.tsx`) — strip: grip · tabs · × for the active tab · ⋯ (Tear off · Move up · Move down · Close)
+    │           tabs Files · Editor · Changes · Terminal · Git · Browser · Markdown open here in launcher order (`pane-store.ts:6`, `:93-104`)
+    │           drag a tab onto a strip → it moves there; onto a seam or a panel's upper/lower half → it tears off into a new panel at that seam (`pane-store.ts:106`, `Dock.tsx` drop)
+    │           drag a strip's grip → the panel reorders; drag or arrow a seam → resize against the neighbour (`:141`, `:150`)
     │           close the last tab → the panel disappears into its neighbour (`pane-store.ts:76`)
+    │           the dock is remembered per project, keyed by the window's working dir (`Dock.tsx` loadDock/saveDock, `pane-store.ts:187`)
     └── later: Agents (PRD :118-140; PRODUCT.md §11); Browser and Markdown are placeholders until task 31
 
-Phone width (≤ PHONE_MAX_WIDTH_PX, `pane-store.ts:10`, `:35-37`)
-└── tab rail — chat first, then the same tabs; one thing visible, no split (`pane-store.ts:27`; PRD :142-152)
+Phone width (≤ PHONE_MAX_WIDTH_PX, `pane-store.ts:18`, `:43-45`)
+└── tab rail — chat first, then the same tabs; one thing visible, no split (`pane-store.ts:35`; PRD :142-152)
 ```
 
-- 2026-09-15 amendment (tasks 41–42): the side panel and the one centre pane become the right dock; §Principles One Pane Rule and §Vocabulary rows "side panel" / "beside the chat" describe the superseded layout and wait on task 42's rewiring. Until then `centre` / `activeSide` / `sideTabs` are adapters over the dock (`pane-store.ts:184-201`).
 - The header and the chat keep their location and meaning at every width; the Hub and the spotlight launcher are upstream's, unchanged (PRD `:28-30`).
-- As space contracts: the dock folds away whole behind the chat, its panels kept (`pane-store.ts:176-179`); then the session list; the chat never shrinks below one readable line and its input. Growing back shows the dock as it was, plus the pane the phone had on screen (`pane-store.ts:180-181`, `pane-store.test.ts:173`).
+- As space contracts: the dock folds away whole behind the chat, its panels kept (`pane-store.ts:177-183`); then the session list; the chat never shrinks below one readable line and its input. Growing back shows the dock as it was, plus the pane the phone had on screen (`pane-store.ts:181-182`, `pane-store.test.ts:173`).
 - Dense surfaces: pane contents (tree, diff, terminal, git lists) at upstream's compact sizes; the header, tabs and chat are never dense.
 - Overlays: upstream's stack, unchanged — dialogs (`ui/desktop/src/components/ui/dialog.tsx`) above toasts (`react-toastify`, `ui/desktop/package.json:96`); the fork adds no overlay. A pane is never an overlay. Focus returns to the control that opened the dialog; Esc dismisses a dialog, and only a dialog (see §Accessibility).
 
@@ -56,20 +57,22 @@ Phone width (≤ PHONE_MAX_WIDTH_PX, `pane-store.ts:10`, `:35-37`)
 | Claude owns the request, delegates | **Orchestrate** | orchestrate | orchestrator role loaded (PRD `:51`; PRODUCT.md §4) |
 | a tool surface | **pane** — Files · Editor · Changes · Terminal · Git · Browser · Markdown | pane | `PaneId` (`pane-store.ts:4`); the Changes pane's id stays `diff` |
 | the Browser's controls | **Back · Forward · Refresh · Share** (2026-09-16, task 56); Refresh reads **Stop** while the page loads; Share is **Share with agent** in full | browser toolbar | `browserPane.*` message ids; `data-testid="browser-back"` … `browser-share` (`panes/browser/BrowserPane.tsx`) |
-| where panes live when not promoted | **side panel** | side tabs | `activeSide`, `sideTabs` (`pane-store.ts:20`, `:39`) |
-| a pane beside the chat | **beside the chat**; the action is **Open as pane** (PRD `:85`) | centre | `centre` (`pane-store.ts:18`) |
-| the phone's one-at-a-time strip | **tab rail** | rail | `visible` (`pane-store.ts:22`) |
+| where panes live | **dock** — the right column of panels | dock | `dock` (`pane-store.ts:33`) |
+| one tab strip and its visible pane | **panel**; the actions are **Tear off**, **Move up**, **Move down**, **Close** (`Panel.tsx`) | panel | `Panel` (`pane-store.ts:22-28`) |
+| the line between two panels | **seam** | seam | `resize` (`pane-store.ts:150`) |
+| the phone's one-at-a-time strip | **tab rail** | rail | `visible` (`pane-store.ts:35`) |
 | delegated work | **worker** — runtime · role · task · status (PRD `:103-104`) | subagent | SubAgent session, `tasks_update` (`ARCHITECTURE.md:87`, `:105`) |
 | the job a worker does | **role** — Orchestrator, Researcher, Planner, Implementer, Reviewer, Advisor (and the Advisor's four specialists) | role | the ten files in `.agents/agents/` (`ARCHITECTURE.md:94`) |
 | what a worker hands back | **artifact** — Brief · Plan · Result · Review (PRD `:113-115`) | artifact | the markdown the worker returned |
 | a runtime switch mid-session | **"→ <Runtime> from here"** divider (PRD `:96-97`) | handoff | compacted handoff memo (PRODUCT.md §4) |
 
-- Labels are imperative verbs in sentence case: Install, Sign in, Locate…, Restart, Commit, Open as pane (PRD §States).
+- Labels are imperative verbs in sentence case: Install, Sign in, Locate…, Restart, Commit, Tear off (PRD §States).
 - Errors: the cause in plain words, then the action that fixes it — "[exited <code>] — Restart", "No changes vs <base>", "Not a git repository" (PRD `:157-163`); never "something went wrong".
 - Runtimes are named as the user says them (Claude, Codex, Cursor, agy); a provider id never rises to the default surface.
 - "Mode" in the workspace means Direct · Orchestrate only; the permission gate keeps upstream's words and stays in Settings.
 - Pane names are nouns; a tab reads Files, never "File browser".
 - Retired: **Diff** → **Changes** (user, 2026-09-15; task 40) — the pane shows what changed, "diff" names the artifact; the word survives only as the id `diff` (`pane-store.ts:4`) and the `diffPane.*` message ids, never on a surface. A retired word goes to `docs/decisions/`, dated; that directory does not exist yet, so this line is the record until it does.
+- Retired: **side panel**, **beside the chat**, **Open as pane** (task 42) — the dock replaced the side panel and the centre pane; "side" survives only in the `workspace-side-panel` / `workspace-side-tab-*` test ids, never on a surface.
 - check: open — see §Open decisions (no workspace strings exist to check yet).
 
 ## Shared component states [contract]
@@ -86,7 +89,7 @@ The PRD's per-surface lines (`:137-170`) are deviations from these rows; a state
 | Cancelled | the reply truncated where it stopped; input enabled (PRD `:54`) | send again | the draft | the input | "stopped" |
 | Unavailable | the row stays and reads Install, Sign in, or the probe's one line; the session does not start (PRD `:40-47`, `:142-146`) | Install · Sign in | selectors unchanged | the row | the row's text |
 
-- A closed centre pane returns into its tab and that tab is the active one (`pane-store.ts:59-62`, `pane-store.test.ts:36`); focus lands on that tab.
+- A closed pane shrinks into its strip; its panel shows the neighbouring tab and focus lands on that tab (`Dock.tsx` focusAfterClose), or the emptied panel disappears into the panel above and focus lands on the header's ⋯ (`WorkspaceShell.tsx` paneClosed — the one pane button whose tooltip does not open on focus) (`pane-store.ts:67-83`, `pane-store.test.ts:124-143`).
 - check: open — see §Open decisions (no pane declares a state type yet).
 
 ## Tokens & theme [contract]
@@ -111,10 +114,10 @@ Upstream's, unchanged: `lucide-react` (`ui/desktop/package.json:87`), used by `c
 
 Upstream's easing role `--ease-g2` (`main.css:65`); upstream names no duration roles (open). Every animation names the continuity it explains; here each is the Into Rule applied to the pane store:
 
-- Promote (`openCentre`, `pane-store.ts:50-57`): the pane grows out of its side-panel tab into the centre slot; the tab's slot stays (`:14-15`), so the pane has somewhere to return.
-- Replace (second `openCentre`, `:53-55`): the displaced pane shrinks into its tab, which becomes the selected one, as the new pane grows out of its own (`pane-store.test.ts:29`).
-- Close (`closeCentre`, `:59-62`): the pane returns into its tab; the tab becomes active.
-- Phone (`show`, `:70-73`): the leaving pane returns into its rail tab; the arriving one grows out of its rail tab; chat is a rail tab like the others.
+- Open and tab switch (`openPane`, `pane-store.ts:93-104`): the pane grows out of its strip — `animate-in fade-in-0 zoom-in-95 origin-top` over `--ease-g2`, 150ms (`Dock.tsx` body classes); a hidden tab's pane replays it when shown.
+- Drag (`Dock.tsx` ghost): the tab or panel in flight is a lifted copy under the pointer (`--shadow-md`, the Floating Button Rule), the source fades to half, the drop target — a strip's insertion mark or a seam — shows where it lands; on release the layout changes in place.
+- Close (`closePane`, `:165-169`): the pane shrinks toward its strip (`animate-out zoom-out-95`, `Dock.tsx` CLOSE_MOTION_MS) and only then leaves the store; focus lands as §States says.
+- Phone (`show`, `:171-175`): the leaving pane returns into its rail tab; the arriving one grows out of its rail tab; chat is a rail tab like the others.
 - The "→ <Runtime> from here" divider appears in place; nothing animates in the transcript, the tool rows, or the terminal — text streams and rows appear, that is all.
 - Reduced motion: upstream's global block zeroes every transition (`main.css:380-392`), so an Into motion degrades to a cut; the focus rules in §States still hold, so only the picture is lost.
 

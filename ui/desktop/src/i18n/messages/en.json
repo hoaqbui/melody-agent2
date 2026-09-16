@@ -1040,6 +1040,27 @@
   "dirSwitcher.recentDirectories": {
     "defaultMessage": "Recent directories"
   },
+  "dock.close": {
+    "defaultMessage": "Close"
+  },
+  "dock.closePane": {
+    "defaultMessage": "Close {pane}"
+  },
+  "dock.moveDown": {
+    "defaultMessage": "Move down"
+  },
+  "dock.moveUp": {
+    "defaultMessage": "Move up"
+  },
+  "dock.panelMenu": {
+    "defaultMessage": "Panel"
+  },
+  "dock.resize": {
+    "defaultMessage": "Resize"
+  },
+  "dock.tearOff": {
+    "defaultMessage": "Tear off"
+  },
   "editorPane.changedOnDisk": {
     "defaultMessage": "Changed on disk"
   },
@@ -4913,9 +4934,6 @@
   "userMessage.removeImageFromEdit": {
     "defaultMessage": "Remove image from message"
   },
-  "workspaceShell.closePane": {
-    "defaultMessage": "Close pane"
-  },
   "workspaceShell.direct": {
     "defaultMessage": "Direct"
   },
@@ -4933,9 +4951,6 @@
   },
   "workspaceShell.noOrchestrator": {
     "defaultMessage": "no orchestrator role in this project"
-  },
-  "workspaceShell.openAsPane": {
-    "defaultMessage": "Open as pane"
   },
   "workspaceShell.orchestrate": {
     "defaultMessage": "Orchestrate"

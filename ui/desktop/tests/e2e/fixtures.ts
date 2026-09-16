@@ -1,4 +1,4 @@
-import { test as base, Page, Browser, chromium } from '@playwright/test';
+import { test as base, expect, Page, Browser, chromium } from '@playwright/test';
 import { exec, spawn, ChildProcess } from 'child_process';
 import { join } from 'path';
 import { promisify } from 'util';
@@ -180,3 +180,27 @@ export const test = base.extend<GooseTestFixtures>({
 });
 
 export { expect } from '@playwright/test';
+
+// The header's pane menu (task 40): Terminal, Changes and Browser are buttons, the rest
+// sit under ⋯. A click opens the pane into the dock's top panel (task 42).
+export async function openPane(page: Page, id: string): Promise<void> {
+  const button = page.locator(`[data-testid="workspace-pane-button-${id}"]`);
+  if ((await button.count()) > 0) {
+    await button.click();
+    return;
+  }
+  await page.locator('[data-testid="workspace-pane-more"]').click();
+  await page.locator(`[data-testid="workspace-pane-item-${id}"]`).click();
+}
+
+// The dock is remembered per project in the app's own storage, so a walk that counts
+// panels first closes whatever an earlier run, or the user, left open.
+export async function emptyDock(page: Page): Promise<void> {
+  const tabs = page.locator('[data-dock-tab]');
+  for (;;) {
+    const open = await tabs.count();
+    if (open === 0) return;
+    await page.locator('[data-testid^="workspace-pane-close-"]').first().click();
+    await expect(tabs).toHaveCount(open - 1);
+  }
+}

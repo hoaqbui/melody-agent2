@@ -35,7 +35,7 @@ test.describe('workspace shell', () => {
       timeout: 15000,
     });
     await expect(runtime).toHaveValue(pickedRuntime);
-    await expect(goosePage.locator('[data-testid="workspace-side-panel"]')).toBeVisible();
+    await expect(goosePage.locator('[data-testid="workspace-pane-menu"]')).toBeVisible();
 
     if (canOrchestrate) {
       const chatInput = goosePage.locator('[data-testid="chat-input"]');

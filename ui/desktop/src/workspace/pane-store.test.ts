@@ -1,21 +1,18 @@
 import { describe, expect, it, vi } from 'vitest';
 import {
-  closeCentre,
   closePane,
   createPaneStore,
   initialLayout,
   modeForWidth,
   movePanel,
   moveTab,
-  openCentre,
   openPane,
-  PANE_IDS,
   resize,
-  selectSide,
+  restoreDock,
   setMode,
   show,
-  sideTabs,
   tearOff,
+  type PaneId,
   type PaneLayout,
 } from './pane-store';
 
@@ -182,32 +179,30 @@ describe('pane-store on the phone', () => {
   });
 });
 
-describe('pane-store adapters until task 42', () => {
-  it('opens the centre as a tear-off and drops it from the side tabs', () => {
-    const layout = openCentre(initialLayout(), 'diff');
-    expect(layout.centre).toBe('diff');
-    expect(tabsOf(layout)).toEqual([['diff']]);
-    expect(sideTabs(layout)).toEqual(['files', 'editor', 'terminal', 'git', 'browser', 'markdown']);
-    expect(openCentre(layout, 'diff')).toBe(layout);
+describe('restoreDock', () => {
+  it('rebuilds a saved dock with fresh ids and sizes summing to 1', () => {
+    const before = twoPanels();
+    const saved = before.dock.map(({ tabs, active, size }) => ({ tabs, active, size: size * 3 }));
+    const layout = restoreDock(initialLayout(), saved);
+    expect(tabsOf(layout)).toEqual(tabsOf(before));
+    expect(layout.dock.map((panel) => panel.active)).toEqual(['files', 'terminal']);
+    expect(sizesOf(layout)).toEqual([0.5, 0.5]);
+    expect(layout.dock.map((panel) => panel.id)).not.toContain(before.dock[0].id);
+    expect(new Set(layout.dock.map((panel) => panel.id)).size).toBe(2);
   });
 
-  it('selects the side tab as openPane beside the centre', () => {
-    const layout = selectSide(openCentre(initialLayout(), 'diff'), 'files');
-    expect(layout.centre).toBe('diff');
-    expect(layout.activeSide).toBe('files');
-    const torn = openCentre(layout, 'files');
-    expect(tabsOf(torn)).toEqual([['diff'], ['files']]);
-    expect(torn.centre).toBe('files');
-    expect(torn.activeSide).toBe('diff');
-  });
-
-  it('closes the centre as closePane of the last torn pane', () => {
-    const layout = closeCentre(selectSide(openCentre(initialLayout(), 'git'), 'files'));
-    expect(layout.centre).toBeNull();
-    expect(tabsOf(layout)).toEqual([['files']]);
-    expect(layout.activeSide).toBe('files');
-    expect(sideTabs(layout)).toEqual(PANE_IDS);
-    expect(closeCentre(layout)).toBe(layout);
+  it('drops what is not a pane or is listed twice, and keeps nothing over an empty save', () => {
+    const empty = initialLayout();
+    const layout = restoreDock(empty, [
+      { tabs: ['files', 'nope' as PaneId, 'diff'], active: 'nope' as PaneId, size: Number.NaN },
+      { tabs: ['diff'], active: 'diff', size: -1 },
+      { tabs: ['git'], active: 'git', size: 1 },
+    ]);
+    expect(tabsOf(layout)).toEqual([['files', 'diff'], ['git']]);
+    expect(layout.dock[0].active).toBe('files');
+    expect(sumOf(layout)).toBeCloseTo(1);
+    expect(restoreDock(empty, [])).toBe(empty);
+    expect(restoreDock(empty, [{ tabs: [], active: 'files', size: 1 }])).toBe(empty);
   });
 });
 

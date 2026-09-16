@@ -2,7 +2,7 @@ import { execFileSync } from 'child_process';
 import { mkdtempSync, mkdirSync, rmSync, writeFileSync } from 'fs';
 import { homedir, tmpdir } from 'os';
 import { join } from 'path';
-import { test, expect } from './fixtures';
+import { test, expect, openPane } from './fixtures';
 
 // PRD step 5: a modified file shows in the Changes list; unified and side-by-side render.
 // With no --dir and a piped stdin the app opens in $HOME, so the walk points HOME at a
@@ -47,7 +47,7 @@ test.describe('diff pane', () => {
     await expect(goosePage.locator('[data-testid="workspace-shell"]')).toBeVisible({
       timeout: 30000,
     });
-    await goosePage.locator('[data-testid="workspace-side-tab-diff"]').click();
+    await openPane(goosePage, 'diff');
 
     const pane = goosePage.locator('[data-testid="diff-pane"]');
     await expect(pane).toHaveAttribute('data-state', 'ready', { timeout: 15000 });

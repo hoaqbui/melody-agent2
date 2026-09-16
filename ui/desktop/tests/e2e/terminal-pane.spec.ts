@@ -1,4 +1,4 @@
-import { test, expect } from './fixtures';
+import { test, expect, emptyDock, openPane } from './fixtures';
 
 // PRD step 6: the Terminal tab opens a shell in the session's working directory; `pwd`
 // prints it. The session starts as in workspace-shell.spec.ts, on the ambient runtime.
@@ -19,9 +19,8 @@ test.describe('terminal pane', () => {
     const cwd = await goosePage.evaluate(() => window.appConfig.get('GOOSE_WORKING_DIR') as string);
     expect(cwd).not.toBe('');
 
-    await goosePage.locator('[data-testid="workspace-side-tab-terminal"]').click();
-    // Wide enough that the path does not soft-wrap across rows.
-    await goosePage.getByRole('button', { name: 'Open as pane' }).click();
+    await emptyDock(goosePage);
+    await openPane(goosePage, 'terminal');
     const pane = goosePage.locator('[data-testid="terminal-pane"]');
     await expect(pane).toBeVisible();
     await expect(pane.locator('[data-testid="terminal-status"]')).toHaveCount(0, {
@@ -41,5 +40,7 @@ test.describe('terminal pane', () => {
       path: test.info().outputPath('terminal-pane.png'),
       fullPage: true,
     });
+    // The dock persists per project in the app's own storage: leave the user's empty.
+    await emptyDock(goosePage);
   });
 });

@@ -1,16 +1,18 @@
-// The workspace around the chat (PRD steps 2-3, 8, 9): a header with Runtime and Mode,
-// the chat (or the Hub) in the main column, one centre pane beside it, and the side panel
-// over the pane store. Composes exported components only and reaches ACP through src/acp.
+// The workspace around the chat (PRD steps 2-3, 8, 9): a header with Runtime, Mode and the
+// pane menu, the chat (or the Hub) in the main column, and the right dock over the pane
+// store. Composes exported components only and reaches ACP through src/acp.
 
 import {
   useCallback,
   useEffect,
   useMemo,
+  useRef,
   useState,
   useSyncExternalStore,
   type ComponentType,
   type MouseEvent,
   type ReactNode,
+  type RefObject,
 } from 'react';
 import { useLocation, useSearchParams } from 'react-router';
 import {
@@ -56,12 +58,15 @@ import type { ProviderDetails } from '../types/providers';
 import { PaneContext, type PaneContextValue } from './pane-context';
 import {
   createPaneStore,
-  sideTabs,
+  initialLayout,
+  restoreDock,
   PANE_IDS,
   type PaneId,
   type PaneLayout,
   type PaneStore,
 } from './pane-store';
+import { Dock, loadDock, saveDock } from './Dock';
+import type { PaneChrome } from './Panel';
 import { TerminalPane } from './panes/terminal/TerminalPane';
 import {
   modeOfSession,
@@ -89,8 +94,6 @@ const i18n = defineMessages({
   runtimeDivider: { id: 'workspaceShell.runtimeDivider', defaultMessage: '→ {runtime} from here' },
   startFailed: { id: 'workspaceShell.startFailed', defaultMessage: "Couldn't start session" },
   switchFailed: { id: 'workspaceShell.switchFailed', defaultMessage: "Couldn't switch runtime" },
-  openAsPane: { id: 'workspaceShell.openAsPane', defaultMessage: 'Open as pane' },
-  closePane: { id: 'workspaceShell.closePane', defaultMessage: 'Close pane' },
   paneUnavailable: { id: 'workspaceShell.paneUnavailable', defaultMessage: 'Not available yet' },
   paneFiles: { id: 'workspaceShell.paneFiles', defaultMessage: 'Files' },
   paneEditor: { id: 'workspaceShell.paneEditor', defaultMessage: 'Editor' },
@@ -133,7 +136,7 @@ const floating = 'shadow-[var(--shadow-sm)] hover:shadow-[var(--shadow-md)]';
 
 function paneVisible(layout: PaneLayout, id: PaneId): boolean {
   if (layout.mode === 'phone') return layout.visible === id;
-  return layout.centre === id || layout.activeSide === id;
+  return layout.dock.some((panel) => panel.active === id);
 }
 
 const WORKSPACE_ROUTES = new Set(['/', '/pair']);
@@ -146,14 +149,17 @@ function usePaneLayout(store: PaneStore) {
 interface PaneMenuProps {
   layout: PaneLayout;
   onOpen(id: PaneId, tear: boolean): void;
+  // The toolbar, so focus has somewhere to land when a closed pane empties its panel.
+  menuRef: RefObject<HTMLDivElement | null>;
 }
 
 // The header's right: Terminal · Changes · Browser · ⋯. Pressed = the pane is showing.
-function PaneMenu({ layout, onOpen }: PaneMenuProps) {
+function PaneMenu({ layout, onOpen, menuRef }: PaneMenuProps) {
   const intl = useIntl();
   const open = (id: PaneId) => (event: MouseEvent) => onOpen(id, event.shiftKey);
   return (
     <div
+      ref={menuRef}
       className="ml-auto flex items-center gap-1"
       role="toolbar"
       aria-label={intl.formatMessage(i18n.panes)}
@@ -190,6 +196,7 @@ function PaneMenu({ layout, onOpen }: PaneMenuProps) {
                 size="sm"
                 className={cn(floating, 'w-8 px-0')}
                 aria-label={intl.formatMessage(i18n.morePanes)}
+                data-pane="more"
                 data-testid="workspace-pane-more"
                 // The menu hands focus back to ⋯ when it closes, and a focus-opened tooltip
                 // would linger there; hover still opens it, the aria-label names it.
@@ -244,8 +251,18 @@ export function WorkspaceShell({ chat, children, panes, paneStore }: WorkspaceSh
   const [searchParams] = useSearchParams();
   // AppLayout's nav toggle floats over the top-left when the nav is collapsed.
   const isNavCollapsed = !useNavigationContextSafe()?.isNavExpanded;
-  const [store] = useState(() => paneStore ?? createPaneStore());
+  // The dock is remembered per project: the window's working dir names it (task 42).
+  const [project] = useState(getInitialWorkingDir);
+  const [store] = useState(
+    () => paneStore ?? createPaneStore(restoreDock(initialLayout(), loadDock(project)))
+  );
   const layout = usePaneLayout(store);
+  const paneMenuRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    if (paneStore) return;
+    return store.subscribe(() => saveDock(project, store.getState().dock));
+  }, [paneStore, project, store]);
 
   const isWorkspaceRoute = WORKSPACE_ROUTES.has(location.pathname);
   const isOnPairRoute = location.pathname === '/pair';
@@ -367,22 +384,30 @@ export function WorkspaceShell({ chat, children, panes, paneStore }: WorkspaceSh
     void startSession(currentRuntime, mode);
   };
 
+  // A first pick tears the Editor off into its own panel so Files stays in view (PRD step 4);
+  // once it is in the dock, a pick just brings it to the front where the user left it.
   const openFile = useCallback(
     (path: string) => {
       setFile(path);
-      store.openCentre('editor');
+      const inDock = store.getState().dock.some((panel) => panel.tabs.includes('editor'));
+      if (inDock) store.openPane('editor');
+      else store.tearOff('editor');
     },
     [store]
   );
-  // Task 40: a click shows the pane in the side panel; shift-click, or a click on the pane
-  // already showing, opens it in the centre. Task 42 rewires these to openPane/tearOff.
+  // Task 40's menu: a click opens the pane in the top panel; shift-click tears it off.
   const openPane = useCallback(
     (id: PaneId, tear: boolean) => {
-      if (tear || paneVisible(store.getState(), id)) store.openCentre(id);
-      else store.selectSide(id);
+      if (tear) store.tearOff(id);
+      else store.openPane(id);
     },
     [store]
   );
+  // A pane that closed alone in its panel leaves focus nowhere in the dock, so it lands on
+  // the header's ⋯ — the one pane button whose tooltip does not open on focus (task 40).
+  const paneClosed = useCallback(() => {
+    paneMenuRef.current?.querySelector<HTMLElement>('[data-pane="more"]')?.focus();
+  }, []);
   const paneContext = useMemo<PaneContextValue>(
     () => ({
       cwd,
@@ -430,16 +455,17 @@ export function WorkspaceShell({ chat, children, panes, paneStore }: WorkspaceSh
       <TerminalPane ptyId={sessionId || 'hub'} cwd={cwd} />
     ) : undefined;
   const renderPane = (id: PaneId) => (
-    <div className="flex-1 min-h-0 overflow-auto" data-testid={`workspace-pane-${id}`}>
-      <PaneContext.Provider value={paneContext}>
-        {panes?.[id] ?? defaultPane(id) ?? (
-          <p className="p-4 text-sm text-text-secondary">
-            {intl.formatMessage(PANE_TITLES[id])} — {intl.formatMessage(i18n.paneUnavailable)}
-          </p>
-        )}
-      </PaneContext.Provider>
-    </div>
+    <PaneContext.Provider value={paneContext}>
+      {panes?.[id] ?? defaultPane(id) ?? (
+        <p className="p-4 text-sm text-text-secondary">
+          {intl.formatMessage(PANE_TITLES[id])} — {intl.formatMessage(i18n.paneUnavailable)}
+        </p>
+      )}
+    </PaneContext.Provider>
   );
+  const chrome = Object.fromEntries(
+    PANE_IDS.map((id) => [id, { title: intl.formatMessage(PANE_TITLES[id]), Icon: PANE_ICONS[id] }])
+  ) as Record<PaneId, PaneChrome>;
 
   return (
     <div
@@ -532,7 +558,7 @@ export function WorkspaceShell({ chat, children, panes, paneStore }: WorkspaceSh
             </span>
           )}
         </div>
-        <PaneMenu layout={layout} onOpen={openPane} />
+        <PaneMenu layout={layout} onOpen={openPane} menuRef={paneMenuRef} />
       </header>
 
       <div className="flex flex-1 min-h-0">
@@ -541,48 +567,15 @@ export function WorkspaceShell({ chat, children, panes, paneStore }: WorkspaceSh
           <div className={isOnPairRoute ? 'contents' : 'hidden'}>{chat}</div>
         </div>
 
-        {layout.centre && (
-          <section className="flex-1 min-w-0 min-h-0 flex flex-col border-l border-border-primary">
-            <div className="flex items-center justify-between px-3 py-1 border-b border-border-primary text-sm">
-              <span>{intl.formatMessage(PANE_TITLES[layout.centre])}</span>
-              <Button variant="ghost" size="xs" onClick={() => store.closeCentre()}>
-                {intl.formatMessage(i18n.closePane)}
-              </Button>
-            </div>
-            {renderPane(layout.centre)}
-          </section>
+        {layout.dock.length > 0 && (
+          <Dock
+            layout={layout}
+            store={store}
+            chrome={chrome}
+            renderPane={renderPane}
+            onClosed={paneClosed}
+          />
         )}
-
-        <aside
-          className="w-72 shrink-0 min-h-0 flex flex-col border-l border-border-primary"
-          data-testid="workspace-side-panel"
-        >
-          <div className="flex flex-wrap items-center gap-1 px-2 py-1 border-b border-border-primary text-sm">
-            {sideTabs(layout).map((id) => (
-              <Button
-                key={id}
-                variant={layout.activeSide === id ? 'secondary' : 'ghost'}
-                size="xs"
-                aria-pressed={layout.activeSide === id}
-                data-testid={`workspace-side-tab-${id}`}
-                onClick={() => store.selectSide(id)}
-              >
-                {intl.formatMessage(PANE_TITLES[id])}
-              </Button>
-            ))}
-            {layout.activeSide && (
-              <Button
-                className="ml-auto"
-                variant="ghost"
-                size="xs"
-                onClick={() => store.openCentre(layout.activeSide as PaneId)}
-              >
-                {intl.formatMessage(i18n.openAsPane)}
-              </Button>
-            )}
-          </div>
-          {layout.activeSide && renderPane(layout.activeSide)}
-        </aside>
       </div>
     </div>
   );

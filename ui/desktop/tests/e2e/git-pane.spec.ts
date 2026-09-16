@@ -2,7 +2,7 @@ import { execFileSync } from 'child_process';
 import { mkdtempSync, mkdirSync, rmSync, writeFileSync } from 'fs';
 import { homedir, tmpdir } from 'os';
 import { join } from 'path';
-import { test, expect } from './fixtures';
+import { test, expect, openPane } from './fixtures';
 
 // PRD step 7: the branch is shown, a modified file is staged and committed, and the Changes
 // pane's "vs HEAD" is empty afterwards. As diff-pane.spec.ts: the app opens in $HOME, so HOME
@@ -49,7 +49,7 @@ test.describe('git pane', () => {
     await expect(goosePage.locator('[data-testid="workspace-shell"]')).toBeVisible({
       timeout: 30000,
     });
-    await goosePage.locator('[data-testid="workspace-side-tab-git"]').click();
+    await openPane(goosePage, 'git');
 
     const pane = goosePage.locator('[data-testid="git-pane"]');
     await expect(pane).toHaveAttribute('data-state', 'ready', { timeout: 15000 });
@@ -84,7 +84,7 @@ test.describe('git pane', () => {
     await expect(goosePage.locator('[data-testid="git-message"]')).toHaveValue('');
     expect(git(scratch, ['log', '--format=%s', '-1']).trim()).toBe('notes: add four');
 
-    await goosePage.locator('[data-testid="workspace-side-tab-diff"]').click();
+    await openPane(goosePage, 'diff');
     const diff = goosePage.locator('[data-testid="diff-pane"]');
     await expect(diff).toHaveAttribute('data-state', 'empty', { timeout: 15000 });
     await expect(goosePage.locator('[data-testid="diff-base"]')).toHaveValue('head');

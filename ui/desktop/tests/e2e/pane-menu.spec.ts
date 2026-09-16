@@ -1,12 +1,14 @@
-import { test, expect } from './fixtures';
+import { test, expect, emptyDock } from './fixtures';
 
 // Task 40: the header's right is a pane menu in the code-editor standard — Terminal,
-// Changes, Browser one click away and the rest under ⋯. Click shows a pane in the side
-// panel; shift-click opens it in the centre. No session is needed: the Hub has the shell.
+// Changes, Browser one click away and the rest under ⋯. Click opens a pane into the dock's
+// top panel; shift-click tears it off into its own panel (task 42). No session is needed:
+// the Hub has the shell.
 test.describe('pane menu', () => {
   test('opens panes from the header and shows no "Diff"', async ({ goosePage }) => {
     const shell = goosePage.locator('[data-testid="workspace-shell"]');
     await expect(shell).toBeVisible({ timeout: 30000 });
+    await emptyDock(goosePage);
 
     // Terminal, Changes, Browser and ⋯ — and nothing else on the header's right.
     const menu = goosePage.locator('[data-testid="workspace-pane-menu"]');
@@ -40,12 +42,18 @@ test.describe('pane menu', () => {
     );
     await expect(terminal).toHaveAttribute('aria-pressed', 'false');
 
+    // Shift-click tears Browser off into a second panel; Markdown keeps the first.
     const browser = goosePage.locator('[data-testid="workspace-pane-button-browser"]');
     await browser.click({ modifiers: ['Shift'] });
-    const centre = goosePage.locator('[data-testid="workspace-pane-browser"]');
-    await expect(centre).toBeVisible();
-    await expect(centre).toContainText('Browser — Not available yet');
-    expect(await side.locator('[data-testid="workspace-pane-browser"]').count()).toBe(0);
+    const panels = side.locator('[data-testid="workspace-panel"]');
+    await expect(panels).toHaveCount(2);
+    await expect(panels.nth(1).locator('[data-testid="workspace-side-tab-browser"]')).toHaveCount(
+      1
+    );
+    const torn = side.locator('[data-testid="workspace-pane-browser"]');
+    await expect(torn).toBeVisible();
+    await expect(torn.locator('[data-testid="browser-pane"]')).toBeVisible();
+    await expect(side.locator('[data-testid="workspace-pane-markdown"]')).toBeVisible();
     await expect(browser).toHaveAttribute('aria-pressed', 'true');
     // A click closes its own tooltip, and the closed ⋯ menu leaves no tooltip behind.
     await expect(goosePage.getByRole('tooltip')).toHaveCount(0);
@@ -56,5 +64,7 @@ test.describe('pane menu', () => {
       path: test.info().outputPath('pane-menu.png'),
       fullPage: true,
     });
+    // The dock persists per project in the app's own storage: leave the user's empty.
+    await emptyDock(goosePage);
   });
 });

@@ -1,17 +1,18 @@
-import { test, expect } from './fixtures';
+import { test, expect, emptyDock, openPane } from './fixtures';
 
 const escapeRegExp = (text: string) => text.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
 
-// PRD step 4: open Files, see the cwd tree, click a file → the Editor pane opens beside the
-// chat with that file. The tree is the window's working directory, so the walk reads the
-// root the pane shows and picks the first rows instead of naming any.
+// PRD step 4: open Files, see the cwd tree, click a file → the Editor pane opens in its own
+// panel under Files (task 42) with that file. The tree is the window's working directory, so
+// the walk reads the root the pane shows and picks the first rows instead of naming any.
 test.describe('files pane', () => {
   test('shows the cwd tree and opens a file in the editor', async ({ goosePage }) => {
     const shell = goosePage.locator('[data-testid="workspace-shell"]');
     await expect(shell).toBeVisible({ timeout: 30000 });
 
-    // The dock starts empty (task 41); Files is opened from its tab like the other walks.
-    await goosePage.locator('[data-testid="workspace-side-tab-files"]').click();
+    // Files sits under ⋯ in the header's pane menu (task 40); the dock is emptied first.
+    await emptyDock(goosePage);
+    await openPane(goosePage, 'files');
     const pane = goosePage.locator('[data-testid="files-pane"]');
     await expect(pane).toBeVisible();
     await expect(pane).not.toHaveAttribute('data-state', 'loading', { timeout: 15000 });
@@ -41,11 +42,17 @@ test.describe('files pane', () => {
     const editor = goosePage.locator('[data-testid="workspace-pane-editor"]');
     await expect(editor).toBeVisible();
     await expect(editor.locator('[data-testid="workspace-editor-file"]')).toContainText(filePath);
-    await expect(goosePage.locator('[data-testid="workspace-side-tab-editor"]')).toHaveCount(0);
+    await expect(goosePage.locator('[data-testid="workspace-side-tab-editor"]')).toHaveAttribute(
+      'aria-pressed',
+      'true'
+    );
+    await expect(pane).toBeVisible();
 
     await goosePage.screenshot({
       path: test.info().outputPath('files-pane.png'),
       fullPage: true,
     });
+    // The dock persists per project in the app's own storage: leave the user's empty.
+    await emptyDock(goosePage);
   });
 });
