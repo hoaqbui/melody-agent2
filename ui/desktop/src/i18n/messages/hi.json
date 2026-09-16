@@ -944,6 +944,24 @@
   "dirSwitcher.recentDirectories": {
     "defaultMessage": "हाल की निर्देशिकाएँ"
   },
+  "filesPane.back": {
+    "defaultMessage": "Back"
+  },
+  "filesPane.loading": {
+    "defaultMessage": "Loading…"
+  },
+  "filesPane.nothingHere": {
+    "defaultMessage": "Nothing here"
+  },
+  "filesPane.retry": {
+    "defaultMessage": "Retry"
+  },
+  "filesPane.unreadable": {
+    "defaultMessage": "Unreadable"
+  },
+  "filesPane.written": {
+    "defaultMessage": "Written this session"
+  },
   "gitBranchIndicator.failedToSwitch": {
     "defaultMessage": "{branch} पर स्विच नहीं किया जा सका"
   },
@@ -4681,6 +4699,9 @@
   },
   "workspaceShell.direct": {
     "defaultMessage": "Direct"
+  },
+  "workspaceShell.editorFile": {
+    "defaultMessage": "Selected: {path}"
   },
   "workspaceShell.install": {
     "defaultMessage": "Install"
