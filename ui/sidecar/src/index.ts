@@ -1,5 +1,5 @@
 import { randomUUID } from 'node:crypto';
-import { readFileSync } from 'node:fs';
+import { readFileSync, realpathSync } from 'node:fs';
 import { createServer, type IncomingMessage, type Server, type ServerResponse } from 'node:http';
 import path from 'node:path';
 import type { Duplex } from 'node:stream';
@@ -66,7 +66,9 @@ const main = async (): Promise<void> => {
   }
 
   ensureSpawnHelperExecutable();
-  const cwd = path.resolve(args.cwd);
+  // Canonical, so a session's recorded cwd (the OS resolves /var → /private/var) compares
+  // equal to what /config reports and what every git route roots at.
+  const cwd = realpathSync(path.resolve(args.cwd));
   const version = args.gooseVersion ?? packageVersion();
   const token = process.env.GOOSE_SERVER__SECRET_KEY;
   const acpTarget: AcpProxyTarget | null =
