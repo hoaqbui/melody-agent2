@@ -53,10 +53,19 @@ export interface GitDiffRequest {
   staged?: boolean;
   base?: string;
   path?: string;
+  context?: number;
 }
 
 export interface GitDiffResponse {
   diff: string;
+}
+
+export interface GitRevParseRequest {
+  rev: string;
+}
+
+export interface GitRevParseResponse {
+  sha: string;
 }
 
 export interface GitPathsRequest {

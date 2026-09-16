@@ -65,7 +65,7 @@ const i18n = defineMessages({
   paneUnavailable: { id: 'workspaceShell.paneUnavailable', defaultMessage: 'Not available yet' },
   paneFiles: { id: 'workspaceShell.paneFiles', defaultMessage: 'Files' },
   paneEditor: { id: 'workspaceShell.paneEditor', defaultMessage: 'Editor' },
-  paneDiff: { id: 'workspaceShell.paneDiff', defaultMessage: 'Diff' },
+  paneDiff: { id: 'workspaceShell.paneDiff', defaultMessage: 'Changes' },
   paneTerminal: { id: 'workspaceShell.paneTerminal', defaultMessage: 'Terminal' },
   paneGit: { id: 'workspaceShell.paneGit', defaultMessage: 'Git' },
 });
