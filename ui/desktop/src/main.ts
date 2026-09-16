@@ -1257,6 +1257,7 @@ const createChat = async (
     };
 
     const staticDir = path.join(app.getAppPath(), 'dist-web');
+    let sidecarUrl: string | null = null;
     try {
       const sidecar = await startSidecar({
         entry: sidecarEntryPath(app.isPackaged, app.getAppPath(), process.resourcesPath),
@@ -1270,6 +1271,7 @@ const createChat = async (
         logger: log,
       });
       log.info(`sidecar listening at ${sidecar.url}`);
+      sidecarUrl = sidecar.url;
       const cleanupWithoutSidecar = gooseServeResult.cleanup;
       gooseServeResult.cleanup = async () => {
         sidecar.cleanup();
@@ -1279,7 +1281,7 @@ const createChat = async (
       // The chat runs without the panes' process; only the sidecar-backed panes are lost.
       log.error('sidecar failed to start', error);
     }
-    gooseServeLease = gooseServeLeases.create(gooseServeResult, serverSecret);
+    gooseServeLease = gooseServeLeases.create(gooseServeResult, serverSecret, sidecarUrl);
   }
 
   const cleanupUnregisteredGooseServeLease = async () => {
@@ -2049,6 +2051,14 @@ ipcMain.handle('get-acp-url', async (event) => {
     return null;
   }
   return gooseServeLeases.getAcpUrl(windowId) ?? null;
+});
+
+ipcMain.handle('get-sidecar-url', async (event) => {
+  const windowId = BrowserWindow.fromWebContents(event.sender)?.id;
+  if (!windowId) {
+    return null;
+  }
+  return gooseServeLeases.getSidecarUrl(windowId) ?? null;
 });
 
 // Handle menu bar icon visibility

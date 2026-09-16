@@ -6,6 +6,7 @@ export const GOOSE_SERVE_EXITED_USER_MESSAGE =
 export interface GooseServeLease {
   acpUrl: string;
   secretKey: string;
+  sidecarUrl: string | null;
   cleanup: () => Promise<void>;
   windowIds: Set<number>;
   cleanedUp: boolean;
@@ -19,10 +20,11 @@ export class GooseServeLeaseRegistry {
 
   constructor(private readonly logger: Logger) {}
 
-  create(result: GooseServeResult, secretKey: string): GooseServeLease {
+  create(result: GooseServeResult, secretKey: string, sidecarUrl: string | null): GooseServeLease {
     const lease: GooseServeLease = {
       acpUrl: result.acpUrl,
       secretKey,
+      sidecarUrl,
       cleanup: result.cleanup,
       windowIds: new Set<number>(),
       cleanedUp: false,
@@ -78,6 +80,7 @@ export class GooseServeLeaseRegistry {
     return {
       acpUrl,
       secretKey,
+      sidecarUrl: null,
       cleanup,
       windowIds: new Set<number>(),
       cleanedUp: false,
@@ -111,6 +114,17 @@ export class GooseServeLeaseRegistry {
       throw new Error(GOOSE_SERVE_EXITED_USER_MESSAGE);
     }
     return lease.secretKey;
+  }
+
+  getSidecarUrl(windowId: number): string | null {
+    const lease = this.get(windowId);
+    if (!lease) {
+      return null;
+    }
+    if (lease.exited) {
+      throw new Error(GOOSE_SERVE_EXITED_USER_MESSAGE);
+    }
+    return lease.sidecarUrl;
   }
 
   attachWindow(windowId: number, lease: GooseServeLease) {
