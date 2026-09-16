@@ -1317,13 +1317,16 @@ impl GooseAcpAgent {
                     Err(tokio::sync::broadcast::error::RecvError::Lagged(_)) => continue,
                     Err(tokio::sync::broadcast::error::RecvError::Closed) => break,
                 };
-                let Some(update) = summon::delegation_update_from_notification(&notification)
+                let Some(mut update) = summon::delegation_update_from_notification(&notification)
                 else {
                     continue;
                 };
                 if closed_session_ids.lock().await.contains(&session_id) {
                     continue;
                 }
+                // A bridge dispatch mints its own tool-call id; the client
+                // never saw a call under it, so there is nothing to match.
+                update.parent_tool_call_id = None;
                 if let Err(error) = cx.send_notification(GooseSessionNotification {
                     session_id: session_id.clone(),
                     update: GooseSessionUpdate::DelegationUpdate(update),
