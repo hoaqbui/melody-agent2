@@ -4874,6 +4874,9 @@
   "workspaceShell.more": {
     "defaultMessage": "More…"
   },
+  "workspaceShell.morePanes": {
+    "defaultMessage": "More panes"
+  },
   "workspaceShell.noOrchestrator": {
     "defaultMessage": "no orchestrator role in this project"
   },
@@ -4882,6 +4885,9 @@
   },
   "workspaceShell.orchestrate": {
     "defaultMessage": "Orchestrate"
+  },
+  "workspaceShell.paneBrowser": {
+    "defaultMessage": "Browser"
   },
   "workspaceShell.paneDiff": {
     "defaultMessage": "Changes"
@@ -4895,11 +4901,17 @@
   "workspaceShell.paneGit": {
     "defaultMessage": "Git"
   },
+  "workspaceShell.paneMarkdown": {
+    "defaultMessage": "Markdown"
+  },
   "workspaceShell.paneTerminal": {
     "defaultMessage": "Terminal"
   },
   "workspaceShell.paneUnavailable": {
     "defaultMessage": "Not available yet"
+  },
+  "workspaceShell.panes": {
+    "defaultMessage": "Panes"
   },
   "workspaceShell.runtime": {
     "defaultMessage": "Runtime"

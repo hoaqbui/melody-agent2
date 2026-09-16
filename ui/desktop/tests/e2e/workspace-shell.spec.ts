@@ -29,8 +29,9 @@ test.describe('workspace shell', () => {
     }
 
     await expect(goosePage).toHaveURL(/resumeSessionId=/, { timeout: 30000 });
-    const status = goosePage.locator('[data-testid="workspace-header-status"]');
-    await expect(status).toHaveText(canOrchestrate ? /· Orchestrate$/ : /· Direct$/, {
+    // The session's runtime · mode is the Runtime and Mode controls' tooltip (task 40).
+    const mode = goosePage.locator('[data-testid="workspace-mode"]');
+    await expect(mode).toHaveAttribute('title', canOrchestrate ? /· Orchestrate$/ : /· Direct$/, {
       timeout: 15000,
     });
     await expect(runtime).toHaveValue(pickedRuntime);
