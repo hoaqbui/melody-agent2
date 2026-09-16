@@ -1310,6 +1310,60 @@
   "externalBackendSection.workingDirPlaceholder": {
     "defaultMessage": "/home/goose/workspace"
   },
+  "gitPane.blockedConflicts": {
+    "defaultMessage": "Resolve the conflicts to commit"
+  },
+  "gitPane.blockedNoMessage": {
+    "defaultMessage": "Write a message to commit"
+  },
+  "gitPane.blockedNothingStaged": {
+    "defaultMessage": "Stage a file to commit"
+  },
+  "gitPane.blockedRunning": {
+    "defaultMessage": "Commit waits for the running tool call to finish"
+  },
+  "gitPane.branch": {
+    "defaultMessage": "Branch"
+  },
+  "gitPane.commit": {
+    "defaultMessage": "Commit"
+  },
+  "gitPane.commitMessage": {
+    "defaultMessage": "Commit message"
+  },
+  "gitPane.committing": {
+    "defaultMessage": "Committing…"
+  },
+  "gitPane.conflicts": {
+    "defaultMessage": "Conflicts"
+  },
+  "gitPane.loading": {
+    "defaultMessage": "Loading…"
+  },
+  "gitPane.notARepository": {
+    "defaultMessage": "Not a git repository"
+  },
+  "gitPane.nothingToCommit": {
+    "defaultMessage": "Nothing to commit"
+  },
+  "gitPane.refresh": {
+    "defaultMessage": "Refresh"
+  },
+  "gitPane.retry": {
+    "defaultMessage": "Retry"
+  },
+  "gitPane.stage": {
+    "defaultMessage": "Stage"
+  },
+  "gitPane.staged": {
+    "defaultMessage": "Staged"
+  },
+  "gitPane.unstage": {
+    "defaultMessage": "Unstage"
+  },
+  "gitPane.unstaged": {
+    "defaultMessage": "Unstaged"
+  },
   "goosehintsModal.close": {
     "defaultMessage": "Chiudi"
   },
