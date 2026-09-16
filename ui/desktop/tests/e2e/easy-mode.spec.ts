@@ -30,6 +30,18 @@ test.describe('easy mode', () => {
     await expect(slider).toHaveAttribute('title', /^Claude · .+ · Direct$/);
     await goosePage.screenshot({ path: test.info().outputPath('easy-lever.png') });
 
+    // A first prompt typed straight into the Hub, lever untouched, must start on Easy's
+    // triple rather than the config default (found driving the phone build, 2026-09-16).
+    const hubInput = goosePage.locator('[data-testid="chat-input"]');
+    await hubInput.fill('Respond with the single word hello.');
+    await hubInput.press('Enter');
+    await expect(goosePage).toHaveURL(/resumeSessionId=/, { timeout: 30000 });
+    await expect(lever).toHaveAttribute('data-stop', 'easy', { timeout: 15000 });
+    await expect(slider).toHaveAttribute('title', /^Claude · sonnet.* · Direct$/);
+    await expect(
+      goosePage.locator('[data-testid="message-container"].assistant').last()
+    ).toContainText(/hello/i, { timeout: 45000 });
+
     const hard = lever.locator('[data-testid="workspace-lever-stop-hard"]');
     const canOrchestrate = (await shell.getAttribute('data-orchestrator-role')) === 'present';
     const hardReachable = canOrchestrate && (await hard.getAttribute('data-blocked')) === null;

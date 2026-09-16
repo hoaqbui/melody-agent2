@@ -43,7 +43,7 @@ import { useModelAndProvider } from '../components/ModelAndProviderContext';
 import { useNavigationContextSafe } from '../components/Layout/NavigationContext';
 import { Navigation } from '../components/Layout/NavigationPanel';
 import { SessionChipsSlot } from '../components/ChatInput';
-import { NextChatWorktree } from '../components/Hub';
+import { NextChat, type NextChatDraft } from '../components/Hub';
 import { Button } from '../components/ui/button';
 import {
   DropdownMenu,
@@ -508,7 +508,7 @@ export function WorkspaceShell({ chat, children, panes, paneStore }: WorkspaceSh
   const [orchestratorRole, setOrchestratorRole] = useState<SourceEntry | null | undefined>();
   const [busy, setBusy] = useState(false);
   // What the next session starts on while no session is open; until a pick, the config
-  // default, which is what a Hub submit uses too.
+  // default. A Hub submit reads the same draft through NextChat below.
   const [draftRuntime, setDraftRuntime] = useState<string | null>(null);
   const [draftMode, setDraftMode] = useState<Mode>('direct');
   // Easy's lever position before a session; once one is open the session's triple is it.
@@ -987,14 +987,38 @@ export function WorkspaceShell({ chat, children, panes, paneStore }: WorkspaceSh
     />
   );
 
+  // Easy: the lever's triple; Advanced: the Runtime · Mode chips' draft. Orchestrate brings
+  // the orchestrator role as the recipe; the lever's model lands once the session exists.
+  const nextChat = useMemo<NextChatDraft>(() => {
+    const easy = workspaceUi === 'easy';
+    const triple = LEVER[draftStop];
+    const provider = easy ? triple.provider : (draftRuntime ?? undefined);
+    const mode: Mode = easy ? triple.mode : draftMode;
+    const orchestrate = mode === 'orchestrate' && orchestratorRole ? orchestratorRole : null;
+    return {
+      worktree: draftWorktree,
+      provider,
+      recipeDeeplink: orchestrate ? () => encodeRecipe(orchestratorRecipe(orchestrate)) : undefined,
+      onCreated: easy ? (id) => applyStopModel(id, draftStop) : undefined,
+    };
+  }, [
+    applyStopModel,
+    draftMode,
+    draftRuntime,
+    draftStop,
+    draftWorktree,
+    orchestratorRole,
+    workspaceUi,
+  ]);
+
   const chatBody = (
     <SessionChipsSlot.Provider value={chipsFor}>
-      <NextChatWorktree.Provider value={draftWorktree}>
+      <NextChat.Provider value={nextChat}>
         <div className="relative min-h-0 min-w-0 flex-1">
           {children}
           <div className={isOnPairRoute ? 'contents' : 'hidden'}>{chat}</div>
         </div>
-      </NextChatWorktree.Provider>
+      </NextChat.Provider>
     </SessionChipsSlot.Provider>
   );
   const shellAttributes = {

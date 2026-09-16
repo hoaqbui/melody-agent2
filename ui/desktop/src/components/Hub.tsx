@@ -44,10 +44,18 @@ const i18n = defineMessages({
   goodEvening: { id: 'hub.goodEvening', defaultMessage: 'Good evening' },
 });
 
-// The worktree slug the next chat starts in, or null for the checkout: the workspace shell
-// owns the toggle (its Worktree chip) and provides the value, as it does the chips
-// themselves (ChatInput's SessionChipsSlot).
-export const NextChatWorktree = createContext<string | null>(null);
+// What the next chat starts as when the first prompt is typed here: the workspace shell
+// owns the lever, the Runtime · Mode chips and the Worktree chip, and provides their draft
+// (as it does the chips themselves, ChatInput's SessionChipsSlot). `provider` undefined is
+// the config default; `recipeDeeplink` is the orchestrator role for Orchestrate; `onCreated`
+// finishes the pick on the new session (the lever's model lands after session/new).
+export interface NextChatDraft {
+  worktree: string | null;
+  provider?: string;
+  recipeDeeplink?: () => Promise<string | undefined>;
+  onCreated?: (sessionId: string) => Promise<void>;
+}
+export const NextChat = createContext<NextChatDraft>({ worktree: null });
 
 function useClock() {
   const [now, setNow] = useState(() => new Date());
@@ -76,7 +84,7 @@ export default function Hub({
     useState<NextChatExtensionDraft | null>(null);
   const inputRef = useRef<HTMLTextAreaElement>(null);
   const { time, meridiem, hour } = useClock();
-  const worktree = useContext(NextChatWorktree);
+  const nextChat = useContext(NextChat);
 
   // Re-resolve the working dir on mount: GOOSE_WORKING_DIR is fixed at window
   // creation, so a configured remote directory may have changed since then.
@@ -133,13 +141,16 @@ export default function Hub({
         ...(selectedExtensions.length > 0
           ? { extensionConfigs: selectedExtensions }
           : { allExtensions: extensionsList }),
-        worktree: worktree ?? undefined,
+        worktree: nextChat.worktree ?? undefined,
+        provider: nextChat.provider,
+        recipeDeeplink: await nextChat.recipeDeeplink?.(),
       };
 
       // Resolve the effective directory at submit time: the IPC lookup may still
       // be pending when the user submits, and an explicit pick must win.
       const dir = userSelectedWorkingDirRef.current ? workingDir : await getEffectiveWorkingDir();
       const session = await createSession(dir, sessionOptions);
+      await nextChat.onCreated?.(session.id);
       setNextChatExtensionDraft(null);
 
       window.dispatchEvent(new CustomEvent(AppEvents.SESSION_CREATED));
