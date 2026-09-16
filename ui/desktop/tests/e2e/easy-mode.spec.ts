@@ -118,12 +118,17 @@ test.describe('easy mode', () => {
     }
     await goosePage.screenshot({ path: test.info().outputPath('easy-lever-session.png') });
 
-    // Medium is Direct, so from an Orchestrate session it starts a new one on claude-acp;
-    // the stop lands when the adapter lists an Opus model, else the lever reads Custom.
+    // Medium is Direct: from an Orchestrate (Hard) session it starts a new one on claude-acp;
+    // from the Easy session it switches in place with a divider. The stop lands when the
+    // adapter lists an Opus model, else the lever reads Custom.
     const before = goosePage.url();
     await lever.locator('[data-testid="workspace-lever-stop-medium"]').click();
     await expect(goosePage).toHaveURL(/resumeSessionId=/, { timeout: 30000 });
-    await expect.poll(() => goosePage.url()).not.toBe(before);
+    if (hardReachable) {
+      await expect.poll(() => goosePage.url()).not.toBe(before);
+    } else {
+      await expect(goosePage.locator('text=→ Medium from here')).toBeVisible({ timeout: 30000 });
+    }
     await expect(lever).toHaveAttribute('data-stop', /medium|custom/, { timeout: 15000 });
     console.log(
       `medium → ${await lever.getAttribute('data-stop')} (${await slider.getAttribute('title')})`
