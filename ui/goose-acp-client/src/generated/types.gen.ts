@@ -1636,6 +1636,7 @@ export type RecipeSettingsDto = {
     goose_model?: string | null;
     temperature?: number | null;
     max_turns?: number | null;
+    worktree?: boolean;
 };
 
 export type RecipeAuthorDto = {
@@ -1889,6 +1890,7 @@ export type ScheduleRunDto = {
     startedAt: string;
     outcome?: ScheduleRunOutcomeDto | null;
     workingDir: string;
+    worktree?: ScheduleRunWorktreeDto | null;
     snippet?: string | null;
     archivedAt?: string | null;
 };
@@ -1899,6 +1901,15 @@ export type ScheduleRunOutcomeDto = {
 };
 
 export type ScheduleRunStatus = 'done' | 'failed' | 'killed';
+
+/**
+ * The worktree a run was given when its recipe set `settings.worktree`; `working_dir` is
+ * then `path`, and the branch is what Accept merges.
+ */
+export type ScheduleRunWorktreeDto = {
+    path: string;
+    branch: string;
+};
 
 /**
  * Create a scheduled recipe job.

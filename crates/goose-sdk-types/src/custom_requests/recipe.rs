@@ -78,6 +78,8 @@ pub struct RecipeSettingsDto {
     pub temperature: Option<f32>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub max_turns: Option<usize>,
+    #[serde(default)]
+    pub worktree: bool,
 }
 
 #[derive(Debug, Default, Clone, Serialize, Deserialize, JsonSchema)]

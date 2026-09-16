@@ -3683,6 +3683,9 @@
   "runsInbox.loading": {
     "defaultMessage": "Loading…"
   },
+  "runsInbox.merged": {
+    "defaultMessage": "Merged {branch} into {checkout} at {sha}"
+  },
   "runsInbox.mode": {
     "defaultMessage": "Goose mode: {mode}"
   },

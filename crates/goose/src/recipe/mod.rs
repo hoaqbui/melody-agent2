@@ -108,6 +108,11 @@ pub struct Settings {
 
     #[serde(skip_serializing_if = "Option::is_none")]
     pub max_turns: Option<usize>,
+
+    // A scheduled run of this recipe gets its own worktree (scheduler.rs); off, it runs on
+    // the checkout the scheduler was started in.
+    #[serde(default, skip_serializing_if = "std::ops::Not::not")]
+    pub worktree: bool,
 }
 
 #[derive(Serialize, Deserialize, Debug, Clone)]
