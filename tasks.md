@@ -113,17 +113,8 @@ Planned 2026-09-15 21:25 from PRD steps 10–12 and the spine research §Activit
 
 Planned in `docs/2026-09-16-parity-plan-v1.md` (approved 2026-09-16, "approved all recommendations"). Order: wave 1 = 47 ∥ 48 ∥ 51 (disjoint files); then 49 ∥ 50 (after 48) ∥ 52 (after 51) → 53 → 54 → 59 (after 53 and 58) → 55. 61 and 62 (below) run in wave 1 too — sidecar-only.
 
-- 53. Add the Runs inbox to the Schedules route: `ui/desktop/src/components/schedule/runs/` (list, row, an unread store keyed by `updated_at` vs a local last-seen in `localStorage`) composed into `SchedulesView.tsx`; row = schedule · started · outcome · snippet · unread; Open → `pair?resumeSessionId=<id>` with Changes selected at "since session start"; Dismiss → `session/archive`; Accept → stage the paths of the diff since `HEAD@{started_at}` + `/git/commit` through `src/native/sidecar`, enabled only when the run's `working_dir` equals the sidecar's cwd, with the cwd shown on the row; poll every 15 s while the route is open.
-  - status: doing · agent: subagent-t53 via claude-session-opus-2 (13:40, worktree) · worker: high
-  - card: as the user, find what the agent did while I was away in one list, open it with its changes, and accept or dismiss it so that unattended work is reviewed, not lost (Codex parity gap 3, local-first; PRODUCT.md §12 scheduling moves out of Future for the local case)
-  - context:
-    - one row component shared with task 28's Agents pane (same fields, different source); the inbox is global, the Agents pane is per session
-    - an unattended run on `claude-acp` takes its permission mode from the global `GOOSE_MODE` (`claude_acp.rs:70-91`), not the run's `Auto` — the row states the run's mode until a later task passes the session mode into the provider
-    - strings as `runsInbox.*` keys in every locale as task 11 did
-  - confirm: `cd ui/desktop && pnpm vitest run src/components/schedule/runs && pnpm run typecheck && pnpm exec playwright test -g "runs inbox"; echo exit=$?` → `exit=0` (walk: a schedule with one finished run → one row, unread; Open → pair with Changes; back → read)
-
 - 54. Run each scheduled job in its own worktree: `execute_job` in `scheduler.rs` runs `git worktree add -b wt/<slug> <toplevel>/.worktrees/<slug>` itself when the schedule's recipe sets `worktree: true` (a recipe settings field; the scheduler has no sidecar), records the path and branch on the session, and the inbox's Accept becomes `/git/merge {slug}` with Dismiss = `/git/worktree/remove`; the main checkout is never the cwd of an unattended run when the field is on.
-  - status: todo · agent: — · worker: high
+  - status: doing · agent: subagent-t54 via claude-session-opus-2 (13:30, worktree) · worker: high
   - card: as the user, let unattended runs land on branches so that accepting one is a merge and my checkout is never touched while I'm away (research 46 A2; research 44 §Recorded decisions)
   - context:
     - waits on 48, 49, 53; the recipe field is the opt-in, default off
@@ -138,7 +129,7 @@ Planned in `docs/2026-09-16-parity-plan-v1.md` (approved 2026-09-16, "approved a
   - confirm: `grep -c 'worktree' docs/2026-09-15-workspace-prd-v1.md ARCHITECTURE.md | awk -F: '{s+=$2} END {print s}'` → ≥ 3 (untouched tree: fewer); and `grep -c 'V0.5.*scheduling' PRODUCT.md` → `1` (untouched tree: 0 — the scheduling line moves from §12 Future into the V0.5 line)
 
 - 59. Save a session as a routine: "Save as routine…" in the session's Advanced controls (ledger task 58) and the ⋯ menu opens a sheet prefilled from the session — title (the session's display name), instructions (the first user prompt, editable), the session's provider · model · goose mode · extensions · working directory — with a trigger picker Manual · Hourly · Daily · Weekly · Custom cron and, after task 54, a "Run in its own worktree" checkbox; Save calls `save_recipe` then, unless Manual, `create_schedule` (`crates/goose/src/acp/server/custom_dispatch.rs` `dispatch_save_recipe`, `dispatch_create_schedule`); the sheet closes into the Schedules route where the routine appears with "Run now" (`run_schedule_now`) and its runs land in the Runs inbox (task 53); a routine's run session shows a "Routine: <title>" chip in the header linking back to the schedule.
-  - status: todo · agent: — · worker: high
+  - status: doing · agent: subagent-t59 via claude-session-opus-2 (13:30, worktree) · worker: high
   - card: as the user, turn a session that worked into something that runs again — on a schedule or on demand — so that the work I supervised once becomes a routine I only review (user 2026-09-16: "sessions can become persistent in the form of routines/automations"; research 46 A1–A2)
   - context:
     - after 53 (inbox) and ledger 58 (Advanced controls host the button); the recipe is built client-side from the session record and the ACP config options — no new server method; `recipe.settings` carries provider/model/mode as today's recipe schema allows (`crates/goose/src/recipe/mod.rs`); extensions by name
@@ -189,6 +180,7 @@ Planned in `docs/2026-09-16-parity-plan-v1.md` (approved 2026-09-16, "approved a
 - task 50 hand checks — the running gate needs a live tool call (Stage/Reject disable with the reason, `diff-blocked` in the header, list refetches when the call ends); edit a file on disk after the pane loaded then Reject → git's stderr as the Error row, list kept; a renamed/binary file's file-level Stage in the app.
 - task 49 hand checks — a window opened inside another worktree (this repo's `.claude/worktrees/agent-*`) gets 400 on Merge/Remove because the main checkout is outside the sidecar's cwd roots; Refresh does not clear a 409 (the next Merge does); an open Terminal keeps its pty in a removed worktree until reopened; the Worktree chip in Advanced was not screenshotted.
 - task 62 hand checks — scan the Phone card's QR with hoa-phone (the encoder matches python-qrcode module-for-module, no scanner here); a second desktop window in the same launch falls back to a random port and shows a different URL; Copy on the phone build needs a secure context (`http://` rejects silently).
+- task 53 product calls — Accept commits only tracked changes (`git diff <base>` omits new files; `add -A` shapes are barred by the protected line) — say if a run that only creates files should be acceptable; after Accept the row stays (a second Accept lands "nothing to commit") — say if Accept should also archive; the row's mode line is the global `GOOSE_MODE`, not a per-run record. Note: `ui/desktop/src/bin/goose` wins over `target/debug/goose` for the dev app — refresh it after every Rust merge (`just copy-binary debug`).
 - task 14 hand check — "since session start" base: open a session in a git cwd, commit, open Changes → the selector offers it and lists the committed file; `git diff HEAD` omits untracked files (accepted gap, or queue).
 - `ARCHITECTURE.md` — sign-off deletes `## Bootstrap Status`; until then the map is a proposal and tasks 10–16 plan against a guess.
 - task 20 — the phone check is manual: open the URL on `hoa-phone`, walk PRD step 13, judge the terminal with the key bar.
