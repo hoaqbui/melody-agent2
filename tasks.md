@@ -81,10 +81,21 @@ re-checked at the fork base `426967d` (v1.51.0, 2026-09-15): all hold;
     - record the subscription each run drew on (PRODUCT.md §5) and any quota message — that is the first fail-over datum
   - confirm: `test -f docs/2026-09-15-runtime-matrix-v1.md && grep -c '^| \(codex-acp\|cursor-acp\|claude-acp\|agy\) |' docs/2026-09-15-runtime-matrix-v1.md` → `4`
 
+- 37. Add `ui/desktop/src/native/sidecar.ts`: the renderer's one door to the sidecar — `sidecarBaseUrl(): Promise<string>` (Electron: a new `window.electron.getSidecarUrl()` over preload/IPC from the URL `main.ts:1261-1272` already holds per window; web build: `window.location.origin`), `sidecarFetch<T>(path: string, body?: unknown): Promise<T>` (POST JSON to the sidecar's `POST /fs/list|read|write`, `POST /git/status|diff|stage|unstage|commit` routes, `GET /health|/config`), and `sidecarSocket(path: '/pty' | '/fs/watch', params?: Record<string, string>): WebSocket`; plus the shim entry in `src/shims/electron-web.ts` and a unit test.
+  - status: doing · agent: subagent-t37 via claude-session-opus-2 (22:45, worktree) · worker: medium
+  - card: as the pane tasks (12–16), reach pty, files and git through one typed client so that five panes do not each rediscover the sidecar's address (ARCHITECTURE.md §Modules "native"; §Invariants: native never does ACP, never imports electron)
+  - context:
+    - `main.ts:1261-1272` starts the sidecar per goose-serve lease and logs `sidecar.url`; keep it on the lease and answer an IPC `get-sidecar-url` beside `get-acp-url` (`preload.ts:264`), typed in the preload's `window.electron` interface (`preload.ts:137` region); the web shim returns `location.origin` (task 19: static, `/acp`, `/config` are same-origin on the sidecar)
+    - sidecar routes: `ui/sidecar/src/index.ts:43,60-68` (`GET /health`, `GET /config`, JSON `POST` routes from `fs.ts:16-34`, `git.ts:39-55`), WS upgrades `index.ts:91-115` (`/acp`, `/pty`, `/fs/watch`) — read the request/response bodies there and type them in `sidecar.ts` as exported interfaces the panes import
+    - no ACP here; `src/native` is regulated by `.dependency-cruiser.cjs` (no `electron`, no `node:`, no ACP packages)
+    - tasks 12–16 wait on this file; keep the API exactly as named so their text stays true
+  - confirm: `cd ui/desktop && pnpm vitest run src/native && pnpm run typecheck && pnpm run depcruise; echo exit=$?` → `exit=0` with ≥3 tests (untouched tree: `src/native` does not exist, vitest reports no test files → non-zero)
+
 - 12. Add the Files pane (`src/workspace/panes/files/`) with a tree of the session cwd (a drill-down list at phone width), session-written-file dots, and click → Editor pane; `ui/sidecar/src/fs.ts` serves reads and watches the cwd (`chokidar`).
   - status: todo · agent: — · worker: high
   - card: as the user, see what the agent touched so that I don't alt-tab to check (PRD step 4)
   - context:
+    - reaches the sidecar only through `src/native/sidecar.ts` (task 37: `sidecarBaseUrl`, `sidecarFetch`, `sidecarSocket`) — waits on it
     - "written since session start" comes from tool-call rows the chat already renders (external-dispatch tool requests keep their args) — derive, don't re-scan
     - needs task 18 (sidecar) landed; the pane talks to `src/native/fs.ts`, never to Electron
   - confirm: `cd ui/desktop && pnpm run typecheck && pnpm run depcruise && pnpm exec playwright test -g "files pane"; echo exit=$?` → `exit=0` (PRD step 4: open Files, see the cwd tree, click a file → editor opens)
@@ -93,6 +104,7 @@ re-checked at the fork base `426967d` (v1.51.0, 2026-09-15): all hold;
   - status: todo · agent: — · worker: high
   - card: as the user, fix a line without leaving the window so that small corrections don't need another tool (PRD step 4, states)
   - context:
+    - reaches the sidecar only through `src/native/sidecar.ts` (task 37: `sidecarBaseUrl`, `sidecarFetch`, `sidecarSocket`) — waits on it
     - CodeMirror 6 over monaco: no editor dependency exists upstream; size, Electron packaging and the phone favour CM6 (plan §Approach; research web-workspace §Inventory)
     - markdown is source + preview at V0 — GitHub's own model; WYSIWYG is a second engine and waits for a second concrete need (user decision 2026-09-15)
   - confirm: `cd ui/desktop && pnpm run typecheck && pnpm exec playwright test -g "editor pane"; echo exit=$?` → `exit=0` (open a file, type, ⌘S, file on disk changed)
@@ -101,6 +113,7 @@ re-checked at the fork base `426967d` (v1.51.0, 2026-09-15): all hold;
   - status: todo · agent: — · worker: high
   - card: as the user, review what changed against a chosen base so that I can judge the agent's work before committing (PRD step 5)
   - context:
+    - reaches the sidecar only through `src/native/sidecar.ts` (task 37: `sidecarBaseUrl`, `sidecarFetch`, `sidecarSocket`) — waits on it
     - PRD decision 5 (view-only at V0) — approved 2026-09-15
     - "since session start" needs the session's start commit or a stash-free snapshot; approach is this task's plan decision
   - confirm: `cd ui/desktop && pnpm run typecheck && pnpm exec playwright test -g "diff pane"; echo exit=$?` → `exit=0` (PRD step 5: a modified file shows in the list; unified and side-by-side render)
@@ -109,6 +122,7 @@ re-checked at the fork base `426967d` (v1.51.0, 2026-09-15): all hold;
   - status: todo · agent: — · worker: high
   - card: as the user, run tests and commands beside the agent so that the loop closes in one window (PRD step 6)
   - context:
+    - reaches the sidecar only through `src/native/sidecar.ts` (task 37: `sidecarBaseUrl`, `sidecarFetch`, `sidecarSocket`) — waits on it
     - PATH source: `loginShellPath.ts` already resolves it for goosed — reuse
     - `node-pty` is a native module in the *sidecar*, not the renderer bundle; the packaged Electron app must bundle and start the sidecar (`forge.config.ts` extraResource) — add a `pnpm run make` smoke to task 18's confirm if CI time allows
     - xterm.js touch gaps on iOS (xtermjs/xterm.js#5377, #3727, #2403) are why the key bar and server-side reattach are in this task, not later
@@ -118,6 +132,7 @@ re-checked at the fork base `426967d` (v1.51.0, 2026-09-15): all hold;
   - status: todo · agent: — · worker: high
   - card: as the user, commit the reviewed change without leaving the window so that the walk ends where it started (PRD step 7)
   - context:
+    - reaches the sidecar only through `src/native/sidecar.ts` (task 37: `sidecarBaseUrl`, `sidecarFetch`, `sidecarSocket`) — waits on it
     - "tool call in progress" is already known to the chat's tool-call state — subscribe, don't poll git
   - confirm: `cd ui/desktop && pnpm run typecheck && pnpm run depcruise && pnpm exec playwright test -g "git pane"; echo exit=$?` → `exit=0` (PRD step 7: branch shown, stage a file, commit, Diff vs HEAD empty)
 
