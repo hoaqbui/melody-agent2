@@ -1,7 +1,7 @@
 // The Git pane (PRD step 7): the branch, the staged and unstaged lists with Stage and
 // Unstage per row, and a commit box that is disabled — and says why — while a tool call is
-// still running. Reaches git only through src/native/sidecar, in the sidecar's cwd; the
-// "in progress" signal is the chat's own tool-call rows, never a poll.
+// still running. Reaches git only through src/native/sidecar, in the session's cwd (task 49);
+// the "in progress" signal is the chat's own tool-call rows, never a poll.
 
 import { useCallback, useEffect, useRef, useState, useSyncExternalStore } from 'react';
 import { defineMessages, useIntl } from '../../../i18n';
@@ -10,6 +10,7 @@ import {
   sidecarFetch,
   type GitCommitRequest,
   type GitCommitResponse,
+  type GitCwdRequest,
   type GitPathsRequest,
   type GitStatusEntry,
   type GitStatusResponse,
@@ -147,7 +148,8 @@ export function GitPane() {
   useEffect(() => {
     let cancelled = false;
     setLoading(true);
-    sidecarFetch<GitStatusResponse>('/git/status')
+    const request: GitCwdRequest = { cwd };
+    sidecarFetch<GitStatusResponse>('/git/status', request)
       .then((response) => {
         if (cancelled) return;
         setStatus(response);
@@ -162,7 +164,7 @@ export function GitPane() {
     return () => {
       cancelled = true;
     };
-  }, [attempt]);
+  }, [attempt, cwd]);
 
   const refresh = useCallback(() => setAttempt((count) => count + 1), []);
 
@@ -176,13 +178,13 @@ export function GitPane() {
 
   const act = useCallback(
     (path: '/git/stage' | '/git/unstage', entry: GitStatusEntry) => {
-      const request: GitPathsRequest = { paths: [actionablePath(entry)] };
+      const request: GitPathsRequest = { cwd, paths: [actionablePath(entry)] };
       setActionError(null);
       sidecarFetch(path, request)
         .then(refresh)
         .catch((cause: Error) => setActionError(cause.message));
     },
-    [refresh]
+    [cwd, refresh]
   );
 
   const lists = splitStatus(status?.entries ?? []);
@@ -191,7 +193,7 @@ export function GitPane() {
 
   const commit = () => {
     if (blocker || committing) return;
-    const request: GitCommitRequest = { message: message.trim() };
+    const request: GitCommitRequest = { cwd, message: message.trim() };
     setCommitting(true);
     setActionError(null);
     setOutput(null);

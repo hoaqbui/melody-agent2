@@ -7,7 +7,16 @@
  * lives there.
  */
 
-import { useCallback, useEffect, useMemo, useRef, useState, type RefObject } from 'react';
+import {
+  createContext,
+  useCallback,
+  useContext,
+  useEffect,
+  useMemo,
+  useRef,
+  useState,
+  type RefObject,
+} from 'react';
 import { defineMessages, useIntl } from '../i18n';
 import { AppEvents } from '../constants/events';
 import ChatInput from './ChatInput';
@@ -34,6 +43,11 @@ const i18n = defineMessages({
   goodAfternoon: { id: 'hub.goodAfternoon', defaultMessage: 'Good afternoon' },
   goodEvening: { id: 'hub.goodEvening', defaultMessage: 'Good evening' },
 });
+
+// The worktree slug the next chat starts in, or null for the checkout: the workspace shell
+// owns the toggle (its Worktree chip) and provides the value, as it does the chips
+// themselves (ChatInput's SessionChipsSlot).
+export const NextChatWorktree = createContext<string | null>(null);
 
 function useClock() {
   const [now, setNow] = useState(() => new Date());
@@ -62,6 +76,7 @@ export default function Hub({
     useState<NextChatExtensionDraft | null>(null);
   const inputRef = useRef<HTMLTextAreaElement>(null);
   const { time, meridiem, hour } = useClock();
+  const worktree = useContext(NextChatWorktree);
 
   // Re-resolve the working dir on mount: GOOSE_WORKING_DIR is fixed at window
   // creation, so a configured remote directory may have changed since then.
@@ -114,10 +129,12 @@ export default function Hub({
       const selectedExtensions = nextChatExtensionDraft
         ? selectNextChatExtensions(extensionsList, nextChatExtensionDraft)
         : [];
-      const sessionOptions =
-        selectedExtensions.length > 0
+      const sessionOptions = {
+        ...(selectedExtensions.length > 0
           ? { extensionConfigs: selectedExtensions }
-          : { allExtensions: extensionsList };
+          : { allExtensions: extensionsList }),
+        worktree: worktree ?? undefined,
+      };
 
       // Resolve the effective directory at submit time: the IPC lookup may still
       // be pending when the user submits, and an explicit pick must win.

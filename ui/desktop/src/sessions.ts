@@ -8,6 +8,7 @@ import { getConfiguredGooseExtensions, gooseExtensionName } from './acp/extensio
 import { beginConfiguredRecipeParameterScope } from './acp/recipeParamRequests';
 import { getAcpFeatureCapabilities } from './acp/capabilities';
 import { RecipeParameterScopesUnsupportedError } from './acp/errors';
+import { addWorktree } from './workspace/worktree';
 
 export function getSessionDisplayName(session: Session): string {
   if (session.user_set_name) {
@@ -25,6 +26,9 @@ interface CreateSessionOptions {
   provider?: string;
   extensionConfigs?: ExtensionConfig[];
   allExtensions?: FixedExtensionEntry[];
+  // A slug: the session starts in `.worktrees/<slug>` of workingDir's repository, created
+  // first through the sidecar (task 49).
+  worktree?: string;
 }
 
 function selectedExtensionConfigs(options?: CreateSessionOptions): ExtensionConfig[] {
@@ -63,7 +67,10 @@ async function createAcpSession(
             .filter((entry) => selectedNames.has(gooseExtensionName(entry.extension)))
             .map((entry) => entry.extension)
         : [];
-    return await acpChatSessionController.createSession(workingDir, gooseExtensions, {
+    const cwd = options?.worktree
+      ? (await addWorktree(workingDir, options.worktree)).path
+      : workingDir;
+    return await acpChatSessionController.createSession(cwd, gooseExtensions, {
       recipeId: options?.recipeId,
       recipeDeeplink: options?.recipeDeeplink,
       recipeParameterScopeId: configuredParameterScope?.id,
