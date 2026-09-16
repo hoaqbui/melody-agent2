@@ -104,8 +104,8 @@ Planned 2026-09-15 21:25 from PRD steps 10–12 and the spine research §Activit
 
 Planned in `docs/2026-09-16-parity-plan-v1.md` (approved 2026-09-16, "approved all recommendations"). Order: wave 1 = 47 ∥ 48 ∥ 51 (disjoint files); then 49 ∥ 50 (after 48) ∥ 52 (after 51) → 53 → 54 → 59 (after 53 and 58) → 55. 61 and 62 (below) run in wave 1 too — sidecar-only.
 
-- 63. Scheduled runs honour the recipe's `settings`: `execute_job` (`crates/goose/src/scheduler.rs:1082-1084`) builds the run's provider from `settings.goose_provider` / `goose_model` when set (global config otherwise), passes the session's goose mode from a new `settings.goose_mode` (`recipe/mod.rs:99-111`; `Auto` stays the default for unattended runs), and takes the run's cwd from a new `settings.working_dir` (default `current_dir()`); `RecipeSettingsDto` and the validator whitelist follow; the routine sheet (task 59) writes all three; tests `scheduler_run_uses_recipe_provider` and `scheduler_run_uses_recipe_working_dir`.
-  - status: todo · agent: — · worker: high
+- 63. Scheduled runs honour the recipe's `settings`: `execute_job` (`crates/goose/src/scheduler.rs:1082-1084`) builds the run's provider from `settings.goose_provider` / `goose_model` when set (global config otherwise), passes the session's goose mode from a new `settings.goose_mode` (`recipe/mod.rs:99-111`; `Auto` stays the default for unattended runs), and takes the run's cwd from a new `settings.working_dir` (default `current_dir()`); `RecipeSettingsDto` and the validator whitelist follow; the routine sheet (task 59) writes all three and gains the "Run in its own worktree" checkbox that writes `settings.worktree` (task 54 landed after 59; `RoutineSheet.tsx` carries the TODO); tests `scheduler_run_uses_recipe_provider` and `scheduler_run_uses_recipe_working_dir`.
+  - status: doing · agent: subagent-t63 via claude-session-opus-2 (14:50, worktree) · worker: high
   - card: as the user, have a routine run on the runtime and in the folder the sheet showed me, so that "Save as routine" saves what I was doing, not a recipe that silently runs elsewhere (task 59 finding, 2026-09-16)
   - context:
     - task 54 already threads `run_cwd` through `create_with_working_dir`; this task only changes where the cwd and the provider come from
@@ -113,7 +113,7 @@ Planned in `docs/2026-09-16-parity-plan-v1.md` (approved 2026-09-16, "approved a
   - confirm: `source bin/activate-hermit && cargo test -p goose --lib scheduler_run_uses_recipe 2>&1 | grep -E 'test result: ok\. 2 passed'; echo exit=$?` → `exit=0` (untouched tree: 0 tests); and `bash scripts/check-spine.sh` → `spine clean`
 
 - 55. Amend the documents the picks reverse: `docs/2026-09-15-workspace-prd-v1.md` §Scope (worktree-per-task in, dated) and step 5 / decision 5 (per-hunk stage and revert, dated), `DESIGN.md` `:125` (Undo in place of confirm), `PRODUCT.md` §11 (`tasks_update` line → task 27's pick) and §12 (local scheduling out of Future), `ARCHITECTURE.md` §Modules sidecar line (worktree lifecycle, apply) — dated amendments, no rewrites.
-  - status: todo · agent: — · worker: low
+  - status: doing · agent: subagent-t55 via claude-session-opus-2 (14:50, worktree) · worker: low
   - card: as a reader, find the map and the PRD saying what the tree does so that the next plan does not re-argue these picks
   - context:
     - `ARCHITECTURE.md` rule: constrain, don't describe — one line per new responsibility
