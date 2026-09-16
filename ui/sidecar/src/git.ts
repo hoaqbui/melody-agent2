@@ -37,13 +37,34 @@ const parseStatus = (output: string): { branch: string | null; entries: StatusEn
 
 export const gitRoutes = (cwd: string): Record<string, JsonHandler> => ({
   'POST /git/status': async () => parseStatus(await git(cwd, ['status', '--porcelain=v1', '-b'])),
+  // Fixed prefixes, raw paths and no external driver: the renderer parses this output,
+  // so a user's diff.noprefix, core.quotePath or diff.external must not reshape it.
   'POST /git/diff': async (body) => {
-    const args = ['diff', '--no-color'];
+    const args = [
+      '-c',
+      'core.quotePath=false',
+      'diff',
+      '--no-color',
+      '--no-ext-diff',
+      '--src-prefix=a/',
+      '--dst-prefix=b/',
+    ];
     if (body.staged === true) args.push('--cached');
+    if (typeof body.context === 'number') args.push(`--unified=${Math.trunc(body.context)}`);
     if (typeof body.base === 'string') args.push(body.base);
     if (typeof body.path === 'string') args.push('--', body.path);
     return { diff: await git(cwd, args) };
   },
+  'POST /git/rev-parse': async (body) => ({
+    sha: (
+      await git(cwd, [
+        'rev-parse',
+        '--verify',
+        '--end-of-options',
+        `${requireString(body, 'rev')}^{commit}`,
+      ])
+    ).trim(),
+  }),
   'POST /git/stage': async (body) => {
     await git(cwd, ['add', '--', ...requireStringArray(body, 'paths')]);
     return {};

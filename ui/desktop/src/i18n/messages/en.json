@@ -935,6 +935,39 @@
   "dictationSettings.voiceDictationProvider": {
     "defaultMessage": "Voice Dictation Provider"
   },
+  "diffPane.base": {
+    "defaultMessage": "Base"
+  },
+  "diffPane.binary": {
+    "defaultMessage": "Binary file"
+  },
+  "diffPane.loading": {
+    "defaultMessage": "Loading…"
+  },
+  "diffPane.noChanges": {
+    "defaultMessage": "No changes {base}"
+  },
+  "diffPane.refresh": {
+    "defaultMessage": "Refresh"
+  },
+  "diffPane.retry": {
+    "defaultMessage": "Retry"
+  },
+  "diffPane.selectFile": {
+    "defaultMessage": "Select a file to see its changes"
+  },
+  "diffPane.sideBySide": {
+    "defaultMessage": "Side by side"
+  },
+  "diffPane.sinceSessionStart": {
+    "defaultMessage": "since session start"
+  },
+  "diffPane.unified": {
+    "defaultMessage": "Unified"
+  },
+  "diffPane.vsHead": {
+    "defaultMessage": "vs HEAD"
+  },
   "dirSwitcher.chooseDirectory": {
     "defaultMessage": "Choose directory…"
   },
@@ -4740,7 +4773,7 @@
     "defaultMessage": "Orchestrate"
   },
   "workspaceShell.paneDiff": {
-    "defaultMessage": "Diff"
+    "defaultMessage": "Changes"
   },
   "workspaceShell.paneEditor": {
     "defaultMessage": "Editor"
