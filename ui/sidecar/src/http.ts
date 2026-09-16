@@ -15,7 +15,18 @@ export class HttpError extends Error {
 
 const MAX_BODY_BYTES = 16 * 1024 * 1024;
 
+// A POST of any other type is a CORS "simple request": the browser sends it
+// without a preflight, so the origin allowlist never sees it and only this
+// check keeps an unlisted page from reaching a route.
+const requireJsonContentType = (request: IncomingMessage): void => {
+  const mediaType = (request.headers['content-type'] ?? '').split(';', 1)[0].trim().toLowerCase();
+  if (mediaType !== 'application/json') {
+    throw new HttpError(415, 'content-type must be application/json');
+  }
+};
+
 export const readJsonBody = async (request: IncomingMessage): Promise<Record<string, unknown>> => {
+  requireJsonContentType(request);
   const chunks: Buffer[] = [];
   let size = 0;
   for await (const chunk of request) {
