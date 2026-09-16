@@ -1007,6 +1007,12 @@
   "diffPane.noChanges": {
     "defaultMessage": "No changes {base}"
   },
+  "diffPane.openPr": {
+    "defaultMessage": "Open PR…"
+  },
+  "diffPane.prOpened": {
+    "defaultMessage": "Opened PR #{number} · {url}"
+  },
   "diffPane.refresh": {
     "defaultMessage": "Refresh"
   },
@@ -1519,6 +1525,105 @@
   },
   "gitPane.nothingToCommit": {
     "defaultMessage": "Nothing to commit"
+  },
+  "gitPane.pr": {
+    "defaultMessage": "PR"
+  },
+  "gitPane.prBlockedNoBranch": {
+    "defaultMessage": "Check out a branch to open a PR"
+  },
+  "gitPane.prBlockedRunning": {
+    "defaultMessage": "Push and open PR waits for the running tool call to finish"
+  },
+  "gitPane.prCheckFail": {
+    "defaultMessage": "failed"
+  },
+  "gitPane.prCheckOpen": {
+    "defaultMessage": "Open"
+  },
+  "gitPane.prCheckPass": {
+    "defaultMessage": "passed"
+  },
+  "gitPane.prCheckPending": {
+    "defaultMessage": "pending"
+  },
+  "gitPane.prCheckSkipped": {
+    "defaultMessage": "skipped"
+  },
+  "gitPane.prChecking": {
+    "defaultMessage": "Checking for a PR…"
+  },
+  "gitPane.prChecks": {
+    "defaultMessage": "Checks"
+  },
+  "gitPane.prCreated": {
+    "defaultMessage": "Opened #{number}"
+  },
+  "gitPane.prInstall": {
+    "defaultMessage": "Install"
+  },
+  "gitPane.prInstallHint": {
+    "defaultMessage": "Install the GitHub CLI, then Refresh"
+  },
+  "gitPane.prNoChecks": {
+    "defaultMessage": "No checks yet"
+  },
+  "gitPane.prOpen": {
+    "defaultMessage": "Push and open PR…"
+  },
+  "gitPane.prPushing": {
+    "defaultMessage": "Pushing…"
+  },
+  "gitPane.prSheetBody": {
+    "defaultMessage": "Body"
+  },
+  "gitPane.prSheetCancel": {
+    "defaultMessage": "Cancel"
+  },
+  "gitPane.prSheetCreate": {
+    "defaultMessage": "Create"
+  },
+  "gitPane.prSheetCreating": {
+    "defaultMessage": "Creating…"
+  },
+  "gitPane.prSheetDescription": {
+    "defaultMessage": "From {branch} — edit the text, then Create."
+  },
+  "gitPane.prSheetDescriptionInto": {
+    "defaultMessage": "From {branch} into {base} — edit the text, then Create."
+  },
+  "gitPane.prSheetDraft": {
+    "defaultMessage": "Draft"
+  },
+  "gitPane.prSheetReading": {
+    "defaultMessage": "Reading the commits…"
+  },
+  "gitPane.prSheetTitle": {
+    "defaultMessage": "Open a pull request"
+  },
+  "gitPane.prSheetTitleField": {
+    "defaultMessage": "Title"
+  },
+  "gitPane.prSheetTitleRequired": {
+    "defaultMessage": "Give the PR a title"
+  },
+  "gitPane.prSignIn": {
+    "defaultMessage": "Sign in"
+  },
+  "gitPane.prSignInHint": {
+    "defaultMessage": "Run gh auth login in the Terminal, then Sign in checks again"
+  },
+  "gitPane.prStateClosed": {
+    "defaultMessage": "Closed"
+  },
+  "gitPane.prStateDraft": {
+    "defaultMessage": "Draft"
+  },
+  "gitPane.prStateMerged": {
+    "defaultMessage": "Merged"
+  },
+  "gitPane.prStateOpen": {
+    "defaultMessage": "Open"
   },
   "gitPane.refresh": {
     "defaultMessage": "Refresh"

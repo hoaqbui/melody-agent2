@@ -1,5 +1,14 @@
 import { execFile } from 'node:child_process';
-import { mkdir, mkdtemp, readFile, realpath, rm, symlink, writeFile } from 'node:fs/promises';
+import {
+  chmod,
+  mkdir,
+  mkdtemp,
+  readFile,
+  realpath,
+  rm,
+  symlink,
+  writeFile,
+} from 'node:fs/promises';
 import os from 'node:os';
 import path from 'node:path';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
@@ -26,6 +35,41 @@ const commitAll = async (dir: string, message: string): Promise<void> => {
   await sh(dir, ['add', '-A']);
   await sh(dir, ['commit', '-q', '-m', message]);
 };
+
+// A `gh` that answers from files under `state`: `mode` = auth makes every call exit 4 as a
+// logged-out gh does; `pr create` records its argv and marks the PR made, after which
+// `pr view` finds it; `pr checks` always exits 8 (a check still pending) with the list.
+const fakeGh = (state: string): string => `#!/bin/sh
+STATE="${state}"
+if [ -f "$STATE/mode" ] && [ "$(cat "$STATE/mode")" = "auth" ]; then
+  echo "You are not logged into any GitHub hosts. To log in, run:  gh auth login" >&2
+  exit 4
+fi
+case "$1 $2" in
+  "pr create")
+    printf '%s\\n' "$@" > "$STATE/create.args"
+    : > "$STATE/pr"
+    echo "https://github.com/acme/repo/pull/42"
+    ;;
+  "pr view")
+    if [ -f "$STATE/pr" ]; then
+      echo '{"number":42,"url":"https://github.com/acme/repo/pull/42","state":"OPEN","isDraft":false,"mergeable":"MERGEABLE","statusCheckRollup":[]}'
+    else
+      echo 'no pull requests found for branch "feature"' >&2
+      exit 1
+    fi
+    ;;
+  "pr checks")
+    printf '%s\\n' "$@" > "$STATE/checks.args"
+    echo '[{"name":"build","state":"SUCCESS","link":"https://ci/build"},{"name":"lint","state":"FAILURE","link":"https://ci/lint"},{"name":"docs","state":"SKIPPED","link":"https://ci/docs"},{"name":"e2e","state":"IN_PROGRESS","link":"https://ci/e2e"}]'
+    exit 8
+    ;;
+  *)
+    echo "fake gh: unexpected $*" >&2
+    exit 1
+    ;;
+esac
+`;
 
 const failure = async (promise: Promise<unknown>): Promise<HttpError> => {
   try {
@@ -246,6 +290,171 @@ describe('gitRoutes', () => {
       expect(await readFile(path.join(repo, 'a.txt'), 'utf8')).toBe('ours\ntwo\nthree\n');
       expect(await sh(repo, ['diff', '--cached', '--name-only'])).toBe('a.txt\n');
       await sh(repo, ['reset', '-q', '--', 'a.txt']);
+    });
+  });
+
+  describe('push, log and pr', () => {
+    let pushRepo: string;
+    let origin: string;
+    let ghState: string;
+    let pushRoutes: ReturnType<typeof gitRoutes>;
+    const previousPath = process.env.PATH;
+
+    beforeAll(async () => {
+      pushRepo = path.join(scratch, 'push');
+      origin = path.join(scratch, 'origin.git');
+      ghState = path.join(scratch, 'gh-state');
+      const bin = path.join(scratch, 'gh-bin');
+      await mkdir(pushRepo);
+      await mkdir(ghState);
+      await mkdir(bin);
+      await writeFile(path.join(bin, 'gh'), fakeGh(ghState));
+      await chmod(path.join(bin, 'gh'), 0o755);
+      process.env.PATH = `${bin}${path.delimiter}${previousPath ?? ''}`;
+
+      await sh(scratch, ['init', '-q', '--bare', '-b', 'main', origin]);
+      await initRepo(pushRepo);
+      await writeFile(path.join(pushRepo, 'README.md'), 'base\n');
+      await commitAll(pushRepo, 'base');
+      await sh(pushRepo, ['remote', 'add', 'origin', origin]);
+      await sh(pushRepo, ['push', '-q', '-u', 'origin', 'main']);
+      await sh(pushRepo, ['checkout', '-q', '-b', 'feature']);
+      await writeFile(path.join(pushRepo, 'one.txt'), 'one\n');
+      await commitAll(pushRepo, 'feature: one');
+      await writeFile(path.join(pushRepo, 'two.txt'), 'two\n');
+      await commitAll(pushRepo, 'feature: two');
+      pushRoutes = gitRoutes(pushRepo);
+    });
+
+    afterAll(() => {
+      process.env.PATH = previousPath;
+    });
+
+    it('reports no upstream, then pushes with -u and reports it in sync', async () => {
+      const before = (await pushRoutes['POST /git/status']({})) as {
+        branch: string;
+        upstream: string | null;
+        ahead: number;
+      };
+      expect(before).toMatchObject({ branch: 'feature', upstream: null, ahead: 0 });
+
+      await pushRoutes['POST /git/push']({ setUpstream: true });
+      expect((await sh(origin, ['rev-parse', 'feature'])).trim()).toBe(
+        (await sh(pushRepo, ['rev-parse', 'HEAD'])).trim()
+      );
+      const after = (await pushRoutes['POST /git/status']({})) as {
+        upstream: string | null;
+        ahead: number;
+        behind: number;
+      };
+      expect(after).toMatchObject({ upstream: 'origin/feature', ahead: 0, behind: 0 });
+
+      await writeFile(path.join(pushRepo, 'three.txt'), 'three\n');
+      await commitAll(pushRepo, 'feature: three');
+      const ahead = (await pushRoutes['POST /git/status']({})) as { ahead: number };
+      expect(ahead.ahead).toBe(1);
+      await pushRoutes['POST /git/push']({});
+      const synced = (await pushRoutes['POST /git/status']({})) as { ahead: number };
+      expect(synced.ahead).toBe(0);
+    });
+
+    it('lists the commits since the remote default branch, or since a named base', async () => {
+      const log = (await pushRoutes['POST /git/log']({})) as {
+        base: string | null;
+        commits: { sha: string; subject: string }[];
+      };
+      expect(log.base).toBe('main');
+      expect(log.commits.map((commit) => commit.subject)).toEqual([
+        'feature: three',
+        'feature: two',
+        'feature: one',
+      ]);
+      expect(log.commits[0]?.sha).toMatch(/^[0-9a-f]{40}$/);
+
+      const named = (await pushRoutes['POST /git/log']({ base: 'feature' })) as {
+        base: string | null;
+        commits: unknown[];
+      };
+      expect(named).toEqual({ base: 'feature', commits: [] });
+
+      const unknown = (await pushRoutes['POST /git/log']({ base: 'nope' })) as {
+        base: string | null;
+        commits: { subject: string }[];
+      };
+      expect(unknown.base).toBeNull();
+      expect(unknown.commits.map((commit) => commit.subject)).toEqual(['feature: three']);
+    });
+
+    it('answers status with no PR before one exists', async () => {
+      expect(await pushRoutes['POST /git/pr/status']({})).toEqual({ pr: null, checks: [] });
+    });
+
+    it('creates the PR from the current branch and returns its number and URL', async () => {
+      const created = await pushRoutes['POST /git/pr/create']({
+        title: 'Feature',
+        body: '- one\n- two',
+        base: 'main',
+        draft: true,
+      });
+      expect(created).toEqual({ url: 'https://github.com/acme/repo/pull/42', number: 42 });
+      const argv = (await readFile(path.join(ghState, 'create.args'), 'utf8')).split('\n');
+      expect(argv).toEqual([
+        'pr',
+        'create',
+        '--head',
+        'feature',
+        '--title',
+        'Feature',
+        '--body',
+        '- one',
+        '- two',
+        '--base',
+        'main',
+        '--draft',
+        '',
+      ]);
+    });
+
+    it('folds the checks into status, one failing, one still pending', async () => {
+      const status = (await pushRoutes['POST /git/pr/status']({})) as {
+        pr: { number: number; state: string; isDraft: boolean };
+        checks: { name: string; state: string; link: string }[];
+      };
+      expect(status.pr).toMatchObject({ number: 42, state: 'OPEN', isDraft: false });
+      expect(status.checks).toEqual([
+        { name: 'build', state: 'pass', link: 'https://ci/build' },
+        { name: 'lint', state: 'fail', link: 'https://ci/lint' },
+        { name: 'docs', state: 'skipped', link: 'https://ci/docs' },
+        { name: 'e2e', state: 'pending', link: 'https://ci/e2e' },
+      ]);
+      expect(await readFile(path.join(ghState, 'checks.args'), 'utf8')).toBe(
+        'pr\nchecks\n--json\nname,state,link\n'
+      );
+    });
+
+    it('answers 503 with gh not available when gh is not logged in', async () => {
+      await writeFile(path.join(ghState, 'mode'), 'auth');
+      const status = await failure(pushRoutes['POST /git/pr/status']({}));
+      expect(status.status).toBe(503);
+      expect(status.message).toBe(
+        'gh not available: You are not logged into any GitHub hosts. To log in, run:  gh auth login'
+      );
+      expect(status.details).toEqual({ reason: 'auth' });
+      const create = await failure(pushRoutes['POST /git/pr/create']({ title: 't', body: '' }));
+      expect(create.status).toBe(503);
+      await rm(path.join(ghState, 'mode'));
+    });
+
+    it('answers 503 with gh not installed when there is no gh on PATH', async () => {
+      process.env.PATH = path.join(scratch, 'empty-bin');
+      try {
+        const error = await failure(pushRoutes['POST /git/pr/status']({}));
+        expect(error.status).toBe(503);
+        expect(error.message).toBe('gh not available: gh is not installed');
+        expect(error.details).toEqual({ reason: 'missing' });
+      } finally {
+        process.env.PATH = `${path.join(scratch, 'gh-bin')}${path.delimiter}${previousPath ?? ''}`;
+      }
     });
   });
 });
