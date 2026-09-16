@@ -45,6 +45,13 @@
    - → [Session on that runtime, empty chat, header shows
      "Claude · Orchestrate"]; fail(adapter not authenticated) → [chat
      shows the provider's auth step, selectors unchanged]
+   - amended 2026-09-16 (task 60; user: "please remove the top
+     navbar"): there is no header — "in the header" reads "in the chat
+     card's chips": Runtime and Mode are chips in the chat input's
+     bottom row beside the model and directory chips, each a popover
+     with the same rows and the same Install / "no orchestrator role
+     in this project" states; the session's "Claude · Orchestrate" is
+     the chips' tooltip (DESIGN.md §Frame, §Vocabulary "chip")
 
 3. [Session, empty chat] · P0
    - does: type a task, ⌘Enter
@@ -59,6 +66,12 @@
      the tree is the session's working directory
    - → [Files pane: tree]; click a file → [Editor pane opens in the
      centre beside chat, read/write, saves on ⌘S]
+   - amended 2026-09-16 (task 60): "the Files tab in the side panel"
+     reads "Files on the rail" — the pane launchers are a floating
+     rail at the window's right edge (Terminal · Changes · Browser, the
+     rest under ⋯) that slides into the dock's top strip once a panel
+     is open; the Editor opens in the Work column's dock as step 8
+     (amended) says, never in the centre (DESIGN.md §Frame "rail")
 
 5. [Files pane] · P0
    - does: click the Diff tab

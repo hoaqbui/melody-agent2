@@ -9,11 +9,11 @@ The delta over Goose Desktop's design system. Under a section upstream already s
 - **The Upstream Rule** — chat, tool rows, settings and the session list are Goose's components, composed not restyled (`ARCHITECTURE.md:86`, `:98`); a fork-side copy of an upstream component is a bug.
 - **The One Dock Rule** (2026-09-15, supersedes the One Pane Rule; tasks 41–42) — the centre is the chat and nothing else; every pane lives in the right dock, in a panel with a tab strip, and a panel holds one visible pane (`pane-store.ts:22-28`, `Dock.tsx`); a pane beside the chat outside the dock, a floating window, or a modal pane is forbidden.
 - **The Nothing Lost Rule** — a pane keeps its state while it is anywhere in the dock: a tab moved between panels, a torn-off tab, a panel reordered or resized is the same mounted pane (`pane-store.ts:20-21`, `Dock.tsx` renders every open pane once); a pane that remounts empty after a move is a bug. A closed pane leaves the dock, and reopening it joins the top panel's tabs (`pane-store.ts:93-104`) — the slot is not kept; the tab strip is the record of what is open, not of what was.
-- **The Named Runtime Rule** — every step on screen says which runtime did it, in the runtime's own name: the header, the "→ Codex from here" divider, the worker row (PRD `:21-24`, `:96-97`; PRODUCT.md §11); colour or an icon alone never carries it.
+- **The Named Runtime Rule** — every step on screen says which runtime did it, in the runtime's own name: the Runtime chip (the header until task 60), the "→ Codex from here" divider, the worker row (PRD `:21-24`, `:96-97`; PRODUCT.md §11); colour or an icon alone never carries it.
 - **The Floating Button Rule** `[direction]` (user, 2026-09-15) — buttons carry a soft shadow beneath them so they read as floating; a flat control the user is meant to press is a bug.
 - **The Into Rule** `[direction]` (user, 2026-09-15) — transitions have things disappear *into* things: a closed pane shrinks into its strip, an opened pane grows out of it, a torn-off tab lands where it was dropped; a cut, a fade to nothing, or an element that appears from nowhere is forbidden where a source or destination exists. 2026-09-16 (task 56): the Browser's suggestion list grows out of the address bar and closes back into it.
 - **Surfaces float** `[direction]` (user, 2026-09-16) — the Floating Button Rule extended to surfaces: elevation separates, outlines don't. In dark, every card, panel and popover carries `--shadow-sm` at rest and `--shadow-md` lifted, and the `border-*` tokens are near-invisible hairlines; a surface that separates itself with a line is a bug.
-- **The Glass Rule** `[direction]` (user, 2026-09-16) — a surface is glass only when something scrolls or shows behind it: the header, a dock panel, the chat-input card, a menu over the desk or the transcript; a glass surface with nothing behind it is a bug. Text never sits on glass without the surface's own background at ≥ .72 alpha — the blur is under the surface, never under the letters (`main.css` "Charcoal Monokai", `theme-tokens.test.ts`).
+- **The Glass Rule** `[direction]` (user, 2026-09-16) — a surface is glass only when something scrolls or shows behind it: a column (2026-09-16, task 60: the header and the dock panel until then), the rail's buttons, the chat-input card, a menu over the desk or the transcript; a glass surface with nothing behind it is a bug. Text never sits on glass without the surface's own background at ≥ .72 alpha — the blur is under the surface, never under the letters (`main.css` "Charcoal Monokai", `theme-tokens.test.ts`).
 - **The One Word Rule** — one word per concept per tier (§Vocabulary); the fork's "Mode" never means Goose's permission gate, and a provider id never reaches the default surface.
 
 ## Frame
@@ -21,29 +21,37 @@ The delta over Goose Desktop's design system. Under a section upstream already s
 Region names are the `ARCHITECTURE.md` §Modules they render into (`workspace`, `components`); a region without a module, or a module drawing outside its region, is drift. `main`, `preload`, `acp`, `native` and the sidecar render nothing and have no region (`ARCHITECTURE.md:80-88`).
 
 ```text
-Application window
-├── header — `workspace`: project name · Runtime ▾ · Mode ▾ ··· pane menu Terminal · Changes · Browser · ⋯ (PRODUCT.md §11 sketch; PRD :36-47; task 40)
-├── sessions — `components`: upstream's session list, unchanged (PRD :33)
-├── centre — the chat; never a pane (PRD :84-108, amended 2026-09-15)
+Application window — three columns, no top bar (2026-09-16, task 60; user: "please remove the top navbar", "3 vertical panels")
+├── titlebar — the 32 px drag strip: traffic lights and upstream's sidebar toggle only; no background, no controls (`main.css` .titlebar-drag-region)
+├── Sessions — `components` wrapped by `workspace`: upstream's sidebar (`NavigationPanel.tsx` Navigation), open by default, sessions grouped by project;
+│              collapses into the titlebar toggle (upstream's `NavigationContext`, also under 700 px); width 280 px by default (`pane-store.ts` DEFAULT_COLUMNS)
+├── seam — drag or arrow to resize the column beside it (`WorkspaceShell.tsx` Seam); widths are remembered per project (`goose.workspace.columns`)
+├── Chat — `components`: the chat (transcript, tool rows, input with ⌘Enter), the Hub, or any other page; never a pane; takes what the others leave, never under 240 px
 │   ├── RPI strip — `workspace`, above the chat · later (PRD :127-134)
-│   └── chat — `components`: transcript, tool rows, input with ⌘Enter; never moves
-└── right dock — `workspace` (`Dock.tsx`): panels stacked top to bottom, each a tab strip over one visible pane;
-    │           sizes are fractions of the dock's height summing to 1 (`pane-store.ts:22-28`); absent when nothing is open
-    ├── panel (`Panel.tsx`) — strip: grip · tabs · × for the active tab · ⋯ (Tear off · Move up · Move down · Close)
-    │           tabs Files · Editor · Changes · Terminal · Git · Browser · Markdown open here in launcher order (`pane-store.ts:6`, `:93-104`)
-    │           drag a tab onto a strip → it moves there; onto a seam or a panel's upper/lower half → it tears off into a new panel at that seam (`pane-store.ts:106`, `Dock.tsx` drop)
-    │           drag a strip's grip → the panel reorders; drag or arrow a seam → resize against the neighbour (`:141`, `:150`)
-    │           close the last tab → the panel disappears into its neighbour (`pane-store.ts:76`)
-    │           the dock is remembered per project, keyed by the window's working dir (`Dock.tsx` loadDock/saveDock, `pane-store.ts:187`)
-    └── later: Agents (PRD :118-140; PRODUCT.md §11); Browser and Markdown are placeholders until task 31
+│   └── chips — `workspace` in the chat card's bottom row, left of the model and directory chips (`SessionChips.tsx`, `ChatInput.tsx` SessionChipsSlot):
+│                Runtime ▾ · Mode ▾, each a popover with Install / "no orchestrator role" kept; task 58's lever takes the same slot in Easy
+├── seam
+└── Work — `workspace`: the dock (`Dock.tsx`), 480 px by default; absent when nothing is open — then the rail floats
+    ├── rail — the pane launchers Terminal · Changes · Browser · ⋯ (`WorkspaceShell.tsx` Rail): glass icon buttons pinned to the window's right edge,
+    │          vertically centred, while the dock is empty; they slide into the top panel's strip when a panel opens and back out when the dock empties
+    └── dock — panels stacked top to bottom, each a tab strip over one visible pane; sizes are fractions of the dock's height summing to 1 (`pane-store.ts:22-28`)
+        ├── panel (`Panel.tsx`) — strip: grip · tabs · × for the active tab · ⋯ (Tear off · Move up · Move down · Close) · the rail, on the top panel
+        │           tabs Files · Editor · Changes · Terminal · Git · Browser · Markdown open here in launcher order (`pane-store.ts:6`, `:93-104`)
+        │           drag a tab onto a strip → it moves there; onto a seam or a panel's upper/lower half → it tears off into a new panel at that seam (`pane-store.ts:106`, `Dock.tsx` drop)
+        │           drag a strip's grip → the panel reorders; drag or arrow a seam → resize against the neighbour (`:141`, `:150`)
+        │           close the last tab → the panel disappears into its neighbour (`pane-store.ts:76`)
+        │           the dock is remembered per project, keyed by the window's working dir (`Dock.tsx` loadDock/saveDock, `pane-store.ts:187`)
+        └── later: Agents (PRD :118-140; PRODUCT.md §11); Browser and Markdown are placeholders until task 31
+
+Keys: ⌘1 · ⌘2 · ⌘3 focus Sessions · Chat · Work (Work with nothing open is the rail).
 
 Phone width (≤ PHONE_MAX_WIDTH_PX, `pane-store.ts:18`, `:43-45`)
 └── tab rail — chat first, then the same tabs; one thing visible, no split (`pane-store.ts:35`; PRD :142-152)
 ```
 
-- The header and the chat keep their location and meaning at every width; the Hub and the spotlight launcher are upstream's, unchanged (PRD `:28-30`).
-- As space contracts: the dock folds away whole behind the chat, its panels kept (`pane-store.ts:177-183`); then the session list; the chat never shrinks below one readable line and its input. Growing back shows the dock as it was, plus the pane the phone had on screen (`pane-store.ts:181-182`, `pane-store.test.ts:173`).
-- Dense surfaces: pane contents (tree, diff, terminal, git lists) at upstream's compact sizes; the header, tabs and chat are never dense.
+- The chat keeps its location and meaning at every width; every control lives on the thing it controls (the Into Rule) — nothing sits between the user and the conversation; the Hub and the spotlight launcher are upstream's, unchanged (PRD `:28-30`).
+- As space contracts: Sessions and Work give way first (they shrink; upstream folds the sidebar under 700 px), the frame clamps to the viewport (`overflow-x: hidden` on the shell, `min-w-0` on every column) and the chat never shrinks below one readable line and its input (240 px); at phone width the dock folds away whole behind the chat, its panels kept (`pane-store.ts:177-183`). Growing back shows the dock as it was, plus the pane the phone had on screen (`pane-store.ts:181-182`, `pane-store.test.ts:173`).
+- Dense surfaces: pane contents (tree, diff, terminal, git lists) at upstream's compact sizes; the chips, the rail, tabs and chat are never dense.
 - Overlays: upstream's stack, unchanged — dialogs (`ui/desktop/src/components/ui/dialog.tsx`) above toasts (`react-toastify`, `ui/desktop/package.json:96`); the fork adds no overlay. A pane is never an overlay. Focus returns to the control that opened the dialog; Esc dismisses a dialog, and only a dialog (see §Accessibility).
 
 ## Vocabulary & copy [contract]
@@ -57,9 +65,12 @@ Phone width (≤ PHONE_MAX_WIDTH_PX, `pane-store.ts:18`, `:43-45`)
 | Claude owns the request, delegates | **Orchestrate** | orchestrate | orchestrator role loaded (PRD `:51`; PRODUCT.md §4) |
 | a tool surface | **pane** — Files · Editor · Changes · Terminal · Git · Browser · Markdown | pane | `PaneId` (`pane-store.ts:4`); the Changes pane's id stays `diff` |
 | the Browser's controls | **Back · Forward · Refresh · Share** (2026-09-16, task 56); Refresh reads **Stop** while the page loads; Share is **Share with agent** in full | browser toolbar | `browserPane.*` message ids; `data-testid="browser-back"` … `browser-share` (`panes/browser/BrowserPane.tsx`) |
-| where panes live | **dock** — the right column of panels | dock | `dock` (`pane-store.ts:33`) |
+| the window's three parts | **Sessions · Chat · Work** — the columns (task 60) | column | `workspace-column-sessions` / `-chat` / `-work` test ids; `Columns` (`pane-store.ts`) |
+| where panes live | **dock** — the Work column's panels | dock | `dock` (`pane-store.ts:33`) |
 | one tab strip and its visible pane | **panel**; the actions are **Tear off**, **Move up**, **Move down**, **Close** (`Panel.tsx`) | panel | `Panel` (`pane-store.ts:22-28`) |
 | the line between two panels | **seam** | seam | `resize` (`pane-store.ts:150`) |
+| the pane launchers | **rail** — Terminal · Changes · Browser · ⋯, floating at the right edge or in the top panel's strip; on the phone the tab rail's launcher (task 60) | rail | `Rail` (`WorkspaceShell.tsx`); `workspace-pane-menu`, `workspace-pane-button-*` test ids |
+| a session control in the chat card's bottom row | **chip** — Runtime · Mode beside upstream's model and directory chips (task 60) | chip | `SessionChips.tsx`; `workspace-runtime`, `workspace-mode` test ids |
 | the phone's one-at-a-time strip | **tab rail** | rail | `visible` (`pane-store.ts:35`) |
 | delegated work | **worker** — runtime · role · task · status (PRD `:103-104`) | subagent | SubAgent session, `tasks_update` (`ARCHITECTURE.md:87`, `:105`) |
 | the job a worker does | **role** — Orchestrator, Researcher, Planner, Implementer, Reviewer, Advisor (and the Advisor's four specialists) | role | the ten files in `.agents/agents/` (`ARCHITECTURE.md:94`) |
@@ -72,6 +83,7 @@ Phone width (≤ PHONE_MAX_WIDTH_PX, `pane-store.ts:18`, `:43-45`)
 - "Mode" in the workspace means Direct · Orchestrate only; the permission gate keeps upstream's words and stays in Settings.
 - Pane names are nouns; a tab reads Files, never "File browser".
 - Retired: **Diff** → **Changes** (user, 2026-09-15; task 40) — the pane shows what changed, "diff" names the artifact; the word survives only as the id `diff` (`pane-store.ts:4`) and the `diffPane.*` message ids, never on a surface. A retired word goes to `docs/decisions/`, dated; that directory does not exist yet, so this line is the record until it does.
+- Retired: **header**, **top bar** (task 60; user: "please remove the top navbar") — the frame has no bar; Runtime and Mode are chips, the pane menu is the rail; the word survives only for a panel's strip in `Dock.tsx` drag code, never on a surface.
 - Retired: **side panel**, **beside the chat**, **Open as pane** (task 42) — the dock replaced the side panel and the centre pane; "side" survives only in the `workspace-side-panel` / `workspace-side-tab-*` test ids, never on a surface.
 - check: open — see §Open decisions (no workspace strings exist to check yet).
 
@@ -89,7 +101,7 @@ The PRD's per-surface lines (`:137-170`) are deviations from these rows; a state
 | Cancelled | the reply truncated where it stopped; input enabled (PRD `:54`) | send again | the draft | the input | "stopped" |
 | Unavailable | the row stays and reads Install, Sign in, or the probe's one line; the session does not start (PRD `:40-47`, `:142-146`) | Install · Sign in | selectors unchanged | the row | the row's text |
 
-- A closed pane shrinks into its strip; its panel shows the neighbouring tab and focus lands on that tab (`Dock.tsx` focusAfterClose), or the emptied panel disappears into the panel above and focus lands on the header's ⋯ (`WorkspaceShell.tsx` paneClosed — the one pane button whose tooltip does not open on focus) (`pane-store.ts:67-83`, `pane-store.test.ts:124-143`).
+- A closed pane shrinks into its strip; its panel shows the neighbouring tab and focus lands on that tab (`Dock.tsx` focusAfterClose), or the emptied panel disappears into the panel above and focus lands on the rail's ⋯ once it has slid back out (`WorkspaceShell.tsx` paneClosed — the one pane button whose tooltip does not open on focus) (`pane-store.ts:67-83`, `pane-store.test.ts:124-143`).
 - check: open — see §Open decisions (no pane declares a state type yet).
 
 ## Tokens & theme [contract]
@@ -99,7 +111,7 @@ Upstream's, unchanged. Source: `ui/desktop/src/theme/theme-tokens.ts` (named the
 - Colour: `info` marks what the agent touched (the Files dot, PRD `:58`); `success` a done worker or phase; `warning` a waiting one; `danger` a failed one that stays (PRD `:104`, `:170`). Semantic roles never retint with theme; runtime identity has no colour role (open).
 - Elevation is the Floating Button Rule: a workspace control at rest carries `--shadow-sm`; lifted (hover, drag, in flight during an Into motion) carries `--shadow-md`; `--shadow-lg` and `--shadow-default` stay upstream's for overlays. Upstream's own buttons are flat — `button.tsx:11` asks for `shadow-xs`, which the reset at `main.css:25` removes and `theme-tokens.ts` never defines — so the rule is a real delta; whether it lands as a `button.tsx` variant or a workspace wrapper is the plan's.
 - Space and radius: upstream's scale for space. Radius — amended 2026-09-16 (user: "large radiuses"): the fork adds one step, the same shape in every theme — `--radius-panel` 16px (cards, menus, message bubbles), `--radius-control` 12px (buttons, the `button.tsx` pill shape), `--radius-chip` 999px (`main.css` `:root`/`.dark`, utilities `rounded-panel` / `rounded-control` / `rounded-chip`).
-- 2026-09-16 delta (task 57): **Charcoal Monokai** — the dark theme itself, not a fourth theme (user: "switch the dark theme over to dark charcoal monokai"); light and aura stay byte-for-byte (`theme-tokens.test.ts` snapshots). Ground `#1c1c1c`, secondary `#242424`, raised `#2c2c2c`, each at .8 alpha so the charcoal reads as charcoal over the main window's macOS vibrancy (`main.ts` `vibrancy: 'window'`); off macOS the canvas under `body` (`main.css` `body` is the only painted root) is the window's own, so a dark canvas there is open (§Open decisions); text `#f8f8f2` / `#c8c8c2` / `#7a7a72` — tertiary for hints and disabled only, never body copy. The Monokai accents on the semantic roles: `info` `#66d9ef`, `success` `#a6e22e`, `warning` `#e6db74`, `danger` `#f92672`, accent (`background-inverse`, `ring-primary`) `#ae81ff`; orange `#fd971f` has no role yet, so the Files dot keeps `info`. `border-*` tokens are `rgba(248,248,242,.06)` hairlines and the shadows deep (`--shadow-sm` `.5`, `--shadow-md` `.65`): surfaces float (§Principles). Contrast is measured over `#1c1c1c` (`theme-tokens.test.ts`): primary and secondary text meet AA on every surface, hint text and the status colours 3:1. Glass (§Principles Glass Rule) is `backdrop-filter: blur(18px) saturate(1.3)` in `main.css` "Charcoal Monokai" on `.app-sidebar`, `.workspace-header`, `.workspace-dock-panel`, `.chat-input-card` and `[data-slot='dropdown-menu-content']`; the block is scoped `[data-theme='dark']` so aura's own bubble override keeps its precedence. Syntax and terminal palettes follow the variant: `theme/monokai-highlight.ts` for the Editor and Changes panes (inert in Changes until that pane loads a language, `DiffPane.tsx` `ChangeView`), the canonical ANSI eight (`#272822 #f92672 #a6e22e #f4bf75 #66d9ef #ae81ff #a1efe4 #f8f8f2`) on the charcoal ground for the Terminal (`terminal-session.ts`) — aura, also a dark variant, inherits both.
+- 2026-09-16 delta (task 57): **Charcoal Monokai** — the dark theme itself, not a fourth theme (user: "switch the dark theme over to dark charcoal monokai"); light and aura stay byte-for-byte (`theme-tokens.test.ts` snapshots). Ground `#1c1c1c`, secondary `#242424`, raised `#2c2c2c`, each at .8 alpha so the charcoal reads as charcoal over the main window's macOS vibrancy (`main.ts` `vibrancy: 'window'`); off macOS the canvas under `body` (`main.css` `body` is the only painted root) is the window's own, so a dark canvas there is open (§Open decisions); text `#f8f8f2` / `#c8c8c2` / `#7a7a72` — tertiary for hints and disabled only, never body copy. The Monokai accents on the semantic roles: `info` `#66d9ef`, `success` `#a6e22e`, `warning` `#e6db74`, `danger` `#f92672`, accent (`background-inverse`, `ring-primary`) `#ae81ff`; orange `#fd971f` has no role yet, so the Files dot keeps `info`. `border-*` tokens are `rgba(248,248,242,.06)` hairlines and the shadows deep (`--shadow-sm` `.5`, `--shadow-md` `.65`): surfaces float (§Principles). Contrast is measured over `#1c1c1c` (`theme-tokens.test.ts`): primary and secondary text meet AA on every surface, hint text and the status colours 3:1. Glass (§Principles Glass Rule) is `backdrop-filter: blur(18px) saturate(1.3)` in `main.css` "Charcoal Monokai" on `.workspace-column`, `.workspace-rail-button` (task 60; `.app-sidebar`, `.workspace-header`, `.workspace-dock-panel` until then), `.chat-input-card` and `[data-slot='dropdown-menu-content']`; the block is scoped `[data-theme='dark']` so aura's own bubble override keeps its precedence. Syntax and terminal palettes follow the variant: `theme/monokai-highlight.ts` for the Editor and Changes panes (inert in Changes until that pane loads a language, `DiffPane.tsx` `ChangeView`), the canonical ANSI eight (`#272822 #f92672 #a6e22e #f4bf75 #66d9ef #ae81ff #a1efe4 #f8f8f2`) on the charcoal ground for the Terminal (`terminal-session.ts`) — aura, also a dark variant, inherits both.
 - check: every role named here resolves — `for r in shadow-sm shadow-md shadow-default color-text-info color-text-danger color-text-success color-text-warning; do grep -q -- "--$r" ui/desktop/src/theme/theme-tokens.ts ui/desktop/src/styles/main.css || echo "missing $r"; done` prints nothing.
 
 ## Typography
@@ -108,7 +120,7 @@ Upstream's, unchanged (`main.css:113-135`; values from `theme-tokens.ts`). Delta
 
 ## Iconography
 
-Upstream's, unchanged: `lucide-react` (`ui/desktop/package.json:87`), used by `components/ui/*`. The fork's tabs, pane toolbars and the header's pane menu draw from the same set at upstream's control size; a second set is a bug. One icon per pane wherever it is shown (`WorkspaceShell.tsx` `PANE_ICONS`): Files `FolderTree` · Editor `FileCode` · Changes `GitCompare` · Terminal `Terminal` · Git `GitBranch` · Browser `Globe` · Markdown `BookOpen`; the More button is `Ellipsis`. The Browser's toolbar (task 56): Back `ArrowLeft` · Forward `ArrowRight` · Refresh `RotateCw` (Stop `Square` while loading) · Share `Share`. The Files dot is a dot, not an icon, and is always paired with text (§Accessibility).
+Upstream's, unchanged: `lucide-react` (`ui/desktop/package.json:87`), used by `components/ui/*`. The fork's tabs, pane toolbars, the rail and the chips draw from the same set at upstream's control size; a second set is a bug. One icon per pane wherever it is shown (`WorkspaceShell.tsx` `PANE_ICONS`): Files `FolderTree` · Editor `FileCode` · Changes `GitCompare` · Terminal `Terminal` · Git `GitBranch` · Browser `Globe` · Markdown `BookOpen`; the More button is `Ellipsis`. The chips (task 60): Runtime `Cpu` · Mode `Workflow`, beside upstream's model `Bot` and directory `FolderDot`; a narrow chat input shows the icon alone. The Browser's toolbar (task 56): Back `ArrowLeft` · Forward `ArrowRight` · Refresh `RotateCw` (Stop `Square` while loading) · Share `Share`. The Files dot is a dot, not an icon, and is always paired with text (§Accessibility).
 
 ## Motion
 
@@ -117,6 +129,7 @@ Upstream's easing role `--ease-g2` (`main.css:65`); upstream names no duration r
 - Open and tab switch (`openPane`, `pane-store.ts:93-104`): the pane grows out of its strip — `animate-in fade-in-0 zoom-in-95 origin-top` over `--ease-g2`, 150ms (`Dock.tsx` body classes); a hidden tab's pane replays it when shown.
 - Drag (`Dock.tsx` ghost): the tab or panel in flight is a lifted copy under the pointer (`--shadow-md`, the Floating Button Rule), the source fades to half, the drop target — a strip's insertion mark or a seam — shows where it lands; on release the layout changes in place.
 - Close (`closePane`, `:165-169`): the pane shrinks toward its strip (`animate-out zoom-out-95`, `Dock.tsx` CLOSE_MOTION_MS) and only then leaves the store; focus lands as §States says.
+- Rail (task 60, `WorkspaceShell.tsx` Rail): the launchers share a `layoutId` in both homes, so opening the first panel slides them from the window's edge into the strip and emptying the dock slides them back; the Sessions column eases shut into the titlebar toggle (`transition-[width]`), a seam drag moves with the pointer.
 - Phone (`show`, `:171-175`): the leaving pane returns into its rail tab; the arriving one grows out of its rail tab; chat is a rail tab like the others.
 - The "→ <Runtime> from here" divider appears in place; nothing animates in the transcript, the tool rows, or the terminal — text streams and rows appear, that is all.
 - Reduced motion: upstream's global block zeroes every transition (`main.css:380-392`), so an Into motion degrades to a cut; the focus rules in §States still hold, so only the picture is lost.
@@ -126,7 +139,7 @@ Upstream's easing role `--ease-g2` (`main.css:65`); upstream names no duration r
 Upstream's, unchanged. Delta for the workspace:
 
 - Promote, close, and every tab switch are reachable from the keyboard; after a close, focus is on the tab the pane returned into (§States).
-- Keys the PRD fixes: ⌘Enter sends (`:50`), ⌘S saves the editor (`:61`), Esc cancels the turn (`:54`) — Esc is therefore never a pane-close key (open).
+- Keys the PRD fixes: ⌘Enter sends (`:50`), ⌘S saves the editor (`:61`), Esc cancels the turn (`:54`) — Esc is therefore never a pane-close key (open). Task 60: ⌘1 · ⌘2 · ⌘3 focus Sessions · Chat · Work; a seam is a `separator` that arrows resize.
 - Colour never alone: the Files dot pairs with a tooltip or the row's text; a worker's status is a word beside its colour; a runtime is its written name.
 - Disabled controls say why in place — Commit while an agent turn writes files (PRD `:79`), Git in a non-repo (PRD `:162`).
 - Destructive: none in V0 (view-only diff, PRD `:202`); Stop is not destructive and needs no confirmation.
@@ -145,7 +158,7 @@ Upstream's, unchanged. Delta for the workspace:
 
 ## Open decisions
 
-- Vocabulary check: upstream's strings are react-intl `defaultMessage`s (`ModeSelectionItem.tsx:10`); the natural check greps `src/workspace/**` messages for a word outside the table, but no workspace `.tsx` exists yet, so it would pass vacuously — resolved when task 11's header lands and the grep has strings to fail on.
+- Vocabulary check: upstream's strings are react-intl `defaultMessage`s (`ModeSelectionItem.tsx:10`); the natural check greps `src/workspace/**` messages for a word outside the table, but no workspace `.tsx` exists yet, so it would pass vacuously — resolved when task 11's header lands and the grep has strings to fail on (the header is chips and a rail since task 60; the grep stands).
 - States check: no pane declares a state type; `pane-store.ts:4-23` types layout only — resolved when the first pane (Files) declares one and a test diffs it against the table.
 - Floating Button reach: whether the rule reaches upstream's buttons (the chat's Send, Settings) through a `button.tsx` variant or stops at the workspace's own controls — resolved by the user.
 - Motion scale: upstream has one easing role and no duration roles (`main.css:65`) — resolved by a prototype of promote and close in the shell.

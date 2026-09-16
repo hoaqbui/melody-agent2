@@ -4934,6 +4934,15 @@
   "userMessage.removeImageFromEdit": {
     "defaultMessage": "Remove image from message"
   },
+  "workspaceShell.columnChat": {
+    "defaultMessage": "Chat"
+  },
+  "workspaceShell.columnSessions": {
+    "defaultMessage": "Sessions"
+  },
+  "workspaceShell.columnWork": {
+    "defaultMessage": "Work"
+  },
   "workspaceShell.direct": {
     "defaultMessage": "Direct"
   },
@@ -4981,6 +4990,9 @@
   },
   "workspaceShell.panes": {
     "defaultMessage": "Panes"
+  },
+  "workspaceShell.resizeColumn": {
+    "defaultMessage": "Resize {column}"
   },
   "workspaceShell.runtime": {
     "defaultMessage": "Runtime"

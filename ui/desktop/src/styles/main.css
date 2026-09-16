@@ -1012,28 +1012,26 @@ pre:has(> code.bg-inline-code) {
    and popover carries --shadow-sm at rest and --shadow-md lifted.
    A surface is glass only when something scrolls or shows behind
    it — its translucent token background stays and a backdrop blur
-   lets the macOS vibrancy through. .workspace-header and
-   .workspace-dock-panel are the shell's class names; the rest are
-   hooks on the components this theme may touch.
+   lets the macOS vibrancy through. .workspace-column (the three
+   columns, task 60) and .workspace-rail-button (the floating pane
+   launchers) are the shell's class names; the rest are hooks on
+   the components this theme may touch.
    ═══════════════════════════════════════════════════════════ */
-[data-theme='dark'] .app-sidebar,
-[data-theme='dark'] .workspace-header,
-[data-theme='dark'] .workspace-dock-panel,
+[data-theme='dark'] .workspace-column,
+[data-theme='dark'] .workspace-rail-button,
 [data-theme='dark'] .chat-input-card,
 [data-theme='dark'] [data-slot='dropdown-menu-content'] {
   backdrop-filter: blur(18px) saturate(1.3);
 }
 
-[data-theme='dark'] .app-sidebar,
-[data-theme='dark'] .workspace-dock-panel,
+[data-theme='dark'] .workspace-column,
 [data-theme='dark'] .chat-input-card,
 [data-theme='dark'] .user-message-bubble,
 [data-theme='dark'] [data-slot='dropdown-menu-content'] {
   box-shadow: var(--shadow-sm);
 }
 
-[data-theme='dark'] .app-sidebar:hover,
-[data-theme='dark'] .workspace-dock-panel:hover,
+[data-theme='dark'] .workspace-column:hover,
 [data-theme='dark'] .chat-input-card:hover,
 [data-theme='dark'] [data-slot='dropdown-menu-content']:hover {
   box-shadow: var(--shadow-md);

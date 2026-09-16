@@ -1,8 +1,9 @@
-// The right dock (DESIGN.md §Frame): panels stacked top to bottom on one CSS grid — a seam,
-// a strip and a body per panel — with every open pane rendered once, in a fixed order, so a
-// pane moved between panels keeps its DOM and its contents (pane-store.ts `Panel`). Drag is
-// pointer events: a tab or a strip lifts after a few pixels, a ghost follows the pointer, and
-// the drop lands on a strip (move the tab) or a seam (tear off, or reorder the panel).
+// The dock, the Work column's contents (DESIGN.md §Frame): panels stacked top to bottom on
+// one CSS grid — a seam, a strip and a body per panel — with every open pane rendered once,
+// in a fixed order, so a pane moved between panels keeps its DOM and its contents
+// (pane-store.ts `Panel`). Drag is pointer events: a tab or a strip lifts after a few pixels,
+// a ghost follows the pointer, and the drop lands on a strip (move the tab) or a seam (tear
+// off, or reorder the panel).
 
 import {
   useEffect,
@@ -24,6 +25,7 @@ import {
   type SavedPanel,
 } from './pane-store';
 import { Panel, type PaneChrome } from './Panel';
+import { loadProjectEntry, saveProjectEntry } from './project-storage';
 
 const i18n = defineMessages({
   resize: { id: 'dock.resize', defaultMessage: 'Resize' },
@@ -69,31 +71,17 @@ interface SeamDrag {
   free: number;
 }
 
-// One key holds every project's dock, as task 19's shim holds the settings.
 export function loadDock(project: string): SavedPanel[] {
-  try {
-    const all = JSON.parse(window.localStorage.getItem(DOCK_STORAGE_KEY) ?? '{}') as Record<
-      string,
-      unknown
-    >;
-    const saved = all[project];
-    return Array.isArray(saved) ? (saved as SavedPanel[]) : [];
-  } catch {
-    return [];
-  }
+  const saved = loadProjectEntry(DOCK_STORAGE_KEY, project);
+  return Array.isArray(saved) ? (saved as SavedPanel[]) : [];
 }
 
 export function saveDock(project: string, dock: readonly PanelState[]): void {
-  try {
-    const all = JSON.parse(window.localStorage.getItem(DOCK_STORAGE_KEY) ?? '{}') as Record<
-      string,
-      unknown
-    >;
-    all[project] = dock.map(({ tabs, active, size }) => ({ tabs, active, size }));
-    window.localStorage.setItem(DOCK_STORAGE_KEY, JSON.stringify(all));
-  } catch {
-    // Storage disabled or full: the layout lives for this window only.
-  }
+  saveProjectEntry(
+    DOCK_STORAGE_KEY,
+    project,
+    dock.map(({ tabs, active, size }) => ({ tabs, active, size }))
+  );
 }
 
 function targetAt(x: number, y: number, drag: Drag): DropTarget | null {
@@ -127,12 +115,14 @@ interface DockProps {
   renderPane(id: PaneId): ReactNode;
   // After a pane closed alone in its panel, so the shell can put focus somewhere.
   onClosed(): void;
+  // The rail's launchers, shown on the top panel's strip while the dock is open (task 60).
+  launchers: ReactNode;
 }
 
-export function Dock({ layout, store, chrome, renderPane, onClosed }: DockProps) {
+export function Dock({ layout, store, chrome, renderPane, onClosed, launchers }: DockProps) {
   const intl = useIntl();
   const { dock } = layout;
-  const rootRef = useRef<HTMLElement>(null);
+  const rootRef = useRef<HTMLDivElement>(null);
   const pending = useRef<Pending | null>(null);
   const seamDrag = useRef<SeamDrag | null>(null);
   // The document listeners outlive a render; they read the latest dock and drag from here.
@@ -301,9 +291,9 @@ export function Dock({ layout, store, chrome, renderPane, onClosed }: DockProps)
   const panelOf = (id: PaneId) => dock.findIndex((panel) => panel.tabs.includes(id));
 
   return (
-    <aside
+    <div
       ref={rootRef}
-      className="workspace-dock-panel relative grid w-2/5 min-w-72 shrink-0 min-h-0 border-l border-border-primary"
+      className="relative grid h-full min-h-0 min-w-0"
       style={{ gridTemplateRows: rows }}
       data-testid="workspace-side-panel"
       data-dragging={drag ? drag.kind : undefined}
@@ -324,6 +314,7 @@ export function Dock({ layout, store, chrome, renderPane, onClosed }: DockProps)
           onMove={store.movePanel}
           onTabPointerDown={(event, id) => press(event, 'tab', id)}
           onHeaderPointerDown={(event) => press(event, 'panel', null)}
+          trailing={index === 0 ? launchers : undefined}
         />
       ))}
       {Array.from({ length: dock.length + 1 }, (_, seam) => {
@@ -394,6 +385,6 @@ export function Dock({ layout, store, chrome, renderPane, onClosed }: DockProps)
           </div>,
           document.body
         )}
-    </aside>
+    </div>
   );
 }

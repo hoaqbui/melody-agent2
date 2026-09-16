@@ -2,7 +2,12 @@
 // is the keyboard's route to what the pointer does by dragging (DESIGN.md §Accessibility).
 // The Dock owns the drag; the strip only reports where a pointer went down.
 
-import { Fragment, type ComponentType, type PointerEvent as ReactPointerEvent } from 'react';
+import {
+  Fragment,
+  type ComponentType,
+  type PointerEvent as ReactPointerEvent,
+  type ReactNode,
+} from 'react';
 import { Ellipsis, GripVertical, X } from 'lucide-react';
 import { defineMessages, useIntl } from '../i18n';
 import { Button } from '../components/ui/button';
@@ -47,6 +52,8 @@ interface PanelProps {
   onMove(from: number, to: number): void;
   onTabPointerDown(event: ReactPointerEvent<HTMLElement>, id: PaneId): void;
   onHeaderPointerDown(event: ReactPointerEvent<HTMLElement>): void;
+  // After the strip's own controls: the rail's launchers, on the top panel (task 60).
+  trailing?: ReactNode;
 }
 
 function DropMarker() {
@@ -67,6 +74,7 @@ export function Panel({
   onMove,
   onTabPointerDown,
   onHeaderPointerDown,
+  trailing,
 }: PanelProps) {
   const intl = useIntl();
   const active = chrome[panel.active];
@@ -172,6 +180,7 @@ export function Panel({
           </DropdownMenuItem>
         </DropdownMenuContent>
       </DropdownMenu>
+      {trailing}
     </div>
   );
 }

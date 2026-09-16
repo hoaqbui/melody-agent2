@@ -8,10 +8,15 @@ import {
   moveTab,
   openPane,
   resize,
+  resizeColumn,
+  restoreColumns,
   restoreDock,
   setMode,
   show,
   tearOff,
+  DEFAULT_COLUMNS,
+  MAX_COLUMN_PX,
+  MIN_COLUMN_PX,
   type PaneId,
   type PaneLayout,
 } from './pane-store';
@@ -203,6 +208,30 @@ describe('restoreDock', () => {
     expect(sumOf(layout)).toBeCloseTo(1);
     expect(restoreDock(empty, [])).toBe(empty);
     expect(restoreDock(empty, [{ tabs: [], active: 'files', size: 1 }])).toBe(empty);
+  });
+});
+
+describe('columns', () => {
+  it('starts at the defaults and resizes one column at a time, clamped and whole', () => {
+    const layout = initialLayout();
+    expect(layout.columns).toEqual(DEFAULT_COLUMNS);
+    const wider = resizeColumn(layout, 'work', 600.4);
+    expect(wider.columns).toEqual({ ...DEFAULT_COLUMNS, work: 600 });
+    expect(resizeColumn(wider, 'sessions', 10).columns.sessions).toBe(MIN_COLUMN_PX);
+    expect(resizeColumn(wider, 'sessions', 99999).columns.sessions).toBe(MAX_COLUMN_PX);
+    expect(resizeColumn(wider, 'work', 600)).toBe(wider);
+  });
+
+  it('restores saved widths and keeps the default for anything unusable', () => {
+    const layout = initialLayout();
+    expect(restoreColumns(layout, null)).toBe(layout);
+    expect(restoreColumns(layout, { sessions: 320, work: 500 }).columns).toEqual({
+      sessions: 320,
+      work: 500,
+    });
+    const partial = restoreColumns(layout, { sessions: Number.NaN, work: 900 } as never);
+    expect(partial.columns).toEqual({ sessions: DEFAULT_COLUMNS.sessions, work: 900 });
+    expect(restoreColumns(layout, { work: 'wide' } as never)).toBe(layout);
   });
 });
 

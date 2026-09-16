@@ -27,12 +27,19 @@ export interface Panel {
   size: number;
 }
 
+// The three columns' fixed widths, in px; Chat takes what is left (task 60).
+export interface Columns {
+  sessions: number;
+  work: number;
+}
+
 export interface PaneLayout {
   mode: LayoutMode;
   // Desktop only: the right dock, top to bottom; empty is chat alone.
   dock: readonly Panel[];
   // Phone only: the one thing on screen; there is no split at phone width.
   visible: 'chat' | PaneId;
+  columns: Columns;
 }
 
 // A panel as it persists: the id is minted again on restore, since ids are never reused.
@@ -40,12 +47,17 @@ export type SavedPanel = Pick<Panel, 'tabs' | 'active' | 'size'>;
 
 const MIN_PANEL_SIZE = 0.1;
 
+export const DEFAULT_COLUMNS: Columns = { sessions: 280, work: 480 };
+// Narrower than this a session row or a pane strip stops being readable.
+export const MIN_COLUMN_PX = 200;
+export const MAX_COLUMN_PX = 1200;
+
 export function modeForWidth(widthPx: number): LayoutMode {
   return widthPx <= PHONE_MAX_WIDTH_PX ? 'phone' : 'desktop';
 }
 
 export function initialLayout(mode: LayoutMode = 'desktop'): PaneLayout {
-  return { mode, dock: [], visible: 'chat' };
+  return { mode, dock: [], visible: 'chat', columns: DEFAULT_COLUMNS };
 }
 
 // Ids are never reused, so a panel that disappears and a later one never share a key.
@@ -173,6 +185,25 @@ export function show(layout: PaneLayout, target: 'chat' | PaneId): PaneLayout {
   return { ...layout, visible: target };
 }
 
+// A seam drag: the column takes the width, clamped; the chat gives or takes the difference.
+export function resizeColumn(layout: PaneLayout, column: keyof Columns, width: number): PaneLayout {
+  const clamped = Math.round(Math.min(Math.max(width, MIN_COLUMN_PX), MAX_COLUMN_PX));
+  if (clamped === layout.columns[column]) return layout;
+  return { ...layout, columns: { ...layout.columns, [column]: clamped } };
+}
+
+// A saved width that is not a usable number keeps the default.
+export function restoreColumns(layout: PaneLayout, saved: Partial<Columns> | null): PaneLayout {
+  if (!saved) return layout;
+  let next = layout;
+  for (const column of ['sessions', 'work'] as const) {
+    const width = saved[column];
+    if (typeof width === 'number' && Number.isFinite(width))
+      next = resizeColumn(next, column, width);
+  }
+  return next;
+}
+
 // Shrinking folds the dock away behind the chat; growing back opens what the phone showed.
 export function setMode(layout: PaneLayout, mode: LayoutMode): PaneLayout {
   if (layout.mode === mode) return layout;
@@ -211,6 +242,7 @@ export interface PaneStore {
   moveTab(id: PaneId, panelIndex: number, position: number): void;
   movePanel(from: number, to: number): void;
   resize(index: number, size: number): void;
+  resizeColumn(column: keyof Columns, width: number): void;
   closePane(id: PaneId): void;
   show(target: 'chat' | PaneId): void;
   setMode(mode: LayoutMode): void;
@@ -235,6 +267,7 @@ export function createPaneStore(initial: PaneLayout = initialLayout()): PaneStor
     moveTab: (id, panelIndex, position) => apply(moveTab(state, id, panelIndex, position)),
     movePanel: (from, to) => apply(movePanel(state, from, to)),
     resize: (index, size) => apply(resize(state, index, size)),
+    resizeColumn: (column, width) => apply(resizeColumn(state, column, width)),
     closePane: (id) => apply(closePane(state, id)),
     show: (target) => apply(show(state, target)),
     setMode: (mode) => apply(setMode(state, mode)),

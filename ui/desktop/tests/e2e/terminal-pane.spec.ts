@@ -10,6 +10,7 @@ test.describe('terminal pane', () => {
       timeout: 15000,
     });
 
+    await goosePage.locator('[data-testid="workspace-mode"]').click();
     await goosePage.locator('[data-testid="workspace-mode-direct"]').click();
     const hubInput = goosePage.locator('[data-testid="chat-input"]');
     await hubInput.fill('Respond with the single word hello.');

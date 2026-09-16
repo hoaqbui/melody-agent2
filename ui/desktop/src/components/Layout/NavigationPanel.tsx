@@ -312,10 +312,7 @@ export const Navigation: React.FC<{ className?: string }> = ({ className }) => {
       animate={{ opacity: 1 }}
       exit={{ opacity: 0 }}
       transition={{ duration: 0.15 }}
-      className={cn(
-        'app-sidebar bg-background-primary outline-none flex flex-col h-full',
-        className
-      )}
+      className={cn('bg-background-primary outline-none flex flex-col h-full', className)}
     >
       <div className="h-[48px] no-drag" />
 

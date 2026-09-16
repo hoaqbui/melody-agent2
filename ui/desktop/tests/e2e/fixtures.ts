@@ -181,8 +181,8 @@ export const test = base.extend<GooseTestFixtures>({
 
 export { expect } from '@playwright/test';
 
-// The header's pane menu (task 40): Terminal, Changes and Browser are buttons, the rest
-// sit under ⋯. A click opens the pane into the dock's top panel (task 42).
+// The pane menu (task 40) on the rail (task 60): Terminal, Changes and Browser are buttons,
+// the rest sit under ⋯. A click opens the pane into the dock's top panel (task 42).
 export async function openPane(page: Page, id: string): Promise<void> {
   const button = page.locator(`[data-testid="workspace-pane-button-${id}"]`);
   if ((await button.count()) > 0) {

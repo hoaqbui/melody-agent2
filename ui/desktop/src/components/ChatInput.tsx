@@ -1,5 +1,5 @@
 import { AppEvents } from '../constants/events';
-import React, { useRef, useState, useEffect, useMemo, useCallback } from 'react';
+import React, { useRef, useState, useEffect, useMemo, useCallback, useContext } from 'react';
 import { ArrowUp, Bug, ScrollText } from 'lucide-react';
 import { Tooltip, TooltipContent, TooltipTrigger } from './ui/Tooltip';
 import { Button } from './ui/button';
@@ -41,6 +41,13 @@ import { getTextDirection } from '../utils/textDirection';
 import { defineMessages, useIntl } from '../i18n';
 import TurndownService from 'turndown';
 import type { NextChatExtensionDraft } from '../utils/nextChatExtensions';
+
+// The workspace's session chips (Runtime · Mode), rendered left of the model chip when the
+// shell provides them for this input's session (hidden chats stay mounted and get none);
+// upstream's Hub and chat render nothing here (task 60).
+export const SessionChipsSlot = React.createContext<
+  ((sessionId: string | null) => React.ReactNode) | null
+>(null);
 
 const turndown = new TurndownService({
   headingStyle: 'atx',
@@ -348,6 +355,7 @@ export default function ChatInput({
   // Only the model selector, mic, and send button remain visible.
   const bottomBarRef = useRef<HTMLDivElement>(null);
   const [isBottomBarNarrow, setIsBottomBarNarrow] = useState(false);
+  const sessionChips = useContext(SessionChipsSlot)?.(sessionId);
   useEffect(() => {
     const el = bottomBarRef.current;
     if (!el) return;
@@ -1719,6 +1727,12 @@ export default function ChatInput({
           (e.g. on a small window), the secondary controls drop out so the
           model selector + send button always stay visible. */}
       <div ref={bottomBarRef} className="flex flex-row items-center gap-2 px-3 py-2 relative">
+        {sessionChips && (
+          <div className="group contents" data-narrow={isBottomBarNarrow || undefined}>
+            {sessionChips}
+          </div>
+        )}
+
         {/* Left: model selector */}
         <Tooltip>
           <div>
