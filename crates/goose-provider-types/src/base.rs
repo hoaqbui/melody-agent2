@@ -640,6 +640,13 @@ pub trait Provider: Send + Sync {
         !self.manages_own_context()
     }
 
+    /// Whether the provider delivers the system prompt to the model. ACP
+    /// adapters have no system channel: callers that need instructions to
+    /// reach such a provider must put them in the first user prompt.
+    fn accepts_system_prompt(&self) -> bool {
+        true
+    }
+
     /// Configure OAuth authentication for this provider
     ///
     /// This method is called when a provider has configuration keys marked with oauth_flow = true.

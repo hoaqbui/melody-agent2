@@ -191,17 +191,6 @@ re-checked at the fork base `426967d` (v1.51.0, 2026-09-15): all hold;
 
 ### docs/2026-09-15-goose-spine-bridge-plan-v1.md
 
-- 21. Fold the rendered role prompt into an ACP child's first user message: add `fn accepts_system_prompt(&self) -> bool { true }` to the `Provider` trait in `crates/goose-provider-types/src/base.rs` (beside `manages_own_context`, `:631`), return `false` from `AcpProvider` in `crates/goose/src/acp/provider.rs` (beside `:803`), and in `crates/goose/src/agents/subagent_handler.rs` build the first user message as `subagent_prompt` + `"\n\n---\n\n"` + `user_task` when `task_config.provider.accepts_system_prompt()` is false (pure helper `first_user_message(accepts_system_prompt, subagent_prompt, user_task) -> Message`, called at `:170`).
-  - status: doing · agent: claude-session-opus-2 (20:42, worker via agy) · worker: medium
-  - card: as a delegated worker on an ACP runtime, receive the role I was summoned as so that `.agents/agents/*.md` bodies are the contract on every runtime, not only print-mode ones (spine research §Critical: role instruction gap)
-  - context:
-    - `override_system_prompt(subagent_prompt)` at `subagent_handler.rs:167` stays — Goose-native and `claude-code` children keep reading it; the fold is additive for providers that drop `_system`
-    - `claude-code` (`claude_code.rs:680` `manages_own_context` true) still passes the system prompt via `--system-prompt-file` (`:378`) — do not key the fold on `manages_own_context`; that is why the new method exists
-    - the conversation persisted for the child (`:171` `Conversation::new_unvalidated`) carries the folded message — the transcript then shows the role, which is what task 24 checks
-    - tests beside `subagent_handler.rs:319` `#[cfg(test)]`: `subagent_first_prompt_carries_role_body_when_system_is_dropped` (false → text starts with the role prompt and ends with the task) and `subagent_first_prompt_is_the_task_when_system_is_accepted` (true → text equals the task)
-    - upstream-shaped: file a Ready issue against `aaif-goose/goose` naming `acp/provider.rs:820`; do not wait on it
-  - confirm: `source bin/activate-hermit && cargo test -p goose --lib subagent_first_prompt 2>&1 | grep -E 'test result: ok\. 2 passed'; echo exit=$?` → the `test result` line, then `exit=0` (untouched tree: no match, `exit=1`)
-
 - 22. Add `crates/goose/src/agents/session_bridge.rs` (registered in `agents/mod.rs`): a lazily started loopback `axum` listener (`127.0.0.1:0`, per-process random secret) serving `POST /mcp/{session_id}` as stateless MCP JSON-RPC — `initialize`, `notifications/initialized` (202), `ping`, `tools/list` (the session agent's tools whose extension is `summon`, published under their unprefixed names), `tools/call` (dispatched through `agent.extension_manager.dispatch_tool_call` with `ToolCallContext::new(session_id, Some(working_dir), None)` and a `CancellationToken` cancelled when the request future drops) — with `SessionBridge::global()`, `register(session_id, Weak<Agent>, working_dir)`, `unregister(session_id)`, and `extension_config(session_id) -> ExtensionConfig::StreamableHttp { name: "goose", uri, headers: {"X-Secret-Key": secret} }`.
   - status: todo · agent: — · worker: high
   - card: as an orchestrator running on a subscription runtime, call Goose's `delegate` and `load` so that delegation, child-session lineage and transcripts stay Goose's whatever harness is thinking (spine research §Options → pick; `ARCHITECTURE.md` §Modules, spine)

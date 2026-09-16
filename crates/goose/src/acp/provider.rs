@@ -804,6 +804,10 @@ impl Provider for AcpProvider {
         true
     }
 
+    fn accepts_system_prompt(&self) -> bool {
+        false
+    }
+
     async fn handle_permission_confirmation(
         &self,
         request_id: &str,

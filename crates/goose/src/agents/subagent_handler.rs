@@ -165,9 +165,12 @@ fn get_agent_messages(params: SubagentRunParams) -> AgentMessagesFuture {
 
         let subagent_prompt =
             build_subagent_prompt(&agent, &task_config, &session_id, system_instructions).await?;
+        let user_message = first_user_message(
+            task_config.provider.accepts_system_prompt(),
+            &subagent_prompt,
+            &user_task,
+        );
         agent.override_system_prompt(subagent_prompt).await;
-
-        let user_message = Message::user().with_text(user_task);
         let mut conversation = Conversation::new_unvalidated(vec![user_message.clone()]);
 
         agent
@@ -241,6 +244,17 @@ fn get_agent_messages(params: SubagentRunParams) -> AgentMessagesFuture {
 
         Ok((conversation, final_output))
     })
+}
+
+fn first_user_message(
+    accepts_system_prompt: bool,
+    subagent_prompt: &str,
+    user_task: &str,
+) -> Message {
+    if accepts_system_prompt {
+        return Message::user().with_text(user_task);
+    }
+    Message::user().with_text(format!("{subagent_prompt}\n\n---\n\n{user_task}"))
 }
 
 async fn build_subagent_prompt(
@@ -318,7 +332,7 @@ pub fn create_tool_notification(
 
 #[cfg(test)]
 mod tests {
-    use super::{create_tool_notification, SUBAGENT_TOOL_REQUEST_TYPE};
+    use super::{create_tool_notification, first_user_message, SUBAGENT_TOOL_REQUEST_TYPE};
     use crate::conversation::message::MessageContent;
     use rmcp::model::{CallToolRequestParams, ServerNotification};
     use serde_json::json;
@@ -362,5 +376,20 @@ mod tests {
     fn create_tool_notification_ignores_non_tool_request() {
         let content = MessageContent::text("hello");
         assert!(create_tool_notification(&content, "session_1").is_none());
+    }
+
+    #[test]
+    fn subagent_first_prompt_carries_role_body_when_system_is_dropped() {
+        let message = first_user_message(false, "You are the reviewer.", "Review the diff.");
+        let text = message.as_concat_text();
+        assert!(text.starts_with("You are the reviewer."));
+        assert!(text.ends_with("Review the diff."));
+        assert!(text.contains("\n\n---\n\n"));
+    }
+
+    #[test]
+    fn subagent_first_prompt_is_the_task_when_system_is_accepted() {
+        let message = first_user_message(true, "You are the reviewer.", "Review the diff.");
+        assert_eq!(message.as_concat_text(), "Review the diff.");
     }
 }
