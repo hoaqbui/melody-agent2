@@ -37,6 +37,8 @@ export type ViewOptions = {
   // The workspace opens this pane on arrival (task 53: the Runs inbox lands on Changes).
   openPane?: PaneId;
   diffBase?: DiffBase;
+  // Schedules opens on this routine's detail (task 59: the run session's chip links back).
+  scheduleId?: string;
 };
 
 export const createNavigationHandler = (navigate: NavigateFunction) => {

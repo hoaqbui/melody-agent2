@@ -30,6 +30,7 @@ import {
   GitBranch,
   GitCompare,
   Globe,
+  Repeat,
   Smartphone,
   Terminal,
 } from 'lucide-react';
@@ -91,8 +92,16 @@ import { Dock, loadDock, saveDock } from './Dock';
 import type { PaneChrome } from './Panel';
 import { presetDiffBase } from './panes/diff/diff-store';
 import { loadProjectEntry, saveProjectEntry } from './project-storage';
-import { MODE_MESSAGES, SessionChips, WorktreeChip, type RuntimeOption } from './SessionChips';
+import {
+  MODE_MESSAGES,
+  RoutineChip,
+  SessionChips,
+  WorktreeChip,
+  type RuntimeOption,
+} from './SessionChips';
 import { SessionControls } from './SessionControls';
+import { RoutineSheet } from './routine/RoutineSheet';
+import { firstUserPrompt } from './routine/routine';
 import { Lever, STOP_MESSAGES } from './Lever';
 import { TerminalPane } from './panes/terminal/TerminalPane';
 import { newWorktreeSlug, worktreeSlugOf } from './worktree';
@@ -120,6 +129,11 @@ const i18n = defineMessages({
   optionFailed: { id: 'workspaceShell.optionFailed', defaultMessage: "Couldn't change {option}" },
   advancedControls: { id: 'workspaceShell.advancedControls', defaultMessage: 'Advanced controls' },
   openOnPhone: { id: 'workspaceShell.openOnPhone', defaultMessage: 'Open on phone…' },
+  saveRoutine: { id: 'workspaceShell.saveRoutine', defaultMessage: 'Save as routine…' },
+  routineNoSession: {
+    id: 'workspaceShell.routineNoSession',
+    defaultMessage: 'Open a session first',
+  },
   paneUnavailable: { id: 'workspaceShell.paneUnavailable', defaultMessage: 'Not available yet' },
   paneFiles: { id: 'workspaceShell.paneFiles', defaultMessage: 'Files' },
   paneEditor: { id: 'workspaceShell.paneEditor', defaultMessage: 'Editor' },
@@ -199,11 +213,21 @@ interface RailProps {
   advanced: boolean;
   onToggleAdvanced(): void;
   onOpenPhone(): void;
+  // Undefined before a session: there is nothing to save yet (task 59).
+  onSaveRoutine?: () => void;
 }
 
 // The pane launchers, Terminal · Changes · Browser · ⋯; pressed = the pane is showing. One
 // layoutId per element, so the rail slides into the strip and back out (Into Rule).
-function Rail({ layout, onOpen, docked, advanced, onToggleAdvanced, onOpenPhone }: RailProps) {
+function Rail({
+  layout,
+  onOpen,
+  docked,
+  advanced,
+  onToggleAdvanced,
+  onOpenPhone,
+  onSaveRoutine,
+}: RailProps) {
   const intl = useIntl();
   const open = (id: PaneId) => (event: MouseEvent) => onOpen(id, event.shiftKey);
   const tooltipSide = docked ? 'bottom' : 'left';
@@ -308,6 +332,16 @@ function Rail({ layout, onOpen, docked, advanced, onToggleAdvanced, onOpenPhone 
             <DropdownMenuItem data-testid="workspace-open-phone" onClick={onOpenPhone}>
               <Smartphone />
               {intl.formatMessage(i18n.openOnPhone)}
+            </DropdownMenuItem>
+            {/* Easy has no Session controls chip, so the sheet (task 59) opens from here too. */}
+            <DropdownMenuItem
+              disabled={!onSaveRoutine}
+              title={onSaveRoutine ? undefined : intl.formatMessage(i18n.routineNoSession)}
+              data-testid="workspace-rail-save-routine"
+              onClick={onSaveRoutine}
+            >
+              <Repeat />
+              {intl.formatMessage(i18n.saveRoutine)}
             </DropdownMenuItem>
           </DropdownMenuContent>
         </DropdownMenu>
@@ -443,6 +477,9 @@ export function WorkspaceShell({ chat, children, panes, paneStore }: WorkspaceSh
   const [workspaceUi, setWorkspaceUi] = useState<WorkspaceUi | undefined>();
   // The file the Editor shows, picked in Files (PRD step 4).
   const [file, setFile] = useState<string | null>(null);
+  // The sheet's prefill, taken when "Save as routine…" is pressed so edits stay put
+  // while the transcript streams on; null is the sheet closed (task 59).
+  const [routine, setRoutine] = useState<{ title: string; instructions: string } | null>(null);
 
   const cwd = session?.working_dir ?? getInitialWorkingDir();
   const currentRuntime =
@@ -707,6 +744,24 @@ export function WorkspaceShell({ chat, children, panes, paneStore }: WorkspaceSh
     [cwd, file, layout.mode, openFile, snapshot?.messages]
   );
 
+  // The transcript is read at the click, not closed over: it streams, the chips do not.
+  const sessionName = session?.name;
+  const openRoutine = useCallback(() => {
+    if (sessionName === undefined) return;
+    const prefill = {
+      title: sessionName,
+      instructions: firstUserPrompt(acpChatSessionStore.getSnapshot(sessionId)?.messages ?? []),
+    };
+    // A modal opened from a menu item's own click keeps that menu on screen (its close
+    // never finishes under the new focus scope), so the sheet opens once the menu has gone.
+    window.setTimeout(() => setRoutine(prefill), 0);
+  }, [sessionId, sessionName]);
+  const saveRoutine = sessionName === undefined ? undefined : openRoutine;
+  const openSchedule = useCallback(
+    (scheduleId: string) => setView('schedules', { scheduleId }),
+    [setView]
+  );
+
   const runtimeOptions = useMemo<RuntimeOption[]>(() => {
     const options = RUNTIMES.map((runtime) => ({ ...runtime, more: false }));
     const more = moreRuntimes(providers).map((runtime) => ({ ...runtime, more: true }));
@@ -748,6 +803,7 @@ export function WorkspaceShell({ chat, children, panes, paneStore }: WorkspaceSh
             busy={busy}
             onToggle={toggleWorktree}
           />
+          <RoutineChip session={session} onOpen={openSchedule} />
         </>
       ) : (
         <>
@@ -777,7 +833,9 @@ export function WorkspaceShell({ chat, children, panes, paneStore }: WorkspaceSh
             onSetOption={setConfigOption}
             onOpenFiles={() => store.openPane('files')}
             onOpenExtensions={() => setView('extensions')}
+            onSaveRoutine={saveRoutine}
           />
+          <RoutineChip session={session} onOpen={openSchedule} />
         </>
       ),
     [
@@ -789,12 +847,15 @@ export function WorkspaceShell({ chat, children, panes, paneStore }: WorkspaceSh
       currentStop,
       cwd,
       extensionsEnabled,
+      openSchedule,
       orchestratorRole?.name,
       pickMode,
       pickRuntime,
       pickStop,
       providers,
       runtimeOptions,
+      saveRoutine,
+      session,
       sessionCwd,
       sessionModel,
       sessionStatus,
@@ -906,6 +967,7 @@ export function WorkspaceShell({ chat, children, panes, paneStore }: WorkspaceSh
       advanced={workspaceUi === 'advanced'}
       onToggleAdvanced={toggleAdvanced}
       onOpenPhone={() => setView('settings', { section: 'phone' })}
+      onSaveRoutine={saveRoutine}
     />
   );
 
@@ -978,6 +1040,17 @@ export function WorkspaceShell({ chat, children, panes, paneStore }: WorkspaceSh
           <div className="pointer-events-auto">{rail}</div>
         </div>
       )}
+
+      <RoutineSheet
+        open={routine !== null}
+        onOpenChange={(open) => !open && setRoutine(null)}
+        sessionId={sessionId}
+        title={routine?.title ?? ''}
+        instructions={routine?.instructions ?? ''}
+        options={configOptions}
+        cwd={cwd}
+        onSaved={() => setView('schedules')}
+      />
     </div>
   );
 }

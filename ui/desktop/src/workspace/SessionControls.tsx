@@ -27,7 +27,7 @@ const i18n = defineMessages({
     defaultMessage: '{count, plural, one {# extension} other {# extensions}} enabled',
   },
   saveRoutine: { id: 'workspaceShell.saveRoutine', defaultMessage: 'Save as routine…' },
-  notYet: { id: 'workspaceShell.paneUnavailable', defaultMessage: 'Not available yet' },
+  noSession: { id: 'workspaceShell.routineNoSession', defaultMessage: 'Open a session first' },
 });
 
 export interface SessionControlsProps {
@@ -40,6 +40,8 @@ export interface SessionControlsProps {
   onSetOption(configId: string, value: string): void;
   onOpenFiles(): void;
   onOpenExtensions(): void;
+  // Undefined before a session: there is nothing to save yet (task 59).
+  onSaveRoutine?: () => void;
 }
 
 const heading = 'text-xs text-text-secondary';
@@ -53,6 +55,7 @@ export function SessionControls({
   onSetOption,
   onOpenFiles,
   onOpenExtensions,
+  onSaveRoutine,
 }: SessionControlsProps) {
   const intl = useIntl();
   return (
@@ -125,9 +128,10 @@ export function SessionControls({
           {intl.formatMessage(i18n.extensions, { count: extensionsEnabled })}
         </DropdownMenuItem>
         <DropdownMenuItem
-          disabled
-          title={intl.formatMessage(i18n.notYet)}
+          disabled={!onSaveRoutine}
+          title={onSaveRoutine ? undefined : intl.formatMessage(i18n.noSession)}
           data-testid="workspace-save-routine"
+          onClick={onSaveRoutine}
         >
           {intl.formatMessage(i18n.saveRoutine)}
         </DropdownMenuItem>

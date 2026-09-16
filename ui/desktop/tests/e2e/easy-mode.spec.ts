@@ -84,10 +84,14 @@ test.describe('easy mode', () => {
       await expect(menu.locator('[data-testid="workspace-extensions"]')).toHaveText(
         /\d+ extensions? enabled/
       );
-      await expect(menu.locator('[data-testid="workspace-save-routine"]')).toHaveAttribute(
-        'data-disabled',
-        ''
-      );
+      // Task 59: enabled once a session is open; Easy's ⋯ menu carries it too.
+      await expect(menu.locator('[data-testid="workspace-save-routine"]')).toBeVisible();
+      if (hardReachable) {
+        await expect(menu.locator('[data-testid="workspace-save-routine"]')).not.toHaveAttribute(
+          'data-disabled',
+          ''
+        );
+      }
       await goosePage.screenshot({ path: test.info().outputPath('advanced-controls.png') });
       await goosePage.keyboard.press('Escape');
       await expect(menu).toHaveCount(0);

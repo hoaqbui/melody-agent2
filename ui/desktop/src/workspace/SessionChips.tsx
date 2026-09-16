@@ -2,12 +2,15 @@
 // a popover with the rows the header used to hold — Install and "no orchestrator role in
 // this project" kept. Sits left of the model chip, which keeps naming the model; the
 // Runtime chip names the provider (DESIGN.md Named Runtime Rule). The Worktree chip
-// (task 49) is a toggle, not a menu, and the shell shows it in both faces.
+// (task 49) is a toggle, not a menu, and the shell shows it in both faces; so is the
+// Routine chip (task 59), a link back from a routine's run to its schedule.
 
-import type { ComponentType } from 'react';
-import { Cpu, GitBranch, Workflow } from 'lucide-react';
+import { useEffect, useState, type ComponentType } from 'react';
+import { Cpu, GitBranch, Repeat, Workflow } from 'lucide-react';
 import { defineMessages, useIntl } from '../i18n';
 import { cn } from '../utils';
+import { acpListScheduleRuns } from '../acp/schedules';
+import type { Session } from '../types/session';
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -51,6 +54,12 @@ const i18n = defineMessages({
     id: 'workspaceShell.worktreeCargo',
     defaultMessage: 'A Rust worktree rebuilds target/ unless CARGO_TARGET_DIR is shared.',
   },
+  routine: { id: 'workspaceShell.routine', defaultMessage: 'Routine: {title}' },
+  routineOpen: {
+    id: 'workspaceShell.routineOpen',
+    defaultMessage: 'Open the routine on Schedules',
+  },
+  routineFinding: { id: 'workspaceShell.routineFinding', defaultMessage: 'Finding the routine…' },
 });
 
 export const MODE_MESSAGES = { direct: i18n.direct, orchestrate: i18n.orchestrate } as const;
@@ -153,6 +162,56 @@ export function WorktreeChip({ slug, cwd, busy, onToggle }: WorktreeChipProps) {
       <GitBranch className="size-4 shrink-0" />
       <span className={cn('max-w-[160px] truncate group-data-[narrow]:hidden', on && 'font-mono')}>
         {on ? worktreeBranch(slug) : name}
+      </span>
+    </button>
+  );
+}
+
+export interface RoutineChipProps {
+  session: Session | undefined;
+  onOpen(scheduleId: string): void;
+}
+
+// How many runs back the chip looks for its own session's schedule.
+const RUNS_LOOKBACK = 200;
+
+// "Routine: <title>" on a scheduled run's session: the recipe names the routine, the runs
+// list names the schedule it links to (a session carries no schedule id on the wire).
+export function RoutineChip({ session, onOpen }: RoutineChipProps) {
+  const intl = useIntl();
+  const sessionId = session?.session_type === 'scheduled' ? session.id : null;
+  const [scheduleId, setScheduleId] = useState<string | null>(null);
+
+  useEffect(() => {
+    setScheduleId(null);
+    if (!sessionId) return;
+    let cancelled = false;
+    acpListScheduleRuns(RUNS_LOOKBACK)
+      .then((runs) => {
+        if (cancelled) return;
+        setScheduleId(runs.find((run) => run.sessionId === sessionId)?.scheduleId ?? null);
+      })
+      .catch(console.error);
+    return () => {
+      cancelled = true;
+    };
+  }, [sessionId]);
+
+  if (!session || !sessionId) return null;
+  const title = session.recipe?.title || session.name;
+  return (
+    <button
+      type="button"
+      className={chipClass}
+      title={intl.formatMessage(scheduleId ? i18n.routineOpen : i18n.routineFinding)}
+      disabled={scheduleId === null}
+      data-testid="workspace-routine"
+      data-schedule-id={scheduleId ?? undefined}
+      onClick={() => scheduleId && onOpen(scheduleId)}
+    >
+      <Repeat className="size-4 shrink-0" />
+      <span className="max-w-[160px] truncate group-data-[narrow]:hidden">
+        {intl.formatMessage(i18n.routine, { title })}
       </span>
     </button>
   );
