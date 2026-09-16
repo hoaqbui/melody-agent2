@@ -196,15 +196,6 @@ Planned 2026-09-15 21:25 from PRD steps 10–12 and the spine research §Activit
 
 User, 2026-09-16 00:15: "research it, plan it, and orchestrate it with sub agents" — the three gaps named in the parity comparison. Research first; the plan follows from these docs and waits on approval before source edits.
 
-- 44. Research worktree-per-task in `docs/2026-09-16-worktrees-research-v1.md`: how a Goose session (or a delegated child) can run in its own git worktree of the project — creation on session start or on `delegate`, the cwd the adapter and the sidecar see, the Changes/Git panes against that worktree, merge-back into the main checkout, cleanup — against the tree as it is (`crates/goose/src/session/session_manager.rs` `working_dir`, `summon.rs` child cwd, `ui/sidecar/src/git.ts`, `acp/server/new_session.rs` cwd handling) and against how Codex desktop does it (one worktree per thread, ~0.8 s, ~120 MB; review queue merges).
-  - status: doing · agent: subagent-t44 via claude-session-opus-2 (00:20, worktree, read-only) · worker: medium
-  - card: as the user, run several agents on the same repo at once without them stepping on each other's files so that parallel delegation is safe (Codex parity gap 1; PRD §Scope had it out at V0 — this research reopens it)
-  - context:
-    - the sidecar already owns git for the panes; the question is who owns worktree lifecycle — `goose serve` (session-bound), the sidecar (workspace IO), or the shell
-    - children today share the parent's cwd (`summon.rs` `build_task_config` working dir); a child in a worktree changes what `delegate` returns (a branch name, not edits in place)
-    - Goose upstream may have a worktree feature or issue — check `rg -n worktree crates/ ui/desktop/src` and the upstream issue tracker (URL + date)
-  - confirm: `test -f docs/2026-09-16-worktrees-research-v1.md && grep -c '^## Options' docs/2026-09-16-worktrees-research-v1.md` → `1`
-
 - 45. Research accept/reject per hunk in the Changes pane in `docs/2026-09-16-hunk-review-research-v1.md`: applying or reverting a single hunk of the working tree (`git apply --cached` / `git apply -R` on a hunk patch, or `git checkout -p`-style), what `@codemirror/merge` exposes for per-chunk accept (`mergeControls`, `acceptChunk`/`rejectChunk`), the sidecar route shape, and how "since session start" interacts (a reverted hunk vs a base that is not HEAD) — against `ui/desktop/src/workspace/panes/diff/*` and `ui/sidecar/src/git.ts` as landed by task 14.
   - status: doing · agent: subagent-t45 via claude-session-opus-2 (00:20, worktree, read-only) · worker: medium
   - card: as the user, keep the good half of an agent's change and drop the rest without leaving the window so that review ends in a commit, not a manual edit (Codex parity gap 2; PRD decision 5 had view-only at V0 — this research reopens it)
