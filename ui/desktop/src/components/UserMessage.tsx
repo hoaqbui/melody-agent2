@@ -328,7 +328,7 @@ function UserMessage({ message, onMessageUpdate }: UserMessageProps) {
               <div className="flex flex-col group">
                 {textContent.trim() && (
                   <div
-                    className="user-message-bubble flex bg-text-primary text-background-primary rounded-xl py-2.5 px-4"
+                    className="user-message-bubble flex bg-text-primary text-background-primary rounded-panel py-2.5 px-4"
                     dir={messageDir}
                   >
                     <div ref={contentRef}>

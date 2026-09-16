@@ -24,7 +24,7 @@ const buttonVariants = cva(
         lg: 'h-10',
       },
       shape: {
-        pill: 'rounded-md',
+        pill: 'rounded-control',
         round: '',
       },
     },

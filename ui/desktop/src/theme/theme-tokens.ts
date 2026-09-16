@@ -145,59 +145,64 @@ const lightColorTokens: ColorTokens = {
 };
 
 // ---------------------------------------------------------------------------
-// Dark theme — colors & shadows
+// Dark theme — Charcoal Monokai (user, 2026-09-16; DESIGN.md §Tokens & theme)
+// Charcoal surfaces with the Monokai accents on the semantic roles. Surfaces
+// carry alpha so the main window's macOS vibrancy shows through the glass
+// (DESIGN.md Glass Rule); without vibrancy they fall over the window's own
+// charcoal and read as plain charcoal. Borders are near-invisible hairlines:
+// surfaces separate by elevation, not lines (DESIGN.md Surfaces Float).
 // ---------------------------------------------------------------------------
 const darkColorTokens: ColorTokens = {
   // Backgrounds
-  '--color-background-primary': '#22252a',
-  '--color-background-secondary': '#3f434b',
-  '--color-background-tertiary': '#474e57',
-  '--color-background-inverse': '#cbd1d6',
+  '--color-background-primary': 'rgba(28, 28, 28, 0.8)',
+  '--color-background-secondary': 'rgba(36, 36, 36, 0.8)',
+  '--color-background-tertiary': 'rgba(44, 44, 44, 0.8)',
+  '--color-background-inverse': '#ae81ff',
   '--color-background-ghost': 'transparent',
-  '--color-background-info': '#7cacff',
-  '--color-background-danger': '#ff6b6b',
-  '--color-background-success': '#a3d795',
-  '--color-background-warning': '#ffd966',
-  '--color-background-disabled': '#474e57',
+  '--color-background-info': '#66d9ef',
+  '--color-background-danger': '#f92672',
+  '--color-background-success': '#a6e22e',
+  '--color-background-warning': '#e6db74',
+  '--color-background-disabled': '#2c2c2c',
 
   // Text
-  '--color-text-primary': '#ffffff',
-  '--color-text-secondary': '#878787',
-  '--color-text-tertiary': '#606c7a',
-  '--color-text-inverse': '#000000',
-  '--color-text-ghost': '#878787',
-  '--color-text-info': '#7cacff',
-  '--color-text-danger': '#ff6b6b',
-  '--color-text-success': '#a3d795',
-  '--color-text-warning': '#ffd966',
-  '--color-text-disabled': '#525b68',
+  '--color-text-primary': '#f8f8f2',
+  '--color-text-secondary': '#c8c8c2',
+  '--color-text-tertiary': '#7a7a72',
+  '--color-text-inverse': '#1c1c1c',
+  '--color-text-ghost': '#c8c8c2',
+  '--color-text-info': '#66d9ef',
+  '--color-text-danger': '#f92672',
+  '--color-text-success': '#a6e22e',
+  '--color-text-warning': '#e6db74',
+  '--color-text-disabled': '#7a7a72',
 
   // Borders
-  '--color-border-primary': '#3f434b',
-  '--color-border-secondary': '#525b68',
-  '--color-border-tertiary': '#474e57',
-  '--color-border-inverse': '#ffffff',
+  '--color-border-primary': 'rgba(248, 248, 242, 0.06)',
+  '--color-border-secondary': 'rgba(248, 248, 242, 0.06)',
+  '--color-border-tertiary': 'rgba(248, 248, 242, 0.06)',
+  '--color-border-inverse': '#f8f8f2',
   '--color-border-ghost': 'transparent',
-  '--color-border-info': '#7cacff',
-  '--color-border-danger': '#ff6b6b',
-  '--color-border-success': '#a3d795',
-  '--color-border-warning': '#ffd966',
-  '--color-border-disabled': '#3f434b',
+  '--color-border-info': '#66d9ef',
+  '--color-border-danger': '#f92672',
+  '--color-border-success': '#a6e22e',
+  '--color-border-warning': '#e6db74',
+  '--color-border-disabled': 'rgba(248, 248, 242, 0.06)',
 
   // Rings
-  '--color-ring-primary': '#525b68',
-  '--color-ring-secondary': '#474e57',
-  '--color-ring-inverse': '#000000',
-  '--color-ring-info': '#7cacff',
-  '--color-ring-danger': '#ff6b6b',
-  '--color-ring-success': '#a3d795',
-  '--color-ring-warning': '#ffd966',
+  '--color-ring-primary': '#ae81ff',
+  '--color-ring-secondary': '#3a3a3a',
+  '--color-ring-inverse': '#1c1c1c',
+  '--color-ring-info': '#66d9ef',
+  '--color-ring-danger': '#f92672',
+  '--color-ring-success': '#a6e22e',
+  '--color-ring-warning': '#e6db74',
 
-  // Shadows (darker for dark mode)
-  '--shadow-hairline': '0 0 0 1px rgba(0, 0, 0, 0.2)',
-  '--shadow-sm': '0 1px 2px 0 rgba(0, 0, 0, 0.2)',
-  '--shadow-md': '0 4px 6px -1px rgba(0, 0, 0, 0.3), 0 2px 4px -2px rgba(0, 0, 0, 0.2)',
-  '--shadow-lg': '0 10px 15px -3px rgba(0, 0, 0, 0.3), 0 4px 6px -4px rgba(0, 0, 0, 0.2)',
+  // Shadows — deep: elevation is what separates surfaces here
+  '--shadow-hairline': '0 0 0 1px rgba(0, 0, 0, 0.4)',
+  '--shadow-sm': '0 1px 2px 0 rgba(0, 0, 0, 0.5)',
+  '--shadow-md': '0 4px 6px -1px rgba(0, 0, 0, 0.65), 0 2px 4px -2px rgba(0, 0, 0, 0.5)',
+  '--shadow-lg': '0 10px 15px -3px rgba(0, 0, 0, 0.65), 0 4px 6px -4px rgba(0, 0, 0, 0.5)',
 };
 
 // ---------------------------------------------------------------------------

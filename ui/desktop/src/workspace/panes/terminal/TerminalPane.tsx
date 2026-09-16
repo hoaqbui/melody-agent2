@@ -60,7 +60,7 @@ interface TerminalPaneProps {
 
 export function TerminalPane({ ptyId, cwd }: TerminalPaneProps) {
   const intl = useIntl();
-  const { resolvedThemeId } = useTheme();
+  const { resolvedTheme } = useTheme();
   const phone = usePhoneWidth();
   const hostRef = useRef<HTMLDivElement>(null);
   const session = terminalSession(ptyId, cwd);
@@ -83,8 +83,8 @@ export function TerminalPane({ ptyId, cwd }: TerminalPaneProps) {
   }, [session]);
 
   useEffect(() => {
-    session.syncTheme();
-  }, [session, resolvedThemeId]);
+    session.syncTheme(resolvedTheme);
+  }, [session, resolvedTheme]);
 
   const keepTerminalFocus = (event: PointerEvent) => event.preventDefault();
 
