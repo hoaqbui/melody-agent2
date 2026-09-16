@@ -1,5 +1,6 @@
 use crate::agents::extension::PlatformExtensionContext;
 use crate::agents::mcp_client::{Error, McpClientTrait};
+use crate::agents::session_bridge::BRIDGE_EXTENSION_NAME;
 use crate::agents::subagent_handler::{
     run_subagent_task, OnMessageCallback, QuotaExhausted, SubagentRunParams,
 };
@@ -1687,7 +1688,7 @@ impl SummonClient {
             };
 
             let subagent_session = self
-                .create_subagent_session(&task_config, "Delegated task".to_string())
+                .create_subagent_session(&task_config, delegation_title(&params))
                 .await?;
 
             let subagent_session_id = subagent_session.id.clone();
@@ -2010,6 +2011,11 @@ impl SummonClient {
             Some(&session.extension_data),
             Config::global(),
         );
+        // The bridge entry is the parent's own door: a child that carries it
+        // can `delegate` as the parent, and the sub-agent guard never sees it.
+        // Stripped before the filter so an explicit `extensions: ["goose"]`
+        // cannot re-admit it.
+        extensions.retain(|extension| extension.name() != BRIDGE_EXTENSION_NAME);
 
         if let Some(filter) = &params.extensions {
             if filter.is_empty() {
@@ -2507,7 +2513,7 @@ impl SummonClient {
         agent_config.is_subagent = true;
 
         let subagent_session = self
-            .create_subagent_session(&task_config, description.clone())
+            .create_subagent_session(&task_config, delegation_title(&params))
             .await?;
 
         let task_id = subagent_session.id.clone();
@@ -3947,6 +3953,123 @@ You research."#,
                 .unwrap();
             assert_eq!(dead.session_type, SessionType::SubAgent);
         }
+    }
+
+    #[tokio::test]
+    #[serial]
+    async fn subagent_extensions_exclude_the_bridge() {
+        let _env = env_lock::lock_env([
+            ("GOOSE_SUBAGENT_PROVIDER", None::<&str>),
+            ("GOOSE_SUBAGENT_MODEL", None::<&str>),
+        ]);
+        providers::register_for_test::<WorkingDirStubProvider>().await;
+        let temp_dir = TempDir::new().unwrap();
+        let bridge = crate::agents::session_bridge::SessionBridge::global()
+            .await
+            .extension_config("parent");
+        let todo = crate::config::ExtensionConfig::Builtin {
+            name: "todo".to_string(),
+            description: String::new(),
+            display_name: None,
+            timeout: None,
+            bundled: None,
+            available_tools: Vec::new(),
+        };
+        let mut extension_data = Default::default();
+        EnabledExtensionsState::new(vec![bridge, todo])
+            .to_extension_data(&mut extension_data)
+            .unwrap();
+        let session = crate::session::Session {
+            working_dir: temp_dir.path().to_path_buf(),
+            extension_data,
+            ..Default::default()
+        };
+        let client = SummonClient::new(create_test_context()).unwrap();
+        let params = DelegateParams {
+            provider: Some(WORKING_DIR_STUB.to_string()),
+            model: Some("stub-model".to_string()),
+            ..Default::default()
+        };
+
+        let task_config = client
+            .build_task_config(&params, &empty_recipe(), &[], &session)
+            .await
+            .unwrap();
+        let names: Vec<String> = task_config
+            .extensions
+            .iter()
+            .map(|extension| extension.name())
+            .collect();
+        assert_eq!(names, ["todo"]);
+
+        // Asking for the bridge by name must not re-admit it.
+        let params = DelegateParams {
+            extensions: Some(vec![BRIDGE_EXTENSION_NAME.to_string()]),
+            ..params
+        };
+        let task_config = client
+            .build_task_config(&params, &empty_recipe(), &[], &session)
+            .await
+            .unwrap();
+        assert!(task_config.extensions.is_empty());
+    }
+
+    #[tokio::test]
+    #[serial]
+    async fn subagent_session_is_named_from_the_title() {
+        let _env = env_lock::lock_env([
+            ("GOOSE_SUBAGENT_PROVIDER", None::<&str>),
+            ("GOOSE_SUBAGENT_MODEL", None::<&str>),
+        ]);
+        providers::register_for_test::<AnswerStubProvider>().await;
+        let temp_dir = TempDir::new().unwrap();
+        let session_manager = Arc::new(crate::session::SessionManager::new(
+            temp_dir.path().to_path_buf(),
+        ));
+        let parent = session_manager
+            .create_session(
+                temp_dir.path().to_path_buf(),
+                "parent".to_string(),
+                SessionType::User,
+                GooseMode::Auto,
+            )
+            .await
+            .unwrap();
+        let client = SummonClient::new(create_test_context_with_session_manager(Arc::clone(
+            &session_manager,
+        )))
+        .unwrap();
+        let instructions = "Write the release notes\nThen list what changed.";
+        let arguments = serde_json::json!({
+            "instructions": instructions,
+            "provider": ANSWER_STUB,
+            "model": "answer-model",
+            "extensions": [],
+        });
+
+        let result = client
+            .handle_delegate(
+                &parent.id,
+                arguments.as_object().cloned(),
+                CancellationToken::new(),
+                None,
+                None,
+            )
+            .await
+            .unwrap();
+
+        let child_id = result.meta.unwrap().0["subagent_session_id"]
+            .as_str()
+            .unwrap()
+            .to_string();
+        let child = session_manager.get_session(&child_id, false).await.unwrap();
+        assert_eq!(child.name, "Write the release notes");
+        let params = DelegateParams {
+            instructions: Some(instructions.to_string()),
+            ..Default::default()
+        };
+        assert_eq!(child.name, delegation_title(&params));
+        assert_eq!(child.session_type, SessionType::SubAgent);
     }
 
     const PARENT_MODEL: &str = "claude-3-5-sonnet-20241022";
