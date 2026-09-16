@@ -1,0 +1,45 @@
+{
+  "name": "@melody/sidecar",
+  "version": "1.51.0",
+  "private": true,
+  "description": "The one process on the Mac that touches the machine for the workspace panes: pty, fs, git, the goose serve proxy, and the web build",
+  "license": "Apache-2.0",
+  "type": "module",
+  "main": "./dist/index.js",
+  "scripts": {
+    "typecheck": "tsc --noEmit",
+    "build": "tsc",
+    "bundle": "node scripts/bundle.mjs",
+    "test": "vitest run",
+    "lint": "eslint \"src/**/*.ts\" --max-warnings 0",
+    "format": "prettier --write \"src/**/*.ts\" scripts",
+    "format:check": "prettier --check \"src/**/*.ts\" scripts",
+    "depcruise": "depcruise src --config .dependency-cruiser.cjs"
+  },
+  "dependencies": {
+    "chokidar": "5.0.0",
+    "node-pty": "^1.1.0",
+    "ws": "^8.21.3"
+  },
+  "devDependencies": {
+    "@eslint/js": "^10.0.1",
+    "@types/node": "^26.2.0",
+    "@types/ws": "^8.18.1",
+    "@typescript-eslint/eslint-plugin": "^8.67.0",
+    "@typescript-eslint/parser": "^8.67.0",
+    "dependency-cruiser": "^18.3.1",
+    "esbuild": "^0.28.2",
+    "eslint": "^9.39.2",
+    "prettier": "^3.9.6",
+    "typescript": "~5.9.3",
+    "vitest": "^4.1.11"
+  },
+  "prettier": {
+    "semi": true,
+    "trailingComma": "es5",
+    "singleQuote": true,
+    "printWidth": 100,
+    "tabWidth": 2,
+    "useTabs": false
+  }
+}

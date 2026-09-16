@@ -31,6 +31,7 @@ import { installBackendCertificateVerifiers } from './backendCertificateVerifier
 import { configureProxy } from './proxy';
 import { startGooseServe } from './gooseServe';
 import { getLoginShellPath } from './loginShellPath';
+import { gooseHttpOrigin, sidecarEntryPath, startSidecar } from './main/sidecar';
 import { GooseServeLeaseRegistry, type GooseServeLease } from './gooseServeLeaseRegistry';
 import { normalizeAcpHttpBaseUrl } from './acp/url';
 import { expandTilde, sanitizeGoosePathRoot } from './utils/pathUtils';
@@ -1254,6 +1255,30 @@ const createChat = async (
         localCertificateTrust.release();
       }
     };
+
+    const staticDir = path.join(app.getAppPath(), 'dist-web');
+    try {
+      const sidecar = await startSidecar({
+        entry: sidecarEntryPath(app.isPackaged, app.getAppPath(), process.resourcesPath),
+        cwd: workingDir,
+        gooseUrl: gooseHttpOrigin(gooseServeResult.acpUrl),
+        gooseCertFingerprint: gooseServeResult.certFingerprint,
+        serverSecret,
+        version: app.getVersion(),
+        staticDir: fsSync.existsSync(staticDir) ? staticDir : null,
+        loginShellPath,
+        logger: log,
+      });
+      log.info(`sidecar listening at ${sidecar.url}`);
+      const cleanupWithoutSidecar = gooseServeResult.cleanup;
+      gooseServeResult.cleanup = async () => {
+        sidecar.cleanup();
+        await cleanupWithoutSidecar();
+      };
+    } catch (error) {
+      // The chat runs without the panes' process; only the sidecar-backed panes are lost.
+      log.error('sidecar failed to start', error);
+    }
     gooseServeLease = gooseServeLeases.create(gooseServeResult, serverSecret);
   }
 
