@@ -32,8 +32,63 @@ const git = (cwd: string, args: string[], stdin?: string): Promise<string> =>
     }
   });
 
+interface GhResult {
+  stdout: string;
+  stderr: string;
+  code: number;
+}
+
+// The token stays in gh's own keyring: the sidecar shells to the binary and never sees it.
+// Prompting is off because there is no terminal to answer it, and the update banner is off
+// because a route reports stderr's first line as the reason gh is unavailable.
+const gh = (cwd: string, args: string[]): Promise<GhResult> =>
+  new Promise((resolve, reject) => {
+    execFile(
+      'gh',
+      args,
+      {
+        cwd,
+        maxBuffer: MAX_OUTPUT_BYTES,
+        env: { ...process.env, GH_PROMPT_DISABLED: '1', GH_NO_UPDATE_NOTIFIER: '1' },
+      },
+      (error, stdout, stderr) => {
+        if (error?.code === 'ENOENT') {
+          reject(
+            new HttpError(503, 'gh not available: gh is not installed', { reason: 'missing' })
+          );
+          return;
+        }
+        if (error && typeof error.code !== 'number') {
+          reject(new HttpError(500, stderr.trim() || error.message));
+          return;
+        }
+        // gh exits 4 when the command needs a login it does not have.
+        if (error?.code === 4) {
+          const line = stderr.trim().split('\n')[0] || 'not logged in';
+          reject(new HttpError(503, `gh not available: ${line}`, { reason: 'auth' }));
+          return;
+        }
+        resolve({ stdout, stderr, code: typeof error?.code === 'number' ? error.code : 0 });
+      }
+    );
+  });
+
+const ghOk = async (cwd: string, args: string[]): Promise<string> => {
+  const result = await gh(cwd, args);
+  if (result.code !== 0) {
+    throw new HttpError(500, result.stderr.trim() || `gh exited ${result.code}`);
+  }
+  return result.stdout;
+};
+
 const toplevelOf = async (cwd: string): Promise<string> =>
   realpath((await git(cwd, ['rev-parse', '--show-toplevel'])).trim());
+
+const currentBranch = async (cwd: string): Promise<string> => {
+  const branch = (await git(cwd, ['rev-parse', '--abbrev-ref', 'HEAD'])).trim();
+  if (branch === 'HEAD') throw new HttpError(400, 'HEAD is detached: check out a branch first');
+  return branch;
+};
 
 const isInside = (target: string, root: string): boolean =>
   target === root || target.startsWith(root + path.sep);
@@ -75,19 +130,139 @@ interface StatusEntry {
   worktree: string;
 }
 
-const parseStatus = (output: string): { branch: string | null; entries: StatusEntry[] } => {
+interface Status {
+  branch: string | null;
+  upstream: string | null;
+  ahead: number;
+  behind: number;
+  entries: StatusEntry[];
+}
+
+// The branch line is `## <branch>[...<upstream> [ahead N, behind M]]`; `[gone]` names an
+// upstream whose ref no longer exists, which counts as none for a push.
+const parseStatus = (output: string): Status => {
   const lines = output.split('\n').filter((line) => line.length > 0);
-  let branch: string | null = null;
-  const entries: StatusEntry[] = [];
+  const status: Status = { branch: null, upstream: null, ahead: 0, behind: 0, entries: [] };
   for (const line of lines) {
     if (line.startsWith('## ')) {
-      branch = line.slice(3).split('...')[0] ?? null;
+      const [head, tracking] = line.slice(3).split('...');
+      status.branch = head ?? null;
+      if (tracking !== undefined) {
+        const [upstream, counts] = tracking.split(' [');
+        status.upstream = upstream ?? null;
+        status.ahead = Number(counts?.match(/ahead (\d+)/)?.[1] ?? 0);
+        status.behind = Number(counts?.match(/behind (\d+)/)?.[1] ?? 0);
+        if (counts?.startsWith('gone')) status.upstream = null;
+      }
       continue;
     }
-    entries.push({ index: line[0] ?? ' ', worktree: line[1] ?? ' ', path: line.slice(3) });
+    status.entries.push({ index: line[0] ?? ' ', worktree: line[1] ?? ' ', path: line.slice(3) });
   }
-  return { branch, entries };
+  return status;
 };
+
+const PR_VIEW_FIELDS = 'number,url,state,isDraft,mergeable,statusCheckRollup';
+
+type CheckState = 'pending' | 'pass' | 'fail' | 'skipped';
+
+interface Check {
+  name: string;
+  state: CheckState;
+  link: string;
+}
+
+// gh's `bucket` does the same sort; mapping `state` here keeps the fields the renderer
+// asked for and one place to read when GitHub adds a conclusion.
+const checkState = (state: string): CheckState => {
+  switch (state.toUpperCase()) {
+    case 'SUCCESS':
+      return 'pass';
+    case 'FAILURE':
+    case 'ERROR':
+    case 'TIMED_OUT':
+    case 'ACTION_REQUIRED':
+    case 'STARTUP_FAILURE':
+      return 'fail';
+    case 'SKIPPED':
+    case 'NEUTRAL':
+    case 'CANCELLED':
+      return 'skipped';
+    default:
+      return 'pending';
+  }
+};
+
+const parseJson = <T>(output: string, what: string): T => {
+  try {
+    return JSON.parse(output) as T;
+  } catch {
+    throw new HttpError(500, `gh ${what} did not return JSON`);
+  }
+};
+
+// `pr view` exits 1 for a branch without a PR; `pr checks` exits 1 for a PR without checks
+// and 8 while any check is still running, with the list on stdout either way.
+const prView = async (cwd: string): Promise<Record<string, unknown> | null> => {
+  const result = await gh(cwd, ['pr', 'view', '--json', PR_VIEW_FIELDS]);
+  if (result.code !== 0) {
+    if (/no pull requests found/i.test(result.stderr)) return null;
+    throw new HttpError(500, result.stderr.trim() || `gh exited ${result.code}`);
+  }
+  return parseJson<Record<string, unknown>>(result.stdout, 'pr view');
+};
+
+const prChecks = async (cwd: string): Promise<Check[]> => {
+  const result = await gh(cwd, ['pr', 'checks', '--json', 'name,state,link']);
+  if (result.code !== 0 && result.code !== 8) {
+    if (/no checks reported/i.test(result.stderr)) return [];
+    throw new HttpError(500, result.stderr.trim() || `gh exited ${result.code}`);
+  }
+  const raw = parseJson<{ name?: string; state?: string; link?: string }[]>(
+    result.stdout.trim() || '[]',
+    'pr checks'
+  );
+  return raw.map((check) => ({
+    name: check.name ?? '',
+    state: checkState(check.state ?? ''),
+    link: check.link ?? '',
+  }));
+};
+
+// origin/HEAD is set by clone, not by `remote add`, so the usual names follow it.
+const defaultBase = async (cwd: string): Promise<string | null> => {
+  for (const candidate of ['refs/remotes/origin/HEAD', 'origin/main', 'origin/master']) {
+    try {
+      const ref = (await git(cwd, ['rev-parse', '--abbrev-ref', '-q', '--verify', candidate]))
+        .trim()
+        .replace(/^origin\//, '');
+      if (ref) return ref;
+    } catch {
+      continue;
+    }
+  }
+  return null;
+};
+
+const resolveBase = async (cwd: string, base: string): Promise<string | null> => {
+  for (const candidate of [`origin/${base}`, base]) {
+    try {
+      await git(cwd, ['rev-parse', '-q', '--verify', '--end-of-options', `${candidate}^{commit}`]);
+      return candidate;
+    } catch {
+      continue;
+    }
+  }
+  return null;
+};
+
+const parseLog = (output: string): { sha: string; subject: string }[] =>
+  output
+    .split('\0')
+    .filter((line) => line.length > 0)
+    .map((line) => {
+      const [sha = '', ...subject] = line.split(' ');
+      return { sha, subject: subject.join(' ') };
+    });
 
 interface WorktreeEntry {
   path: string;
@@ -182,6 +357,55 @@ export const gitRoutes = (spawnCwd: string): Record<string, JsonHandler> => ({
       requireString(body, 'message'),
     ]),
   }),
+  // git reports a successful push on stderr, which git() drops; the caller reads the
+  // result back from /git/status.
+  'POST /git/push': async (body) => {
+    const cwd = await requestCwd(spawnCwd, body);
+    const args = ['push'];
+    if (body.setUpstream === true) args.push('-u', 'origin', await currentBranch(cwd));
+    await git(cwd, args);
+    return {};
+  },
+  // What a PR sheet is prefilled from: the commits on this branch since `base` (the
+  // remote's default branch when none is given), newest first. A base git cannot resolve
+  // yields the last commit alone rather than a failure, so the sheet still opens.
+  'POST /git/log': async (body) => {
+    const cwd = await requestCwd(spawnCwd, body);
+    const base =
+      typeof body.base === 'string' ? await resolveBase(cwd, body.base) : await defaultBase(cwd);
+    const range = base === null ? ['-1'] : [`${base}..HEAD`];
+    const output = await git(cwd, ['log', '-z', '--format=%H %s', ...range]);
+    return { base: base?.replace(/^origin\//, '') ?? null, commits: parseLog(output) };
+  },
+  // Nothing posts without this call: the renderer's sheet is the only caller and the body
+  // is the user's text as edited there. gh prints the new PR's URL alone.
+  'POST /git/pr/create': async (body) => {
+    const cwd = await requestCwd(spawnCwd, body);
+    const args = [
+      'pr',
+      'create',
+      '--head',
+      await currentBranch(cwd),
+      '--title',
+      requireString(body, 'title'),
+      '--body',
+      requireString(body, 'body'),
+    ];
+    if (typeof body.base === 'string') args.push('--base', body.base);
+    if (body.draft === true) args.push('--draft');
+    const url = (await ghOk(cwd, args)).trim().split('\n').pop() ?? '';
+    const number = Number(url.match(/\/pull\/(\d+)/)?.[1]);
+    if (!url || Number.isNaN(number)) {
+      throw new HttpError(500, `gh pr create did not print a PR URL: ${url}`);
+    }
+    return { url, number };
+  },
+  'POST /git/pr/status': async (body) => {
+    const cwd = await requestCwd(spawnCwd, body);
+    const pr = await prView(cwd);
+    if (pr === null) return { pr: null, checks: [] };
+    return { pr, checks: await prChecks(cwd) };
+  },
   'POST /git/worktree/add': async (body) => {
     const slug = requireSlug(body);
     const toplevel = await toplevelOf(await requestCwd(spawnCwd, body));

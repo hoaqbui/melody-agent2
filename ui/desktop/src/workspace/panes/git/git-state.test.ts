@@ -7,9 +7,11 @@ import {
   actionablePath,
   commitBlocker,
   createGitDraftStore,
+  ghRecovery,
   GIT_PANE_STATES,
   hasToolCallInProgress,
   paneState,
+  prBlocker,
   splitStatus,
 } from './git-state';
 
@@ -88,6 +90,31 @@ describe('commitBlocker', () => {
 
   it('allows Commit with a staged file and a message once the tool call finished', () => {
     expect(commitBlocker({ running: false, lists: staged, message: 'fix' })).toBeNull();
+  });
+});
+
+describe('prBlocker', () => {
+  it('waits for the running tool call before anything else', () => {
+    expect(prBlocker({ running: true, branch: 'main' })).toBe('running');
+  });
+
+  it('needs a branch: none or a detached HEAD blocks', () => {
+    expect(prBlocker({ running: false, branch: null })).toBe('noBranch');
+    expect(prBlocker({ running: false, branch: 'HEAD (no branch)' })).toBe('noBranch');
+    expect(prBlocker({ running: false, branch: 'HEAD-fix' })).toBeNull();
+    expect(prBlocker({ running: false, branch: 'feature' })).toBeNull();
+  });
+});
+
+describe('ghRecovery', () => {
+  it('names Install for a missing gh and Sign in for a logged-out one', () => {
+    expect(ghRecovery({ status: 503, details: { reason: 'missing' } })).toBe('install');
+    expect(ghRecovery({ status: 503, details: { reason: 'auth' } })).toBe('signIn');
+    expect(ghRecovery({ status: 503, details: {} })).toBe('signIn');
+  });
+
+  it('is null for any other failure', () => {
+    expect(ghRecovery({ status: 500, details: { reason: 'auth' } })).toBeNull();
   });
 });
 

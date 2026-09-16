@@ -40,13 +40,16 @@ import {
   type GitMergeRequest,
   type GitMergeResponse,
   type GitPathsRequest,
+  type GitPrCreateResponse,
   type GitRevParseRequest,
   type GitRevParseResponse,
+  type GitStatusResponse,
   type GitWorktreeListResponse,
   type GitWorktreeRemoveRequest,
 } from '../../../native/sidecar';
 import { worktreePlace, type WorktreePlace } from '../../worktree';
 import { hasToolCallInProgress } from '../git/git-state';
+import { PrSheet } from '../git/PrSheet';
 import {
   createDiffStore,
   undoRequest,
@@ -99,6 +102,8 @@ const i18n = defineMessages({
     id: 'diffPane.worktreeBlockedRunning',
     defaultMessage: 'Merge and Remove wait for the running tool call to finish',
   },
+  openPr: { id: 'diffPane.openPr', defaultMessage: 'Open PR…' },
+  prOpened: { id: 'diffPane.prOpened', defaultMessage: 'Opened PR #{number} · {url}' },
 });
 
 const KIND_LETTERS = { added: 'A', deleted: 'D', modified: 'M', renamed: 'R' } as const;
@@ -310,6 +315,34 @@ function ChangeView({
   return <div ref={host} data-testid="diff-view" data-view={view} data-path={file.path} />;
 }
 
+// Whether the worktree's branch has been pushed (task 66): Open PR… is offered only then,
+// since gh opens a PR from the remote's copy. A failed status never reaches the pane's
+// error state; the button simply stays away.
+function useHasUpstream(cwd: string, attempt: number, enabled: boolean): boolean {
+  const [hasUpstream, setHasUpstream] = useState(false);
+
+  useEffect(() => {
+    if (!enabled) {
+      setHasUpstream(false);
+      return;
+    }
+    let cancelled = false;
+    const request: GitCwdRequest = { cwd };
+    sidecarFetch<GitStatusResponse>('/git/status', request)
+      .then((response) => {
+        if (!cancelled) setHasUpstream(response.upstream !== null);
+      })
+      .catch(() => {
+        if (!cancelled) setHasUpstream(false);
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [cwd, attempt, enabled]);
+
+  return hasUpstream;
+}
+
 interface MergeFailure {
   message: string;
   conflicts: string[];
@@ -339,8 +372,10 @@ export function DiffPane() {
   const [applying, setApplying] = useState(false);
   const [actionError, setActionError] = useState<string | null>(null);
   const place = useWorktreePlace(cwd, attempt);
+  const hasUpstream = useHasUpstream(cwd, attempt, place !== null);
   const [merging, setMerging] = useState(false);
   const [removing, setRemoving] = useState(false);
+  const [prSheetOpen, setPrSheetOpen] = useState(false);
   // The last worktree action's outcome: a merge sha, a removal, or a 409's conflict list.
   const [notice, setNotice] = useState<string | null>(null);
   const [mergeFailure, setMergeFailure] = useState<MergeFailure | null>(null);
@@ -512,6 +547,11 @@ export function DiffPane() {
   const actionBlocked = merging || removing || running;
   const actionTitle = running ? intl.formatMessage(i18n.worktreeBlockedRunning) : undefined;
 
+  const prOpened = (pr: GitPrCreateResponse) => {
+    setMergeFailure(null);
+    setNotice(intl.formatMessage(i18n.prOpened, { number: pr.number, url: pr.url }));
+  };
+
   return (
     <div
       className="flex flex-col h-full min-h-0 text-sm"
@@ -610,6 +650,18 @@ export function DiffPane() {
               ? intl.formatMessage(i18n.merging)
               : intl.formatMessage(i18n.merge, { branch: place.main.branch ?? 'HEAD' })}
           </Button>
+          {hasUpstream && (
+            <Button
+              variant="outline"
+              size="xs"
+              disabled={actionBlocked}
+              title={actionTitle}
+              data-testid="diff-open-pr"
+              onClick={() => setPrSheetOpen(true)}
+            >
+              {intl.formatMessage(i18n.openPr)}
+            </Button>
+          )}
           <Button
             variant="ghost"
             size="xs"
@@ -621,6 +673,16 @@ export function DiffPane() {
             {intl.formatMessage(removing ? i18n.removingWorktree : i18n.removeWorktree)}
           </Button>
         </div>
+      )}
+      {place && hasUpstream && (
+        <PrSheet
+          open={prSheetOpen}
+          onOpenChange={setPrSheetOpen}
+          cwd={cwd}
+          branch={place.branch}
+          base={place.main.branch ?? undefined}
+          onCreated={prOpened}
+        />
       )}
       {notice && (
         <p
