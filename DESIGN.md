@@ -152,6 +152,7 @@ Upstream's, unchanged. Delta for the workspace:
 - Colour never alone: the Files dot pairs with a tooltip or the row's text; a worker's status is a word beside its colour; a runtime is its written name.
 - Disabled controls say why in place — Commit while an agent turn writes files (PRD `:79`), Git in a non-repo (PRD `:162`).
 - Destructive: none in V0 (view-only diff, PRD `:202`); Stop is not destructive and needs no confirmation.
+  - Amended 2026-09-16 (task 50): the Changes pane's Reject and Stage act on the working tree and the index per chunk, with no confirm — the pane keeps the last patch git applied and offers **Undo** in place (the same patch, reversed) until the next apply; a patch that no longer matches is refused whole by git and its stderr is the Error row (`panes/diff/DiffPane.tsx`, `diff-store.ts` `lastApply`).
 - Conventions: macOS first (⌘); the phone has no modifier keys, so the terminal shows a key bar — Esc · Tab · Ctrl · arrows · paste (PRD `:129-130`; PRODUCT.md §11).
 
 ## Ownership
