@@ -53,19 +53,6 @@ re-checked at the fork base `426967d` (v1.51.0, 2026-09-15): all hold;
     - add a unit test `cursor_acp_metadata_names_binary_and_args`
   - confirm: `source bin/activate-hermit && cargo test -p goose cursor_acp -- --nocapture; echo exit=$?` → `test result: ok.` with ≥1 passed, then `exit=0`
 
-- 17. Add `crates/goose/src/providers/agy.rs` (provider `agy`, binary `agy`) cloned from `gemini_cli.rs`, register it in `providers/mod.rs`, `providers/init.rs`, and `inventory/registrations.rs`. Tranche 2, beside tasks 5–6.
-  - status: doing · agent: subagent-t17 via claude-session-opus-2 (00:24, worktree) · worker: high
-  - card: as the researcher and the tenth implementer, run on the Google AI Pro subscription so that the highest-context role sits on the cheapest model (PRODUCT.md §6, §18)
-  - context:
-    - in scope since 2026-09-15: `python scripts/check-reach.py` → `agy: PASS` (plan v1 §Out of scope amended)
-    - template: `gemini_cli.rs:106-112` spawns `gemini -m <model> -r <sid> --output-format stream-json --yolo`; research v1 §Inventory: `agy --help` exposes `--output-format stream-json`, `--input-format stream-json`, `--conversation <id>`, `--model`, `--effort` — map `-r` → `--conversation`, confirm the yolo-equivalent flag from `agy --help` before writing
-    - known models from `agy models` (2026-09-15): `gemini-3.8-flash-{high,medium,low}`, `gemini-3.7-flash-*`, `gemini-3.6-flash-*`, `gemini-3.1-pro-high`; default `gemini-3.8-flash-high`
-    - runs its own tools ungated (print mode); accepted for V0 at implementer weight 1 with the Reviewer gating the diff (user decision 2026-09-15) — surfacing approvals is out of scope (plan v1)
-    - `agy` binary at `/opt/homebrew/bin/agy`
-    - add a unit test `agy_metadata_names_binary_and_args`
-    - `Provider::accepts_system_prompt()` (task 21, `goose-provider-types/src/base.rs`): return `false` if `agy` does not pass the system prompt through (`gemini_cli.rs:184` ignores extensions and tools; check whether it sends `system` at all before deciding)
-  - confirm: `source bin/activate-hermit && cargo test -p goose agy_metadata -- --nocapture; echo exit=$?` → `test result: ok.` with ≥1 passed, then `exit=0`
-
 - 9. Run the runtime matrix: from a Goose session in this directory on `claude-acp`, delegate the same one-file task ("add a `--version` line to `scripts/check-spine.sh` help") to implementer on `claude-acp`, `codex-acp`, `cursor-acp`, `agy`, then call `advisor` six times with `exclude_provider` set, and record per run: provider, model, turns, result shape, permission prompts seen, in `docs/2026-09-15-runtime-matrix-v1.md`.
   - status: blocked · agent: — · worker: medium
   - blocked: no subscription orchestrator in tree can call `delegate` except `chatgpt_codex` (research v1 addendum, evening). Unblocks: the user's pick — run the matrix from a `chatgpt_codex` session as the interim proof, or wait for repair (ii) — owner: user
@@ -205,6 +192,7 @@ User, 2026-09-16 00:15: "research it, plan it, and orchestrate it with sub agent
 - task 40 hand checks — hover lift on the three header icons; ⋯ tooltip is hover-only (focus-opened tooltip lingered after the menu closed — a UX asymmetry to accept or not); Runtime/Mode carry a native `title` (`Claude · Direct`) rather than the styled tooltip; the side tab row now wraps to two lines at seven tabs until task 42 replaces it.
 - task 31 hand checks — Browser: open from the header, type `localhost:<port>` of a running dev server → frame renders; Reset clears to the empty line (no per-project dev-server config exists in the tree, so the default is empty — say if you want a `.goose` config key for it); phone web build: a loopback URL shows the "not reachable from here" line instead of the frame, and an `http://` frame under an `https://` workspace is blocked as mixed content (no proxy, by scope). Markdown: pick a `.md` in Files → rendered, dark palette flips; pick a `.rs` → "Not markdown" bar over raw text; the pane follows disk when the agent writes the open file.
 - task 56 hand checks — web build: Share row reads "Share sends the address only from here" and inserts `Page: <title>\n<url>`; the webview's cookie partition (`persist:workspace-browser`) is separate from the app's — sign in to a site in Browser, it must not appear signed in anywhere else; guest history is lost when the pane unmounts on a tab switch (address and suggestions survive) — decide if that's acceptable before task 42's dock keeps panes mounted.
+- task 17 hand checks — agy print mode is ungated regardless of flags (`permission_mode: always-proceed` in its init event) — accepted for V0 with the Reviewer gating the diff; tool-call `step_type` events are unknown and dropped by the parser, so a tool-using agy turn shows only its text; resumed turns report 31–39 s `duration_seconds` for a 2–4 s step (unexplained).
 - task 14 hand check — "since session start" base: open a session in a git cwd, commit, open Changes → the selector offers it and lists the committed file; `git diff HEAD` omits untracked files (accepted gap, or queue).
 - `ARCHITECTURE.md` — sign-off deletes `## Bootstrap Status`; until then the map is a proposal and tasks 10–16 plan against a guess.
 - task 20 — the phone check is manual: open the URL on `hoa-phone`, walk PRD step 13, judge the terminal with the key bar.
