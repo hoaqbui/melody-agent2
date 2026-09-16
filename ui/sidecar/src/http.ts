@@ -7,7 +7,8 @@ export type CorsHeaders = Record<string, string>;
 export class HttpError extends Error {
   constructor(
     readonly status: number,
-    message: string
+    message: string,
+    readonly details: Record<string, unknown> = {}
   ) {
     super(message);
   }
@@ -92,7 +93,10 @@ const handleJson = async (
     sendJson(
       response,
       status,
-      { error: error instanceof Error ? error.message : String(error) },
+      {
+        ...(error instanceof HttpError ? error.details : {}),
+        error: error instanceof Error ? error.message : String(error),
+      },
       cors
     );
   }

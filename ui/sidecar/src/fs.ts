@@ -8,7 +8,7 @@ import { type JsonHandler, requireString } from './http.js';
 type EntryType = 'file' | 'dir' | 'symlink' | 'other';
 
 // chokidar 4+ takes no globs: a glob string here is a literal path and node_modules gets walked.
-const WATCH_IGNORED = /(^|[\\/])(node_modules|\.git)([\\/]|$)/;
+const WATCH_IGNORED = /(^|[\\/])(node_modules|\.git|\.worktrees)([\\/]|$)/;
 
 const resolveIn = (cwd: string, target: string): string => path.resolve(cwd, target);
 

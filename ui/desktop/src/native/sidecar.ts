@@ -38,6 +38,14 @@ export interface FsWatchEvent {
   path: string;
 }
 
+// cwd defaults to the sidecar's spawn cwd; anything outside that repository or
+// a sibling worktree of it is refused with 400.
+export interface GitCwdRequest {
+  cwd?: string;
+}
+
+export type GitStatusRequest = GitCwdRequest;
+
 export interface GitStatusEntry {
   path: string;
   index: string;
@@ -49,7 +57,7 @@ export interface GitStatusResponse {
   entries: GitStatusEntry[];
 }
 
-export interface GitDiffRequest {
+export interface GitDiffRequest extends GitCwdRequest {
   staged?: boolean;
   base?: string;
   path?: string;
@@ -60,7 +68,7 @@ export interface GitDiffResponse {
   diff: string;
 }
 
-export interface GitRevParseRequest {
+export interface GitRevParseRequest extends GitCwdRequest {
   rev: string;
 }
 
@@ -68,16 +76,63 @@ export interface GitRevParseResponse {
   sha: string;
 }
 
-export interface GitPathsRequest {
+export interface GitPathsRequest extends GitCwdRequest {
   paths: string[];
 }
 
-export interface GitCommitRequest {
+export interface GitCommitRequest extends GitCwdRequest {
   message: string;
 }
 
 export interface GitCommitResponse {
   output: string;
+}
+
+export interface GitWorktreeAddRequest extends GitCwdRequest {
+  slug: string;
+}
+
+export interface GitWorktreeAddResponse {
+  path: string;
+  branch: string;
+}
+
+export type GitWorktreeListRequest = GitCwdRequest;
+
+export interface GitWorktreeEntry {
+  path: string;
+  head: string;
+  branch: string | null;
+  locked: boolean;
+}
+
+export interface GitWorktreeListResponse {
+  worktrees: GitWorktreeEntry[];
+}
+
+export interface GitWorktreeRemoveRequest extends GitCwdRequest {
+  slug: string;
+  force?: boolean;
+}
+
+export interface GitMergeRequest extends GitCwdRequest {
+  slug: string;
+}
+
+export interface GitMergeResponse {
+  sha: string;
+}
+
+// The 409 body of /git/merge; sidecarFetch surfaces only `error` today.
+export interface GitMergeConflictResponse {
+  error: string;
+  conflicts: string[];
+}
+
+export interface GitApplyRequest extends GitCwdRequest {
+  patch: string;
+  reverse?: boolean;
+  cached?: boolean;
 }
 
 export interface SidecarConfig {
