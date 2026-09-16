@@ -81,13 +81,35 @@ re-checked at the fork base `426967d` (v1.51.0, 2026-09-15): all hold;
     - record the subscription each run drew on (PRODUCT.md §5) and any quota message — that is the first fail-over datum
   - confirm: `test -f docs/2026-09-15-runtime-matrix-v1.md && grep -c '^| \(codex-acp\|cursor-acp\|claude-acp\|agy\) |' docs/2026-09-15-runtime-matrix-v1.md` → `4`
 
-- 39. Reject JSON-route requests whose `content-type` is not `application/json` in `ui/sidecar/src/http.ts` (`415`, before the body is read), with a test beside the CORS ones.
-  - status: todo · agent: — · worker: low
-  - card: as the user, have no web page open in a browser on this Mac able to write files through the sidecar so that CORS's allowlist is a real gate, not a readable-response gate (task 38's finding: a `text/plain` POST is a CORS "simple request" that skips the preflight — the response is unreadable but `fs/write` runs)
+- 40. Redo the workspace header's top-right as a pane menu in the code-editor standard: three primary icon buttons — Terminal (`Terminal`), Changes (`GitCompare`; the Diff pane, renamed "Changes" everywhere it is shown), Browser (`Globe`) — and a three-dot More button (`Ellipsis`/`MoreHorizontal`) opening a dropdown with the rest (Files `FolderTree`, Editor `FileCode`, Git `GitBranch`, Markdown `BookOpen`), lucide names or the nearest the installed `lucide-react` exports; in `ui/desktop/src/workspace/pane-store.ts` add `'browser'` and `'markdown'` to `PaneId` / `PANE_IDS` (after `git`); in `ui/desktop/src/workspace/WorkspaceShell.tsx` replace the status text at the header's right (`data-testid="workspace-header-status"`) with that menu — each item has a tooltip/`aria-label` of the pane title, pressed state = the pane is visible (centre or active side tab), click = `selectSide`, shift-click or a second click on the pressed one = `openCentre`; styled per `DESIGN.md` §Principles Floating Button Rule (`--shadow-sm` at rest, `--shadow-md` lifted) and the Into Rule (the dropdown grows out of the ⋯ and closes back into it); the runtime · mode status moves into the Runtime/Mode controls' own tooltip; placeholder bodies for Browser and Markdown until task 31; "Changes" replaces "Diff" in `PANE_TITLES`, the side-tab label, `DESIGN.md` §Vocabulary (Diff → Changes, retired word noted), and the task 14 pane's own title if it has one.
+  - status: todo · agent: — · worker: high
+  - card: as the user, reach Terminal, Changes and Browser in one click and everything else under ⋯ so that the header reads like a code editor's, not a sentence (user, 2026-09-15 23:30 and 23:45: "redo the top right menu and add in terminal and browser and markdown"; "the code standard: terminal, changes, browser, more options (3 dots)")
   - context:
-    - `http.ts` `jsonDispatcher` / `readJson` — check the header first; `sidecarFetch` (`src/native/sidecar.ts`) already sends `content-type: application/json`, so no client changes
-    - with this, an unlisted origin cannot reach a JSON route at all: it fails the preflight (task 38) or the type check (this task)
-  - confirm: `cd ui/sidecar && pnpm vitest run src/http.test.ts; echo exit=$?` → `exit=0` with ≥5 tests (untouched tree: 4)
+    - runs after tasks 12 and 14 merge (both replace placeholders in the same `panes` seam); base on main at that point
+    - `pane-store.test.ts` pins `PANE_IDS` in three assertions — extend them; task 20's tab rail reads `PANE_IDS` too
+    - keep the side panel's tab row (task 11) — the icon row is the launcher, the tab row is where a pane lives; `DESIGN.md` §Frame names both
+    - 2026-09-15 23:50: the side panel becomes the right dock (tasks 41–42); build the menu against the store's current names, task 42 rewires click → `openPane`, shift-click → `tearOff`
+    - one icon set (`DESIGN.md` §Iconography); strings via the `workspaceShell.*` keys in every locale as task 11 did
+  - confirm: `cd ui/desktop && pnpm vitest run src/workspace && pnpm run typecheck && pnpm exec playwright test -g "pane menu"; echo exit=$?` → `exit=0` (walk: Terminal, Changes, Browser and ⋯ visible and nothing else on the right; click Terminal → side panel shows Terminal; ⋯ → Markdown → side panel shows Markdown; shift-click Browser → centre pane opens with the Browser placeholder; the word "Diff" appears nowhere in the shell)
+
+- 41. Replace the pane store's "chat + one centre pane + side tabs" layout with a right dock of stacked panels in `ui/desktop/src/workspace/pane-store.ts` (+ test): `dock: Panel[]` top-to-bottom, `Panel { id, tabs: PaneId[], active: PaneId, size: number }` (sizes as fractions summing to 1); actions `openPane(id)` (into the panel that holds it, else the first panel, else a new one), `tearOff(id)` (a new panel below the one it came from holding only that pane), `moveTab(id, panelIndex, position)`, `movePanel(from, to)`, `resize(index, size)`, `closePane(id)` (an emptied panel disappears into its neighbour); phone mode unchanged (one visible pane, chat first); keep `PANE_IDS` and `modeForWidth`.
+  - status: doing · agent: subagent-t41 via claude-session-opus-2 (23:55, worktree) · worker: high
+  - card: as the user, tear any pane off into its own panel and put it where I want on the right so that the layout is mine, not a fixed split (user, 2026-09-15 23:50: "make them panels you can tear off and reposition on the right"; pick: right dock of stacked panels)
+  - context:
+    - supersedes PRD decision 3 ("chat + one centre pane", approved 2026-09-15) — chat stays centre, the centre pane goes; note the change in `docs/2026-09-15-workspace-prd-v1.md` step 8 as a dated amendment, not a rewrite, and in `DESIGN.md` §Frame
+    - pure state, no React, no ACP — the shape task 10 set; `createPaneStore` keeps `getState`/`subscribe`; the old `openCentre`/`selectSide`/`closeCentre` names go (tasks 11–16, 40 call them — task 42 rewires the shell; until 42 merges, keep the old functions as thin adapters over the dock so nothing in flight breaks: `openCentre` = `tearOff`, `selectSide` = `openPane`, `closeCentre` = `closePane` of the last torn pane)
+    - identity is stable: a pane id never changes across moves, so pane contents (terminal scrollback, editor buffer) survive repositioning (PRD criterion 5)
+    - tests ≥ 8: open into existing panel, open creates first panel, tear off below its source, move tab between panels, move panel up/down, resize keeps the sum at 1, close collapses an empty panel into its neighbour, phone mode ignores the dock
+  - confirm: `cd ui/desktop && pnpm vitest run src/workspace/pane-store.test.ts; echo exit=$?` → `exit=0` with ≥ 18 tests (untouched tree: 10)
+
+- 42. Render the dock in `ui/desktop/src/workspace/WorkspaceShell.tsx` (+ a `Dock.tsx` and `Panel.tsx` beside it): panels stacked on the right with a tab strip each, drag a tab out of its strip (pointer events, no new dependency unless the plan names one) to tear it off into a new panel at the drop position, drag a panel header to reorder, drag seams to resize, close returns a pane into its tab (Into Rule); the top-right menu (task 40) opens panes with `openPane` and shift-click tears off; phone width unchanged (task 20's rail).
+  - status: todo · agent: — · worker: high
+  - card: as the user, drag a panel where I want it on the right and see the others make room so that arranging the workspace feels physical (DESIGN.md §Principles: Floating Button Rule, Into Rule)
+  - context:
+    - runs after 40 and 41 merge and after the panes (12–16) are in, so every pane body already renders inside a panel; remove the `openCentre`/`selectSide` adapters from task 41 in this task
+    - drag: `pointerdown` on a tab or header → ghost follows the pointer → drop targets are panel strips and the seams between panels; keyboard alternative in the ⋯ menu (Move up / Move down / Tear off) for `DESIGN.md` §Accessibility
+    - sizes persist per project in `localStorage` (task 19's settings pattern); never a second store
+  - confirm: `cd ui/desktop && pnpm vitest run src/workspace && pnpm run typecheck && pnpm exec playwright test -g "dock"; echo exit=$?` → `exit=0` (walk: open Terminal and Changes → one panel with two tabs; drag Changes' tab below → two panels; drag the lower panel above the upper → order swapped; close Changes → one panel again)
 
 - 12. Add the Files pane (`src/workspace/panes/files/`) with a tree of the session cwd (a drill-down list at phone width), session-written-file dots, and click → Editor pane; `ui/sidecar/src/fs.ts` serves reads and watches the cwd (`chokidar`).
   - status: doing · agent: subagent-t12 via claude-session-opus-2 (23:15, worktree) · worker: high
@@ -115,16 +137,6 @@ re-checked at the fork base `426967d` (v1.51.0, 2026-09-15): all hold;
     - PRD decision 5 (view-only at V0) — approved 2026-09-15
     - "since session start" needs the session's start commit or a stash-free snapshot; approach is this task's plan decision
   - confirm: `cd ui/desktop && pnpm run typecheck && pnpm exec playwright test -g "diff pane"; echo exit=$?` → `exit=0` (PRD step 5: a modified file shows in the list; unified and side-by-side render)
-
-- 15. Add the Terminal pane (`src/workspace/panes/terminal/`, `@xterm/xterm`) backed by `ui/sidecar/src/pty.ts` (`node-pty`), starting in the session cwd with the login-shell PATH, surviving session end and client disconnect (reattach by session id), with a key bar (Esc · Tab · Ctrl · arrows · paste) at phone width.
-  - status: doing · agent: subagent-t15 via claude-session-opus-2 (23:08, worktree) · worker: high
-  - card: as the user, run tests and commands beside the agent so that the loop closes in one window (PRD step 6)
-  - context:
-    - reaches the sidecar only through `src/native/sidecar.ts` (task 37: `sidecarBaseUrl`, `sidecarFetch`, `sidecarSocket`) — waits on it
-    - PATH source: `loginShellPath.ts` already resolves it for goosed — reuse
-    - `node-pty` is a native module in the *sidecar*, not the renderer bundle; the packaged Electron app must bundle and start the sidecar (`forge.config.ts` extraResource) — add a `pnpm run make` smoke to task 18's confirm if CI time allows
-    - xterm.js touch gaps on iOS (xtermjs/xterm.js#5377, #3727, #2403) are why the key bar and server-side reattach are in this task, not later
-  - confirm: `cd ui/desktop && pnpm run typecheck && pnpm exec playwright test -g "terminal pane"; echo exit=$?` → `exit=0` (PRD step 6: shell opens in the session cwd, `pwd` prints it)
 
 - 16. Add the Git pane (`src/workspace/panes/git/`): branch, staged/unstaged lists, stage/unstage, commit box; commit disabled while any tool call is `in_progress`; git commands run in `ui/sidecar/src/git.ts`.
   - status: todo · agent: — · worker: high
@@ -191,6 +203,7 @@ Planned 2026-09-15 21:25 from PRD steps 10–12 and the spine research §Activit
   - status: todo · agent: — · worker: medium
   - card: as the user, check the running app and read a doc beside the agent so that the last two alt-tabs go away (PRD step 12)
   - context:
+    - pulled forward 2026-09-15 23:30 (user: browser and markdown in the menu now); task 40 adds the pane ids and placeholders, this task fills them; runs after 12 and 40
     - iframe of the project's dev server only — arbitrary-site browsing is out (PRD §Scope); at V0.5 the address bar accepts any http(s) URL but the default and the "reset" target are the dev server
     - depends on task 11 (shell) and task 12 (Files selection); on the web build (task 19) an iframe to `localhost` from the phone will not resolve — show the PRD "not reachable" line, do not proxy
     - markdown rendering shares task 30's choice
@@ -222,6 +235,7 @@ Planned 2026-09-15 21:25 from PRD steps 10–12 and the spine research §Activit
 - Task 33 — filing the three upstream issues posts under your GitHub account; say "file them".
 - **Sidecar auth (2026-09-15 22:30):** `ARCHITECTURE.md` §Invariants names Tailscale the sidecar's only gate, and task 18 built exactly that — the sidecar answers pty/fs/git for anyone on the tailnet, unauthenticated, from the moment the desktop starts (packaged run logged `100.127.56.10:64870`). If anyone but you is ever on that tailnet, say "sidecar secret" and it becomes a task (a shared token the web build carries, same pattern as `goose serve`); otherwise the invariant stands as written.
 - task 11 hand check — one early run of the Mode selector produced three sessions from one click (worker's report, not reproduced in five later runs with a call-site trace). Open the desktop, pick Orchestrate once, count sessions in the list; more than one is a P0 bug.
+- task 15 hand checks — packaged build: the CSP lease rides `onHeadersReceived`, a `file://` load is governed by `index.html`'s meta CSP (untested); the `ws:` lease drops `upgrade-insecure-requests` from the renderer CSP while the sidecar runs (required for `ws://` to the tailnet IP — say if you'd rather the sidecar served TLS).
 - `ARCHITECTURE.md` — sign-off deletes `## Bootstrap Status`; until then the map is a proposal and tasks 10–16 plan against a guess.
 - task 20 — the phone check is manual: open the URL on `hoa-phone`, walk PRD step 13, judge the terminal with the key bar.
 - task 9 — the handoff-memo criterion (PRD §Criteria, second) is a manual check: ask "what did we just change?" after a runtime switch and judge the answer.
