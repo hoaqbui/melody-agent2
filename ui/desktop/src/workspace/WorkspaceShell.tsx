@@ -36,6 +36,7 @@ import type { Message } from '../types/message';
 import type { ProviderDetails } from '../types/providers';
 import { PaneContext, type PaneContextValue } from './pane-context';
 import { createPaneStore, sideTabs, type PaneId, type PaneStore } from './pane-store';
+import { TerminalPane } from './panes/terminal/TerminalPane';
 import {
   modeOfSession,
   moreRuntimes,
@@ -271,10 +272,17 @@ export function WorkspaceShell({ chat, children, panes, paneStore }: WorkspaceSh
 
   const modeLabel = (mode: Mode) =>
     intl.formatMessage(mode === 'direct' ? i18n.direct : i18n.orchestrate);
+  // The pty is keyed by the chat session so a reload or the phone reattaches to its shell;
+  // the Hub, with no session yet, gets one shell in the window's working dir. A session
+  // still loading has no working_dir yet, and the shell it would spawn is cached.
+  const defaultPane = (id: PaneId) =>
+    id === 'terminal' && (!sessionId || session) ? (
+      <TerminalPane ptyId={sessionId || 'hub'} cwd={cwd} />
+    ) : undefined;
   const renderPane = (id: PaneId) => (
     <div className="flex-1 min-h-0 overflow-auto" data-testid={`workspace-pane-${id}`}>
       <PaneContext.Provider value={paneContext}>
-        {panes?.[id] ?? (
+        {panes?.[id] ?? defaultPane(id) ?? (
           <p className="p-4 text-sm text-text-secondary">
             {intl.formatMessage(PANE_TITLES[id])} — {intl.formatMessage(i18n.paneUnavailable)}
             {id === 'editor' && file && (

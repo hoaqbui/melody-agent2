@@ -1,0 +1,182 @@
+/* global WebSocket */
+// One live terminal per chat session, kept outside React: the pane remounts when it moves
+// between the side panel and the centre (DESIGN.md Nothing Lost Rule), and the pty on the
+// sidecar outlives every client (ui/sidecar/src/pty.ts), so the xterm buffer, the socket
+// and the armed Ctrl live here and the component only mounts the element.
+
+import { FitAddon } from '@xterm/addon-fit';
+import { Terminal } from '@xterm/xterm';
+import '@xterm/xterm/css/xterm.css';
+import {
+  sidecarSocket,
+  type PtyClientMessage,
+  type PtyServerMessage,
+} from '../../../native/sidecar';
+import { withCtrl } from './terminal-keys';
+
+export type TerminalStatus =
+  | { kind: 'starting' }
+  | { kind: 'running' }
+  | { kind: 'exited'; code: number }
+  | { kind: 'lost'; reason: string };
+
+export interface TerminalState {
+  status: TerminalStatus;
+  ctrl: boolean;
+}
+
+export interface TerminalSession {
+  getState(): TerminalState;
+  subscribe(listener: () => void): () => void;
+  mount(host: HTMLElement): void;
+  unmount(): void;
+  fit(): void;
+  // Attaches to the pty by id; the sidecar creates the shell on the first attach and
+  // replays its scrollback on every later one.
+  connect(): void;
+  input(data: string): void;
+  paste(text: string): void;
+  setCtrl(armed: boolean): void;
+  focus(): void;
+  syncTheme(): void;
+}
+
+const SCROLLBACK_LINES = 5000;
+const FONT_SIZE_PX = 12;
+
+const sessions = new Map<string, TerminalSession>();
+
+export function terminalSession(id: string, cwd: string): TerminalSession {
+  let session = sessions.get(id);
+  if (!session) {
+    session = createTerminalSession(id, cwd);
+    sessions.set(id, session);
+  }
+  return session;
+}
+
+function createTerminalSession(id: string, cwd: string): TerminalSession {
+  const element = document.createElement('div');
+  element.className = 'h-full w-full';
+  const term = new Terminal({
+    cursorBlink: true,
+    scrollback: SCROLLBACK_LINES,
+    fontSize: FONT_SIZE_PX,
+  });
+  const fitAddon = new FitAddon();
+  term.loadAddon(fitAddon);
+
+  let state: TerminalState = { status: { kind: 'starting' }, ctrl: false };
+  const listeners = new Set<() => void>();
+  const setState = (next: Partial<TerminalState>) => {
+    state = { ...state, ...next };
+    listeners.forEach((listener) => listener());
+  };
+
+  let opened = false;
+  let socket: WebSocket | null = null;
+  let connecting = false;
+  let attachedBefore = false;
+
+  const post = (message: PtyClientMessage) => {
+    if (socket && socket.readyState === socket.OPEN) {
+      socket.send(JSON.stringify(message));
+    }
+  };
+
+  term.onData((data) => {
+    const payload = state.ctrl ? withCtrl(data) : data;
+    if (state.ctrl) setState({ ctrl: false });
+    post({ type: 'input', data: payload });
+  });
+  term.onResize(({ cols, rows }) => post({ type: 'resize', cols, rows }));
+
+  const fit = () => {
+    if (!element.isConnected || element.clientWidth === 0 || element.clientHeight === 0) return;
+    fitAddon.fit();
+  };
+
+  const connect = async () => {
+    // A second attach while one is pending would double every byte the pty broadcasts.
+    if (connecting || (socket && socket.readyState <= socket.OPEN)) return;
+    connecting = true;
+    setState({ status: { kind: 'starting' } });
+    let next: WebSocket;
+    try {
+      next = await sidecarSocket('/pty', {
+        id,
+        cwd,
+        cols: String(term.cols),
+        rows: String(term.rows),
+      });
+    } catch (error) {
+      setState({ status: { kind: 'lost', reason: (error as Error).message } });
+      return;
+    } finally {
+      connecting = false;
+    }
+    socket = next;
+    let exited = false;
+    next.onopen = () => {
+      // The sidecar replays the scrollback on a reattach; the buffer already holds it.
+      if (attachedBefore) term.reset();
+      attachedBefore = true;
+      post({ type: 'resize', cols: term.cols, rows: term.rows });
+    };
+    next.onmessage = (event: MessageEvent<string>) => {
+      const message = JSON.parse(event.data) as PtyServerMessage;
+      switch (message.type) {
+        case 'attached':
+          setState({ status: { kind: 'running' } });
+          break;
+        case 'output':
+          term.write(message.data);
+          break;
+        case 'exit':
+          exited = true;
+          setState({ status: { kind: 'exited', code: message.code } });
+          break;
+      }
+    };
+    const lost = (reason: string) => {
+      if (socket === next) socket = null;
+      if (!exited && state.status.kind !== 'lost') setState({ status: { kind: 'lost', reason } });
+    };
+    // A refused connection (CSP, sidecar down) may fire error without a close.
+    next.onerror = () => lost(`could not reach ${next.url}`);
+    next.onclose = (event) => lost(event.reason || `connection closed (${event.code})`);
+  };
+
+  return {
+    getState: () => state,
+    subscribe: (listener) => {
+      listeners.add(listener);
+      return () => listeners.delete(listener);
+    },
+    mount: (host) => {
+      host.appendChild(element);
+      if (!opened) {
+        term.open(element);
+        opened = true;
+      }
+      fit();
+    },
+    unmount: () => element.remove(),
+    fit,
+    connect: () => void connect(),
+    input: (data) => term.input(data),
+    paste: (text) => term.paste(text),
+    setCtrl: (armed) => setState({ ctrl: armed }),
+    focus: () => term.focus(),
+    syncTheme: () => {
+      const root = window.getComputedStyle(document.documentElement);
+      const token = (name: string) => root.getPropertyValue(name).trim();
+      term.options.theme = {
+        background: token('--color-background-primary'),
+        foreground: token('--color-text-primary'),
+        cursor: token('--color-text-primary'),
+      };
+      term.options.fontFamily = token('--font-mono') || 'monospace';
+    },
+  };
+}
