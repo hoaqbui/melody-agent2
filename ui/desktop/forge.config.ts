@@ -6,7 +6,9 @@ const isLinuxVulkanBuild = process.env.GOOSE_DESKTOP_LINUX_VARIANT === 'vulkan';
 
 let cfg = {
   asar: true,
-  extraResource: ['src/bin', 'src/images', 'src/app-update.yml'],
+  // ../sidecar/out/sidecar is produced by `pnpm --filter @melody/sidecar run bundle`
+  // (chained into `package` and `make`) and lands at Contents/Resources/sidecar.
+  extraResource: ['src/bin', 'src/images', 'src/app-update.yml', '../sidecar/out/sidecar'],
   icon: 'src/images/icon',
   // Windows specific configuration
   win32: {
