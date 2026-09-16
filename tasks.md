@@ -82,7 +82,7 @@ re-checked at the fork base `426967d` (v1.51.0, 2026-09-15): all hold;
   - confirm: `test -f docs/2026-09-15-runtime-matrix-v1.md && grep -c '^| \(codex-acp\|cursor-acp\|claude-acp\|agy\) |' docs/2026-09-15-runtime-matrix-v1.md` → `4`
 
 - 42. Render the dock in `ui/desktop/src/workspace/WorkspaceShell.tsx` (+ a `Dock.tsx` and `Panel.tsx` beside it): panels stacked on the right with a tab strip each, drag a tab out of its strip (pointer events, no new dependency unless the plan names one) to tear it off into a new panel at the drop position, drag a panel header to reorder, drag seams to resize, close returns a pane into its tab (Into Rule); the top-right menu (task 40) opens panes with `openPane` and shift-click tears off; phone width unchanged (task 20's rail).
-  - status: todo · agent: — · worker: high
+  - status: doing · agent: subagent-t42 via claude-session-opus-2 (01:05, worktree) · worker: high
   - card: as the user, drag a panel where I want it on the right and see the others make room so that arranging the workspace feels physical (DESIGN.md §Principles: Floating Button Rule, Into Rule)
   - context:
     - runs after 40 and 41 merge and after the panes (12–16) are in, so every pane body already renders inside a panel; remove the `openCentre`/`selectSide` adapters from task 41 in this task
@@ -145,7 +145,7 @@ Planned 2026-09-15 21:25 from PRD steps 10–12 and the spine research §Activit
   - confirm: `cd ui/desktop && pnpm vitest run src/workspace/panes/artifact && pnpm run depcruise; echo exit=$?` → `exit=0`
 
 - 31. Add the Browser pane (`ui/desktop/src/workspace/panes/browser/`: address bar + iframe, default URL the project's dev server when `.goose` config lists one) and the Markdown pane (`panes/markdown/`: rendered view of the file selected in Files).
-  - status: todo · agent: — · worker: medium
+  - status: doing · agent: subagent-t31 via claude-session-opus-2 (01:05, worktree) · worker: medium
   - card: as the user, check the running app and read a doc beside the agent so that the last two alt-tabs go away (PRD step 12)
   - context:
     - pulled forward 2026-09-15 23:30 (user: browser and markdown in the menu now); task 40 adds the pane ids and placeholders, this task fills them; runs after 12 and 40
