@@ -41,7 +41,8 @@ re-checked at the fork base `426967d` (v1.51.0, 2026-09-15): all hold;
 ### docs/2026-09-15-goose-fork-plan-v1.md
 
 - 2. Build the fork once: `source bin/activate-hermit && cargo build -p goose-cli` and `cd ui/desktop && pnpm install && pnpm run typecheck`.
-  - status: doing · agent: claude-session (opus, 2026-09-15) · worker: low
+  - status: doing · agent: Comprehend [12ee2f] (fable, 2026-09-15) · worker: low
+    - prior claim `claude-session (opus, 2026-09-15)` released 2026-09-15: no live session, no build process; user told, said continue
   - card: as the team, know the untouched fork builds so that the first red is ours, not upstream's
   - context:
     - Hermit pins node 24.10.0 / pnpm 10.30.3 / just 1.40.0 (`bin/`); Rust 1.96.1 (`rust-toolchain.toml`)
@@ -97,7 +98,7 @@ re-checked at the fork base `426967d` (v1.51.0, 2026-09-15): all hold;
   - confirm: `source bin/activate-hermit && cargo test -p goose agy_metadata -- --nocapture; echo exit=$?` → `test result: ok.` with ≥1 passed, then `exit=0`
 
 - 7. Write `.agents/agents/orchestrator.md` with frontmatter `name: orchestrator`, `description`, `runtimes:` (`claude-acp` / `claude-opus-5` weight 1; `cursor-acp` / `cursor-grok-4.6-high` weight 0 — fail-over only), and a body holding PRODUCT.md §7.1 responsibilities, §8 delegation rules, §6 star-topology invariants, the §7.7 gate → specialist routing, and the advisor `exclude_provider` rule, as imperative rules (source: TUICommander `ORCHESTRATOR.md:1-12`, read 2026-09-15 — rewritten, not copied).
-  - status: todo · agent: — · worker: medium
+  - status: doing · agent: Comprehend [12ee2f] (fable, 2026-09-15) · worker: medium
   - blocked: `PRODUCT.md` and `ARCHITECTURE.md` were rewritten by another editor at 13:32–13:33 (ten role files, `runtimes:` weighted list + roll + fail-over + `exclude_provider`, agy in V0, three spine touches); this task and 5, 8, 9 were drafted against the six-role / scalar `provider:` model — owner: user, decide which model the plan follows
     - resolved 2026-09-15 (the rewriting editor, on the user's direction in the same conversation): the plan follows the rewritten model — tasks 5, 6, 8, 9, 17 in this file already carry it; the only contradiction was five stale `§` cites in this task and task 8 from the PRODUCT.md renumber, now fixed; claim released so any agent can pick it up
   - card: as the user, start an Orchestrate session and get RPI-shaped delegation so that the thesis is testable without UI work
@@ -223,9 +224,7 @@ re-checked at the fork base `426967d` (v1.51.0, 2026-09-15): all hold;
 ## Waiting on the user
 
 - `ARCHITECTURE.md` — sign-off deletes `## Bootstrap Status`; until then the map is a proposal and tasks 10–16 plan against a guess.
-- tasks 18–20 — approval: drafted 2026-09-15 from the web-workspace research after the user kept Electron (option B); tasks 10–16 were re-pointed to the sidecar the same day under the five PRD decisions approved 2026-09-15 (decision 2 superseded by the role map).
 - task 20 — the phone check is manual: open the URL on `hoa-phone`, walk PRD step 13, judge the terminal with the key bar.
-- task 2 — its `doing` claim (`claude-session (opus, 2026-09-15)`) has no live session and no running build; release it or say who holds it.
 - task 9 — the handoff-memo criterion (PRD §Criteria, second) is a manual check: ask "what did we just change?" after a runtime switch and judge the answer.
 
 ## Ownership
