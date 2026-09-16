@@ -1,3 +1,4 @@
+/* global Notification */
 import { defaultSettings, type SettingKey, type Settings } from '../utils/settings';
 import type { OpenExternalUrlResult } from '../utils/urlSecurity';
 
@@ -49,6 +50,10 @@ function clientPlatform(): string {
 const listeners = new Map<string, Set<IpcListener>>();
 const ipcEvent = {} as IpcEvent;
 
+function emit(channel: string, ...args: unknown[]): void {
+  listeners.get(channel)?.forEach((callback) => callback(ipcEvent, ...args));
+}
+
 const sidecarKey = readSidecarKey();
 
 // getConfig and appConfig.get are synchronous in the preload contract, so the fetch has to
@@ -76,8 +81,21 @@ const implemented: Partial<ElectronApi> = {
   off: (channel, callback) => {
     listeners.get(channel)?.delete(callback);
   },
-  emit: (channel, ...args) => {
-    listeners.get(channel)?.forEach((callback) => callback(ipcEvent, ...args));
+  emit,
+  isAnyWindowFocused: async () => document.hasFocus(),
+  // The browser's Notification, only once Settings › App asked and the user allowed it —
+  // never on load. A click brings the tab forward and opens the route as Electron's does.
+  showNotification: ({ title, body, route }) => {
+    if (typeof Notification === 'undefined' || Notification.permission !== 'granted') return;
+    const notification = new Notification(title, { body });
+    notification.onclick = () => {
+      window.focus();
+      if (route) emit('notification-click', route);
+    };
+  },
+  requestNotificationPermission: async () => {
+    if (typeof Notification === 'undefined') return false;
+    return (await Notification.requestPermission()) === 'granted';
   },
   // window.open returns null whenever noopener is set, so a popup block is not observable here.
   openExternal: async (url): Promise<OpenExternalUrlResult> => {

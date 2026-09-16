@@ -20,6 +20,7 @@ import { formatMessageTimestamp } from '../../utils/timeUtils';
 import { cn } from '../../utils';
 import type { ProjectGroup } from '../../utils/projectSessions';
 import { defineMessages, useIntl } from '../../i18n';
+import { markSessionRead, useUnreadSessions } from '../../notifications';
 
 type StreamState = 'idle' | 'loading' | 'streaming' | 'error';
 
@@ -112,6 +113,8 @@ interface SessionRowProps {
   session: SessionListItem;
   active: boolean;
   status: SessionStatus | undefined;
+  // Finished while no window was focused (task 68); outlives the window, unlike `status`.
+  finishedUnread: boolean;
   onClick: () => void;
   onRenamed: () => void;
 }
@@ -163,13 +166,20 @@ const SessionTooltipContent: React.FC<SessionTooltipContentProps> = ({ session, 
   );
 };
 
-const SessionRow: React.FC<SessionRowProps> = ({ session, active, status, onClick, onRenamed }) => {
+const SessionRow: React.FC<SessionRowProps> = ({
+  session,
+  active,
+  status,
+  finishedUnread,
+  onClick,
+  onRenamed,
+}) => {
   const intl = useIntl();
   const [isEditing, setIsEditing] = useState(false);
   const [tooltipOpen, setTooltipOpen] = useState(false);
   const isStreaming = status?.streamState === 'streaming';
   const hasError = status?.streamState === 'error';
-  const hasUnread = status?.hasUnreadActivity ?? false;
+  const hasUnread = (status?.hasUnreadActivity ?? false) || finishedUnread;
 
   const statusLabel = isStreaming
     ? intl.formatMessage(i18n.statusStreaming)
@@ -246,6 +256,7 @@ export const Navigation: React.FC<{ className?: string }> = ({ className }) => {
   } = useNavigationSessions();
 
   const [sessionStatuses, setSessionStatuses] = useState<Map<string, SessionStatus>>(new Map());
+  const unreadSessions = useUnreadSessions();
 
   useEffect(() => {
     const handleStatusUpdate = (event: Event) => {
@@ -267,6 +278,7 @@ export const Navigation: React.FC<{ className?: string }> = ({ className }) => {
   }, []);
 
   const clearUnread = useCallback((sessionId: string) => {
+    markSessionRead(sessionId);
     setSessionStatuses((prev) => {
       const status = prev.get(sessionId);
       if (status?.hasUnreadActivity) {
@@ -370,6 +382,7 @@ export const Navigation: React.FC<{ className?: string }> = ({ className }) => {
                           session={session}
                           active={session.id === activeSessionId}
                           status={sessionStatuses.get(session.id)}
+                          finishedUnread={unreadSessions.has(session.id)}
                           onClick={() => {
                             clearUnread(session.id);
                             handleSessionClick(session.id);
@@ -387,6 +400,7 @@ export const Navigation: React.FC<{ className?: string }> = ({ className }) => {
                   session={session}
                   active={session.id === activeSessionId}
                   status={sessionStatuses.get(session.id)}
+                  finishedUnread={unreadSessions.has(session.id)}
                   onClick={() => {
                     clearUnread(session.id);
                     handleSessionClick(session.id);
