@@ -1,21 +1,14 @@
 import { PlaywrightTestConfig, devices } from '@playwright/test';
 
-const FORK_WALKS = [
-  'browser-pane',
-  'diff-pane',
-  'dock',
-  'easy-mode',
-  'editor-pane',
-  'files-pane',
-  'git-pane',
-  'pane-menu',
-  'phone-card',
-  'routine',
-  'runs-inbox',
-  'terminal-pane',
-  'three-columns',
-  'workspace-shell',
-  'worktree',
+// Upstream's e2e specs; everything else under tests/e2e is one of the fork's walks, so a new
+// walk joins the light suite by existing rather than by being listed here.
+const UPSTREAM_SPECS = [
+  'app',
+  'context-management',
+  'enhanced-context-management',
+  'loading-state',
+  'performance',
+  'web-build',
 ].map((name) => `${name}.spec.ts`);
 
 const config: PlaywrightTestConfig = {
@@ -36,17 +29,17 @@ const config: PlaywrightTestConfig = {
   },
   projects: [
     // Upstream's specs only; the fork's walks are their own project so the full run has no
-    // duplicates and the light run needs no grep.
+    // duplicates and `just walk` needs no grep.
     {
       name: 'chromium',
-      testIgnore: [/phone\.spec\.ts/, ...FORK_WALKS],
+      testMatch: UPSTREAM_SPECS,
       use: { ...devices['Desktop Chrome'] },
     },
     // The fork's own walks (one per workspace feature, ~25 s each): the light suite. Upstream's
     // specs (app, context-management, performance, loading-state, web-build) run only in the full.
     {
       name: 'walks',
-      testMatch: FORK_WALKS,
+      testIgnore: [/phone\.spec\.ts/, ...UPSTREAM_SPECS],
       use: { ...devices['Desktop Chrome'] },
     },
     // Task 20: the web build at phone width — an iPhone's viewport, touch and UA in Chromium,
