@@ -134,18 +134,18 @@ pub async fn sync_extension(
     agent: &Arc<Agent>,
     session_id: &str,
 ) -> anyhow::Result<Option<String>> {
-    let bridge = SessionBridge::global().await;
-    bridge.register(session_id, Arc::downgrade(agent));
-
     let session = agent
         .config
         .session_manager
         .get_session(session_id, false)
         .await?;
-    debug_assert!(
-        session.session_type != SessionType::SubAgent,
-        "a delegated child never reaches the bridge"
-    );
+    // A delegated child never gets the bridge (no nested delegation), and
+    // session/load reaches here for children the user opens to read.
+    if session.session_type == SessionType::SubAgent {
+        return Ok(None);
+    }
+    let bridge = SessionBridge::global().await;
+    bridge.register(session_id, Arc::downgrade(agent));
     // A session whose provider is still unset (auth pending) has nothing to sync yet.
     let Ok(provider) = agent.provider().await else {
         return Ok(None);
@@ -590,6 +590,23 @@ mod tests {
         assert!(stored_bridge_uri(&agent, &session_id).await.is_none());
 
         let (agent, session_id) = agent_on(false, root.path()).await;
+        assert!(sync_extension(&agent, &session_id).await.unwrap().is_none());
+        assert!(stored_bridge_uri(&agent, &session_id).await.is_none());
+    }
+
+    #[tokio::test]
+    async fn sync_extension_skips_a_delegated_child() {
+        let root = tempfile::tempdir().unwrap();
+        let (agent, session_id) = agent_on(true, root.path()).await;
+        agent
+            .config
+            .session_manager
+            .update(&session_id)
+            .session_type(SessionType::SubAgent)
+            .apply()
+            .await
+            .unwrap();
+        // An own-context provider would return Some and store the entry; a child gets neither.
         assert!(sync_extension(&agent, &session_id).await.unwrap().is_none());
         assert!(stored_bridge_uri(&agent, &session_id).await.is_none());
     }
