@@ -102,33 +102,6 @@ re-checked at the fork base `426967d` (v1.51.0, 2026-09-15): all hold;
     - sizes persist per project in `localStorage` (task 19's settings pattern); never a second store
   - confirm: `cd ui/desktop && pnpm vitest run src/workspace && pnpm run typecheck && pnpm exec playwright test -g "dock"; echo exit=$?` → `exit=0` (walk: open Terminal and Changes → one panel with two tabs; drag Changes' tab below → two panels; drag the lower panel above the upper → order swapped; close Changes → one panel again)
 
-- 43. Bind the sidecar on loopback as well as the tailnet interface (`ui/sidecar/src/bind.ts` / `index.ts`: one listener per address, same port), have the desktop use the loopback URL for its own renderer (`ui/desktop/src/main.ts` sidecar spawn → lease/IPC `get-sidecar-url` returns `http://127.0.0.1:<port>`), keep the tailnet URL for the phone (task 19's web build is served from it), and revert the `http:` added to `index.html`'s meta `connect-src` (tasks 12/14) — `http://127.0.0.1:*` and `ws://127.0.0.1:*` are already in both CSPs.
-  - status: doing · agent: subagent-t43 via claude-session-opus-2 (00:20, worktree) · worker: medium
-  - card: as the user, have the desktop talk to the sidecar over loopback so that the renderer's CSP stays as strict as upstream shipped it and the tailnet listener exists only for the phone (auto-mode classifier flagged the `http:` widening; task 15's `ws:` lease also drops `upgrade-insecure-requests`, which this removes the need for on desktop)
-  - context:
-    - `bind.ts:42-53` `resolveBindAddress` prefers the tailnet IP; add loopback as a second listener on the same port rather than a `--bind` list; `--bind 127.0.0.1` alone (the confirms) stays valid
-    - `main.ts` sidecar block: the lease holds one URL today (`gooseServeLeaseRegistry.ts` `sidecarUrl`); the desktop renderer wants loopback, task 19's `getAcpUrl`/`getSidecarUrl` shim on the phone wants same-origin — nothing changes for the web build
-    - task 15's CSP lease for the sidecar's `ws:`/`http:` tailnet origins becomes unnecessary for the desktop; remove it and the `insecure` side effect if every desktop path uses loopback, else keep and say why
-    - rerun the four Electron walks (workspace shell, files, diff, terminal) as part of the confirm
-  - confirm: `grep -c "connect-src 'self' http://127.0.0.1:\* https: ws: wss:" ui/desktop/index.html` → `1` (untouched tree: `0`, the line has `http:`); and `cd ui/desktop && pnpm run typecheck && pnpm exec playwright test -g "files pane|diff pane|terminal pane|workspace shell"; echo exit=$?` → `exit=0` with 4 passed
-
-- 13. Add the Editor pane (`src/workspace/panes/editor/`, CodeMirror 6) with ⌘S save, a reload bar on external change, and for `.md` files a Preview toggle (`react-markdown` + `remark-gfm` + `github-markdown-css`).
-  - status: doing · agent: subagent-t13 via claude-session-opus-2 (00:20, worktree) · worker: high
-  - card: as the user, fix a line without leaving the window so that small corrections don't need another tool (PRD step 4, states)
-  - context:
-    - reaches the sidecar only through `src/native/sidecar.ts` (task 37: `sidecarBaseUrl`, `sidecarFetch`, `sidecarSocket`) — waits on it
-    - CodeMirror 6 over monaco: no editor dependency exists upstream; size, Electron packaging and the phone favour CM6 (plan §Approach; research web-workspace §Inventory)
-    - markdown is source + preview at V0 — GitHub's own model; WYSIWYG is a second engine and waits for a second concrete need (user decision 2026-09-15)
-  - confirm: `cd ui/desktop && pnpm run typecheck && pnpm exec playwright test -g "editor pane"; echo exit=$?` → `exit=0` (open a file, type, ⌘S, file on disk changed)
-
-- 16. Add the Git pane (`src/workspace/panes/git/`): branch, staged/unstaged lists, stage/unstage, commit box; commit disabled while any tool call is `in_progress`; git commands run in `ui/sidecar/src/git.ts`.
-  - status: doing · agent: subagent-t16 via claude-session-opus-2 (00:20, worktree) · worker: high
-  - card: as the user, commit the reviewed change without leaving the window so that the walk ends where it started (PRD step 7)
-  - context:
-    - reaches the sidecar only through `src/native/sidecar.ts` (task 37: `sidecarBaseUrl`, `sidecarFetch`, `sidecarSocket`) — waits on it
-    - "tool call in progress" is already known to the chat's tool-call state — subscribe, don't poll git
-  - confirm: `cd ui/desktop && pnpm run typecheck && pnpm run depcruise && pnpm exec playwright test -g "git pane"; echo exit=$?` → `exit=0` (PRD step 7: branch shown, stage a file, commit, Diff vs HEAD empty)
-
 - 20. Add the phone layout to `src/workspace/`: below 768 px the pane store exposes one visible pane behind a tab rail (chat · Files · Editor · Diff · Terminal · Git), the terminal key bar from task 15 is shown, and reconnect-on-foreground reattaches the pty and refreshes the chat; Playwright gets a `phone` project (390 × 844, touch, iPhone UA).
   - status: todo · agent: — · worker: medium
   - card: as the user on the phone, check what the agent did and nudge it from wherever I am so that the walk does not wait for the desk (PRD step 13, criteria 7–8)
@@ -222,8 +195,9 @@ User, 2026-09-16 00:15: "research it, plan it, and orchestrate it with sub agent
 - Task 33 — filing the three upstream issues posts under your GitHub account; say "file them".
 - **Sidecar auth (2026-09-15 22:30):** `ARCHITECTURE.md` §Invariants names Tailscale the sidecar's only gate, and task 18 built exactly that — the sidecar answers pty/fs/git for anyone on the tailnet, unauthenticated, from the moment the desktop starts (packaged run logged `100.127.56.10:64870`). If anyone but you is ever on that tailnet, say "sidecar secret" and it becomes a task (a shared token the web build carries, same pattern as `goose serve`); otherwise the invariant stands as written.
 - task 11 hand check — one early run of the Mode selector produced three sessions from one click (worker's report, not reproduced in five later runs with a call-site trace). Open the desktop, pick Orchestrate once, count sessions in the list; more than one is a P0 bug.
-- task 15 hand checks — packaged build: the CSP lease rides `onHeadersReceived`, a `file://` load is governed by `index.html`'s meta CSP (untested); the `ws:` lease drops `upgrade-insecure-requests` from the renderer CSP while the sidecar runs (required for `ws://` to the tailnet IP — say if you'd rather the sidecar served TLS).
-- **Renderer CSP widened (2026-09-16, tasks 12/14 — your call):** `ui/desktop/index.html:7` meta `connect-src` now includes `http:` so the Electron renderer can reach the sidecar's tailnet IP over plain http (console error otherwise: "Connecting to 'http://100.127.56.10:…/fs/list' violates … connect-src"). I directed it; the auto-mode classifier flagged the edit as a security weakening. Where the header CSP applies (dev, http(s) documents) it still narrows to the leased sidecar origins; in a packaged `file://` load the meta CSP may stand alone, allowing any http origin. Cleaner fix drafted as task 43 (sidecar also binds loopback for the desktop; revert the `http:`); approve 43 or keep the line.
+- Renderer CSP (2026-09-16): the `http:` widening from tasks 12/14 is reverted by task 43 — `index.html:7` is back to upstream's `connect-src`; the desktop renderer reaches the sidecar over loopback, the tailnet listener exists for the phone only. Task 15's `ws:`/`http:` lease and its `upgrade-insecure-requests` drop are removed with it. Hand checks: packaged `file://` build — open Files and Terminal, watch the console for connect-src violations; phone — the tailnet URL from the desktop log still loads the web build and answers `./config`.
+- task 13 hand checks — dark theme flips gutter/token colours and the markdown Preview palette; type without saving, close the pane, reopen from the side tab → draft, cursor, undo intact; chmod a file read-only, edit, ⌘S → error line with Retry, edit kept.
+- task 16 hand checks — press Esc mid-tool-call, then open Git: Commit stays disabled ("waits for the running tool call") because the orphaned `toolRequest` never gets a terminal status — spec (DESIGN Running row) or bug, your call; ask the agent to write a file with Git open → Unstaged refreshes on its own when the call ends; open Git in a non-repo cwd → "Not a git repository" + path.
 - task 14 hand check — "since session start" base: open a session in a git cwd, commit, open Changes → the selector offers it and lists the committed file; `git diff HEAD` omits untracked files (accepted gap, or queue).
 - `ARCHITECTURE.md` — sign-off deletes `## Bootstrap Status`; until then the map is a proposal and tasks 10–16 plan against a guess.
 - task 20 — the phone check is manual: open the URL on `hoa-phone`, walk PRD step 13, judge the terminal with the key bar.
