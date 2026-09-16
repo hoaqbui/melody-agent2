@@ -1,3 +1,4 @@
+import { timingSafeEqual } from 'node:crypto';
 import type { IncomingMessage, ServerResponse } from 'node:http';
 
 export type JsonHandler = (body: Record<string, unknown>) => Promise<unknown>;
@@ -15,6 +16,29 @@ export class HttpError extends Error {
 }
 
 const MAX_BODY_BYTES = 16 * 1024 * 1024;
+
+export const SIDECAR_KEY_HEADER = 'x-sidecar-key';
+
+// Length-equal buffers are the precondition timingSafeEqual throws on, and the
+// length check itself leaks only what the key's hex format already tells.
+export const keyMatches = (secret: string, presented: string | null): boolean => {
+  if (presented === null) {
+    return false;
+  }
+  const expected = Buffer.from(secret);
+  const actual = Buffer.from(presented);
+  return expected.length === actual.length && timingSafeEqual(expected, actual);
+};
+
+// A fetch carries the key as a header; a WebSocket upgrade cannot set one, so it
+// carries `?key=` instead. Each entry checks the form its caller can send.
+export const requestHasKey = (request: IncomingMessage, secret: string): boolean => {
+  const header = request.headers[SIDECAR_KEY_HEADER];
+  return typeof header === 'string' && keyMatches(secret, header);
+};
+
+export const upgradeHasKey = (request: IncomingMessage, secret: string): boolean =>
+  keyMatches(secret, new URL(request.url ?? '/', 'http://sidecar').searchParams.get('key'));
 
 // A POST of any other type is a CORS "simple request": the browser sends it
 // without a preflight, so the origin allowlist never sees it and only this
@@ -56,7 +80,10 @@ export const corsHeaders = (
 ): CorsHeaders => {
   const origin = request.headers.origin;
   return origin !== undefined && allowedOrigins.includes(origin)
-    ? { 'access-control-allow-origin': origin, 'access-control-allow-headers': 'content-type' }
+    ? {
+        'access-control-allow-origin': origin,
+        'access-control-allow-headers': `content-type, ${SIDECAR_KEY_HEADER}`,
+      }
     : {};
 };
 
@@ -103,9 +130,11 @@ const handleJson = async (
 };
 
 // Returns whether the request was one of the JSON routes, or a preflight for
-// one from a listed origin; anything else is left to the caller.
+// one from a listed origin; anything else is left to the caller. The key is
+// checked here, before the body, so every route present or later gets the gate
+// and a caller without it learns nothing past the 401.
 export const jsonDispatcher =
-  (routes: Record<string, JsonHandler>, allowedOrigins: readonly string[]) =>
+  (routes: Record<string, JsonHandler>, allowedOrigins: readonly string[], secret: string) =>
   (request: IncomingMessage, response: ServerResponse): boolean => {
     const cors = corsHeaders(request, allowedOrigins);
     const pathname = new URL(request.url ?? '/', 'http://sidecar').pathname;
@@ -121,6 +150,10 @@ export const jsonDispatcher =
     const handler = routes[`${request.method} ${pathname}`];
     if (!handler) {
       return false;
+    }
+    if (!requestHasKey(request, secret)) {
+      sendJson(response, 401, { error: 'sidecar key required' }, cors);
+      return true;
     }
     void handleJson(handler, request, response, cors);
     return true;

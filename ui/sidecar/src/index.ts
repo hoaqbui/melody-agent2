@@ -10,7 +10,14 @@ import { parseArgs } from './args.js';
 import { isPrivateAddress, resolveBindAddresses } from './bind.js';
 import { attachFsWatch, fsRoutes } from './fs.js';
 import { gitRoutes } from './git.js';
-import { corsHeaders, type JsonHandler, jsonDispatcher, sendJson, sendText } from './http.js';
+import {
+  corsHeaders,
+  type JsonHandler,
+  jsonDispatcher,
+  sendJson,
+  sendText,
+  upgradeHasKey,
+} from './http.js';
 import { attachPty, ensureSpawnHelperExecutable, killAllPty } from './pty.js';
 import { serveStatic } from './static.js';
 
@@ -48,6 +55,16 @@ const main = async (): Promise<void> => {
     }
   }
 
+  // The key is the lock on every machine-touching route; a sidecar without one
+  // would be an open shell to the tailnet, so it does not start.
+  const secret = process.env.SIDECAR_SECRET;
+  if (!secret) {
+    console.error(
+      'refusing to start without SIDECAR_SECRET: the fs, git, pty and acp routes need it'
+    );
+    process.exit(2);
+  }
+
   ensureSpawnHelperExecutable();
   const cwd = path.resolve(args.cwd);
   const version = args.gooseVersion ?? packageVersion();
@@ -57,7 +74,7 @@ const main = async (): Promise<void> => {
       ? { gooseUrl: args.gooseUrl, certFingerprint: args.gooseCertFingerprint, token }
       : null;
   const routes: Record<string, JsonHandler> = { ...fsRoutes(cwd), ...gitRoutes(cwd) };
-  const dispatchJson = jsonDispatcher(routes, args.allowedOrigins);
+  const dispatchJson = jsonDispatcher(routes, args.allowedOrigins, secret);
 
   const handleRequest = (request: IncomingMessage, response: ServerResponse) => {
     const url = new URL(request.url ?? '/', 'http://sidecar');
@@ -90,6 +107,10 @@ const main = async (): Promise<void> => {
       socket.write(`HTTP/1.1 ${status} ${reason}\r\nconnection: close\r\n\r\n`);
       socket.destroy();
     };
+    if (!upgradeHasKey(request, secret)) {
+      refuse(401, 'Unauthorized');
+      return;
+    }
     switch (url.pathname) {
       case '/acp':
         if (!acpTarget) {

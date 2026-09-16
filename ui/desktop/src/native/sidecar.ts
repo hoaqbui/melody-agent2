@@ -152,6 +152,10 @@ export type SidecarSocketPath = '/pty' | '/fs/watch';
 
 const GET_ROUTES = new Set(['/health', '/config']);
 
+const KEY_HEADER = 'x-sidecar-key';
+
+// One URL from either shell — Electron's lease or the phone's stored origin — carries the
+// per-launch key as `?key=`; it is split here once and never leaves this module.
 export async function sidecarBaseUrl(): Promise<string> {
   const url = await window.electron.getSidecarUrl();
   if (!url) {
@@ -160,13 +164,21 @@ export async function sidecarBaseUrl(): Promise<string> {
   return url;
 }
 
+async function sidecarTarget(path: string): Promise<{ url: URL; key: string }> {
+  const base = new URL(await sidecarBaseUrl());
+  const key = base.searchParams.get('key') ?? '';
+  return { url: new URL(path, base), key };
+}
+
+// The GET routes are the open ones; a key header on a cross-origin GET would only cost
+// the dev renderer a preflight the sidecar answers for JSON routes alone.
 export async function sidecarFetch<T>(path: string, body?: unknown): Promise<T> {
-  const url = new URL(path, await sidecarBaseUrl());
+  const { url, key } = await sidecarTarget(path);
   const response = GET_ROUTES.has(path)
     ? await fetch(url)
     : await fetch(url, {
         method: 'POST',
-        headers: { 'content-type': 'application/json' },
+        headers: { 'content-type': 'application/json', [KEY_HEADER]: key },
         body: JSON.stringify(body ?? {}),
       });
   const isJson = response.headers.get('content-type')?.includes('application/json') ?? false;
@@ -181,8 +193,8 @@ export async function sidecarSocket(
   path: SidecarSocketPath,
   params?: Record<string, string>
 ): Promise<WebSocket> {
-  const url = new URL(path, await sidecarBaseUrl());
+  const { url, key } = await sidecarTarget(path);
   url.protocol = url.protocol === 'https:' ? 'wss:' : 'ws:';
-  url.search = new URLSearchParams(params).toString();
+  url.search = new URLSearchParams({ key, ...params }).toString();
   return new WebSocket(url);
 }

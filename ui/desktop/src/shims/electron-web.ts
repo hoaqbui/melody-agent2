@@ -6,6 +6,21 @@ type IpcListener = Parameters<ElectronApi['on']>[1];
 type IpcEvent = Parameters<IpcListener>[0];
 
 const SETTINGS_STORAGE_KEY = 'goose.settings';
+const SIDECAR_KEY_STORAGE_KEY = 'goose.sidecarKey';
+
+// The desktop's URL carries the per-launch sidecar key once; it is kept for the next
+// visit and taken off the address bar so a screenshot or a shared tab does not carry it.
+function readSidecarKey(): string {
+  const url = new URL(window.location.href);
+  const fromUrl = url.searchParams.get('key');
+  if (fromUrl) {
+    window.localStorage.setItem(SIDECAR_KEY_STORAGE_KEY, fromUrl);
+    url.searchParams.delete('key');
+    window.history.replaceState(null, '', url);
+    return fromUrl;
+  }
+  return window.localStorage.getItem(SIDECAR_KEY_STORAGE_KEY) ?? '';
+}
 
 function readSettings(): Partial<Settings> {
   const raw = window.localStorage.getItem(SETTINGS_STORAGE_KEY);
@@ -34,6 +49,8 @@ function clientPlatform(): string {
 const listeners = new Map<string, Set<IpcListener>>();
 const ipcEvent = {} as IpcEvent;
 
+const sidecarKey = readSidecarKey();
+
 // getConfig and appConfig.get are synchronous in the preload contract, so the fetch has to
 // finish before the renderer, the next import of the web entry, evaluates.
 const config = await fetchConfig();
@@ -42,9 +59,10 @@ const implemented: Partial<ElectronApi> = {
   platform: clientPlatform(),
   getConfig: () => config,
   logInfo: (txt) => console.info(txt),
+  // Here ACP goes through the sidecar's proxy, so its upgrade carries the key like any other.
   getAcpUrl: async () =>
-    `${window.location.protocol === 'https:' ? 'wss' : 'ws'}://${window.location.host}/acp`,
-  getSidecarUrl: async () => window.location.origin,
+    `${window.location.protocol === 'https:' ? 'wss' : 'ws'}://${window.location.host}/acp?key=${sidecarKey}`,
+  getSidecarUrl: async () => `${window.location.origin}/?key=${sidecarKey}`,
   getSetting: async <K extends SettingKey>(key: K): Promise<Settings[K]> =>
     ({ ...defaultSettings, ...readSettings() })[key],
   setSetting: async <K extends SettingKey>(key: K, value: Settings[K]): Promise<void> =>
