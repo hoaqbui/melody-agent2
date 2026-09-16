@@ -81,14 +81,6 @@ re-checked at the fork base `426967d` (v1.51.0, 2026-09-15): all hold;
     - record the subscription each run drew on (PRODUCT.md §5) and any quota message — that is the first fail-over datum
   - confirm: `test -f docs/2026-09-15-runtime-matrix-v1.md && grep -c '^| \(codex-acp\|cursor-acp\|claude-acp\|agy\) |' docs/2026-09-15-runtime-matrix-v1.md` → `4`
 
-- 39. Reject JSON-route requests whose `content-type` is not `application/json` in `ui/sidecar/src/http.ts` (`415`, before the body is read), with a test beside the CORS ones.
-  - status: doing · agent: subagent-t39 via claude-session-opus-2 (23:25, worktree) · worker: low
-  - card: as the user, have no web page open in a browser on this Mac able to write files through the sidecar so that CORS's allowlist is a real gate, not a readable-response gate (task 38's finding: a `text/plain` POST is a CORS "simple request" that skips the preflight — the response is unreadable but `fs/write` runs)
-  - context:
-    - `http.ts` `jsonDispatcher` / `readJson` — check the header first; `sidecarFetch` (`src/native/sidecar.ts`) already sends `content-type: application/json`, so no client changes
-    - with this, an unlisted origin cannot reach a JSON route at all: it fails the preflight (task 38) or the type check (this task)
-  - confirm: `cd ui/sidecar && pnpm vitest run src/http.test.ts; echo exit=$?` → `exit=0` with ≥5 tests (untouched tree: 4)
-
 - 40. Redo the workspace header's top-right as a pane menu: in `ui/desktop/src/workspace/pane-store.ts` add `'browser'` and `'markdown'` to `PaneId` / `PANE_IDS` (after `git`); in `ui/desktop/src/workspace/WorkspaceShell.tsx` replace the status text at the header's right (`data-testid="workspace-header-status"`) with one lucide icon button per pane (Files `FolderTree`, Editor `FileCode`, Diff `GitCompare`, Terminal `Terminal`, Git `GitBranch`, Browser `Globe`, Markdown `BookOpen` — or the nearest names the installed `lucide-react` exports), each with a tooltip/`aria-label` of the pane title, pressed state = the pane is visible (centre or active side tab), click = `selectSide` (shift-click or a second click on the active one = `openCentre`), styled per `DESIGN.md` §Principles Floating Button Rule (`--shadow-sm` at rest, `--shadow-md` lifted) and the Into Rule for the pressed transition; the runtime · mode status moves into the Runtime/Mode controls' own tooltip; placeholder bodies for Browser and Markdown until task 31.
   - status: todo · agent: — · worker: high
   - card: as the user, open any pane from one row of icons at the top right — terminal, browser and markdown included — so that the panes read as one set and the header stops being a sentence (user, 2026-09-15 23:30: "redo the top right menu and add in terminal and browser and markdown")
