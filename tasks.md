@@ -41,7 +41,8 @@ re-checked at the fork base `426967d` (v1.51.0, 2026-09-15): all hold;
 ### docs/2026-09-15-goose-fork-plan-v1.md
 
 - 5. Add `runtimes: Vec<{provider, model, weight}>` to `AgentMetadata` in `crates/goose/src/agents/platform_extensions/summon.rs`, roll one entry per `delegate` call, and add an optional `exclude_provider` parameter to `delegate`.
-  - status: todo · agent: — · worker: high
+  - status: blocked · agent: — · worker: high
+  - blocked: necessary but not sufficient — after this lands an Orchestrate session on `claude-acp` still has no `delegate` (ACP drops Goose tools, `acp/provider.rs:820-825`; research v1 addendum, evening). Unblocks: the user picks the orchestrator path (§Waiting on the user); if repair (ii) is chosen, this task and the bridge land together — owner: user
   - card: as the orchestrator, have each role file name its runtimes and their weights so that role→runtime, the tenth-call backup seat, and fail-over are data, not prompt text (PRODUCT.md §6)
   - context:
     - `AgentMetadata` is `name / description / model` only (`summon.rs:208-214`); `parse_agent_content` copies `model` into `properties` (`:236-239`)
@@ -81,7 +82,8 @@ re-checked at the fork base `426967d` (v1.51.0, 2026-09-15): all hold;
   - confirm: `source bin/activate-hermit && cargo test -p goose agy_metadata -- --nocapture; echo exit=$?` → `test result: ok.` with ≥1 passed, then `exit=0`
 
 - 8. Write `.agents/agents/{researcher,planner,implementer,reviewer,advisor,advisor-architect,advisor-ux,advisor-pm,advisor-security}.md`, each with `runtimes:` per PRODUCT.md §6 and the artifact template from PRODUCT.md §7 as the required return shape.
-  - status: todo · agent: — · worker: medium
+  - status: blocked · agent: — · worker: medium
+  - blocked: role bodies never reach an ACP worker — the recipe instructions become a system prompt ACP ignores (`subagent_handler.rs:134,167`, `acp/provider.rs:820`). Unblocks: repair (i) — fold the system prompt into the first ACP prompt — or the user accepting that ACP workers run on task instructions alone — owner: user
   - card: as the orchestrator, delegate to bounded roles that return compact artifacts so that Claude absorbs conclusions, not transcripts (PRODUCT.md §3.4)
   - context:
     - runtimes (2026-09-15): researcher `agy`/`gemini-3.8-flash-high` 9 · `cursor-acp`/`cursor-grok-4.6-medium` 1; planner `codex-acp`/`gpt-6-astra` 9 · `claude-acp`/`claude-opus-5` 1; implementer `claude-acp`/`claude-sonnet-5` 9 · `agy`/`gemini-3.8-flash-high` 1; reviewer `codex-acp`/`gpt-5.6-sol` 9 · `cursor-acp`/`cursor-grok-4.6-high` 1; advisor and the three specialists `claude-acp`/`claude-fable-5-1` 1 · `codex-acp`/`gpt-5.6-sol` 1 · `cursor-acp`/`cursor-grok-4.6-xhigh` 1
@@ -92,7 +94,8 @@ re-checked at the fork base `426967d` (v1.51.0, 2026-09-15): all hold;
   - confirm: `ls .agents/agents/*.md | wc -l` → `10`; and `grep -L '^runtimes:' .agents/agents/*.md | wc -l` → `0`
 
 - 9. Run the runtime matrix: from a Goose session in this directory on `claude-acp`, delegate the same one-file task ("add a `--version` line to `scripts/check-spine.sh` help") to implementer on `claude-acp`, `codex-acp`, `cursor-acp`, `agy`, then call `advisor` six times with `exclude_provider` set, and record per run: provider, model, turns, result shape, permission prompts seen, in `docs/2026-09-15-runtime-matrix-v1.md`.
-  - status: todo · agent: — · worker: medium
+  - status: blocked · agent: — · worker: medium
+  - blocked: no subscription orchestrator in tree can call `delegate` except `chatgpt_codex` (research v1 addendum, evening). Unblocks: the user's pick — run the matrix from a `chatgpt_codex` session as the interim proof, or wait for repair (ii) — owner: user
   - card: as the user, see each role×runtime pair work once so that the fork's UI work builds on a proven spine
   - context:
     - needs `codex-acp` installed (`npm i -g @agentclientprotocol/codex-acp`; `codex_acp.rs:37-42`), `claude-agent-acp` (present), `cursor-agent` (present, `~/.local/bin`), `agy` (present), and tasks 5, 6, 17 landed
@@ -209,6 +212,7 @@ re-checked at the fork base `426967d` (v1.51.0, 2026-09-15): all hold;
 
 ## Waiting on the user
 
+- **Direction — who can orchestrate (found 2026-09-15 evening, research v1 addendum):** on stock Goose no ACP or print-mode subscription provider receives Goose's tools, and ACP workers do not receive their role body; only `chatgpt_codex` (ChatGPT Plus) and API-key providers do. Options: (A) repair the spine — (i) fold system into the first ACP prompt, (ii) export a session's platform tools (`delegate`, `load`) to ACP agents and `claude-code` as an MCP endpoint on `goose serve`; keeps Claude-first via `claude-acp`; (B) interim Codex-native orchestrator (`chatgpt_codex`) for the proof while A lands; (C) interim Claude API-key orchestrator. Tasks 5, 8, 9 blocked on this; 6 and 17 stand.
 - `ARCHITECTURE.md` — sign-off deletes `## Bootstrap Status`; until then the map is a proposal and tasks 10–16 plan against a guess.
 - task 20 — the phone check is manual: open the URL on `hoa-phone`, walk PRD step 13, judge the terminal with the key bar.
 - task 9 — the handoff-memo criterion (PRD §Criteria, second) is a manual check: ask "what did we just change?" after a runtime switch and judge the answer.

@@ -325,3 +325,55 @@ Unknowns added:
 - §Unknowns, first line ("does `delegate(provider:)` run `AcpProvider`
   inside a `SubAgent` with `max_turns` honoured") is still open —
   task 9 settles it, now across four providers.
+
+## Addendum 2026-09-15 (evening) — the orchestrator has no `delegate` on any subscription runtime
+
+Prompted by `docs/2026-09-15-goose-spine-research-v1.md` (another
+session's evaluation, untracked at the time); every line below re-read
+in this tree at `391811a10`.
+
+- **ACP adapters drop Goose's system prompt and tools.**
+  `AcpProvider::stream(&self, model_config, _system, messages, _tools)`
+  (`crates/goose/src/acp/provider.rs:820-825`); the first prompt of a
+  new ACP session is the last user message plus an optional handoff memo
+  (`:1913` `messages_to_prompt`). So a session on `claude-acp`,
+  `codex-acp` or the planned `cursor-acp` never sees `delegate`, and a
+  delegated child on any of them never sees its role body (the recipe
+  instructions become an overridden *system* prompt —
+  `agents/subagent_handler.rs:134,167-168` — which ACP ignores).
+- **Extensions cross to ACP and `claude-code` only as Stdio /
+  StreamableHttp MCP servers.** `extension_configs_to_mcp_servers`
+  (`acp/provider.rs:1843`, `_ => {}`) and `claude_mcp_config_json`
+  (`providers/claude_code.rs:541-580`, `_ => {}`) skip `Builtin` and
+  `Platform`; summon is a platform extension
+  (`agents/platform_extensions/mod.rs:121-129`), so `delegate` /
+  `load` are not exported anywhere.
+- **Print-mode CLIs are no better.** `claude-code` passes the system
+  prompt (`--system-prompt-file`, `claude_code.rs:368-380`) but ignores
+  tools (`_tools`); `gemini_cli` the same; `cursor_agent`'s
+  `execute_command` takes `_tools` (`cursor_agent.rs:~546`).
+- **The only subscription-backed provider that receives both system
+  and tools is `chatgpt_codex`** ("Use your ChatGPT Plus/Pro
+  subscription for GPT-5 Codex models via OAuth", `chatgpt_codex.rs:961`;
+  `system`/`tools` in its `stream`). API-key providers (`anthropic`,
+  `openai`, `xai`, …) do too. `gemini_oauth` is deprecated in tree
+  (`gemini_oauth.rs:936`).
+- **Consequence for the plan.** Tranche 2's "three feature files" do
+  not give Claude an orchestrator seat: after tasks 5, 6, 17 land, an
+  Orchestrate session on `claude-acp` still cannot call `delegate`, and
+  ACP workers still do not read `.agents/agents/*.md` bodies. Task 9
+  would have found this on its first run; found by reading instead.
+- **Repairs, sized (spine, outside `agent.rs` / `state_machine/`):**
+  (i) fold the system prompt into the first prompt of a new ACP session
+  in `AcpProvider::stream` — small, one file; gives role bodies to ACP
+  orchestrators and workers. (ii) export a session's platform
+  extensions as a StreamableHttp MCP endpoint on `goose serve`
+  (`/mcp/<session_id>`), and include it from
+  `extension_configs_to_mcp_servers` and `claude_mcp_config_json` —
+  medium; gives `delegate` to `claude-acp` and `claude-code`. Both are
+  upstream-shaped Ready issues. Summon's children run `Auto`
+  (`summon.rs:1394`) — permission forwarding is a separate, later gap.
+- **Interim orchestrators without spine work:** `chatgpt_codex`
+  (subscription, tools+system, contradicts Claude-first and puts the
+  heaviest session on the $20 tier) or `anthropic` by API key (Claude,
+  tools+system, contradicts subscription-first, costs money).
