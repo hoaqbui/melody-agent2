@@ -118,7 +118,7 @@ re-checked at the fork base `426967d` (v1.51.0, 2026-09-15): all hold;
   - confirm: `cd ui/desktop && pnpm run typecheck && pnpm exec playwright test -g "diff pane"; echo exit=$?` → `exit=0` (PRD step 5: a modified file shows in the list; unified and side-by-side render)
 
 - 15. Add the Terminal pane (`src/workspace/panes/terminal/`, `@xterm/xterm`) backed by `ui/sidecar/src/pty.ts` (`node-pty`), starting in the session cwd with the login-shell PATH, surviving session end and client disconnect (reattach by session id), with a key bar (Esc · Tab · Ctrl · arrows · paste) at phone width.
-  - status: todo · agent: — · worker: high
+  - status: doing · agent: subagent-t15 via claude-session-opus-2 (23:08, worktree) · worker: high
   - card: as the user, run tests and commands beside the agent so that the loop closes in one window (PRD step 6)
   - context:
     - reaches the sidecar only through `src/native/sidecar.ts` (task 37: `sidecarBaseUrl`, `sidecarFetch`, `sidecarSocket`) — waits on it
