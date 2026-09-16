@@ -22,6 +22,7 @@ export function getSessionDisplayName(session: Session): string {
 interface CreateSessionOptions {
   recipeDeeplink?: string;
   recipeId?: string;
+  provider?: string;
   extensionConfigs?: ExtensionConfig[];
   allExtensions?: FixedExtensionEntry[];
 }
@@ -66,6 +67,7 @@ async function createAcpSession(
       recipeId: options?.recipeId,
       recipeDeeplink: options?.recipeDeeplink,
       recipeParameterScopeId: configuredParameterScope?.id,
+      provider: options?.provider,
     });
   } finally {
     configuredParameterScope?.finish();

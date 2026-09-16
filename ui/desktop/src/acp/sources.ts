@@ -1,6 +1,8 @@
 import type { SourceEntry, SourceType } from '@aaif/goose-acp-client';
 import { getAcpClient } from './acpConnection';
 
+export type { SourceEntry };
+
 const SKILL_SOURCE_TYPES: SourceType[] = ['skill', 'builtinSkill'];
 const inFlightSkillSourceLoads = new Map<string, Promise<SourceEntry[]>>();
 
@@ -40,4 +42,12 @@ async function loadSkillSources(projectDir: string): Promise<SourceEntry[]> {
         a.name.localeCompare(b.name, undefined, { sensitivity: 'base' }) ||
         a.path.localeCompare(b.path)
     );
+}
+
+// `.agents/agents/*.md` of the project and the global agent dirs; `content` is the body
+// after the frontmatter.
+export async function listAgentSources(projectDir: string): Promise<SourceEntry[]> {
+  const client = await getAcpClient();
+  const response = await client.goose.sourcesList_unstable({ type: 'agent', projectDir });
+  return response.sources;
 }
