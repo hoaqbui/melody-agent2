@@ -43,6 +43,7 @@ re-checked at the fork base `426967d` (v1.51.0, 2026-09-15): all hold;
 - 5. Add `runtimes: Vec<{provider, model, weight}>` to `AgentMetadata` in `crates/goose/src/agents/platform_extensions/summon.rs`, roll one entry per `delegate` call, and add an optional `exclude_provider` parameter to `delegate`.
   - status: blocked · agent: — · worker: high
   - blocked: necessary but not sufficient — after this lands an Orchestrate session on `claude-acp` still has no `delegate` (ACP drops Goose tools, `acp/provider.rs:820-825`; research v1 addendum, evening). Unblocks: the user picks the orchestrator path (§Waiting on the user); if repair (ii) is chosen, this task and the bridge land together — owner: user
+  - unblocks (2026-09-15 20:40, plan spine-bridge v1 approved): after task 24 records `reached child: yes`; the bridge (tasks 22–23) is what gives `claude-code` `delegate`
   - card: as the orchestrator, have each role file name its runtimes and their weights so that role→runtime, the tenth-call backup seat, and fail-over are data, not prompt text (PRODUCT.md §6)
   - context:
     - `AgentMetadata` is `name / description / model` only (`summon.rs:208-214`); `parse_agent_content` copies `model` into `properties` (`:236-239`)
@@ -84,6 +85,7 @@ re-checked at the fork base `426967d` (v1.51.0, 2026-09-15): all hold;
 - 8. Write `.agents/agents/{researcher,planner,implementer,reviewer,advisor,advisor-architect,advisor-ux,advisor-pm,advisor-security}.md`, each with `runtimes:` per PRODUCT.md §6 and the artifact template from PRODUCT.md §7 as the required return shape.
   - status: blocked · agent: — · worker: medium
   - blocked: role bodies never reach an ACP worker — the recipe instructions become a system prompt ACP ignores (`subagent_handler.rs:134,167`, `acp/provider.rs:820`). Unblocks: repair (i) — fold the system prompt into the first ACP prompt — or the user accepting that ACP workers run on task instructions alone — owner: user
+  - unblocks (2026-09-15 20:40, plan spine-bridge v1 approved): task 21 folds the role body into the ACP child's first prompt; write the files once 24 records `reached child: yes`
   - card: as the orchestrator, delegate to bounded roles that return compact artifacts so that Claude absorbs conclusions, not transcripts (PRODUCT.md §3.4)
   - context:
     - runtimes (2026-09-15): researcher `agy`/`gemini-3.8-flash-high` 9 · `cursor-acp`/`cursor-grok-4.6-medium` 1; planner `codex-acp`/`gpt-6-astra` 9 · `claude-acp`/`claude-opus-5` 1; implementer `claude-acp`/`claude-sonnet-5` 9 · `agy`/`gemini-3.8-flash-high` 1; reviewer `codex-acp`/`gpt-5.6-sol` 9 · `cursor-acp`/`cursor-grok-4.6-high` 1; advisor and the three specialists `claude-acp`/`claude-fable-5-1` 1 · `codex-acp`/`gpt-5.6-sol` 1 · `cursor-acp`/`cursor-grok-4.6-xhigh` 1
@@ -96,6 +98,7 @@ re-checked at the fork base `426967d` (v1.51.0, 2026-09-15): all hold;
 - 9. Run the runtime matrix: from a Goose session in this directory on `claude-acp`, delegate the same one-file task ("add a `--version` line to `scripts/check-spine.sh` help") to implementer on `claude-acp`, `codex-acp`, `cursor-acp`, `agy`, then call `advisor` six times with `exclude_provider` set, and record per run: provider, model, turns, result shape, permission prompts seen, in `docs/2026-09-15-runtime-matrix-v1.md`.
   - status: blocked · agent: — · worker: medium
   - blocked: no subscription orchestrator in tree can call `delegate` except `chatgpt_codex` (research v1 addendum, evening). Unblocks: the user's pick — run the matrix from a `chatgpt_codex` session as the interim proof, or wait for repair (ii) — owner: user
+  - unblocks (2026-09-15 20:40, plan spine-bridge v1 approved): tasks 22–24 give `claude-code` `delegate` via the session bridge; run the matrix with the orchestrator on `claude-code` after 24
   - card: as the user, see each role×runtime pair work once so that the fork's UI work builds on a proven spine
   - context:
     - needs `codex-acp` installed (`npm i -g @agentclientprotocol/codex-acp`; `codex_acp.rs:37-42`), `claude-agent-acp` (present), `cursor-agent` (present, `~/.local/bin`), `agy` (present), and tasks 5, 6, 17 landed
@@ -185,6 +188,65 @@ re-checked at the fork base `426967d` (v1.51.0, 2026-09-15): all hold;
     - CodeMirror 6 iOS tap-to-place (discuss.codemirror.net/t/3345) — read the current changelog before relying on editing; reading and small edits are the bar at V0
     - test on `hoa-phone` over the tailnet (`tailscale status`, 2026-09-15) — the Playwright phone project is the mechanical check, the phone is the manual one (§Waiting on the user)
   - confirm: `cd ui/desktop && pnpm run typecheck && pnpm exec playwright test -g "phone" --project=phone; echo exit=$?` → `exit=0` (at 390 px: chat first; tap Files → tree; tap a file → editor; tap Terminal → key bar visible; `pwd` prints the cwd)
+
+### docs/2026-09-15-goose-spine-bridge-plan-v1.md
+
+- 21. Fold the rendered role prompt into an ACP child's first user message: add `fn accepts_system_prompt(&self) -> bool { true }` to the `Provider` trait in `crates/goose-provider-types/src/base.rs` (beside `manages_own_context`, `:631`), return `false` from `AcpProvider` in `crates/goose/src/acp/provider.rs` (beside `:803`), and in `crates/goose/src/agents/subagent_handler.rs` build the first user message as `subagent_prompt` + `"\n\n---\n\n"` + `user_task` when `task_config.provider.accepts_system_prompt()` is false (pure helper `first_user_message(accepts_system_prompt, subagent_prompt, user_task) -> Message`, called at `:170`).
+  - status: doing · agent: claude-session-opus-2 (20:42, worker via agy) · worker: medium
+  - card: as a delegated worker on an ACP runtime, receive the role I was summoned as so that `.agents/agents/*.md` bodies are the contract on every runtime, not only print-mode ones (spine research §Critical: role instruction gap)
+  - context:
+    - `override_system_prompt(subagent_prompt)` at `subagent_handler.rs:167` stays — Goose-native and `claude-code` children keep reading it; the fold is additive for providers that drop `_system`
+    - `claude-code` (`claude_code.rs:680` `manages_own_context` true) still passes the system prompt via `--system-prompt-file` (`:378`) — do not key the fold on `manages_own_context`; that is why the new method exists
+    - the conversation persisted for the child (`:171` `Conversation::new_unvalidated`) carries the folded message — the transcript then shows the role, which is what task 24 checks
+    - tests beside `subagent_handler.rs:319` `#[cfg(test)]`: `subagent_first_prompt_carries_role_body_when_system_is_dropped` (false → text starts with the role prompt and ends with the task) and `subagent_first_prompt_is_the_task_when_system_is_accepted` (true → text equals the task)
+    - upstream-shaped: file a Ready issue against `aaif-goose/goose` naming `acp/provider.rs:820`; do not wait on it
+  - confirm: `source bin/activate-hermit && cargo test -p goose --lib subagent_first_prompt 2>&1 | grep -E 'test result: ok\. 2 passed'; echo exit=$?` → the `test result` line, then `exit=0` (untouched tree: no match, `exit=1`)
+
+- 22. Add `crates/goose/src/agents/session_bridge.rs` (registered in `agents/mod.rs`): a lazily started loopback `axum` listener (`127.0.0.1:0`, per-process random secret) serving `POST /mcp/{session_id}` as stateless MCP JSON-RPC — `initialize`, `notifications/initialized` (202), `ping`, `tools/list` (the session agent's tools whose extension is `summon`, published under their unprefixed names), `tools/call` (dispatched through `agent.extension_manager.dispatch_tool_call` with `ToolCallContext::new(session_id, Some(working_dir), None)` and a `CancellationToken` cancelled when the request future drops) — with `SessionBridge::global()`, `register(session_id, Weak<Agent>, working_dir)`, `unregister(session_id)`, and `extension_config(session_id) -> ExtensionConfig::StreamableHttp { name: "goose", uri, headers: {"X-Secret-Key": secret} }`.
+  - status: todo · agent: — · worker: high
+  - card: as an orchestrator running on a subscription runtime, call Goose's `delegate` and `load` so that delegation, child-session lineage and transcripts stay Goose's whatever harness is thinking (spine research §Options → pick; `ARCHITECTURE.md` §Modules, spine)
+  - context:
+    - auth: `X-Secret-Key` header, constant-time compare (`crates/goose/src/acp/transport/auth.rs:9-13` is the pattern); unknown session → 404; bad or missing secret → 401; bind loopback only, never `0.0.0.0`
+    - tool names: `ExtensionManager` prefixes tools `<extension>__<tool>` unless the extension is `unprefixed_tools` (`extension_manager.rs:306-315`, `:2018`); list with `agent.list_tools(session_id, Some("summon"))` (as `subagent_handler.rs:252-257`) and map the public name back to the registered name on call — the confirm pins the public name `delegate`
+    - JSON-RPC and MCP types from `rmcp::model` (already a dependency, `Cargo.toml:88`); no new crate, no new Cargo feature; responses are `application/json`, no SSE
+    - `dispatch_tool_call` returns `ToolCallResult` (`extension_manager.rs:2407-2415`); map its content to `CallToolResult`, errors to `is_error: true`
+    - a child session must never reach the bridge: registration is only called from task 23's two top-level paths; the module holds no summon-side hook
+    - no CORS layer: a browser cannot send `X-Secret-Key` without a preflight the listener never answers, so a page on the tailnet or elsewhere cannot reach the bridge even with the secret
+    - listener lifetime is the process; `Weak<Agent>` so an evicted agent (`execution/manager.rs` LRU) yields 404, not a leak
+    - tests in-module: `session_bridge_rejects_unknown_session_and_bad_secret` (404 / 401 via a `reqwest` or `axum::body` call against the bound port) and `session_bridge_lists_delegate_for_registered_session` (an `Agent::new()` as `crates/goose/tests/compaction.rs:260`, then `agent.add_extension(ExtensionConfig::Platform { name: "summon", .. }, &session_id)` as `crates/goose/tests/agent.rs:135` — a bare agent carries no platform extensions (`extension_manager.rs:1601-1622`); `tools/list` names include `delegate`)
+    - upstream-shaped: file a Ready issue ("expose a session's platform tools to ACP/CLI providers as an MCP server"); do not wait on it
+  - confirm: `source bin/activate-hermit && cargo test -p goose --lib session_bridge 2>&1 | grep -E 'test result: ok\. 2 passed'; echo exit=$?` → the `test result` line, then `exit=0` (untouched tree: no match, `exit=1`)
+
+- 23. Reconcile the bridge extension on top-level session activation in both activation paths: in `crates/goose/src/acp/server.rs` `prepare_acp_session_agent` (`:1152-1165`) and `update_provider` (`:2555`), and in `crates/goose-cli/src/session/builder.rs` after `update_provider` (`:799`) — a shared `crate::agents::session_bridge::reconcile(agent, session_manager, session_id)` that: registers the session with the bridge; when `agent.provider().manages_own_context()` and the stored `EnabledExtensionsState` (`session/extension_data.rs:103-133`) has no extension named `goose`, appends `SessionBridge::extension_config(session_id)`, persists it, and calls `agent.recreate_provider_for_session(session_id, provider_name, model_config)` once; when the provider is native and the entry is present, removes it, persists, recreates; unregisters in `on_close_session` (`server.rs:2629`).
+  - status: todo · agent: — · worker: high
+  - card: as the user, open a session on `claude-code` or any ACP runtime and have `delegate` simply be there — and not be there on a Goose-native provider — so that no provider gets a second copy of its own tools (spine research §Critical: orchestration capability gap)
+  - context:
+    - why reconcile, not inject-before-create: the provider reads the stored list at construction inside `agent.rs` (`:3771-3783`, `:3665-3676`), which the fork does not edit; the session id is not known to `providers::create_with_working_dir` (`providers/init.rs:276`)
+    - the native-provider removal matters: Goose loads `StreamableHttp` extensions itself when the provider does not manage its own context (`agent.rs:1268-1280`), and the bridge's handler would then block on that session's creation lock (`execution/manager.rs:130-160`) until the MCP init timeout
+    - `recreate_provider_for_session` is public on `Agent` (`agent.rs:3652`); a `SubAgent` session never passes through either activation path (children are built in `subagent_handler.rs:139-152`) — add a debug assertion that `session.session_type` is not `SubAgent` in `reconcile`
+    - the secret rides in the adapter's MCP config: for `claude-code` that is a file under `Paths::state_dir()` (`claude_code.rs:659`, `:607`) — same exposure as `GOOSE_SERVER__SECRET_KEY` in the desktop's `?token=` (`ui/desktop/src/gooseServe.ts:256-258`); note it in the Ready issue, no new mitigation here
+    - `on_close_session` today: `server.rs:2629-2640` — unregister beside whatever it drops
+    - `goose run` and `goose session` share `build_session` (`cli.rs:2291`, `:2076`; `builder.rs:651`), so the CLI site covers task 24's `goose run`
+    - test in `server.rs` tests (pattern `:3630-3660`, stub provider factory): `acp_session_on_own_context_provider_gets_bridge_extension` — factory returns a stub whose `manages_own_context` is true; after `session/new` the stored extensions contain a `StreamableHttp` named `goose` with `uri` starting `http://127.0.0.1:` and ending `/mcp/<session id>`; a second stub with `manages_own_context` false leaves the list without it
+  - confirm: `source bin/activate-hermit && cargo test -p goose --lib acp_session_on_own_context_provider 2>&1 | grep -E 'test result: ok\. 1 passed'; echo exit=$?` → the `test result` line, then `exit=0` (untouched tree: no match, `exit=1`); and `bash scripts/check-spine.sh` → `spine clean`
+
+- 24. Run the proof and record it in `docs/2026-09-15-spine-bridge-spike-v1.md`: a throwaway `.agents/agents/spike-echo.md` (`model: claude-sonnet-5`, body: "Begin every reply with the token spike-ok-4127.") and a throwaway recipe `spike.yaml` (instructions: call the `delegate` tool with `source: spike-echo` and the instruction "say hello"; print the child's reply verbatim); run `goose run --recipe spike.yaml --provider claude-code --model claude-opus-5` from the fork root, then `goose session list` / `goose session export` on the child; delete both throwaway files after.
+  - status: todo · agent: — · worker: medium
+  - card: as the user, see one Claude-first orchestration go parent → `delegate` → linked ACP child → compact result, with the role body provably in the child, so that tasks 5, 8, 9 build on a run, not a reading (spine research §Unknowns, first)
+  - context:
+    - the child rolls onto `claude-acp` through the role file's `model` only until task 5 lands — set `GOOSE_PROVIDER`-independent routing by passing `provider: claude-acp` in the recipe's delegate instruction, or run the child on `claude-code` first and `claude-acp` second; record both
+    - `claude-agent-acp` and `claude` are on PATH (`/opt/homebrew/bin`, 2026-09-15); `codex-acp` is not installed — the Codex child is task 9's, not this task's
+    - findings to record, one line each: did Claude Code call `delegate` unprompted or only when told; MCP tool-call timeout hit? (if so, set `MCP_TOOL_TIMEOUT` in the spawned adapter's env — `claude_code.rs` command builder / `acp/provider.rs:1480` — and say which); permission prompts seen on the parent; turns; the child session id and whether its transcript's first user message carries the role body (task 21) and its first reply the token
+    - light tier: the confirm is the walk and its record, not a suite
+  - confirm: `test -f docs/2026-09-15-spine-bridge-spike-v1.md && grep -c 'spike-ok-4127' docs/2026-09-15-spine-bridge-spike-v1.md && grep -q '^- reached child: yes' docs/2026-09-15-spine-bridge-spike-v1.md && echo ok` → a count ≥ 1, then `ok` (untouched tree: `test -f` fails, nothing printed)
+
+- 25. Correct `PRODUCT.md` §5's gating line to what the tree does.
+  - status: todo · agent: — · worker: low
+  - card: as a reader of the product doc, learn that every delegated worker runs ungated so that the agy carve-out and the "gated like the other nine" card are not read as guarantees (fork research §Correction, fourth)
+  - context:
+    - from: "`claude-acp`, `codex-acp` run gated by Goose's modes. `cursor-acp` (ACP mode) is gated; `agy` runs its own tools ungated (print mode) — accepted for V0 at one implementation in ten, with the Reviewer gating the diff. Surfacing agy's approvals is out of scope until its weight rises." / to: "A Direct session on `claude-acp`, `codex-acp`, `cursor-acp` or `claude-code` runs gated by Goose's modes. Every delegated worker runs `Auto` whatever its runtime (`summon.rs:622,1400,2075,2373`; upstream forwards no child approvals yet) — the Reviewer gates the diff, not the mode. Forwarding child approvals is upstream work, out of V0."
+    - `PRODUCT.md` line 78 (2026-09-15, `aa44e934e`)
+  - confirm: `grep -c 'Every delegated worker runs `Auto`' PRODUCT.md` → `1` (untouched tree: `0`)
 
 ## Handoff — Goose spine evaluation (2026-09-15, Codex)
 
