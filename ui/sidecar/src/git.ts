@@ -205,7 +205,8 @@ const parseJson = <T>(output: string, what: string): T => {
 const prView = async (cwd: string): Promise<Record<string, unknown> | null> => {
   const result = await gh(cwd, ['pr', 'view', '--json', PR_VIEW_FIELDS]);
   if (result.code !== 0) {
-    if (/no pull requests found/i.test(result.stderr)) return null;
+    // gh 2.100 (probed 2026-09-16): both read as "nothing to show", not a failure.
+    if (/no pull requests found|no git remotes found/i.test(result.stderr)) return null;
     throw new HttpError(500, result.stderr.trim() || `gh exited ${result.code}`);
   }
   return parseJson<Record<string, unknown>>(result.stdout, 'pr view');
