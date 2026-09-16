@@ -405,6 +405,7 @@ Goose Desktop is the base; it becomes a coding workspace. The walk, states and c
 - **Should:** Browser, Markdown, Plan pane, Task pane, flexible panes, agent transcript drill-down, accept/reject changes, worktree support, review results view.
 - **Could:** visual delegation graph, persistent named agents, scheduled agents, mobile client, cloud execution, multi-machine workers.
 - **Agent activity:** each delegated worker is a row — runtime · role · task · status (waiting / running / done / failed) — under the orchestrator, appearing when the `delegate` call starts; click → the worker's isolated transcript. Rows are a view over Goose's `tasks_update` notifications, and name the runtime the roll picked.
+  - amended 2026-09-16 (task 27's pick, `docs/2026-09-16-agent-activity-research-v1.md` §Options → pick): `tasks_update` has no producer, so rows are not a view over it — the session bridge publishes per-session (`delegate_started` from summon, the child's tool activity, one terminal event with the outcome) and the ACP server forwards it as a `DelegationUpdate` on `_goose/unstable/session/update`; the tree is keyed by the child's `subagent_session_id` and rebuilt from a children read on load or reconnect; `waiting` has no producer yet (the row starts at `running`).
 - **RPI strip:** Research · Plan · Implement · Review light up as a worker with that role starts; a phase with an artifact (Brief, Plan, Result, Review) is clickable; a re-run phase shows a counter.
 
 ## 12. Scope by tier
@@ -412,9 +413,10 @@ Goose Desktop is the base; it becomes a coding workspace. The walk, states and c
 Tiers are what the user sees; the plan's tranches (`docs/2026-09-15-goose-fork-plan-v1.md`) are build order — roles land in tranche 3, before any pane, because the thesis is testable from the CLI.
 
 - **V0** — the fork; `claude-acp` default; `codex-acp`, `cursor-acp`, `agy` providers; `runtimes:` in the spine; the ten role files and the runtime matrix; the sidecar; chat, Files, editor, markdown preview, Terminal, Diff, Git, browser (project dev server); session and runtime selectors; the web build reachable from the phone with the one-pane layout. Basic delegation, no orchestration UI.
-- **V0.5** — Browser, Markdown, flexible pane layout, RPI strip, agent-activity tree, Direct vs Orchestrate in the header, research/plan artifact pane.
+- **V0.5** — Browser, Markdown, flexible pane layout, RPI strip, agent-activity tree, Direct vs Orchestrate in the header, research/plan artifact pane; amended 2026-09-16 (parity plan decision 3): local scheduling — routines saved from a session, a Runs inbox on the Schedules route, runs in their own worktree — moves here from Future; cloud and remote runs do not.
 - **V1** — the six roles and four specialists exercised end-to-end in the UI: RPI-aware delegation, review loops, task status, worker transcript navigation, summary handoffs, plan acceptance/revision UX.
-- **Future** (only after the lightweight product proves useful) — persistent named agents, agent memory, authority policies, scheduling, iOS/Android clients, remote workers, cloud execution, multi-machine scheduling, durable background workflows.
+- **Future** (only after the lightweight product proves useful) — persistent named agents, agent memory, authority policies, scheduling (amended 2026-09-16: the local case moved up a tier, see above; only cloud and multi-machine scheduling stay here), iOS/Android clients, remote workers, cloud execution, multi-machine scheduling, durable background workflows.
+- **Landed** (amended 2026-09-16, parity plan tasks 47–54, 59, 61, 62) — worktree-per-task (Worktree chip, `<toplevel>/.worktrees/<slug>` on `wt/<slug>`, Merge and Remove in Changes; delegated children run in their own cwd); per-hunk review in Changes (Stage · Reject · Undo per chunk, Unstaged · Staged scope); scheduled runs record done / failed / killed and land in the Runs inbox (Open · Accept · Dismiss), each in its own worktree when the recipe says so (`settings.worktree`); Save as routine; the sidecar's per-launch key, fixed port and the Phone card with the keyed URL.
 
 ## 13. Success criteria
 

@@ -501,6 +501,7 @@ The `settings` field allows you to configure the AI model and provider settings 
 | `goose_model` | String | - | The specific model name to use |
 | `temperature` | Number | - | The temperature setting for the model (typically 0.0-1.0) |
 | `max_turns` | Number | - | Maximum number of turns for subagent tasks created by this recipe |
+| `worktree` | Boolean | - | Default `false`. When `true`, each scheduled run of this recipe gets its own git worktree at `<toplevel>/.worktrees/<slug>` on branch `wt/<slug>` and runs there; when `false`, the run uses the checkout the scheduler was started in |
 
 #### Understanding max_turns
 

@@ -91,6 +91,20 @@
      offers "since session start"; if there are no changes the pane
      says so with the base it compared against
    - → [Diff pane: file list left, unified/side-by-side diff right]
+   - amended 2026-09-16 (task 50; reverses decision 5 "view-only at
+     V0", parity plan decision 2): the tab reads Changes (DESIGN.md
+     §Vocabulary, Diff retired) and the diff is reviewed per chunk —
+     each chunk in the unified view carries Reject (working tree) and
+     Stage (index), one atomic `POST /git/apply` (`-R` / `--cached`)
+     that git refuses whole when the file moved on; a Scope selector
+     Unstaged · Staged sits beside the base selector (Staged =
+     `--cached` diff); Undo in place re-applies the last patch, no
+     confirm; renamed and binary entries show file-level Stage only;
+     side by side stays view-only
+   - amended 2026-09-16 (task 49): in a worktree session the pane's
+     header reads the branch `wt/<slug>` and offers Merge into <main
+     branch> and Remove worktree (DESIGN.md §Vocabulary "worktree",
+     "main checkout")
 
 6. [Diff pane] · P0
    - does: click the Terminal tab; type a command
@@ -105,6 +119,14 @@
      files (tool call in progress); the branch name is always visible
    - → [Git pane: branch, staged/unstaged lists, commit box; after
      commit the Diff pane's "vs HEAD" is empty]
+   - amended 2026-09-16 (tasks 49, 50): Stage in Changes and stage in
+     Git write the same index — Changes' Staged scope and Git's staged
+     list are one list; Reject · Stage · Undo and Merge · Remove
+     worktree share Commit's rule and are disabled with the reason
+     while a tool call is in progress ("… wait for the running tool
+     call to finish"); in a worktree session Commit lands on
+     `wt/<slug>`, Merge lands the branch on the main checkout with
+     `--no-ff`, and a conflict (`409`) lists the files and stops
 
 8. [Any pane] · P0
    - does: drag the pane's tab into the centre, or click "Open as pane"
@@ -202,6 +224,13 @@
   bar; error → read error in the tab body.
 - Diff: empty → "No changes vs <base>"; loading → skeleton; partial →
   binary files listed, not rendered; error → git's stderr.
+  - amended 2026-09-16 (tasks 49, 50): empty is per scope (Unstaged
+    or Staged, with the base); partial → renamed and binary entries
+    carry file-level Stage only, and a chunk in flight reads
+    "Applying…"; error → a refused apply shows git's stderr and keeps
+    the chunk, Undo stays offered until the next apply; a merge
+    conflict lists the files with "Resolve these in the Editor or the
+    Terminal, then merge again".
 - Terminal: empty → prompt; loading → "starting shell…"; partial →
   shell exited shows "[exited <code>] — Restart"; error → spawn error
   with the PATH used.
@@ -254,5 +283,16 @@
   dev server only); editing a worker's transcript;
   any change to `crates/goose/src/agents/agent.rs` or
   `state_machine/` (dual-path rule).
+  - amended 2026-09-16 (parity plan, user: "approved all
+    recommendations"; its decisions 1–3): accept / reject per hunk is
+    in (task 50, step 5 amended — Stage · Reject · Undo per chunk);
+    worktree-per-task is in (tasks 48, 49, 54 — a Worktree chip on new
+    chat, off by default, `<toplevel>/.worktrees/<slug>` on
+    `wt/<slug>`, Merge and Remove in Changes; spine-created worktrees
+    per `delegate` stay out until merge-back has been used by hand);
+    scheduled agents are in for the local case (tasks 51–54, 59 —
+    recorded run outcomes, a Runs inbox on the Schedules route, runs
+    in their own worktree, Save as routine); cloud / remote runs stay
+    out (PRODUCT.md §1).
 - protected: every existing desktop route and `_goose/*` call keeps
   working; provider adapters are added, never modified.

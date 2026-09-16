@@ -114,6 +114,7 @@ The PRD's per-surface lines (`:137-170`) are deviations from these rows; a state
 | Unavailable | the row stays and reads Install, Sign in, or the probe's one line; the session does not start (PRD `:40-47`, `:142-146`) | Install · Sign in | selectors unchanged | the row | the row's text |
 
 - A closed pane shrinks into its strip; its panel shows the neighbouring tab and focus lands on that tab (`Dock.tsx` focusAfterClose), or the emptied panel disappears into the panel above and focus lands on the rail's ⋯ once it has slid back out (`WorkspaceShell.tsx` paneClosed — the one pane button whose tooltip does not open on focus) (`pane-store.ts:67-83`, `pane-store.test.ts:124-143`).
+- Amended 2026-09-16 (tasks 49, 50, 53): the Changes pane's Reject · Stage · Undo, its Merge · Remove worktree, and the Runs inbox's Accept · Dismiss are Running-row controls — disabled in place with the reason while a tool call or the run is in progress, never hidden and never behind a confirm (§Accessibility "Destructive"); a refused `/git/apply` or a merge conflict is the Error row: git's stderr or the conflict list, the chunk or the row kept, and the recovery named in place — Undo until the next apply, "Resolve these in the Editor or the Terminal, then merge again".
 - check: open — see §Open decisions (no pane declares a state type yet).
 
 ## Tokens & theme [contract]
