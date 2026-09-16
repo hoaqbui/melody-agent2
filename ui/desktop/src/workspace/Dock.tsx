@@ -303,7 +303,7 @@ export function Dock({ layout, store, chrome, renderPane, onClosed }: DockProps)
   return (
     <aside
       ref={rootRef}
-      className="relative grid w-2/5 min-w-72 shrink-0 min-h-0 border-l border-border-primary"
+      className="workspace-dock-panel relative grid w-2/5 min-w-72 shrink-0 min-h-0 border-l border-border-primary"
       style={{ gridTemplateRows: rows }}
       data-testid="workspace-side-panel"
       data-dragging={drag ? drag.kind : undefined}

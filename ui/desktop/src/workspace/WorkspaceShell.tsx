@@ -478,7 +478,7 @@ export function WorkspaceShell({ chat, children, panes, paneStore }: WorkspaceSh
       <header
         // Above the fixed 32px titlebar drag strip (z-50), like AppLayout's own controls.
         className={cn(
-          'relative z-[60] flex items-center gap-4 pr-4 pt-[14px] pb-2 text-sm no-drag',
+          'workspace-header relative z-[60] flex items-center gap-4 pr-4 pt-[14px] pb-2 text-sm no-drag',
           isNavCollapsed ? 'pl-[140px]' : 'pl-4'
         )}
       >
