@@ -40,14 +40,6 @@ re-checked at the fork base `426967d` (v1.51.0, 2026-09-15): all hold;
 
 ### docs/2026-09-15-goose-fork-plan-v1.md
 
-- 4. Add `ui/desktop/.dependency-cruiser.cjs` with the four mechanical invariants from `ARCHITECTURE.md` (new dirs never import `@agentclientprotocol/sdk` / `@aaif/goose-acp-client`; `src/{workspace,native}` never import `src/components/**/internal`; `src/native` ↔ `src/acp` forbidden both ways; `src/{workspace,native,acp}` never import `electron`, `node:*`, or `node-pty`) and a `depcruise` script in `ui/desktop/package.json`.
-  - status: doing · agent: Comprehend [12ee2f] (fable, 2026-09-15) · worker: medium
-  - card: as a planner, have every drawn boundary checked so that a task cannot add an undrawn edge
-  - context:
-    - rules scoped to `src/workspace`, `src/native`, `src/acp` (the electron/node ban) — upstream's four leaks (`types/extensions.ts`, `recipe/*`, `settings/providers/ProviderGrid.tsx`, `ProviderCatalogPicker.tsx`) stay out of scope
-    - the dirs do not exist yet; the config must still parse and report 0 violations on the untouched tree, and 1 violation on a probe file
-  - confirm: `cd ui/desktop && pnpm run depcruise; echo exit=$?` → `exit=0`; and `mkdir -p src/workspace && printf "import '@agentclientprotocol/sdk';\n" > src/workspace/.probe.ts && pnpm run depcruise; echo exit=$?; rm -r src/workspace` → `exit=1`
-
 - 5. Add `runtimes: Vec<{provider, model, weight}>` to `AgentMetadata` in `crates/goose/src/agents/platform_extensions/summon.rs`, roll one entry per `delegate` call, and add an optional `exclude_provider` parameter to `delegate`.
   - status: todo · agent: — · worker: high
   - card: as the orchestrator, have each role file name its runtimes and their weights so that role→runtime, the tenth-call backup seat, and fail-over are data, not prompt text (PRODUCT.md §6)
@@ -87,19 +79,6 @@ re-checked at the fork base `426967d` (v1.51.0, 2026-09-15): all hold;
     - `agy` binary at `/opt/homebrew/bin/agy`
     - add a unit test `agy_metadata_names_binary_and_args`
   - confirm: `source bin/activate-hermit && cargo test -p goose agy_metadata -- --nocapture; echo exit=$?` → `test result: ok.` with ≥1 passed, then `exit=0`
-
-- 7. Write `.agents/agents/orchestrator.md` with frontmatter `name: orchestrator`, `description`, `runtimes:` (`claude-acp` / `claude-opus-5` weight 1; `cursor-acp` / `cursor-grok-4.6-high` weight 0 — fail-over only), and a body holding PRODUCT.md §7.1 responsibilities, §8 delegation rules, §6 star-topology invariants, the §7.7 gate → specialist routing, and the advisor `exclude_provider` rule, as imperative rules (source: TUICommander `ORCHESTRATOR.md:1-12`, read 2026-09-15 — rewritten, not copied).
-  - status: doing · agent: Comprehend [12ee2f] (fable, 2026-09-15) · worker: medium
-  - blocked: `PRODUCT.md` and `ARCHITECTURE.md` were rewritten by another editor at 13:32–13:33 (ten role files, `runtimes:` weighted list + roll + fail-over + `exclude_provider`, agy in V0, three spine touches); this task and 5, 8, 9 were drafted against the six-role / scalar `provider:` model — owner: user, decide which model the plan follows
-    - resolved 2026-09-15 (the rewriting editor, on the user's direction in the same conversation): the plan follows the rewritten model — tasks 5, 6, 8, 9, 17 in this file already carry it; the only contradiction was five stale `§` cites in this task and task 8 from the PRODUCT.md renumber, now fixed; claim released so any agent can pick it up
-  - card: as the user, start an Orchestrate session and get RPI-shaped delegation so that the thesis is testable without UI work
-  - context:
-    - Goose reads `<cwd>/.agents/agents` (`summon.rs:397-408`); frontmatter parsed by `parse_frontmatter` (`sources.rs:60-67`), unknown keys tolerated — the file parses on stock Goose before task 5 lands
-    - the body must tell the orchestrator to call `delegate(source: "<role>")` and never pass `provider:` unless overriding the role file (task 5)
-    - advisor calls: pass `exclude_provider: <the provider that produced the artifact under judgment>`; one advisor per gate — the specialist whose field the artifact touches (architect: plan crosses a module, adds a dependency, or touches `crates/*` or packaging; ux: PRD gate, or plan gate for a user-facing task; pm: research → PRD, or anything not in a PRD; security: plan touches `preload`, `ui/sidecar`, provider spawn, permission modes, or anything that runs a worker's output), else `advisor`; a second only when split, a third only for an irreversible pick (PRODUCT.md §7.6, §7.7)
-    - adaptive RPI per PRODUCT.md §8: tiny → implement; normal → plan, implement, review; unknown → research first; big or complex project → the orchestrator writes the program plan itself (tranches, order, gates, which tranches need research), takes it to an advisor (pm or architect) with `exclude_provider`, then delegates one tranche at a time to the planner — never the whole project in one `delegate(source: "planner")`
-    - the weight-0 entry is data for the session's fail-over (task 11 reads it); `delegate` never rolls the orchestrator
-  - confirm: `test -f .agents/agents/orchestrator.md && grep -c '^runtimes:$' .agents/agents/orchestrator.md && grep -q exclude_provider .agents/agents/orchestrator.md && echo ok` → `1` then `ok`
 
 - 8. Write `.agents/agents/{researcher,planner,implementer,reviewer,advisor,advisor-architect,advisor-ux,advisor-pm,advisor-security}.md`, each with `runtimes:` per PRODUCT.md §6 and the artifact template from PRODUCT.md §7 as the required return shape.
   - status: todo · agent: — · worker: medium
@@ -212,11 +191,28 @@ re-checked at the fork base `426967d` (v1.51.0, 2026-09-15): all hold;
     - test on `hoa-phone` over the tailnet (`tailscale status`, 2026-09-15) — the Playwright phone project is the mechanical check, the phone is the manual one (§Waiting on the user)
   - confirm: `cd ui/desktop && pnpm run typecheck && pnpm exec playwright test -g "phone" --project=phone; echo exit=$?` → `exit=0` (at 390 px: chat first; tap Files → tree; tap a file → editor; tap Terminal → key bar visible; `pwd` prints the cwd)
 
+## Handoff — Goose spine evaluation (2026-09-15, Codex)
+
+- **Resume here:** `docs/2026-09-15-goose-spine-research-v1.md` owns the evidence and options. User said “continue” after the recommendation to preserve Claude-first and repair ACP integration, then requested handoff. Direction carried forward; no implementation plan has been completed or approved.
+- **Next action:** finish a bounded integration plan for Claude ACP → Goose Summon `delegate` → linked Codex ACP child → compact result. Prove a unique instruction present only in the role body reaches the child. Specify session authority, lifecycle, cancellation, permissions and result metadata before implementation; no new sidecar task engine.
+- **Corrections to existing task assumptions (append-only; not a replacement plan):**
+  - tasks 5, 7–9: ACP ignores Goose's system prompt and tool list (`crates/goose/src/acp/provider.rs:820`); MCP forwarding skips platform extensions (`:1843`). Role content becomes the child system prompt (`crates/goose/src/agents/subagent_handler.rs:134`, `:166`). Weighted selection and role files alone cannot deliver the orchestration path. Task 9 depends on resolving these integration gaps.
+  - task 5: `tasks_update` has no production constructor call found; use the actual delegate result/child-session metadata and design missing lifecycle/runtime fields explicitly (`crates/goose/src/agents/subagent_execution_tool/notification_events.rs:28`; `crates/goose/src/agents/platform_extensions/summon.rs:1433`). Decide how runtime selection interacts with the existing environment override (`:1822`).
+  - tasks 6, 9: delegated approval handling is not established by provider mode mapping. Summon assumes Auto (`summon.rs:1394`), but Claude ACP reads global mode (`crates/goose/src/providers/claude_acp.rs:70`); requests can wait for confirmations the child handler does not forward (`crates/goose/src/acp/provider.rs:1005`).
+  - tasks 5, 11: automatic fail-over needs backend ownership and partial-work semantics; switching plus a memo is not that policy (`crates/goose/src/acp/server.rs:2555`). ACP errors currently map to Authentication/RequestFailed (`crates/goose/src/acp/provider.rs:182`), so quota classification also needs design.
+  - task 17: the Gemini CLI template ignores extensions/tools and lacks ACP handoff behavior (`crates/goose/src/providers/gemini_cli.rs:184`, `:212`, `:80`). Confirm agy's actual protocol/flags; do not claim MCP or permission parity from a clone.
+- **Integration leads, not approved design:** `PlatformExtensionContext` already carries the session manager and weak extension manager (`crates/goose/src/agents/platform_extensions/mod.rs:230`); `ToolCallContext` carries session/cwd/call identity (`crates/goose/src/agents/tool_execution.rs:34`); `ExtensionManager::dispatch_tool_call` exists (`crates/goose/src/agents/extension_manager.rs:2407`). Check ACP activation/provider-construction order (`crates/goose/src/acp/server.rs:1156`; `server/new_session.rs:74`) before choosing where to attach a session-bound MCP facade. Production HTTP-server feature/dependency implications remain unresolved (`crates/goose/Cargo.toml:88`, `:265`).
+- **Alternative retained:** Goose-native `chatgpt_codex` sends system instructions and tools (`crates/goose/src/providers/chatgpt_codex.rs:1003`), unlike `codex-acp`; using it as orchestrator changes the Claude-first promise and does not fix ACP child instructions.
+- **Advisor:** first-rung `claude -p … --model opus --effort high` completed and confirmed the main gaps; review recorded in the research note. A later narrow hook/transport consult (`--effort medium`) was stopped for handoff before returning; no result or pending worker to rely on.
+- **Verification this session:** `bash scripts/check-spine.sh` → `spine clean`, exit 0. No build, runtime matrix or adapter smoke run; no task marked done. Another session landed task 2 as `2d6ad3c26`; that build was not rerun here.
+- **Concurrent work:** tasks 4 and 7 remain claimed by Comprehend [12ee2f]. At handoff, `ui/desktop/package.json`, `ui/pnpm-lock.yaml` and untracked `.agents/` were other ongoing work; preserve them. This evaluation owns only its research note and this handoff addition. No source code or architecture rules changed by this session.
+
 ## Waiting on the user
 
 - `ARCHITECTURE.md` — sign-off deletes `## Bootstrap Status`; until then the map is a proposal and tasks 10–16 plan against a guess.
 - task 20 — the phone check is manual: open the URL on `hoa-phone`, walk PRD step 13, judge the terminal with the key bar.
 - task 9 — the handoff-memo criterion (PRD §Criteria, second) is a manual check: ask "what did we just change?" after a runtime switch and judge the answer.
+- Goose spine integration — the next session must finish the concrete plan above and obtain plan approval before source edits; “continue” established the direction, not an unwritten implementation scope.
 
 ## Ownership
 
