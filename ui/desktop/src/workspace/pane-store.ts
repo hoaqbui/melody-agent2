@@ -1,7 +1,8 @@
 // Layout state for the workspace (PRD step 8 as amended 2026-09-15, step 13). Pure state,
 // no React, no ACP: the shell subscribes and renders; the panes keep their own contents.
 
-export type PaneId = 'files' | 'editor' | 'diff' | 'terminal' | 'git' | 'browser' | 'markdown';
+export type PaneId =
+  'files' | 'editor' | 'diff' | 'terminal' | 'git' | 'browser' | 'markdown' | 'agents';
 
 export const PANE_IDS: readonly PaneId[] = [
   'files',
@@ -11,6 +12,7 @@ export const PANE_IDS: readonly PaneId[] = [
   'git',
   'browser',
   'markdown',
+  'agents',
 ];
 
 export type LayoutMode = 'desktop' | 'phone';

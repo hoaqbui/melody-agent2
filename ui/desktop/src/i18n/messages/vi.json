@@ -1,4 +1,46 @@
 {
+  "agentsPane.adHoc": {
+    "defaultMessage": "Ad hoc"
+  },
+  "agentsPane.back": {
+    "defaultMessage": "Back"
+  },
+  "agentsPane.empty": {
+    "defaultMessage": "No delegated work yet"
+  },
+  "agentsPane.emptyHint": {
+    "defaultMessage": "Workers appear here when a session in Orchestrate delegates a task"
+  },
+  "agentsPane.loading": {
+    "defaultMessage": "Loading transcript…"
+  },
+  "agentsPane.noStatus": {
+    "defaultMessage": "No status recorded"
+  },
+  "agentsPane.opensWhenDone": {
+    "defaultMessage": "Opens once the worker is done"
+  },
+  "agentsPane.readOnly": {
+    "defaultMessage": "Read-only"
+  },
+  "agentsPane.retry": {
+    "defaultMessage": "Retry"
+  },
+  "agentsPane.statusDone": {
+    "defaultMessage": "Done"
+  },
+  "agentsPane.statusFailed": {
+    "defaultMessage": "Failed"
+  },
+  "agentsPane.statusRunning": {
+    "defaultMessage": "Running"
+  },
+  "agentsPane.statusWaiting": {
+    "defaultMessage": "Waiting"
+  },
+  "agentsPane.thisSession": {
+    "defaultMessage": "This session"
+  },
   "alertBox.autoCompactAt": {
     "defaultMessage": "Tự động nén tại"
   },
@@ -5368,6 +5410,9 @@
   },
   "workspaceShell.orchestrate": {
     "defaultMessage": "Orchestrate"
+  },
+  "workspaceShell.paneAgents": {
+    "defaultMessage": "Agents"
   },
   "workspaceShell.paneBrowser": {
     "defaultMessage": "Browser"

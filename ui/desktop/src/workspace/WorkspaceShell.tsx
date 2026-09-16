@@ -35,6 +35,7 @@ import {
   Globe,
   MessageSquareText,
   Terminal,
+  Users,
 } from 'lucide-react';
 import { v7 as uuidv7 } from 'uuid';
 import { defineMessages, useIntl } from '../i18n';
@@ -140,6 +141,7 @@ const i18n = defineMessages({
   paneGit: { id: 'workspaceShell.paneGit', defaultMessage: 'Git' },
   paneBrowser: { id: 'workspaceShell.paneBrowser', defaultMessage: 'Browser' },
   paneMarkdown: { id: 'workspaceShell.paneMarkdown', defaultMessage: 'Markdown' },
+  paneAgents: { id: 'workspaceShell.paneAgents', defaultMessage: 'Agents' },
   panes: { id: 'workspaceShell.panes', defaultMessage: 'Panes' },
   sessionMenu: { id: 'rail.menu', defaultMessage: 'Session menu' },
   unseen: { id: 'rail.unseen', defaultMessage: '{pane} — new since you looked' },
@@ -157,6 +159,7 @@ const PANE_TITLES = {
   git: i18n.paneGit,
   browser: i18n.paneBrowser,
   markdown: i18n.paneMarkdown,
+  agents: i18n.paneAgents,
 } as const;
 
 // DESIGN.md §Iconography: one set, lucide, at upstream's control size.
@@ -168,6 +171,7 @@ const PANE_ICONS: Record<PaneId, ComponentType<{ className?: string }>> = {
   git: GitBranch,
   browser: Globe,
   markdown: BookOpen,
+  agents: Users,
 };
 
 // The code-editor standard (task 40): three panes one click away, the rest under ⋯.
