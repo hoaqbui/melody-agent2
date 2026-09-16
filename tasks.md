@@ -41,8 +41,9 @@ re-checked at the fork base `426967d` (v1.51.0, 2026-09-15): all hold;
 ### docs/2026-09-15-goose-fork-plan-v1.md
 
 - 9. Run the runtime matrix: from a Goose session in this directory on `claude-acp`, delegate the same one-file task ("add a `--version` line to `scripts/check-spine.sh` help") to implementer on `claude-acp`, `codex-acp`, `cursor-acp`, `agy`, then call `advisor` six times with `exclude_provider` set, and record per run: provider, model, turns, result shape, permission prompts seen, in `docs/2026-09-15-runtime-matrix-v1.md`.
-  - status: blocked · agent: — · worker: medium
-  - blocked: no subscription orchestrator in tree can call `delegate` except `chatgpt_codex` (research v1 addendum, evening). Unblocks: the user's pick — run the matrix from a `chatgpt_codex` session as the interim proof, or wait for repair (ii) — owner: user
+  - status: doing · agent: subagent-t9 via claude-session-opus-2 (14:00, worktree) · worker: medium
+  - unblocked 2026-09-16 14:00: 6, 17 landed, `codex-acp` installed; orchestrator on `claude-code` (bridge, task 24)
+  - was blocked: no subscription orchestrator in tree can call `delegate` except `chatgpt_codex` (research v1 addendum, evening). Unblocks: the user's pick — run the matrix from a `chatgpt_codex` session as the interim proof, or wait for repair (ii) — owner: user
   - unblocks (2026-09-15 20:40, plan spine-bridge v1 approved): tasks 22–24 give `claude-code` `delegate` via the session bridge; run the matrix with the orchestrator on `claude-code` after 24
   - still blocked 2026-09-15 21:20 on: task 26 (ACP workers refuse the folded template), task 6 (`cursor-acp`), and `npm i -g @agentclientprotocol/codex-acp` — owner: user for the install, this ledger for 26 and 6
   - 2026-09-15 22:30: task 26 resolved by pick A+C — Claude worker seats move to `claude-code` (task 34), the role-body fold (`subagent_handler.rs` `first_user_message`, merged) stays for `codex-acp` / `cursor-acp` children; this matrix is where that fold is judged: record per ACP child whether its first reply follows the role body (token test as spike doc §Setup) — still waits on task 6 and the `codex-acp` install
@@ -56,7 +57,7 @@ re-checked at the fork base `426967d` (v1.51.0, 2026-09-15): all hold;
   - confirm: `test -f docs/2026-09-15-runtime-matrix-v1.md && grep -c '^| \(codex-acp\|cursor-acp\|claude-acp\|agy\) |' docs/2026-09-15-runtime-matrix-v1.md` → `4`
 
 - 20. Add the phone layout to `src/workspace/`: below 768 px the pane store exposes one visible pane behind a tab rail (chat · Files · Editor · Diff · Terminal · Git), the terminal key bar from task 15 is shown, and reconnect-on-foreground reattaches the pty and refreshes the chat; Playwright gets a `phone` project (390 × 844, touch, iPhone UA).
-  - status: todo · agent: — · worker: medium
+  - status: doing · agent: subagent-t20 via claude-session-opus-2 (14:00, worktree) · worker: medium
   - card: as the user on the phone, check what the agent did and nudge it from wherever I am so that the walk does not wait for the desk (PRD step 13, criteria 7–8)
   - context:
     - iOS Safari suspends background tabs: the WS drops; on `visibilitychange` → visible, reconnect to the sidecar and reattach the pty by id (task 15/18), then pull the session's messages since the last seen id via `src/acp`
