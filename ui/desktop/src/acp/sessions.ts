@@ -292,6 +292,11 @@ export async function acpRenameSession(sessionId: string, title: string): Promis
   await client.goose.sessionRename_unstable({ sessionId, title });
 }
 
+export async function acpArchiveSession(sessionId: string): Promise<void> {
+  const client = await getAcpClient();
+  await client.goose.sessionArchive_unstable({ sessionId });
+}
+
 export async function acpUpdateWorkingDir(sessionId: string, workingDir: string): Promise<void> {
   const client = await getAcpClient();
   await client.goose.sessionWorkingDirUpdate_unstable({ sessionId, workingDir });

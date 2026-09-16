@@ -70,6 +70,7 @@ import {
 } from '../acp/chatSessionStore';
 import { createSession } from '../sessions';
 import { AppEvents } from '../constants/events';
+import type { ViewOptions } from '../utils/navigationUtils';
 import { getEffectiveWorkingDir, getInitialWorkingDir } from '../utils/workingDir';
 import type { Message } from '../types/message';
 import type { ProviderDetails } from '../types/providers';
@@ -88,6 +89,7 @@ import {
 } from './pane-store';
 import { Dock, loadDock, saveDock } from './Dock';
 import type { PaneChrome } from './Panel';
+import { presetDiffBase } from './panes/diff/diff-store';
 import { loadProjectEntry, saveProjectEntry } from './project-storage';
 import { MODE_MESSAGES, SessionChips, WorktreeChip, type RuntimeOption } from './SessionChips';
 import { SessionControls } from './SessionControls';
@@ -479,6 +481,19 @@ export function WorkspaceShell({ chat, children, panes, paneStore }: WorkspaceSh
     if (!isWorkspaceRoute) return;
     acpListProviderDetails().then(setProviders).catch(console.error);
   }, [isWorkspaceRoute]);
+
+  // A route may arrive asking for a pane and a Changes base (the Runs inbox's Open, task
+  // 53). The ask is consumed once: left in history it would reopen the pane on Back.
+  useEffect(() => {
+    if (!isOnPairRoute) return;
+    const state = location.state as ViewOptions | null;
+    if (!state?.openPane && !state?.diffBase) return;
+    if (state.diffBase) presetDiffBase(state.diffBase);
+    if (state.openPane) store.openPane(state.openPane);
+    const { openPane: _pane, diffBase: _base, ...rest } = state;
+    // react-router keeps the route state under `usr` beside its own key and index.
+    window.history.replaceState({ ...window.history.state, usr: rest }, document.title);
+  }, [isOnPairRoute, location.key, location.state, store]);
 
   useEffect(() => {
     if (!isWorkspaceRoute) return;

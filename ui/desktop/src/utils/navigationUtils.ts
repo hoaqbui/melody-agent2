@@ -1,6 +1,8 @@
 import type { NavigateFunction } from 'react-router';
 import type { Recipe } from '../recipe';
 import { UserInput } from '../types/message';
+import type { PaneId } from '../workspace/pane-store';
+import type { DiffBase } from '../workspace/panes/diff/diff-store';
 
 export type View =
   | 'chat'
@@ -32,6 +34,9 @@ export type ViewOptions = {
   pendingScheduleDeepLink?: string;
   /** A Settings tab or card to open on: what SettingsRoute reads from `?section=` too. */
   section?: string;
+  // The workspace opens this pane on arrival (task 53: the Runs inbox lands on Changes).
+  openPane?: PaneId;
+  diffBase?: DiffBase;
 };
 
 export const createNavigationHandler = (navigate: NavigateFunction) => {
