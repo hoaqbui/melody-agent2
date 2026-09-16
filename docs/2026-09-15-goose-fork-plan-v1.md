@@ -43,15 +43,39 @@ scaffold, the two spine patches, the role files, and the V0 workspace
   `exclude_provider` rule for advisor calls. The runtime matrix (role
   × provider, one task) is the acceptance run and is recorded in
   `docs/`. Amended 2026-09-15 from six files, then to ten.
-- **Tranche 4 — workspace shell.** `ui/desktop/src/workspace/` pane
-  store + header (Runtime, Mode) hosting the existing chat; then one
-  pane per task: files, editor, diff, terminal, git. `main/native`
-  grows one handler per pane that needs main (pty, fs watch, git).
-  Editor is CodeMirror 6 (smaller than monaco; Goose already ships
-  no editor, so no migration). Terminal is `@xterm/xterm` +
-  `node-pty`.
+- **Tranche 4 — workspace: one renderer, two shells.** Amended
+  2026-09-15 from `docs/2026-09-15-web-workspace-research-v1.md`
+  (pick A there; the user kept Electron, so this is its option B):
+  the desktop stays Electron, and the phone gets the same renderer as
+  a web build served over the tailnet. Everything a pane needs from
+  the machine — pty, fs read/write/watch, git — moves out of Electron
+  main into `ui/sidecar/` (Node): a WebSocket + HTTP service that also
+  proxies `goose serve` (injecting `?token=`, so the secret never
+  leaves the Mac) and serves the web build. Electron `main` spawns
+  `goose serve` and the sidecar, owns windows, nothing else; the
+  renderer reaches the sidecar over WS whether it runs in Electron or
+  in Safari on the phone. Order: the `window.electron` shim spike
+  first (the assumption that flips this tranche — if Goose's chat
+  components won't render in a browser behind a ~10-method shim, the
+  research's C/D re-enter); then the pane store; then the sidecar;
+  then the shell with Runtime/Mode; then one pane per task — files,
+  editor, diff, terminal, git; last the phone layout (one pane at a
+  time, tab rail, terminal key bar) and the PWA manifest. Editor is
+  CodeMirror 6 (`@codemirror/merge` gives diff from the same engine;
+  the mobile editor of record); markdown is CM6 source + rendered
+  preview (`react-markdown` + `remark-gfm` + `github-markdown-css`),
+  WYSIWYG deferred to a second concrete need; terminal is
+  `@xterm/xterm` over the sidecar's `node-pty`, with a server-side
+  session that survives the phone backgrounding the tab. Browser pane
+  is an iframe of the project's own dev server (compo: `:5173`, which
+  already allows tailnet hosts and sends no frame headers). Network
+  gate is Tailscale; the sidecar and `goose serve` are never behind
+  `tailscale funnel`.
 - **Tranche 5 (V0.5, later plan).** Agents tree, RPI strip, artifact
-  pane, browser, markdown — planned after tranche 4 is in use.
+  pane, markdown WYSIWYG if wanted, an in-app browser for arbitrary
+  URLs (Capacitor shell, if a store listing or push is wanted — the
+  same `dist/` wrapped, per the research addendum) — planned after
+  tranche 4 is in use.
 
 ## Out of scope
 
@@ -68,6 +92,12 @@ scaffold, the two spine patches, the role files, and the V0 workspace
 - A second provider registry in the renderer; the runtime selector
   drives the ACP `provider` config option (`ARCHITECTURE.md`
   §Invariants).
+- Off-tailnet access (`goose roam`, `tailscale funnel`, a relay) — the
+  phone is on the tailnet; a native iOS/Android shell — Capacitor over
+  the same build when a store listing or push is wanted (research
+  addendum, 2026-09-15); a screenshot-streaming browser pane; a
+  second editor engine for markdown before source+preview is found
+  wanting.
 - Rewriting upstream `components/`; the shell composes them.
 
 ## Tasks
@@ -76,5 +106,9 @@ Moved to `tasks.md` under `### docs/2026-09-15-goose-fork-plan-v1.md`
 on 2026-09-15. Tranches 1–3 (tasks 1–9, 17) are approved by the user's
 "fork Goose" decision and "start tasks"; the 2026-09-15 role-map
 amendment (tasks 5–9, 17 rewritten) was decided in conversation the
-same day; tranche 4 (tasks 10–16) waits on the five PRD decisions
-listed in `tasks.md` §Waiting on the user.
+same day; tranche 4's five PRD decisions were approved 2026-09-15
+(decision 2, "agy out of V0", superseded by the role map — agy is a
+V0 provider via task 17), and tasks 10–16 were re-pointed from
+`main/native` to `ui/sidecar/` the same day. Tasks 18–20 (sidecar,
+shim spike + web build, phone layout + PWA) are drafted in `tasks.md`
+and wait on the user's approval.

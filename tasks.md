@@ -48,11 +48,11 @@ re-checked at the fork base `426967d` (v1.51.0, 2026-09-15): all hold;
     - `just run-ui` is the dev loop (`Justfile:87`)
   - confirm: `source bin/activate-hermit && cargo build -p goose-cli && (cd ui/desktop && pnpm install --frozen-lockfile && pnpm run typecheck); echo exit=$?` → `exit=0`
 
-- 4. Add `ui/desktop/.dependency-cruiser.cjs` with the three mechanical invariants from `ARCHITECTURE.md` (new dirs never import `@agentclientprotocol/sdk` / `@aaif/goose-acp-client`; `src/{workspace,native}` never import `src/components/**/internal`; `src/native` ↔ `src/acp` forbidden both ways) and a `depcruise` script in `ui/desktop/package.json`.
+- 4. Add `ui/desktop/.dependency-cruiser.cjs` with the four mechanical invariants from `ARCHITECTURE.md` (new dirs never import `@agentclientprotocol/sdk` / `@aaif/goose-acp-client`; `src/{workspace,native}` never import `src/components/**/internal`; `src/native` ↔ `src/acp` forbidden both ways; `src/{workspace,native,acp}` never import `electron`, `node:*`, or `node-pty`) and a `depcruise` script in `ui/desktop/package.json`.
   - status: todo · agent: — · worker: medium
   - card: as a planner, have every drawn boundary checked so that a task cannot add an undrawn edge
   - context:
-    - rules scoped to `src/workspace`, `src/native`, `src/main/native` — upstream's four leaks (`types/extensions.ts`, `recipe/*`, `settings/providers/ProviderGrid.tsx`, `ProviderCatalogPicker.tsx`) stay out of scope
+    - rules scoped to `src/workspace`, `src/native`, `src/acp` (the electron/node ban) — upstream's four leaks (`types/extensions.ts`, `recipe/*`, `settings/providers/ProviderGrid.tsx`, `ProviderCatalogPicker.tsx`) stay out of scope
     - the dirs do not exist yet; the config must still parse and report 0 violations on the untouched tree, and 1 violation on a probe file
   - confirm: `cd ui/desktop && pnpm run depcruise; echo exit=$?` → `exit=0`; and `mkdir -p src/workspace && printf "import '@agentclientprotocol/sdk';\n" > src/workspace/.probe.ts && pnpm run depcruise; echo exit=$?; rm -r src/workspace` → `exit=1`
 
@@ -104,7 +104,7 @@ re-checked at the fork base `426967d` (v1.51.0, 2026-09-15): all hold;
   - context:
     - Goose reads `<cwd>/.agents/agents` (`summon.rs:397-408`); frontmatter parsed by `parse_frontmatter` (`sources.rs:60-67`), unknown keys tolerated — the file parses on stock Goose before task 5 lands
     - the body must tell the orchestrator to call `delegate(source: "<role>")` and never pass `provider:` unless overriding the role file (task 5)
-    - advisor calls: pass `exclude_provider: <the provider that produced the artifact under judgment>`; one advisor per gate — the specialist whose field the artifact touches (architect: plan crosses a module, adds a dependency, or touches `crates/*` or packaging; ux: PRD gate, or plan gate for a user-facing task; pm: research → PRD, or anything not in a PRD; security: plan touches `preload`, `main/native`, provider spawn, permission modes, or anything that runs a worker's output), else `advisor`; a second only when split, a third only for an irreversible pick (PRODUCT.md §7.6, §7.7)
+    - advisor calls: pass `exclude_provider: <the provider that produced the artifact under judgment>`; one advisor per gate — the specialist whose field the artifact touches (architect: plan crosses a module, adds a dependency, or touches `crates/*` or packaging; ux: PRD gate, or plan gate for a user-facing task; pm: research → PRD, or anything not in a PRD; security: plan touches `preload`, `ui/sidecar`, provider spawn, permission modes, or anything that runs a worker's output), else `advisor`; a second only when split, a third only for an irreversible pick (PRODUCT.md §7.6, §7.7)
     - adaptive RPI per PRODUCT.md §8: tiny → implement; normal → plan, implement, review; unknown → research first; big or complex project → the orchestrator writes the program plan itself (tranches, order, gates, which tranches need research), takes it to an advisor (pm or architect) with `exclude_provider`, then delegates one tranche at a time to the planner — never the whole project in one `delegate(source: "planner")`
     - the weight-0 entry is data for the session's fail-over (task 11 reads it); `delegate` never rolls the orchestrator
   - confirm: `test -f .agents/agents/orchestrator.md && grep -c '^runtimes:$' .agents/agents/orchestrator.md && grep -q exclude_provider .agents/agents/orchestrator.md && echo ok` → `1` then `ok`
@@ -135,61 +135,97 @@ re-checked at the fork base `426967d` (v1.51.0, 2026-09-15): all hold;
   - status: todo · agent: — · worker: high
   - card: as the user, promote any side-panel tool beside the chat so that code, diff and terminal are one window with the agent (PRD step 8)
   - context:
-    - PRD decision 3 (chat + one pane) — waits on the user
+    - PRD decision 3 (chat + one pane) — approved 2026-09-15; at phone width the store has no centre split: one visible pane, chat included (PRD step 8, 13)
     - no ACP imports here (`ARCHITECTURE.md` §Invariants); state only, no React
   - confirm: `cd ui/desktop && pnpm vitest run src/workspace/pane-store.test.ts; echo exit=$?` → `exit=0` (pure logic — the one unit test the light tier asks for; PRODUCT.md §8)
 
-- 11. Add `ui/desktop/src/workspace/WorkspaceShell.tsx` rendering the pane store around the existing `pair` route chat, and a header with Runtime (Claude · Codex · Cursor · More…) and Mode (Direct · Orchestrate) selectors wired to `src/acp` session config (`provider`) and to loading `orchestrator.md`.
+- 11. Add `ui/desktop/src/workspace/WorkspaceShell.tsx` rendering the pane store around the existing `pair` route chat, and a header with Runtime (Claude · Codex · Cursor · agy · More…) and Mode (Direct · Orchestrate) selectors wired to `src/acp` session config (`provider`) and to loading `orchestrator.md`.
   - status: todo · agent: — · worker: high
   - card: as the user, pick who I talk to and whether it orchestrates so that Direct and Orchestrate are one click apart (PRD steps 2–3, 9)
   - context:
-    - PRD decision 1 (Runtime/Mode separate) and 4 (mid-session switch P0) — wait on the user
+    - PRD decisions 1 (Runtime/Mode separate) and 4 (mid-session switch P0) — approved 2026-09-15; decision 2 ("agy out of V0") superseded by the role map: the Runtime list is Claude · Codex · Cursor · agy · More…
     - Goose exposes `provider` and `model` as ACP config options (`acp/response_builder.rs:303-317`); the desktop already patches provider per session (`ModelAndProviderContext.tsx:92-140`) — reuse that path, do not add a registry
     - Mode = whether the first prompt loads the orchestrator role; how the role is loaded is a plan decision for this task (recipe vs `load(source:)`)
     - session fail-over (added 2026-09-15): when the primary adapter fails to spawn or returns quota-exhausted, switch the session's `provider` to `orchestrator.md`'s weight-0 `runtimes:` entry with the handoff memo, show the "→ Grok from here" divider (PRD step 9), never roll at session start — the user is talking to this role
   - confirm: `cd ui/desktop && pnpm run typecheck && pnpm exec playwright test -g "workspace shell"; echo exit=$?` → `exit=0` (one Playwright walk of PRD steps 2–3: pick Runtime and Mode, send a prompt, see a reply)
 
-- 12. Add the Files pane (`src/workspace/panes/files/`) with a tree of the session cwd, session-written-file dots, and click → Editor pane; `main/native/fs.ts` watches the cwd.
+- 12. Add the Files pane (`src/workspace/panes/files/`) with a tree of the session cwd (a drill-down list at phone width), session-written-file dots, and click → Editor pane; `ui/sidecar/src/fs.ts` serves reads and watches the cwd (`chokidar`).
   - status: todo · agent: — · worker: high
   - card: as the user, see what the agent touched so that I don't alt-tab to check (PRD step 4)
   - context:
     - "written since session start" comes from tool-call rows the chat already renders (external-dispatch tool requests keep their args) — derive, don't re-scan
+    - needs task 18 (sidecar) landed; the pane talks to `src/native/fs.ts`, never to Electron
   - confirm: `cd ui/desktop && pnpm run typecheck && pnpm run depcruise && pnpm exec playwright test -g "files pane"; echo exit=$?` → `exit=0` (PRD step 4: open Files, see the cwd tree, click a file → editor opens)
 
-- 13. Add the Editor pane (`src/workspace/panes/editor/`, CodeMirror 6) with ⌘S save and a reload bar on external change.
+- 13. Add the Editor pane (`src/workspace/panes/editor/`, CodeMirror 6) with ⌘S save, a reload bar on external change, and for `.md` files a Preview toggle (`react-markdown` + `remark-gfm` + `github-markdown-css`).
   - status: todo · agent: — · worker: high
   - card: as the user, fix a line without leaving the window so that small corrections don't need another tool (PRD step 4, states)
   - context:
-    - CodeMirror 6 over monaco: no editor dependency exists upstream; size and Electron packaging favour CM6 (plan §Approach)
+    - CodeMirror 6 over monaco: no editor dependency exists upstream; size, Electron packaging and the phone favour CM6 (plan §Approach; research web-workspace §Inventory)
+    - markdown is source + preview at V0 — GitHub's own model; WYSIWYG is a second engine and waits for a second concrete need (user decision 2026-09-15)
   - confirm: `cd ui/desktop && pnpm run typecheck && pnpm exec playwright test -g "editor pane"; echo exit=$?` → `exit=0` (open a file, type, ⌘S, file on disk changed)
 
-- 14. Add the Diff pane (`src/workspace/panes/diff/`): working tree vs HEAD by default, "since session start" as the second base, unified and side-by-side; `main/native/git.ts` runs `git diff`.
+- 14. Add the Diff pane (`src/workspace/panes/diff/`, `@codemirror/merge`): working tree vs HEAD by default, "since session start" as the second base, unified and side-by-side; `ui/sidecar/src/git.ts` runs `git diff`.
   - status: todo · agent: — · worker: high
   - card: as the user, review what changed against a chosen base so that I can judge the agent's work before committing (PRD step 5)
   - context:
-    - PRD decision 5 (view-only at V0) — waits on the user
+    - PRD decision 5 (view-only at V0) — approved 2026-09-15
     - "since session start" needs the session's start commit or a stash-free snapshot; approach is this task's plan decision
   - confirm: `cd ui/desktop && pnpm run typecheck && pnpm exec playwright test -g "diff pane"; echo exit=$?` → `exit=0` (PRD step 5: a modified file shows in the list; unified and side-by-side render)
 
-- 15. Add the Terminal pane (`src/workspace/panes/terminal/`, `@xterm/xterm`) backed by `main/native/pty.ts` (`node-pty`), starting in the session cwd with the login-shell PATH, surviving session end.
+- 15. Add the Terminal pane (`src/workspace/panes/terminal/`, `@xterm/xterm`) backed by `ui/sidecar/src/pty.ts` (`node-pty`), starting in the session cwd with the login-shell PATH, surviving session end and client disconnect (reattach by session id), with a key bar (Esc · Tab · Ctrl · arrows · paste) at phone width.
   - status: todo · agent: — · worker: high
   - card: as the user, run tests and commands beside the agent so that the loop closes in one window (PRD step 6)
   - context:
     - PATH source: `loginShellPath.ts` already resolves it for goosed — reuse
-    - `node-pty` is a native module: add to `forge.config.ts` rebuild/unpack; the packaged app must still start (task 2's typecheck is not enough — add a `pnpm run make` smoke to this task's confirm if CI time allows)
+    - `node-pty` is a native module in the *sidecar*, not the renderer bundle; the packaged Electron app must bundle and start the sidecar (`forge.config.ts` extraResource) — add a `pnpm run make` smoke to task 18's confirm if CI time allows
+    - xterm.js touch gaps on iOS (xtermjs/xterm.js#5377, #3727, #2403) are why the key bar and server-side reattach are in this task, not later
   - confirm: `cd ui/desktop && pnpm run typecheck && pnpm exec playwright test -g "terminal pane"; echo exit=$?` → `exit=0` (PRD step 6: shell opens in the session cwd, `pwd` prints it)
 
-- 16. Add the Git pane (`src/workspace/panes/git/`): branch, staged/unstaged lists, stage/unstage, commit box; commit disabled while any tool call is `in_progress`.
+- 16. Add the Git pane (`src/workspace/panes/git/`): branch, staged/unstaged lists, stage/unstage, commit box; commit disabled while any tool call is `in_progress`; git commands run in `ui/sidecar/src/git.ts`.
   - status: todo · agent: — · worker: high
   - card: as the user, commit the reviewed change without leaving the window so that the walk ends where it started (PRD step 7)
   - context:
     - "tool call in progress" is already known to the chat's tool-call state — subscribe, don't poll git
   - confirm: `cd ui/desktop && pnpm run typecheck && pnpm run depcruise && pnpm exec playwright test -g "git pane"; echo exit=$?` → `exit=0` (PRD step 7: branch shown, stage a file, commit, Diff vs HEAD empty)
 
+- 18. Add `ui/sidecar/` (Node, TypeScript; add `'sidecar'` to `packages` in `ui/pnpm-workspace.yaml`): WebSocket + HTTP service binding the tailnet interface, with `pty` (node-pty; sessions keyed by id, reattachable), `fs` (read, write, list, `chokidar` watch → events), `git` (status, diff, stage, unstage, commit), a `/acp` WebSocket proxy to `goose serve` on loopback that injects `?token=` from `GOOSE_SERVER__SECRET_KEY`, and static serving of the web build; Electron `main` spawns it beside `goose serve`.
+  - status: todo · agent: — · worker: high
+  - card: as the user on either the desktop or the phone, reach the same shell, files and git through one process so that the panes have one code path and the Goose secret never leaves the Mac (research web-workspace §Options B; ARCHITECTURE.md §Invariants)
+  - context:
+    - `goose serve` refuses to start without `GOOSE_SERVER__SECRET_KEY` (`crates/goose-cli/src/cli.rs:1809-1830`); the desktop passes it as `?token=` on the `/acp` URL (`ui/desktop/src/gooseServe.ts:256-258`) — the proxy adds it server-side, the client URL carries none
+    - bind: the Tailscale interface (`tailscale ip -4`) or loopback, never `0.0.0.0`; refuse to start on a public address; never behind `tailscale funnel` (Security specialist's first question, answered in the research §Scope)
+    - `loginShellPath.ts` already resolves the login-shell PATH for goosed — the pty inherits it; for compo that PATH must reach `mise` shims
+    - the sidecar is where `node-pty` lives; the renderer bundle stays free of native modules (task 4's electron/node ban)
+    - packaging: `forge.config.ts` bundles the sidecar as an extra resource; `pnpm run make` must still produce a starting app
+    - the sidecar gets its own `.dependency-cruiser.cjs` line: `src/**` never imports `@agentclientprotocol/sdk` or `@aaif/goose-acp-client` (it proxies bytes, it does not speak ACP) — `ui/desktop`'s config cannot see a sibling package
+  - confirm: `cd ui/sidecar && pnpm run typecheck && pnpm run build; echo build=$?` → `build=0`; then `(node dist/index.js --bind 127.0.0.1 --port 3285 &) ; sleep 2; curl -sf http://127.0.0.1:3285/health; echo; curl -sf -X POST http://127.0.0.1:3285/fs/list -H 'content-type: application/json' -d '{"path":"."}' | head -c 80; echo; pkill -f 'dist/index.js --bind 127.0.0.1 --port 3285'; echo exit=$?` → `ok`, a JSON listing, `exit=0`
+
+- 19. Add the browser build of the renderer: `ui/desktop/vite.web.config.mts` (beside `vite.renderer.config.mts`; Forge + Vite is the existing setup) → `dist-web/`, `src/shims/electron-web.ts` implementing the `window.electron` methods the reused components call (`getSetting`/`setSetting`, `on`/`off`, `logInfo`, `openExternal`, `getAcpUrl` → the sidecar's `/acp`, `platform`, `getConfig`) over the sidecar's HTTP, a `pnpm run build:web` script, and a PWA manifest. **First task of tranche 4 — the spike that decides it.**
+  - status: todo · agent: — · worker: high
+  - card: as the user on the phone, open the workspace URL and get the desktop's chat so that one renderer serves both shells (PRD step 13; research web-workspace §Unknowns, second)
+  - context:
+    - `src/acp` has no `electron` or `node:` import today (grep 2026-09-15), so task 4's ban is 0-violation on the untouched tree; 54 of 373 renderer files call `window.electron.*`; the top methods by count are `getSetting` 20, `setSetting` 18, `on` 16, `off` 16, `logInfo` 13, `openExternal` 9, `platform` 7 (research web-workspace §Reframe 3) — shim those, stub the rest to no-ops that log once
+    - `src/acp/acpConnection.ts:132` is the one ACP touchpoint: `getAcpUrl()` returns the sidecar's `/acp` URL (no token)
+    - if the chat and tool-call components do not render in Chromium behind the shim within the task's budget, return `BLOCKED` naming the components — that reopens the research's options C/D, not a bigger shim
+    - light tier: the confirm is the walk, not a suite
+  - confirm: `cd ui/desktop && pnpm run build:web && pnpm exec playwright test -g "web build" --project=chromium; echo exit=$?` → `exit=0` (Chromium loads `dist-web/` against a running sidecar + `goose serve`, opens a session, sends a prompt, sees a reply)
+
+- 20. Add the phone layout to `src/workspace/`: below 768 px the pane store exposes one visible pane behind a tab rail (chat · Files · Editor · Diff · Terminal · Git), the terminal key bar from task 15 is shown, and reconnect-on-foreground reattaches the pty and refreshes the chat; Playwright gets a `phone` project (390 × 844, touch, iPhone UA).
+  - status: todo · agent: — · worker: medium
+  - card: as the user on the phone, check what the agent did and nudge it from wherever I am so that the walk does not wait for the desk (PRD step 13, criteria 7–8)
+  - context:
+    - iOS Safari suspends background tabs: the WS drops; on `visibilitychange` → visible, reconnect to the sidecar and reattach the pty by id (task 15/18), then pull the session's messages since the last seen id via `src/acp`
+    - CodeMirror 6 iOS tap-to-place (discuss.codemirror.net/t/3345) — read the current changelog before relying on editing; reading and small edits are the bar at V0
+    - test on `hoa-phone` over the tailnet (`tailscale status`, 2026-09-15) — the Playwright phone project is the mechanical check, the phone is the manual one (§Waiting on the user)
+  - confirm: `cd ui/desktop && pnpm run typecheck && pnpm exec playwright test -g "phone" --project=phone; echo exit=$?` → `exit=0` (at 390 px: chat first; tap Files → tree; tap a file → editor; tap Terminal → key bar visible; `pwd` prints the cwd)
+
 ## Waiting on the user
 
 - `ARCHITECTURE.md` — sign-off deletes `## Bootstrap Status`; until then the map is a proposal and tasks 10–16 plan against a guess.
-- tasks 10–16 — the five PRD decisions (2026-09-15 review request): (1) Runtime and Mode as separate controls, no "Goose-native" runtime; (2) agy out of V0; (3) chat + one centre pane; (4) mid-session runtime switch at P0; (5) diff view-only at V0.
+- tasks 18–20 — approval: drafted 2026-09-15 from the web-workspace research after the user kept Electron (option B); tasks 10–16 were re-pointed to the sidecar the same day under the five PRD decisions approved 2026-09-15 (decision 2 superseded by the role map).
+- task 20 — the phone check is manual: open the URL on `hoa-phone`, walk PRD step 13, judge the terminal with the key bar.
+- task 2 — its `doing` claim (`claude-session (opus, 2026-09-15)`) has no live session and no running build; release it or say who holds it.
 - task 9 — the handoff-memo criterion (PRD §Criteria, second) is a manual check: ask "what did we just change?" after a runtime switch and judge the answer.
 
 ## Ownership

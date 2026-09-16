@@ -84,7 +84,9 @@
 8. [Any pane] · P0
    - does: drag the pane's tab into the centre, or click "Open as pane"
    - rule: the centre shows chat plus one pane side by side; opening a
-     second pane replaces the first (it returns to the side panel)
+     second pane replaces the first (it returns to the side panel); at
+     phone width there is no centre split — one pane at a time behind
+     a tab rail, chat included
    - → [Centre: chat + pane, resizable]; close → [pane returns to the
      side panel]
 
@@ -119,6 +121,18 @@
       dev server if one is listed in `.goose` config)
     - → [Browser pane with address bar]; Markdown tab → [rendered view
       of the file selected in Files]
+
+13. [Phone, on the tailnet] · P0
+    - does: open the workspace URL in Safari (or the installed PWA);
+      pick the session that is open on the desktop
+    - rule: the same session, the same panes, one at a time behind a
+      tab rail; the terminal shows a key bar above the keyboard and
+      reattaches to its shell after the tab was backgrounded; if the
+      phone is off the tailnet the URL does not resolve — there is no
+      public door
+    - → [Workspace at phone width: chat first, tab rail: Files · Editor
+      · Diff · Terminal · Git]; fail(sidecar down) → [one-line "not
+      reachable" page with the Mac's name]
 
 ## States
 
@@ -172,6 +186,12 @@
 - [ ] Given a centre pane replaced by another, when it is reopened,
       then no state was lost (terminal scrollback, editor buffer,
       diff selection).
+- [ ] Given the same session open on the desktop and the phone, when a
+      tool call writes a file, then both Files panes show the dot
+      within 2 s — one sidecar, one watcher, two clients.
+- [ ] Given the phone backgrounds the tab for five minutes, when it
+      returns, then the terminal reattaches with its scrollback and the
+      chat has the messages that arrived meanwhile.
 - [ ] Given every stock Goose route (sessions, extensions, recipes,
       skills, schedules, apps, settings), when opened in the fork, then
       it opens and completes its main action — no regression in the
@@ -181,9 +201,11 @@
 
 - out: accept / reject per hunk (view-only diff at V0; why: the plan
   gate needs the pane first); worktree-per-task (Goose sessions share
-  the cwd; why: PRODUCT.md §11 lists it as Should); mobile / cloud /
-  scheduled agents (PRODUCT.md §12); an agy runtime until agy exposes
-  ACP or a Goose provider exists; editing a worker's transcript;
+  the cwd; why: PRODUCT.md §11 lists it as Should); a native phone app
+  (the web build is the phone at V0; Capacitor later if a store listing
+  or push is wanted), cloud / scheduled agents (PRODUCT.md §12);
+  off-tailnet access; arbitrary-site browsing (iframe of the project's
+  dev server only); editing a worker's transcript;
   any change to `crates/goose/src/agents/agent.rs` or
   `state_machine/` (dual-path rule).
 - protected: every existing desktop route and `_goose/*` call keeps

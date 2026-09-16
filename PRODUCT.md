@@ -6,7 +6,7 @@ Read this before research or a PRD; a PRD or plan that contradicts it is a findi
 
 > **A modern coding workspace where Claude orchestrates a small software team of subscription-backed coding agents, and the user can see who did what.**
 
-- Fork Goose Desktop; grow it into a Claude-Code-class coding environment: chat with the agent in the middle, Files / Editor / Diff / Terminal / Git beside it, one window.
+- Fork Goose Desktop; grow it into a Claude-Code-class coding environment: chat with the agent in the middle, Files / Editor / Diff / Terminal / Git beside it, one window — and the same window from the phone, over the tailnet, one pane at a time.
 - Runtimes are the coding agents the user already pays for — Claude Code, Codex, Cursor (the door to Grok), Antigravity (agy) — driven through their subscriptions, never API-key-first.
 - Claude is the default Orchestrator; the other runtimes are bounded workers with named roles; the RPI walk (research → plan → implement → review) sits between them.
 - Goose is the spine, not the product: sessions, permissions, MCP, providers, `delegate`, star topology, handoff memo, persistence. We add the workspace, two providers, one frontmatter field, the role files, and the RPI/agent-activity surfaces. Local-first, lightweight, no control plane.
@@ -269,7 +269,7 @@ An Advisor with a field's context and its own gate: same authority, same artifac
 | Software architect | `ARCHITECTURE.md` | plans against module boundaries and invariants; new dependencies; "does this add an undrawn edge"; could this land upstream as a Ready issue instead of a carried patch; does the packaged app still start | plan gate, when the plan crosses a module, adds a dependency, or touches `crates/*` or packaging |
 | UX designer | `DESIGN.md`, PRD §Journey and §States | user-observable behaviour: flows, empty/loading/error states, what the screen tells the user | PRD gate; plan gate for user-facing tasks |
 | Product manager | this file, PRD §Problem, §Criteria, §Scope | scope and priority: build it at all, build it now, criteria measurable, scope creep | research → PRD; before planning anything not in a PRD |
-| Security | `ARCHITECTURE.md` §Invariants, the plan's touched paths | trust boundaries: what executes agent output and who gates it; secrets in env or args; permission-mode mapping per provider; what the preload bridge exposes | plan gate, when the plan touches `preload`, `main/native`, provider spawn, permission modes, or anything that runs a worker's output |
+| Security | `ARCHITECTURE.md` §Invariants, the plan's touched paths | trust boundaries: what executes agent output and who gates it; secrets in env or args; permission-mode mapping per provider; what the preload bridge exposes | plan gate, when the plan touches `preload`, `ui/sidecar`, provider spawn, permission modes, or anything that runs a worker's output |
 
 - One advisor per gate: the specialist whose field the artifact touches, else the generic Advisor; never three opinions stacked on one artifact.
 - Field context lives in the role file's body; a `.agents/skills/<field>/SKILL.md` is added only when that context outgrows a page.
@@ -400,6 +400,7 @@ Goose Desktop is the base; it becomes a coding workspace. The walk, states and c
 ```
 
 - **Panes:** chat · file · diff · terminal · git · browser · markdown · plan · tasks · agents. Any side-panel tool can be promoted beside the chat; the centre is chat plus one pane, resizable; a replaced pane returns to the side panel with its state.
+- **Two shells, one renderer:** the Electron desktop, and the same renderer served to the phone by a sidecar on the Mac over Tailscale (installable as a PWA). On a phone the workspace shows one pane at a time behind a tab rail; the terminal gets a key bar (Esc · Tab · Ctrl · arrows · paste) above the keyboard and a server-side session that survives the tab being backgrounded. The browser pane is the project's own dev server in an iframe; arbitrary sites wait for a native shell.
 - **Must:** chat, streaming output, tool-call rendering, Files, editor, Diff, Git, Terminal, runtime selector, session history, subagent visibility, task status, RPI phase visibility.
 - **Should:** Browser, Markdown, Plan pane, Task pane, flexible panes, agent transcript drill-down, accept/reject changes, worktree support, review results view.
 - **Could:** visual delegation graph, persistent named agents, scheduled agents, mobile client, cloud execution, multi-machine workers.
@@ -410,7 +411,7 @@ Goose Desktop is the base; it becomes a coding workspace. The walk, states and c
 
 Tiers are what the user sees; the plan's tranches (`docs/2026-09-15-goose-fork-plan-v1.md`) are build order — roles land in tranche 3, before any pane, because the thesis is testable from the CLI.
 
-- **V0** — the fork; `claude-acp` default; `codex-acp`, `cursor-acp`, `agy` providers; `runtimes:` in the spine; the ten role files and the runtime matrix; chat, Files, editor, Terminal, Diff, Git; session and runtime selectors. Basic delegation, no orchestration UI.
+- **V0** — the fork; `claude-acp` default; `codex-acp`, `cursor-acp`, `agy` providers; `runtimes:` in the spine; the ten role files and the runtime matrix; the sidecar; chat, Files, editor, markdown preview, Terminal, Diff, Git, browser (project dev server); session and runtime selectors; the web build reachable from the phone with the one-pane layout. Basic delegation, no orchestration UI.
 - **V0.5** — Browser, Markdown, flexible pane layout, RPI strip, agent-activity tree, Direct vs Orchestrate in the header, research/plan artifact pane.
 - **V1** — the six roles and four specialists exercised end-to-end in the UI: RPI-aware delegation, review loops, task status, worker transcript navigation, summary handoffs, plan acceptance/revision UX.
 - **Future** (only after the lightweight product proves useful) — persistent named agents, agent memory, authority policies, scheduling, iOS/Android clients, remote workers, cloud execution, multi-machine scheduling, durable background workflows.

@@ -164,8 +164,11 @@ web product, or the Electron fork with a remote build.
 | C. Adopt CloudCLI (claudecodeui) and add Goose as a backend | files / editor / terminal / git / phone layout exist today; 13.7k★ community | AGPL-3.0; it drives CLIs directly, so roles, `delegate`, RPI and the Agents tree need a Goose adapter inside its server — building our product inside someone else's shell |
 | D. Adopt Happy (mobile-native) and add Goose | best phone UX (Expo, voice, E2E relay); MIT | chat-first, not a pane workspace; relay server in the path; same "Goose adapter inside their server" cost as C |
 
-Pick: **A — web-first, one renderer, sidecar on the Mac; Electron
-deferred.** Reasons: it is the only option where the phone works in the
+Pick (amended by the user 2026-09-15): **B — Electron stays the desktop
+shell; the same renderer ships as a web build served by the sidecar
+for the phone.** Everything below about the sidecar, the panes and the
+phone layout holds; only the shell decision moved. Research pick was
+A — web-first, one renderer, sidecar on the Mac; Electron deferred. Reasons: it is the only option where the phone works in the
 same tranche as the desktop; Goose's spine needs no change to serve it;
 the pane stack is the one CloudCLI already proves on phones; and it
 keeps roles / RPI / Agents in our client rather than porting them into
