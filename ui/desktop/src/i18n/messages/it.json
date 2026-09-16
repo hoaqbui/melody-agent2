@@ -956,11 +956,17 @@
   "dictationSettings.voiceDictationProvider": {
     "defaultMessage": "Provider di dettatura vocale"
   },
+  "diffPane.applying": {
+    "defaultMessage": "Applying…"
+  },
   "diffPane.base": {
     "defaultMessage": "Base"
   },
   "diffPane.binary": {
     "defaultMessage": "Binary file"
+  },
+  "diffPane.blockedRunning": {
+    "defaultMessage": "Reject and Stage wait for the running tool call to finish"
   },
   "diffPane.loading": {
     "defaultMessage": "Loading…"
@@ -971,8 +977,14 @@
   "diffPane.refresh": {
     "defaultMessage": "Refresh"
   },
+  "diffPane.reject": {
+    "defaultMessage": "Reject"
+  },
   "diffPane.retry": {
     "defaultMessage": "Retry"
+  },
+  "diffPane.scope": {
+    "defaultMessage": "Scope"
   },
   "diffPane.selectFile": {
     "defaultMessage": "Select a file to see its changes"
@@ -983,8 +995,20 @@
   "diffPane.sinceSessionStart": {
     "defaultMessage": "since session start"
   },
+  "diffPane.stage": {
+    "defaultMessage": "Stage"
+  },
+  "diffPane.staged": {
+    "defaultMessage": "Staged"
+  },
+  "diffPane.undo": {
+    "defaultMessage": "Undo"
+  },
   "diffPane.unified": {
     "defaultMessage": "Unified"
+  },
+  "diffPane.unstaged": {
+    "defaultMessage": "Unstaged"
   },
   "diffPane.vsHead": {
     "defaultMessage": "vs HEAD"

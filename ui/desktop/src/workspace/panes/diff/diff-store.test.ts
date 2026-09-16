@@ -1,7 +1,7 @@
 import { readFileSync } from 'node:fs';
 import { resolve } from 'node:path';
 import { describe, expect, it, vi } from 'vitest';
-import { createDiffStore, DIFF_PANE_STATES } from './diff-store';
+import { createDiffStore, DIFF_PANE_STATES, INITIAL_SELECTION, undoRequest } from './diff-store';
 
 describe('diff-store', () => {
   it('keeps the base, view and selection across subscribers', () => {
@@ -10,14 +10,26 @@ describe('diff-store', () => {
     store.subscribe(listener);
     store.select('a.txt');
     store.setView('split');
-    expect(store.getState()).toEqual({ base: 'head', view: 'split', path: 'a.txt' });
+    expect(store.getState()).toEqual({ ...INITIAL_SELECTION, view: 'split', path: 'a.txt' });
     expect(listener).toHaveBeenCalledTimes(2);
   });
 
-  it('drops the selection when the base changes, since the file list changes with it', () => {
-    const store = createDiffStore({ base: 'head', view: 'unified', path: 'a.txt' });
+  it('drops the selection when the base or scope changes, since the file list changes with it', () => {
+    const store = createDiffStore({ ...INITIAL_SELECTION, path: 'a.txt' });
     store.setBase('session');
     expect(store.getState().path).toBeNull();
+    store.select('a.txt');
+    store.setScope('staged');
+    expect(store.getState().path).toBeNull();
+  });
+
+  it('keeps the last apply for Undo, which sends it back reversed', () => {
+    const store = createDiffStore();
+    const applied = { patch: '--- a/x\n', cached: true, cwd: '/repo' };
+    store.setLastApply(applied);
+    expect(store.getState().lastApply).toBe(applied);
+    expect(undoRequest(applied)).toEqual({ ...applied, reverse: true });
+    expect(undoRequest({ patch: '', reverse: true })).toEqual({ patch: '', reverse: false });
   });
 
   it('does not notify when nothing changes', () => {
