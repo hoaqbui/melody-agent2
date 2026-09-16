@@ -12,6 +12,7 @@ use crate::acp::{PermissionDecision, ACP_CURRENT_MODEL};
 use crate::agents::extension::{Envs, PLATFORM_EXTENSIONS};
 use crate::agents::mcp_client::{GooseMcpHostInfo, McpClientTrait};
 use crate::agents::platform_extensions::developer::DeveloperClient;
+use crate::agents::session_bridge;
 use crate::agents::state_machine::{
     has_unapplied_tool_confirmation_response, pending_tool_confirmations,
 };
@@ -1164,9 +1165,34 @@ impl GooseAcpAgent {
         let agent = agent_result.agent.clone();
         self.apply_acp_extension_overrides(cx, &agent, session)
             .await;
+        self.sync_session_bridge(&agent, &session.id).await?;
         self.spawn_provider_inventory_refresh(session, &agent);
 
         Ok((agent, agent_result.extension_results))
+    }
+
+    /// Gives an adapter-backed session the bridge extension (and takes it
+    /// away from a native one), recreating the provider once so the adapter
+    /// is spawned with the entry in its MCP config.
+    async fn sync_session_bridge(
+        &self,
+        agent: &Arc<Agent>,
+        session_id: &str,
+    ) -> Result<(), agent_client_protocol::Error> {
+        let Some(provider_name) = session_bridge::sync_extension(agent, session_id)
+            .await
+            .internal_err_ctx("Failed to sync session bridge")?
+        else {
+            return Ok(());
+        };
+        let model_config = agent
+            .model_config_for_session(session_id)
+            .await
+            .internal_err_ctx("Failed to resolve model config")?;
+        agent
+            .recreate_provider_for_session(session_id, &provider_name, model_config)
+            .await
+            .internal_err_ctx("Failed to recreate provider with session bridge")
     }
 
     async fn prepare_session_for_activation(
@@ -2611,6 +2637,7 @@ impl GooseAcpAgent {
             .recreate_provider_for_session(session_id, &resolved_provider_name, model_config)
             .await
             .internal_err_ctx("Failed to recreate provider")?;
+        self.sync_session_bridge(&agent, session_id).await?;
         self.subscribe_thinking_effort_updates(session_id, &agent)
             .await;
 
@@ -2649,6 +2676,9 @@ impl GooseAcpAgent {
         let mut sessions = self.sessions.lock().await;
         sessions.remove(session_id);
         drop(sessions);
+        session_bridge::SessionBridge::global()
+            .await
+            .unregister(session_id);
 
         self.agent_manager
             .remove_session_if_loaded(session_id)

@@ -25,7 +25,9 @@ use tokio::sync::OnceCell;
 use tokio_util::sync::CancellationToken;
 
 use super::Agent;
-use crate::config::ExtensionConfig;
+use crate::config::{Config, ExtensionConfig};
+use crate::session::extension_data::{EnabledExtensionsState, ExtensionState};
+use crate::session::SessionType;
 
 pub const BRIDGE_EXTENSION_NAME: &str = "goose";
 pub const SECRET_HEADER: &str = "X-Secret-Key";
@@ -120,6 +122,68 @@ impl SessionBridge {
             .route("/mcp/{session_id}", post(handle))
             .with_state(self.state.clone())
     }
+}
+
+/// Registers a top-level session with the bridge and lines its stored
+/// extension list up with its provider: a provider that manages its own
+/// context gets the bridge entry (Goose forwards it instead of loading it);
+/// a native provider must not have it, or Goose would connect to itself.
+/// Returns the provider name when the list changed and the caller must
+/// recreate the provider from the stored list.
+pub async fn sync_extension(
+    agent: &Arc<Agent>,
+    session_id: &str,
+) -> anyhow::Result<Option<String>> {
+    let bridge = SessionBridge::global().await;
+    bridge.register(session_id, Arc::downgrade(agent));
+
+    let session = agent
+        .config
+        .session_manager
+        .get_session(session_id, false)
+        .await?;
+    debug_assert!(
+        session.session_type != SessionType::SubAgent,
+        "a delegated child never reaches the bridge"
+    );
+    // A session whose provider is still unset (auth pending) has nothing to sync yet.
+    let Ok(provider) = agent.provider().await else {
+        return Ok(None);
+    };
+    let wants_bridge = provider.manages_own_context();
+
+    let mut state = EnabledExtensionsState::from_extension_data(&session.extension_data)
+        .unwrap_or_else(|| {
+            EnabledExtensionsState::new(EnabledExtensionsState::extensions_or_default(
+                None,
+                Config::global(),
+            ))
+        });
+    let has_bridge = state
+        .extensions
+        .iter()
+        .any(|extension| extension.name() == BRIDGE_EXTENSION_NAME);
+    if has_bridge == wants_bridge {
+        return Ok(None);
+    }
+    if wants_bridge {
+        state.extensions.push(bridge.extension_config(session_id));
+    } else {
+        state
+            .extensions
+            .retain(|extension| extension.name() != BRIDGE_EXTENSION_NAME);
+    }
+
+    let mut extension_data = session.extension_data.clone();
+    state.to_extension_data(&mut extension_data)?;
+    agent
+        .config
+        .session_manager
+        .update(session_id)
+        .extension_data(extension_data)
+        .apply()
+        .await?;
+    Ok(Some(provider.get_name().to_string()))
 }
 
 async fn handle(
@@ -364,5 +428,124 @@ mod tests {
         assert_eq!(headers.get(SECRET_HEADER).map(String::as_str), Some(secret));
 
         bridge.unregister("s2");
+    }
+
+    #[derive(Debug)]
+    struct StubProvider {
+        own_context: bool,
+    }
+
+    #[async_trait::async_trait]
+    impl crate::providers::base::Provider for StubProvider {
+        fn get_name(&self) -> &str {
+            "stub"
+        }
+
+        fn manages_own_context(&self) -> bool {
+            self.own_context
+        }
+
+        async fn stream(
+            &self,
+            _model_config: &goose_providers::model::ModelConfig,
+            _system: &str,
+            _messages: &[crate::conversation::message::Message],
+            _tools: &[rmcp::model::Tool],
+        ) -> Result<crate::providers::base::MessageStream, goose_providers::errors::ProviderError>
+        {
+            Ok(Box::pin(futures::stream::empty()))
+        }
+    }
+
+    async fn agent_on(own_context: bool, root: &std::path::Path) -> (Arc<Agent>, String) {
+        let session_manager = Arc::new(crate::session::SessionManager::new(root.to_path_buf()));
+        let session = session_manager
+            .create_session(
+                root.to_path_buf(),
+                "bridge sync".to_string(),
+                SessionType::User,
+                crate::config::GooseMode::Auto,
+            )
+            .await
+            .unwrap();
+        let agent = Arc::new(Agent::with_config(crate::agents::AgentConfig::new(
+            session_manager,
+            Arc::new(crate::config::PermissionManager::new(root.to_path_buf())),
+            None,
+            crate::config::GooseMode::Auto,
+            true,
+            crate::agents::GoosePlatform::GooseCli,
+        )));
+        agent
+            .update_provider(
+                Arc::new(StubProvider { own_context }),
+                goose_providers::model::ModelConfig::new("stub-model"),
+                &session.id,
+            )
+            .await
+            .unwrap();
+        (agent, session.id)
+    }
+
+    async fn stored_bridge_uri(agent: &Agent, session_id: &str) -> Option<String> {
+        let session = agent
+            .config
+            .session_manager
+            .get_session(session_id, false)
+            .await
+            .unwrap();
+        EnabledExtensionsState::from_extension_data(&session.extension_data)?
+            .extensions
+            .into_iter()
+            .find_map(|extension| match extension {
+                ExtensionConfig::StreamableHttp { name, uri, .. }
+                    if name == BRIDGE_EXTENSION_NAME =>
+                {
+                    Some(uri)
+                }
+                _ => None,
+            })
+    }
+
+    #[tokio::test]
+    async fn acp_session_on_own_context_provider_gets_bridge_extension() {
+        let root = tempfile::tempdir().unwrap();
+        let bridge = SessionBridge::global().await;
+
+        let (agent, session_id) = agent_on(true, root.path()).await;
+        assert_eq!(
+            sync_extension(&agent, &session_id)
+                .await
+                .unwrap()
+                .as_deref(),
+            Some("stub")
+        );
+        let uri = stored_bridge_uri(&agent, &session_id).await.unwrap();
+        assert!(uri.starts_with("http://127.0.0.1:"), "{uri}");
+        assert!(uri.ends_with(&format!("/mcp/{session_id}")), "{uri}");
+        assert_eq!(uri, format!("{}/mcp/{session_id}", bridge.base_url()));
+        assert!(sync_extension(&agent, &session_id).await.unwrap().is_none());
+
+        let native = Arc::new(StubProvider { own_context: false });
+        agent
+            .update_provider(
+                native,
+                goose_providers::model::ModelConfig::new("stub-model"),
+                &session_id,
+            )
+            .await
+            .unwrap();
+        assert_eq!(
+            sync_extension(&agent, &session_id)
+                .await
+                .unwrap()
+                .as_deref(),
+            Some("stub")
+        );
+        assert!(stored_bridge_uri(&agent, &session_id).await.is_none());
+
+        let (agent, session_id) = agent_on(false, root.path()).await;
+        assert!(sync_extension(&agent, &session_id).await.unwrap().is_none());
+        assert!(stored_bridge_uri(&agent, &session_id).await.is_none());
     }
 }

@@ -3,11 +3,13 @@ use crate::cli::StreamableHttpOptions;
 use super::output;
 use super::{derive_extension_name_from_command, split_extension_name_prefix, CliSession};
 use console::style;
+use goose::agents::session_bridge::SessionBridge;
 use goose::agents::{Agent, Container, ExtensionError};
 use goose::config::extensions::name_to_key;
 use goose::config::resolve_extensions_for_new_session;
 use goose::config::{Config, ExtensionConfig, GooseMode};
 use goose::model_config::model_config_from_user_config;
+use goose::providers::base::Provider;
 use goose::providers::create;
 use goose::recipe::Recipe;
 use goose::session::session_manager::SessionType;
@@ -648,6 +650,29 @@ async fn configure_session_prompts(
     }
 }
 
+/// A provider that manages its own context drops Goose's tool list, so it
+/// gets the session bridge as an MCP server instead. The bridge entry goes
+/// to the provider only — never into the extensions Goose itself loads.
+async fn with_session_bridge(
+    provider: Arc<dyn Provider>,
+    provider_name: &str,
+    extensions: &[ExtensionConfig],
+    session_id: &str,
+) -> Arc<dyn Provider> {
+    if !provider.manages_own_context() {
+        return provider;
+    }
+    let mut with_bridge = extensions.to_vec();
+    with_bridge.push(SessionBridge::global().await.extension_config(session_id));
+    match create(provider_name, with_bridge).await {
+        Ok(provider) => provider,
+        Err(error) => {
+            tracing::warn!("Could not add the session bridge to '{provider_name}': {error}");
+            provider
+        }
+    }
+}
+
 pub async fn build_session(session_config: SessionBuilderConfig) -> CliSession {
     #[cfg(feature = "telemetry")]
     goose::posthog::set_session_context("cli", session_config.resume);
@@ -711,7 +736,13 @@ pub async fn build_session(session_config: SessionBuilderConfig) -> CliSession {
     let (new_provider, effective_provider_name, effective_model_name, effective_model_config) =
         match create(&resolved.provider_name, extensions_for_provider.clone()).await {
             Ok(provider) => (
-                provider,
+                with_session_bridge(
+                    provider,
+                    &resolved.provider_name,
+                    &extensions_for_provider,
+                    &session_id,
+                )
+                .await,
                 resolved.provider_name.clone(),
                 resolved.model_name.clone(),
                 resolved.model_config.clone(),
@@ -829,6 +860,9 @@ pub async fn build_session(session_config: SessionBuilderConfig) -> CliSession {
     // Extensions are loaded after session creation because we may change
     // directory when resuming.
     let agent_ptr = Arc::new(agent);
+    SessionBridge::global()
+        .await
+        .register(&session_id, Arc::downgrade(&agent_ptr));
     let loading_handle = match agent_ptr
         .persist_extension_configs(&session_id, extensions_for_provider.clone())
         .await
