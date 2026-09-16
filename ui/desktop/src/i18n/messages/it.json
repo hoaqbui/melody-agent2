@@ -3275,6 +3275,12 @@
   "providerSetupActions.submit": {
     "defaultMessage": "Invia"
   },
+  "rail.menu": {
+    "defaultMessage": "Session menu"
+  },
+  "rail.unseen": {
+    "defaultMessage": "{pane} — new since you looked"
+  },
   "recipeActivityEditor.activitiesDescription": {
     "defaultMessage": "I prompt principali e i pulsanti di attività che verranno visualizzati nella finestra della chat della ricetta."
   },
@@ -4199,6 +4205,99 @@
   "securityToggle.warpNotice": {
     "defaultMessage": "Il rilevamento dell'iniezione di comandi funziona al meglio quando si è connessi a WARP (necessario per raggiungere il servizio di classificazione)."
   },
+  "sessionActions.archive": {
+    "defaultMessage": "Archive"
+  },
+  "sessionActions.archiveFailed": {
+    "defaultMessage": "Failed to archive session: {error}"
+  },
+  "sessionActions.archived": {
+    "defaultMessage": "Session archived"
+  },
+  "sessionActions.backgroundTasks": {
+    "defaultMessage": "Background tasks"
+  },
+  "sessionActions.delete": {
+    "defaultMessage": "Delete"
+  },
+  "sessionActions.deleteFailed": {
+    "defaultMessage": "Failed to delete session \"{name}\": {error}"
+  },
+  "sessionActions.deleteMessage": {
+    "defaultMessage": "Delete \"{name}\"? This cannot be undone."
+  },
+  "sessionActions.deleteTitle": {
+    "defaultMessage": "Delete session"
+  },
+  "sessionActions.deleted": {
+    "defaultMessage": "Session deleted"
+  },
+  "sessionActions.fork": {
+    "defaultMessage": "Fork"
+  },
+  "sessionActions.forkFailed": {
+    "defaultMessage": "Failed to fork session: {error}"
+  },
+  "sessionActions.forked": {
+    "defaultMessage": "Session forked"
+  },
+  "sessionActions.keepAwake": {
+    "defaultMessage": "Keep computer awake"
+  },
+  "sessionActions.keepAwakeSession": {
+    "defaultMessage": "Only for this session"
+  },
+  "sessionActions.noSession": {
+    "defaultMessage": "Open a session first"
+  },
+  "sessionActions.openFailed": {
+    "defaultMessage": "Couldn't open {path}"
+  },
+  "sessionActions.openIn": {
+    "defaultMessage": "Open in"
+  },
+  "sessionActions.openInEditor": {
+    "defaultMessage": "Code editor"
+  },
+  "sessionActions.openInFinder": {
+    "defaultMessage": "Finder"
+  },
+  "sessionActions.openInTerminal": {
+    "defaultMessage": "Terminal"
+  },
+  "sessionActions.openedDefault": {
+    "defaultMessage": "Opened with the system default — no code or cursor command found"
+  },
+  "sessionActions.openedIn": {
+    "defaultMessage": "Opened in {editor}"
+  },
+  "sessionActions.outputStyle": {
+    "defaultMessage": "Output style"
+  },
+  "sessionActions.outputStyleEverySession": {
+    "defaultMessage": "Applies to every session"
+  },
+  "sessionActions.rename": {
+    "defaultMessage": "Rename"
+  },
+  "sessionActions.responseStyles": {
+    "defaultMessage": "Settings › Response styles…"
+  },
+  "sessionActions.transcriptCompact": {
+    "defaultMessage": "Compact"
+  },
+  "sessionActions.transcriptFull": {
+    "defaultMessage": "Full"
+  },
+  "sessionActions.transcriptView": {
+    "defaultMessage": "Transcript view"
+  },
+  "sessionActions.viewJson": {
+    "defaultMessage": "View session JSON"
+  },
+  "sessionActions.viewModelInteractions": {
+    "defaultMessage": "View recent model interactions"
+  },
   "sessionActionsHeader.actionsLabel": {
     "defaultMessage": "Azioni sessione"
   },
@@ -4223,14 +4322,8 @@
   "sessionActionsHeader.copyText": {
     "defaultMessage": "Copia testo"
   },
-  "sessionActionsHeader.duplicateFailed": {
-    "defaultMessage": "Impossibile duplicare la sessione: {error}"
-  },
   "sessionActionsHeader.duplicateSession": {
     "defaultMessage": "Duplica sessione"
-  },
-  "sessionActionsHeader.duplicated": {
-    "defaultMessage": "Sessione duplicata"
   },
   "sessionActionsHeader.fullTextTitle": {
     "defaultMessage": "Valore di testo"
@@ -5260,9 +5353,6 @@
   },
   "workspaceShell.more": {
     "defaultMessage": "More…"
-  },
-  "workspaceShell.morePanes": {
-    "defaultMessage": "More panes"
   },
   "workspaceShell.noOrchestrator": {
     "defaultMessage": "no orchestrator role in this project"

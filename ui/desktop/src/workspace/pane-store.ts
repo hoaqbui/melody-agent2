@@ -40,6 +40,10 @@ export interface PaneLayout {
   // Phone only: the one thing on screen; there is no split at phone width.
   visible: 'chat' | PaneId;
   columns: Columns;
+  // Panes with something the user has not looked at since it appeared (task 69): a page
+  // that finished loading, shell output, a working tree that changed — while the pane was
+  // off screen. The rail shows a dot; opening the pane clears it. Never persisted.
+  unseen: ReadonlySet<PaneId>;
 }
 
 // A panel as it persists: the id is minted again on restore, since ids are never reused.
@@ -56,8 +60,30 @@ export function modeForWidth(widthPx: number): LayoutMode {
   return widthPx <= PHONE_MAX_WIDTH_PX ? 'phone' : 'desktop';
 }
 
+const NO_UNSEEN: ReadonlySet<PaneId> = new Set();
+
 export function initialLayout(mode: LayoutMode = 'desktop'): PaneLayout {
-  return { mode, dock: [], visible: 'chat', columns: DEFAULT_COLUMNS };
+  return { mode, dock: [], visible: 'chat', columns: DEFAULT_COLUMNS, unseen: NO_UNSEEN };
+}
+
+export function paneVisible(layout: PaneLayout, id: PaneId): boolean {
+  if (layout.mode === 'phone') return layout.visible === id;
+  return layout.dock.some((panel) => panel.active === id);
+}
+
+// Something arrived in a pane the user cannot see; a visible pane shows it itself. The
+// same layout comes back when nothing changes, so a burst of terminal output is one render.
+export function markUnseen(layout: PaneLayout, id: PaneId): PaneLayout {
+  if (paneVisible(layout, id) || layout.unseen.has(id)) return layout;
+  return { ...layout, unseen: new Set([...layout.unseen, id]) };
+}
+
+// A pane brought on screen has been seen.
+function seen(layout: PaneLayout, id: PaneId): PaneLayout {
+  if (!layout.unseen.has(id)) return layout;
+  const unseen = new Set(layout.unseen);
+  unseen.delete(id);
+  return { ...layout, unseen };
 }
 
 // Ids are never reused, so a panel that disappears and a later one never share a key.
@@ -107,21 +133,21 @@ export function openPane(layout: PaneLayout, id: PaneId): PaneLayout {
   const { dock } = layout;
   const index = panelOf(dock, id);
   if (index >= 0) {
-    if (dock[index].active === id) return layout;
-    return { ...layout, dock: replaceAt(dock, index, { ...dock[index], active: id }) };
+    if (dock[index].active === id) return seen(layout, id);
+    return seen({ ...layout, dock: replaceAt(dock, index, { ...dock[index], active: id }) }, id);
   }
-  if (dock.length === 0) return { ...layout, dock: [newPanel(id, 1)] };
+  if (dock.length === 0) return seen({ ...layout, dock: [newPanel(id, 1)] }, id);
   const first = { ...dock[0], tabs: [...dock[0].tabs, id], active: id };
-  return { ...layout, dock: replaceAt(dock, 0, first) };
+  return seen({ ...layout, dock: replaceAt(dock, 0, first) }, id);
 }
 
 export function tearOff(layout: PaneLayout, id: PaneId): PaneLayout {
   if (layout.mode === 'phone') return show(layout, id);
   const { dock } = layout;
   const index = panelOf(dock, id);
-  if (index < 0) return { ...layout, dock: splitBelow(dock, dock.length - 1, id) };
-  if (dock[index].tabs.length === 1) return layout;
-  return { ...layout, dock: splitBelow(removeTab(dock, id), index, id) };
+  if (index < 0) return seen({ ...layout, dock: splitBelow(dock, dock.length - 1, id) }, id);
+  if (dock[index].tabs.length === 1) return seen(layout, id);
+  return seen({ ...layout, dock: splitBelow(removeTab(dock, id), index, id) }, id);
 }
 
 // `panelIndex` counts the dock before the move; the source panel may collapse on the way.
@@ -138,8 +164,11 @@ export function moveTab(
   if (source === panelIndex) {
     const tabs = target.tabs.filter((tab) => tab !== id);
     tabs.splice(position, 0, id);
-    if (tabs.every((tab, i) => tab === target.tabs[i])) return layout;
-    return { ...layout, dock: replaceAt(dock, panelIndex, { ...target, tabs, active: id }) };
+    if (tabs.every((tab, i) => tab === target.tabs[i])) return seen(layout, id);
+    return seen(
+      { ...layout, dock: replaceAt(dock, panelIndex, { ...target, tabs, active: id }) },
+      id
+    );
   }
   const moved = removeTab(dock, id).map((panel) => {
     if (panel.id !== target.id) return panel;
@@ -147,7 +176,7 @@ export function moveTab(
     tabs.splice(position, 0, id);
     return { ...panel, tabs, active: id };
   });
-  return { ...layout, dock: moved };
+  return seen({ ...layout, dock: moved }, id);
 }
 
 export function movePanel(layout: PaneLayout, from: number, to: number): PaneLayout {
@@ -181,8 +210,8 @@ export function closePane(layout: PaneLayout, id: PaneId): PaneLayout {
 }
 
 export function show(layout: PaneLayout, target: 'chat' | PaneId): PaneLayout {
-  if (layout.visible === target) return layout;
-  return { ...layout, visible: target };
+  const shown = layout.visible === target ? layout : { ...layout, visible: target };
+  return target === 'chat' ? shown : seen(shown, target);
 }
 
 // A seam drag: the column takes the width, clamped; the chat gives or takes the difference.
@@ -246,6 +275,7 @@ export interface PaneStore {
   closePane(id: PaneId): void;
   show(target: 'chat' | PaneId): void;
   setMode(mode: LayoutMode): void;
+  markUnseen(id: PaneId): void;
 }
 
 export function createPaneStore(initial: PaneLayout = initialLayout()): PaneStore {
@@ -271,5 +301,6 @@ export function createPaneStore(initial: PaneLayout = initialLayout()): PaneStor
     closePane: (id) => apply(closePane(state, id)),
     show: (target) => apply(show(state, target)),
     setMode: (mode) => apply(setMode(state, mode)),
+    markUnseen: (id) => apply(markUnseen(state, id)),
   };
 }

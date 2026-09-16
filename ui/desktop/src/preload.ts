@@ -137,6 +137,10 @@ type ElectronAPI = {
   getAcpUrl: () => Promise<string | null>;
   getSidecarUrl: () => Promise<string | null>;
   getPhoneUrl: () => Promise<string | null>;
+  // Task 69: the ⋯ menu's Keep computer awake, per session; answers whether a blocker runs.
+  keepAwake: (sessionId: string, on: boolean) => Promise<boolean>;
+  // Task 69: Open in ▸ the code editor; answers 'VS Code', 'Cursor' or 'default'.
+  openInEditor: (dir: string) => Promise<string>;
   setWakelock: (enable: boolean) => Promise<boolean>;
   getWakelockState: () => Promise<boolean>;
   setSpellcheck: (enable: boolean) => Promise<boolean>;
@@ -266,6 +270,8 @@ const electronAPI: ElectronAPI = {
   getAcpUrl: () => ipcRenderer.invoke('get-acp-url'),
   getSidecarUrl: () => ipcRenderer.invoke('get-sidecar-url'),
   getPhoneUrl: () => ipcRenderer.invoke('get-phone-url'),
+  keepAwake: (sessionId: string, on: boolean) => ipcRenderer.invoke('keep-awake', sessionId, on),
+  openInEditor: (dir: string) => ipcRenderer.invoke('open-in-editor', dir),
   setWakelock: (enable: boolean) => ipcRenderer.invoke('set-wakelock', enable),
   getWakelockState: () => ipcRenderer.invoke('get-wakelock-state'),
   setSpellcheck: (enable: boolean) => ipcRenderer.invoke('set-spellcheck', enable),

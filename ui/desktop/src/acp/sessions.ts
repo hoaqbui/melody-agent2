@@ -180,7 +180,12 @@ export async function acpListRecentSessions(maxSessions: number): Promise<Sessio
   const response = await client.connection.agent.request(methods.agent.session.list, {
     _meta: { types: SESSION_LIST_TYPES },
   });
-  return response.sessions.slice(0, maxSessions).map(sessionInfoToListItem);
+  // The server lists archived sessions with the rest (no filter on archived_at); the
+  // sidebar is where an archived session has left (task 69), Session History keeps it.
+  return response.sessions
+    .map(sessionInfoToListItem)
+    .filter((session) => !session.archivedAt)
+    .slice(0, maxSessions);
 }
 
 export async function acpGetSessionListItem(sessionId: string): Promise<SessionListItem> {

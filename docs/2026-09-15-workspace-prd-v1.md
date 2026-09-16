@@ -313,5 +313,9 @@
     recorded run outcomes, a Runs inbox on the Schedules route, runs
     in their own worktree, Save as routine); cloud / remote runs stay
     out (PRODUCT.md §1).
+  - amended 2026-09-16 (task 69): the rail's ⋯ is the session menu
+    (Claude Code desktop's layout); its **Open in ▸ iOS Simulator** stays
+    out — no iOS project in the fork's use, and nothing in the tree
+    builds one.
 - protected: every existing desktop route and `_goose/*` call keeps
   working; provider adapters are added, never modified.

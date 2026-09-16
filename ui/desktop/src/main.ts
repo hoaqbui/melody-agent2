@@ -1032,6 +1032,21 @@ function getRegularWindows(): BrowserWindow[] {
 const gooseServeLeases = new GooseServeLeaseRegistry(log);
 
 const windowPowerSaveBlockers = new Map<number, number>(); // windowId -> blockerId
+// "Keep computer awake — only for this session" (task 69): one blocker per session, kept
+// with its window so a closing window or a quitting app stops what its sessions started.
+const sessionPowerSaveBlockers = new Map<string, { blockerId: number; windowId: number }>();
+
+function stopSessionPowerSaveBlocker(sessionId: string): void {
+  const entry = sessionPowerSaveBlockers.get(sessionId);
+  if (!entry) return;
+  sessionPowerSaveBlockers.delete(sessionId);
+  try {
+    powerSaveBlocker.stop(entry.blockerId);
+    console.log(`[Main] keep-awake off for session ${sessionId} (blocker ${entry.blockerId})`);
+  } catch (error) {
+    console.error(`[Main] Failed to stop keep-awake blocker for session ${sessionId}:`, error);
+  }
+}
 // Track pending initial messages per window
 const pendingInitialMessages = new Map<number, string>(); // windowId -> initialMessage
 const pendingInitialMessageNoAutoSubmit = new Set<number>(); // windowIds whose initialMessage should NOT auto-submit
@@ -1578,6 +1593,9 @@ const createChat = async (
       }
       windowPowerSaveBlockers.delete(windowId);
     }
+    for (const [sessionId, entry] of sessionPowerSaveBlockers.entries()) {
+      if (entry.windowId === windowId) stopSessionPowerSaveBlocker(sessionId);
+    }
   });
 
   mainWindow.loadURL(formattedUrl);
@@ -2117,6 +2135,51 @@ ipcMain.handle('get-phone-url', async (event) => {
     return null;
   }
   return gooseServeLeases.getPhoneUrl(windowId) ?? null;
+});
+
+// The ⋯ menu's Keep computer awake (task 69): on starts a blocker for the session, off
+// stops it; the answer is whether one is running, so the menu's check is main's word.
+ipcMain.handle('keep-awake', async (event, sessionId: string, on: boolean) => {
+  if (typeof sessionId !== 'string' || sessionId.trim() === '') return false;
+  const current = sessionPowerSaveBlockers.get(sessionId);
+  if (!on) {
+    stopSessionPowerSaveBlocker(sessionId);
+    return false;
+  }
+  if (current && powerSaveBlocker.isStarted(current.blockerId)) return true;
+  const windowId = BrowserWindow.fromWebContents(event.sender)?.id ?? -1;
+  const blockerId = powerSaveBlocker.start('prevent-app-suspension');
+  sessionPowerSaveBlockers.set(sessionId, { blockerId, windowId });
+  console.log(`[Main] keep-awake on for session ${sessionId} (blocker ${blockerId})`);
+  return powerSaveBlocker.isStarted(blockerId);
+});
+
+// Open in ▸ the code editor (task 69): the `code` CLI, then `cursor`, then whatever the OS
+// opens folders with; the answer names which one took it so the menu can say so.
+const EDITORS = [
+  { name: 'VS Code', cli: 'code', app: 'Visual Studio Code' },
+  { name: 'Cursor', cli: 'cursor', app: 'Cursor' },
+] as const;
+
+function tryOpenWith(command: string, args: string[]): Promise<boolean> {
+  return new Promise((resolve) => {
+    execFile(command, args, { timeout: 10_000 }, (error) => resolve(!error));
+  });
+}
+
+ipcMain.handle('open-in-editor', async (_event, dir: string): Promise<string> => {
+  if (typeof dir !== 'string' || !dir.trim()) return '';
+  for (const editor of EDITORS) {
+    // The app launched from the Finder has no shell PATH, so `code` may be unreachable there
+    // while the app bundle is; `open -a` is the same launch by bundle name.
+    if (await tryOpenWith(editor.cli, [dir])) return editor.name;
+    if (process.platform === 'darwin' && (await tryOpenWith('open', ['-a', editor.app, dir]))) {
+      return editor.name;
+    }
+  }
+  const failure = await shell.openPath(dir);
+  if (failure) throw new Error(failure);
+  return 'default';
 });
 
 // Handle menu bar icon visibility
@@ -3286,6 +3349,9 @@ app.on('will-quit', async () => {
     }
   }
   windowPowerSaveBlockers.clear();
+  for (const sessionId of [...sessionPowerSaveBlockers.keys()]) {
+    stopSessionPowerSaveBlocker(sessionId);
+  }
 
   globalShortcut.unregisterAll();
 });

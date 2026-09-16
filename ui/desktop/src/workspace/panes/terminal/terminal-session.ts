@@ -76,6 +76,15 @@ const MONOKAI_TERMINAL_THEME: ITheme = {
 
 const sessions = new Map<string, TerminalSession>();
 
+// Who wants to know that a shell wrote something, by pty id — the rail's Terminal dot
+// (task 69). Outside the session's own state so a burst of output never re-renders the pane.
+const outputListeners = new Set<(id: string) => void>();
+
+export function subscribeTerminalOutput(listener: (id: string) => void): () => void {
+  outputListeners.add(listener);
+  return () => outputListeners.delete(listener);
+}
+
 export function terminalSession(id: string, cwd: string): TerminalSession {
   let session = sessions.get(id);
   if (!session) {
@@ -166,6 +175,7 @@ function createTerminalSession(id: string, cwd: string): TerminalSession {
           break;
         case 'output':
           term.write(message.data);
+          outputListeners.forEach((listener) => listener(id));
           break;
         case 'exit':
           exited = true;

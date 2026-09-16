@@ -350,7 +350,7 @@ function ToolCallExpandable({
           )}
         />
       </Button>
-      {isExpanded && <div>{children}</div>}
+      {isExpanded && <div className="tool-call-body">{children}</div>}
     </div>
   );
 }

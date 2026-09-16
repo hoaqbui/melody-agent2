@@ -3,6 +3,7 @@ import {
   closePane,
   createPaneStore,
   initialLayout,
+  markUnseen,
   modeForWidth,
   movePanel,
   moveTab,
@@ -14,6 +15,7 @@ import {
   setMode,
   show,
   tearOff,
+  paneVisible,
   DEFAULT_COLUMNS,
   MAX_COLUMN_PX,
   MIN_COLUMN_PX,
@@ -248,5 +250,63 @@ describe('createPaneStore', () => {
     store.closePane('diff');
     expect(listener).toHaveBeenCalledTimes(1);
     expect(store.getState().dock).toEqual([]);
+  });
+});
+
+// Task 69: the rail's status dots — a pane that is off screen keeps what arrived until it
+// is opened; a visible pane shows it itself.
+describe('pane-store unseen', () => {
+  it('starts with nothing unseen', () => {
+    expect([...initialLayout().unseen]).toEqual([]);
+  });
+
+  it('marks a hidden pane and leaves a visible one alone', () => {
+    const layout = openPane(initialLayout(), 'terminal');
+    expect(paneVisible(layout, 'terminal')).toBe(true);
+    expect(markUnseen(layout, 'terminal')).toBe(layout);
+    const marked = markUnseen(layout, 'browser');
+    expect([...marked.unseen]).toEqual(['browser']);
+    expect(marked.dock).toBe(layout.dock);
+  });
+
+  it('marks a tab behind the active one, and once only', () => {
+    const layout = openPane(openPane(initialLayout(), 'browser'), 'terminal');
+    const marked = markUnseen(layout, 'browser');
+    expect([...marked.unseen]).toEqual(['browser']);
+    expect(markUnseen(marked, 'browser')).toBe(marked);
+  });
+
+  it("clears on open, tear off, tab move and the phone's show", () => {
+    const marked = markUnseen(markUnseen(initialLayout(), 'diff'), 'browser');
+    expect([...openPane(marked, 'diff').unseen]).toEqual(['browser']);
+    expect([...tearOff(marked, 'diff').unseen]).toEqual(['browser']);
+    const behind = markUnseen(openPane(openPane(initialLayout(), 'diff'), 'terminal'), 'diff');
+    expect([...moveTab(behind, 'diff', 0, 0).unseen]).toEqual([]);
+    const phone = markUnseen(setMode(initialLayout(), 'phone'), 'diff');
+    expect([...phone.unseen]).toEqual(['diff']);
+    expect([...show(phone, 'diff').unseen]).toEqual([]);
+    expect([...show(phone, 'chat').unseen]).toEqual(['diff']);
+  });
+
+  it('stays out of what the dock saves', () => {
+    const marked = markUnseen(initialLayout(), 'diff');
+    expect(marked.dock).toEqual([]);
+  });
+});
+
+describe('createPaneStore markUnseen', () => {
+  it('notifies once for a burst and not while the pane shows', () => {
+    const store = createPaneStore();
+    const listener = vi.fn();
+    store.subscribe(listener);
+    store.markUnseen('terminal');
+    store.markUnseen('terminal');
+    store.markUnseen('terminal');
+    expect(listener).toHaveBeenCalledTimes(1);
+    expect([...store.getState().unseen]).toEqual(['terminal']);
+    store.openPane('terminal');
+    expect([...store.getState().unseen]).toEqual([]);
+    store.markUnseen('terminal');
+    expect(listener).toHaveBeenCalledTimes(2);
   });
 });
