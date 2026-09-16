@@ -105,14 +105,6 @@ re-checked at the fork base `426967d` (v1.51.0, 2026-09-15): all hold;
     - record the subscription each run drew on (PRODUCT.md §5) and any quota message — that is the first fail-over datum
   - confirm: `test -f docs/2026-09-15-runtime-matrix-v1.md && grep -c '^| \(codex-acp\|cursor-acp\|claude-acp\|agy\) |' docs/2026-09-15-runtime-matrix-v1.md` → `4`
 
-- 10. Add `ui/desktop/src/workspace/pane-store.ts` (+ test) holding the layout: chat centre, one optional centre pane, side-panel tabs; opening a second centre pane returns the first to the side panel.
-  - status: doing · agent: claude-session-opus-2 (20:10, this session edits — no worker) · worker: high
-  - card: as the user, promote any side-panel tool beside the chat so that code, diff and terminal are one window with the agent (PRD step 8)
-  - context:
-    - PRD decision 3 (chat + one pane) — approved 2026-09-15; at phone width the store has no centre split: one visible pane, chat included (PRD step 8, 13)
-    - no ACP imports here (`ARCHITECTURE.md` §Invariants); state only, no React
-  - confirm: `cd ui/desktop && pnpm vitest run src/workspace/pane-store.test.ts; echo exit=$?` → `exit=0` (pure logic — the one unit test the light tier asks for; PRODUCT.md §8)
-
 - 11. Add `ui/desktop/src/workspace/WorkspaceShell.tsx` rendering the pane store around the existing `pair` route chat, and a header with Runtime (Claude · Codex · Cursor · agy · More…) and Mode (Direct · Orchestrate) selectors wired to `src/acp` session config (`provider`) and to loading `orchestrator.md`.
   - status: todo · agent: — · worker: high
   - card: as the user, pick who I talk to and whether it orchestrates so that Direct and Orchestrate are one click apart (PRD steps 2–3, 9)
