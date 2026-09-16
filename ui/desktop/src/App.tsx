@@ -37,10 +37,12 @@ import ProviderSettings from './components/settings/providers/ProviderSettingsPa
 import { AppLayout } from './components/Layout/AppLayout';
 import ChatSessionsContainer from './components/ChatSessionsContainer';
 import { WorkspaceShell } from './workspace/WorkspaceShell';
+import { BrowserPane } from './workspace/panes/browser/BrowserPane';
 import { DiffPane } from './workspace/panes/diff/DiffPane';
 import { EditorPane } from './workspace/panes/editor/EditorPane';
 import { FilesPane } from './workspace/panes/files/FilesPane';
 import { GitPane } from './workspace/panes/git/GitPane';
+import { MarkdownPane } from './workspace/panes/markdown/MarkdownPane';
 import { ChatProvider, DEFAULT_CHAT_TITLE } from './contexts/ChatContext';
 import LauncherView from './components/LauncherView';
 
@@ -671,6 +673,8 @@ export function AppInner() {
                           editor: <EditorPane />,
                           diff: <DiffPane />,
                           git: <GitPane />,
+                          browser: <BrowserPane />,
+                          markdown: <MarkdownPane />,
                         }}
                       >
                         <Outlet />

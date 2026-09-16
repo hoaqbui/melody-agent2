@@ -4,10 +4,6 @@
 // the source. Reads, writes and watches the file through src/native only.
 
 import { useCallback, useEffect, useRef, useSyncExternalStore, type KeyboardEvent } from 'react';
-import ReactMarkdown from 'react-markdown';
-import remarkGfm from 'remark-gfm';
-import 'github-markdown-css/github-markdown-light.css';
-import markdownDarkCss from 'github-markdown-css/github-markdown-dark.css?inline';
 import { defaultKeymap, history, historyKeymap, indentWithTab } from '@codemirror/commands';
 import {
   defaultHighlightStyle,
@@ -31,6 +27,7 @@ import {
   type FsWriteRequest,
   type FsWriteResponse,
 } from '../../../native/sidecar';
+import { MarkdownView } from '../../MarkdownView';
 import { usePaneContext } from '../../pane-context';
 import {
   createEditorStore,
@@ -77,10 +74,6 @@ const editorStore = createEditorStore();
 
 const languageConf = new Compartment();
 const themeConf = new Compartment();
-
-// github-markdown-css picks its palette by prefers-color-scheme; the app themes by a class
-// on <html> (contexts/ThemeContext.tsx), so the dark palette is nested under that class.
-const MARKDOWN_DARK_CSS = `.dark { ${markdownDarkCss} }`;
 
 // One Dark's token colours, as components/MarkdownContent.tsx uses for code blocks;
 // CodeMirror ships a light default only.
@@ -381,24 +374,8 @@ export function EditorPane() {
 
           {showSource && <div ref={host} className="flex-1 min-h-0" data-testid="editor-source" />}
           {showPreview && (
-            <div className="flex-1 min-h-0 overflow-auto">
-              <style href="github-markdown-dark" precedence="default">
-                {MARKDOWN_DARK_CSS}
-              </style>
-              <div className="markdown-body p-4" data-testid="editor-preview">
-                <ReactMarkdown
-                  remarkPlugins={[remarkGfm]}
-                  components={{
-                    // A same-window navigation would leave the app; a new window is routed
-                    // to the browser by main's window-open handler.
-                    a: ({ node: _node, ...props }) => (
-                      <a {...props} target="_blank" rel="noreferrer" />
-                    ),
-                  }}
-                >
-                  {doc.text}
-                </ReactMarkdown>
-              </div>
+            <div className="flex-1 min-h-0 overflow-auto" data-testid="editor-preview">
+              <MarkdownView text={doc.text} />
             </div>
           )}
         </>

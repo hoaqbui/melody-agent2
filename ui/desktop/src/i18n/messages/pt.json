@@ -164,6 +164,30 @@
   "bottomMenuExtensionSelection.searchExtensions": {
     "defaultMessage": "procurar extensões..."
   },
+  "browserPane.address": {
+    "defaultMessage": "Address"
+  },
+  "browserPane.frame": {
+    "defaultMessage": "Browser"
+  },
+  "browserPane.go": {
+    "defaultMessage": "Go"
+  },
+  "browserPane.invalidUrl": {
+    "defaultMessage": "Only http and https URLs open here"
+  },
+  "browserPane.loading": {
+    "defaultMessage": "Loading…"
+  },
+  "browserPane.noDevServer": {
+    "defaultMessage": "No dev server listed — enter a URL"
+  },
+  "browserPane.reset": {
+    "defaultMessage": "Reset"
+  },
+  "browserPane.unreachable": {
+    "defaultMessage": "{url} is not reachable from here — it is localhost on {mac}"
+  },
   "cardButtons.configure": {
     "defaultMessage": "Configurar"
   },
@@ -2050,6 +2074,18 @@
   },
   "markdownContent.noApplicationFound": {
     "defaultMessage": "Nenhum aplicativo encontrado para abrir este link."
+  },
+  "markdownPane.loading": {
+    "defaultMessage": "Loading…"
+  },
+  "markdownPane.notMarkdown": {
+    "defaultMessage": "Not markdown — shown as text"
+  },
+  "markdownPane.nothingOpen": {
+    "defaultMessage": "Nothing open — pick a file in Files"
+  },
+  "markdownPane.retry": {
+    "defaultMessage": "Retry"
   },
   "mcpAppRenderer.appFallbackTitle": {
     "defaultMessage": "Aplicativo"
