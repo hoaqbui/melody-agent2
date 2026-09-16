@@ -1,7 +1,13 @@
 import { readFileSync } from 'node:fs';
 import { resolve } from 'node:path';
 import { describe, expect, it, vi } from 'vitest';
-import { createDiffStore, DIFF_PANE_STATES, INITIAL_SELECTION, undoRequest } from './diff-store';
+import {
+  createDiffStore,
+  DIFF_PANE_STATES,
+  INITIAL_SELECTION,
+  presetDiffBase,
+  undoRequest,
+} from './diff-store';
 
 describe('diff-store', () => {
   it('keeps the base, view and selection across subscribers', () => {
@@ -39,6 +45,15 @@ describe('diff-store', () => {
     store.setView('unified');
     store.select(null);
     expect(listener).not.toHaveBeenCalled();
+  });
+
+  it('presets the base on every live store, so a route can land on Changes since session start', () => {
+    const store = createDiffStore({ ...INITIAL_SELECTION, path: 'a.txt' });
+    presetDiffBase('session');
+    expect(store.getState().base).toBe('session');
+    expect(store.getState().path).toBeNull();
+    presetDiffBase('head');
+    expect(store.getState().base).toBe('head');
   });
 });
 

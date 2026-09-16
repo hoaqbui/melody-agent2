@@ -57,6 +57,14 @@ export const INITIAL_SELECTION: DiffSelection = {
   lastApply: null,
 };
 
+// The pane's store is private to it; a route that lands on Changes with a base already
+// picked (the Runs inbox's Open, task 53) presets every live store instead.
+const liveStores = new Set<DiffStore>();
+
+export function presetDiffBase(base: DiffBase): void {
+  liveStores.forEach((store) => store.setBase(base));
+}
+
 export function createDiffStore(initial: DiffSelection = INITIAL_SELECTION): DiffStore {
   let state = initial;
   const listeners = new Set<() => void>();
@@ -70,7 +78,7 @@ export function createDiffStore(initial: DiffSelection = INITIAL_SELECTION): Dif
     state = merged;
     listeners.forEach((listener) => listener());
   };
-  return {
+  const store: DiffStore = {
     getState: () => state,
     subscribe: (listener) => {
       listeners.add(listener);
@@ -82,4 +90,6 @@ export function createDiffStore(initial: DiffSelection = INITIAL_SELECTION): Dif
     select: (path) => apply({ path }),
     setLastApply: (lastApply) => apply({ lastApply }),
   };
+  liveStores.add(store);
+  return store;
 }

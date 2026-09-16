@@ -3512,6 +3512,75 @@
   "responseStyle.detailedLabel": {
     "defaultMessage": "詳細"
   },
+  "runsInbox.accept": {
+    "defaultMessage": "Accept"
+  },
+  "runsInbox.accepted": {
+    "defaultMessage": "Accepted"
+  },
+  "runsInbox.blockedNoSidecar": {
+    "defaultMessage": "Accept needs the sidecar, which is not reachable"
+  },
+  "runsInbox.blockedOtherCwd": {
+    "defaultMessage": "Accept works only for runs in this window's checkout"
+  },
+  "runsInbox.blockedRunning": {
+    "defaultMessage": "Accept and Dismiss wait for the run to finish"
+  },
+  "runsInbox.description": {
+    "defaultMessage": "What your schedules did while you were away. Open a run to review its changes."
+  },
+  "runsInbox.dismiss": {
+    "defaultMessage": "Dismiss"
+  },
+  "runsInbox.empty": {
+    "defaultMessage": "No runs yet"
+  },
+  "runsInbox.loading": {
+    "defaultMessage": "Loading…"
+  },
+  "runsInbox.mode": {
+    "defaultMessage": "Goose mode: {mode}"
+  },
+  "runsInbox.modeHint": {
+    "defaultMessage": "An unattended run takes the global goose mode, not its own"
+  },
+  "runsInbox.noChanges": {
+    "defaultMessage": "No changes since the run started — nothing to accept"
+  },
+  "runsInbox.noSnippet": {
+    "defaultMessage": "No reply recorded"
+  },
+  "runsInbox.open": {
+    "defaultMessage": "Open"
+  },
+  "runsInbox.outcomeDone": {
+    "defaultMessage": "Done"
+  },
+  "runsInbox.outcomeFailed": {
+    "defaultMessage": "Failed"
+  },
+  "runsInbox.outcomeKilled": {
+    "defaultMessage": "Killed"
+  },
+  "runsInbox.outcomeRunning": {
+    "defaultMessage": "Running"
+  },
+  "runsInbox.outcomeUnknown": {
+    "defaultMessage": "No outcome recorded"
+  },
+  "runsInbox.retry": {
+    "defaultMessage": "Retry"
+  },
+  "runsInbox.started": {
+    "defaultMessage": "Started {date}"
+  },
+  "runsInbox.title": {
+    "defaultMessage": "Runs"
+  },
+  "runsInbox.unread": {
+    "defaultMessage": "Unread"
+  },
   "scheduleDetailView.actions": {
     "defaultMessage": "操作"
   },

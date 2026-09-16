@@ -19,6 +19,7 @@ import { TrashIcon } from '../icons/TrashIcon';
 import { Plus, RefreshCw, Pause, Play, Edit, Square, Eye, CircleDotDashed } from 'lucide-react';
 import { NewSchedulePayload, ScheduleModal } from './ScheduleModal';
 import ScheduleDetailView from './ScheduleDetailView';
+import { RunsInbox } from './runs/RunsInbox';
 import { toastError, toastSuccess } from '../../toasts';
 import cronstrue from 'cronstrue';
 import { formatToLocalDateWithTimezone } from '../../utils/date';
@@ -548,6 +549,8 @@ const SchedulesView: React.FC<SchedulesViewProps> = ({ onClose: _onClose }) => {
           <div className="flex-1 min-h-0 relative px-8">
             <ScrollArea className="h-full">
               <div className="h-full relative">
+                <RunsInbox schedules={schedules} />
+
                 {apiError && (
                   <div className="mb-4 p-4 bg-background-danger border border-border-danger rounded-md">
                     <p className="text-text-danger text-sm">
