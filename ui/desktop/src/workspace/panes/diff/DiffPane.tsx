@@ -143,14 +143,16 @@ export function DiffPane() {
   const baseLabel = intl.formatMessage(base === 'session' ? i18n.sinceSessionStart : i18n.vsHead);
 
   const [files, setFiles] = useState<DiffFile[] | null>(null);
+  const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [attempt, setAttempt] = useState(0);
 
   // One full-context fetch gives the list and every file's two sides; a path-filtered
-  // fetch per click would lose rename pairing for the filtered-out side.
+  // fetch per click would lose rename pairing for the filtered-out side. The last list
+  // stays on screen while the next loads (DESIGN.md §States, Loading).
   useEffect(() => {
     let cancelled = false;
-    setFiles(null);
+    setLoading(true);
     setError(null);
     const request: GitDiffRequest = { base: baseRev ?? 'HEAD', context: FULL_CONTEXT };
     sidecarFetch<GitDiffResponse>('/git/diff', request)
@@ -159,6 +161,9 @@ export function DiffPane() {
       })
       .catch((cause: Error) => {
         if (!cancelled) setError(cause.message);
+      })
+      .finally(() => {
+        if (!cancelled) setLoading(false);
       });
     return () => {
       cancelled = true;
@@ -222,9 +227,7 @@ export function DiffPane() {
         </div>
       )}
       {state === 'loading' && (
-        <p className="p-3 text-text-secondary" aria-busy="true">
-          {intl.formatMessage(i18n.loading)}
-        </p>
+        <p className="p-3 text-text-secondary">{intl.formatMessage(i18n.loading)}</p>
       )}
       {state === 'empty' && (
         <p className="p-3 text-text-secondary">
@@ -237,6 +240,7 @@ export function DiffPane() {
           <ul
             className="shrink-0 max-h-48 overflow-auto border-b border-border-primary"
             data-testid="diff-files"
+            aria-busy={loading}
           >
             {files.map((entry) => (
               <li key={entry.path}>
