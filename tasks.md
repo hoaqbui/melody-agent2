@@ -196,14 +196,6 @@ Planned 2026-09-15 21:25 from PRD steps 10–12 and the spine research §Activit
 
 User, 2026-09-16 00:15: "research it, plan it, and orchestrate it with sub agents" — the three gaps named in the parity comparison. Research first; the plan follows from these docs and waits on approval before source edits.
 
-- 45. Research accept/reject per hunk in the Changes pane in `docs/2026-09-16-hunk-review-research-v1.md`: applying or reverting a single hunk of the working tree (`git apply --cached` / `git apply -R` on a hunk patch, or `git checkout -p`-style), what `@codemirror/merge` exposes for per-chunk accept (`mergeControls`, `acceptChunk`/`rejectChunk`), the sidecar route shape, and how "since session start" interacts (a reverted hunk vs a base that is not HEAD) — against `ui/desktop/src/workspace/panes/diff/*` and `ui/sidecar/src/git.ts` as landed by task 14.
-  - status: doing · agent: subagent-t45 via claude-session-opus-2 (00:20, worktree, read-only) · worker: medium
-  - card: as the user, keep the good half of an agent's change and drop the rest without leaving the window so that review ends in a commit, not a manual edit (Codex parity gap 2; PRD decision 5 had view-only at V0 — this research reopens it)
-  - context:
-    - `unified-diff.ts` already parses hunks; the pane rebuilds both sides from them — the question is the reverse path
-    - risks to name: a hunk applied against a working tree that moved since the diff was fetched; binary and rename entries; an agent writing the file mid-review
-  - confirm: `test -f docs/2026-09-16-hunk-review-research-v1.md && grep -c '^## Options' docs/2026-09-16-hunk-review-research-v1.md` → `1`
-
 ## Handoff — Goose spine evaluation (2026-09-15, Codex)
 
 - **Resume here:** `docs/2026-09-15-goose-spine-research-v1.md` owns the evidence and options. User said “continue” after the recommendation to preserve Claude-first and repair ACP integration, then requested handoff. Direction carried forward; no implementation plan has been completed or approved.
