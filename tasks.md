@@ -81,15 +81,14 @@ re-checked at the fork base `426967d` (v1.51.0, 2026-09-15): all hold;
     - record the subscription each run drew on (PRODUCT.md §5) and any quota message — that is the first fail-over datum
   - confirm: `test -f docs/2026-09-15-runtime-matrix-v1.md && grep -c '^| \(codex-acp\|cursor-acp\|claude-acp\|agy\) |' docs/2026-09-15-runtime-matrix-v1.md` → `4`
 
-- 37. Add `ui/desktop/src/native/sidecar.ts`: the renderer's one door to the sidecar — `sidecarBaseUrl(): Promise<string>` (Electron: a new `window.electron.getSidecarUrl()` over preload/IPC from the URL `main.ts:1261-1272` already holds per window; web build: `window.location.origin`), `sidecarFetch<T>(path: string, body?: unknown): Promise<T>` (POST JSON to the sidecar's `POST /fs/list|read|write`, `POST /git/status|diff|stage|unstage|commit` routes, `GET /health|/config`), and `sidecarSocket(path: '/pty' | '/fs/watch', params?: Record<string, string>): WebSocket`; plus the shim entry in `src/shims/electron-web.ts` and a unit test.
-  - status: doing · agent: subagent-t37 via claude-session-opus-2 (22:45, worktree) · worker: medium
-  - card: as the pane tasks (12–16), reach pty, files and git through one typed client so that five panes do not each rediscover the sidecar's address (ARCHITECTURE.md §Modules "native"; §Invariants: native never does ACP, never imports electron)
+- 38. Let the Electron renderer call the sidecar across origins: in `ui/sidecar/src/http.ts` `sendJson`/`sendText` (and the JSON route dispatcher in `index.ts:60-70`) answer `access-control-allow-origin: <origin>` plus `access-control-allow-headers: content-type` for exactly the origins passed as `--allowed-origin <origin>` (repeatable), and answer `OPTIONS` preflights on the JSON routes with `204`; `ui/desktop/src/main/sidecar.ts` / `main.ts` pass the renderer's origin (the Vite dev server URL in dev, `main.ts:827-832`; the packaged `file://`/app origin otherwise — read what `webContents.getURL()` reports and pass that origin) when spawning.
+  - status: doing · agent: subagent-t38 via claude-session-opus-2 (23:05, worktree) · worker: medium
+  - card: as the Files, Diff and Git panes in the desktop, reach the sidecar's JSON routes so that the same `sidecarFetch` works in Electron and in the web build (task 37's finding: `webSecurity: true` at `main.ts:1326`, no CORS headers in `http.ts:37-44`; WebSockets unaffected)
   - context:
-    - `main.ts:1261-1272` starts the sidecar per goose-serve lease and logs `sidecar.url`; keep it on the lease and answer an IPC `get-sidecar-url` beside `get-acp-url` (`preload.ts:264`), typed in the preload's `window.electron` interface (`preload.ts:137` region); the web shim returns `location.origin` (task 19: static, `/acp`, `/config` are same-origin on the sidecar)
-    - sidecar routes: `ui/sidecar/src/index.ts:43,60-68` (`GET /health`, `GET /config`, JSON `POST` routes from `fs.ts:16-34`, `git.ts:39-55`), WS upgrades `index.ts:91-115` (`/acp`, `/pty`, `/fs/watch`) — read the request/response bodies there and type them in `sidecar.ts` as exported interfaces the panes import
-    - no ACP here; `src/native` is regulated by `.dependency-cruiser.cjs` (no `electron`, no `node:`, no ACP packages)
-    - tasks 12–16 wait on this file; keep the API exactly as named so their text stays true
-  - confirm: `cd ui/desktop && pnpm vitest run src/native && pnpm run typecheck && pnpm run depcruise; echo exit=$?` → `exit=0` with ≥3 tests (untouched tree: `src/native` does not exist, vitest reports no test files → non-zero)
+    - the web build is same-origin and needs nothing; never answer `*`; an origin not on the list gets no CORS header at all (the browser blocks it) — the sidecar stays gated by Tailscale plus this allowlist, matching `goose serve`'s `--allowed-origin` (`goose-cli/src/cli.rs:1820-1832`)
+    - unit test in `ui/sidecar/src/http.test.ts` (or beside the dispatcher): a listed origin gets the header on a `POST /fs/list` and a `204` on `OPTIONS`; an unlisted origin gets neither
+    - `sidecar.test.ts` in `ui/desktop/src/main/` covers the argument passed
+  - confirm: `cd ui/sidecar && pnpm run typecheck && pnpm vitest run; echo exit=$?` → `exit=0` with ≥2 new tests; and from a built sidecar started with `--allowed-origin http://localhost:5173`: `curl -s -o /dev/null -w '%{http_code} %{header_json}\n' -X OPTIONS -H 'origin: http://localhost:5173' -H 'access-control-request-method: POST' http://127.0.0.1:3285/fs/list | grep -c 'access-control-allow-origin'` → `1` (untouched tree: `0`)
 
 - 12. Add the Files pane (`src/workspace/panes/files/`) with a tree of the session cwd (a drill-down list at phone width), session-written-file dots, and click → Editor pane; `ui/sidecar/src/fs.ts` serves reads and watches the cwd (`chokidar`).
   - status: todo · agent: — · worker: high
@@ -146,16 +145,6 @@ re-checked at the fork base `426967d` (v1.51.0, 2026-09-15): all hold;
   - confirm: `cd ui/desktop && pnpm run typecheck && pnpm exec playwright test -g "phone" --project=phone; echo exit=$?` → `exit=0` (at 390 px: chat first; tap Files → tree; tap a file → editor; tap Terminal → key bar visible; `pwd` prints the cwd)
 
 ### docs/2026-09-15-goose-spine-bridge-plan-v1.md
-
-- 36. Bootstrap `DESIGN.md` at the fork root from `skills/rpi/templates/design.md` (`/Users/hoaqbui/.claude/skills/rpi/templates/design.md`) as the delta over Goose's design system: principles, the frame (regions = `ARCHITECTURE.md` module names the workspace renders into: header with Runtime · Mode, chat centre, one centre pane, side panel tabs, tab rail at phone width), vocabulary (Runtime, Mode, Direct, Orchestrate, pane, side panel, worker, role, artifact, "→ <Runtime> from here"), shared states (from the PRD §States), and two [direction] rules the user gave on 2026-09-15: buttons carry a soft shadow beneath them so they read as floating; transitions have things disappear *into* things (a closed pane returns into its tab, a promoted tab grows out of the panel) rather than cut.
-  - status: doing · agent: subagent-t36 via claude-session-opus-2 (22:30, worktree) · worker: medium
-  - card: as the user, have one file name the frame, the words and the motion so that task 11's header and the pane tasks make the same choices without re-arguing them (ARCHITECTURE.md §Ownership: DESIGN.md "from tranche 4")
-  - context:
-    - derived-project rule from the template: "upstream's, unchanged" under any section Goose's design system already settles (tokens, type, the chat's own components); write only the delta
-    - the two [direction] rules are the user's words, kept as given; a [contract] needs a `check:` line — leave a contract open rather than invent a check
-    - cite the PRD (`docs/2026-09-15-workspace-prd-v1.md`) for states and the journey; cite `ui/desktop/src/workspace/pane-store.ts` for the pane behaviour the frame describes
-    - under 200 lines; no code, no CSS
-  - confirm: `test -f DESIGN.md && grep -c '^## ' DESIGN.md` → a number ≥ 5; and `grep -ci 'shadow' DESIGN.md` → ≥ 1 (untouched tree: no file)
 
 - 33. File the three upstream Ready issues against `aaif-goose/goose` named by the spine bridge plan: (i) role bodies never reach an ACP worker (`acp/provider.rs:820`), (ii) a session's platform tools exposed to ACP/CLI providers as an MCP server (`agents/session_bridge.rs`), and `runtimes:` in agent frontmatter (task 5).
   - status: blocked · agent: — · worker: low
