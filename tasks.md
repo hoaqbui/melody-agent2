@@ -56,15 +56,6 @@ re-checked at the fork base `426967d` (v1.51.0, 2026-09-15): all hold;
     - record the subscription each run drew on (PRODUCT.md §5) and any quota message — that is the first fail-over datum
   - confirm: `test -f docs/2026-09-15-runtime-matrix-v1.md && grep -c '^| \(codex-acp\|cursor-acp\|claude-acp\|agy\) |' docs/2026-09-15-runtime-matrix-v1.md` → `4`
 
-- 20. Add the phone layout to `src/workspace/`: below 768 px the pane store exposes one visible pane behind a tab rail (chat · Files · Editor · Diff · Terminal · Git), the terminal key bar from task 15 is shown, and reconnect-on-foreground reattaches the pty and refreshes the chat; Playwright gets a `phone` project (390 × 844, touch, iPhone UA).
-  - status: doing · agent: subagent-t20 via claude-session-opus-2 (14:00, worktree) · worker: medium
-  - card: as the user on the phone, check what the agent did and nudge it from wherever I am so that the walk does not wait for the desk (PRD step 13, criteria 7–8)
-  - context:
-    - iOS Safari suspends background tabs: the WS drops; on `visibilitychange` → visible, reconnect to the sidecar and reattach the pty by id (task 15/18), then pull the session's messages since the last seen id via `src/acp`
-    - CodeMirror 6 iOS tap-to-place (discuss.codemirror.net/t/3345) — read the current changelog before relying on editing; reading and small edits are the bar at V0
-    - test on `hoa-phone` over the tailnet (`tailscale status`, 2026-09-15) — the Playwright phone project is the mechanical check, the phone is the manual one (§Waiting on the user)
-  - confirm: `cd ui/desktop && pnpm run typecheck && pnpm exec playwright test -g "phone" --project=phone; echo exit=$?` → `exit=0` (at 390 px: chat first; tap Files → tree; tap a file → editor; tap Terminal → key bar visible; `pwd` prints the cwd)
-
 ### docs/2026-09-15-goose-spine-bridge-plan-v1.md
 
 - 33. File the three upstream Ready issues against `aaif-goose/goose` named by the spine bridge plan: (i) role bodies never reach an ACP worker (`acp/provider.rs:820`), (ii) a session's platform tools exposed to ACP/CLI providers as an MCP server (`agents/session_bridge.rs`), and `runtimes:` in agent frontmatter (task 5).
@@ -183,7 +174,7 @@ Planned in `docs/2026-09-16-parity-plan-v1.md` (approved 2026-09-16, "approved a
 - task 53 product calls — Accept commits only tracked changes (`git diff <base>` omits new files; `add -A` shapes are barred by the protected line) — say if a run that only creates files should be acceptable; after Accept the row stays (a second Accept lands "nothing to commit") — say if Accept should also archive; the row's mode line is the global `GOOSE_MODE`, not a per-run record. Note: `ui/desktop/src/bin/goose` wins over `target/debug/goose` for the dev app — refresh it after every Rust merge (`just copy-binary debug`).
 - task 14 hand check — "since session start" base: open a session in a git cwd, commit, open Changes → the selector offers it and lists the committed file; `git diff HEAD` omits untracked files (accepted gap, or queue).
 - `ARCHITECTURE.md` — sign-off deletes `## Bootstrap Status`; until then the map is a proposal and tasks 10–16 plan against a guess.
-- task 20 — the phone check is manual: open the URL on `hoa-phone`, walk PRD step 13, judge the terminal with the key bar.
+- task 20 hand checks — on `hoa-phone`: scan the Phone card's QR, walk PRD step 13 (chat first, tab rail, Files → Editor, Terminal with the key bar above the iOS keyboard), background the tab for a few minutes and return → terminal scrollback replayed, chat replayed, draft kept; every foreground forces a terminal reset+replay and an ACP teardown (a quick app switch blinks the terminal); `/fs/watch` (the Files dot) is not reattached on foreground (queue candidate); goose's ACP has no "messages since id" pull — whole replay for now (future spine task).
 - task 9 — the handoff-memo criterion (PRD §Criteria, second) is a manual check: ask "what did we just change?" after a runtime switch and judge the answer.
 - Goose spine integration — the next session must finish the concrete plan above and obtain plan approval before source edits; “continue” established the direction, not an unwritten implementation scope.
 
