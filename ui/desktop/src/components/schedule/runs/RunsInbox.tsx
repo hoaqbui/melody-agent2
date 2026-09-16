@@ -1,7 +1,9 @@
 // The Runs inbox (task 53): every scheduled run across schedules, newest first, polled every
 // 15 s while the Schedules route is open. Open lands in pair with Changes since session
 // start; Dismiss archives the session; Accept stages the paths the run's diff touches and
-// commits them through the sidecar, only in the checkout this window's sidecar serves.
+// commits them through the sidecar, only in the checkout this window's sidecar serves. A run
+// that had its own worktree (task 54) commits there and Accept then merges its branch into
+// the main checkout; Dismiss removes the worktree first.
 
 import { useCallback, useEffect, useRef, useState } from 'react';
 import type { ScheduledJobDto, ScheduleRunDto } from '@aaif/goose-acp-client';
@@ -17,9 +19,12 @@ import {
   type GitCommitResponse,
   type GitDiffRequest,
   type GitDiffResponse,
+  type GitMergeRequest,
+  type GitMergeResponse,
   type GitPathsRequest,
   type GitRevParseRequest,
   type GitRevParseResponse,
+  type GitWorktreeRemoveRequest,
   type SidecarConfig,
 } from '../../../native/sidecar';
 import { Button } from '../../ui/button';
@@ -28,6 +33,7 @@ import { toastSuccess } from '../../../toasts';
 import { RunRow } from './RunRow';
 import {
   acceptBlocker,
+  acceptCheckout,
   acceptMessage,
   acceptPaths,
   inboxState,
@@ -35,9 +41,12 @@ import {
   loadSeen,
   markSeen,
   pruneSeen,
+  runActionError,
   runOutcome,
+  runWorktreePlace,
   saveSeen,
   visibleRuns,
+  type RunActionError,
   type SeenMap,
   type SeenStorage,
 } from './runs-state';
@@ -57,6 +66,10 @@ const i18n = defineMessages({
     defaultMessage: 'No changes since the run started — nothing to accept',
   },
   accepted: { id: 'runsInbox.accepted', defaultMessage: 'Accepted' },
+  merged: {
+    id: 'runsInbox.merged',
+    defaultMessage: 'Merged {branch} into {checkout} at {sha}',
+  },
 });
 
 const POLL_MS = 15_000;
@@ -83,7 +96,7 @@ export function RunsInbox({ schedules }: RunsInboxProps) {
   // undefined until /config answers; null when the sidecar is not reachable.
   const [sidecarCwd, setSidecarCwd] = useState<string | null | undefined>();
   const [acting, setActing] = useState<Set<string>>(new Set());
-  const [actionErrors, setActionErrors] = useState<Record<string, string>>({});
+  const [actionErrors, setActionErrors] = useState<Record<string, RunActionError>>({});
   const storage = useRef(localStorageOrNull());
   const [seen, setSeen] = useState<SeenMap>(() => loadSeen(storage.current));
 
@@ -133,7 +146,7 @@ export function RunsInbox({ schedules }: RunsInboxProps) {
     try {
       await action();
     } catch (cause) {
-      setActionErrors((current) => ({ ...current, [sessionId]: errorMessage(cause, 'Failed') }));
+      setActionErrors((current) => ({ ...current, [sessionId]: runActionError(cause, 'Failed') }));
     } finally {
       setActing((current) => {
         const next = new Set(current);
@@ -153,26 +166,47 @@ export function RunsInbox({ schedules }: RunsInboxProps) {
     });
   };
 
+  // A worktree's branch may be merged or not; the worktree goes either way, so `force`.
   const dismiss = (run: ScheduleRunDto) =>
     withActing(run.sessionId, async () => {
+      const place = runWorktreePlace(run);
+      if (place) {
+        const remove: GitWorktreeRemoveRequest = { cwd: place.main, slug: place.slug, force: true };
+        await sidecarFetch('/git/worktree/remove', remove);
+      }
       await acpArchiveSession(run.sessionId);
       await fetchRuns();
     });
 
   // The base is HEAD as the reflog had it when the run started, so a commit the run made
   // itself is inside the diff; before the reflog begins git answers with its oldest entry.
+  // A worktree run commits in the worktree (its reflog starts at creation, before the run)
+  // and an empty diff is not an error there: the branch may already carry the run's commits.
   const accept = (run: ScheduleRunDto) =>
     withActing(run.sessionId, async () => {
+      const place = runWorktreePlace(run);
       const cwd = run.workingDir;
       const revParse: GitRevParseRequest = { cwd, rev: `HEAD@{${run.startedAt}}` };
       const { sha } = await sidecarFetch<GitRevParseResponse>('/git/rev-parse', revParse);
       const diff: GitDiffRequest = { cwd, base: sha, context: 0 };
       const paths = acceptPaths((await sidecarFetch<GitDiffResponse>('/git/diff', diff)).diff);
-      if (paths.length === 0) throw new Error(intl.formatMessage(i18n.noChanges));
-      const stage: GitPathsRequest = { cwd, paths };
-      await sidecarFetch('/git/stage', stage);
-      const commit: GitCommitRequest = { cwd, message: acceptMessage(run.scheduleId) };
-      const { output } = await sidecarFetch<GitCommitResponse>('/git/commit', commit);
+      if (paths.length === 0 && !place) throw new Error(intl.formatMessage(i18n.noChanges));
+      let output = '';
+      if (paths.length > 0) {
+        const stage: GitPathsRequest = { cwd, paths };
+        await sidecarFetch('/git/stage', stage);
+        const commit: GitCommitRequest = { cwd, message: acceptMessage(run.scheduleId) };
+        output = (await sidecarFetch<GitCommitResponse>('/git/commit', commit)).output;
+      }
+      if (place) {
+        const merge: GitMergeRequest = { cwd: place.main, slug: place.slug };
+        const merged = await sidecarFetch<GitMergeResponse>('/git/merge', merge);
+        output = intl.formatMessage(i18n.merged, {
+          branch: place.branch,
+          checkout: place.main,
+          sha: merged.sha.slice(0, 7),
+        });
+      }
       remember(markSeen(seen, run, runOutcome(run, schedules)));
       toastSuccess({ title: intl.formatMessage(i18n.accepted), msg: output.trim() });
     });
@@ -235,15 +269,17 @@ export function RunsInbox({ schedules }: RunsInboxProps) {
                 error={run.outcome?.error}
                 snippet={run.snippet}
                 workingDir={run.workingDir}
+                branch={run.worktree?.branch}
                 mode={mode}
                 unread={isUnread(seen, run, outcome)}
                 acceptBlocker={acceptBlocker({
                   outcome,
-                  workingDir: run.workingDir,
+                  checkout: acceptCheckout(run),
                   sidecarCwd: sidecarCwd ?? null,
                 })}
                 busy={acting.has(run.sessionId)}
-                actionError={actionErrors[run.sessionId]}
+                actionError={actionErrors[run.sessionId]?.message}
+                conflicts={actionErrors[run.sessionId]?.conflicts}
                 onOpen={() => open(run)}
                 onAccept={() => accept(run)}
                 onDismiss={() => dismiss(run)}

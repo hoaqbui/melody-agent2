@@ -2,10 +2,14 @@ import { readFileSync } from 'node:fs';
 import { resolve } from 'node:path';
 import { describe, expect, it } from 'vitest';
 import type { ScheduledJobDto, ScheduleRunDto } from '@aaif/goose-acp-client';
+import { SidecarError } from '../../../native/sidecar';
 import {
   acceptBlocker,
+  acceptCheckout,
   acceptMessage,
   acceptPaths,
+  runActionError,
+  runWorktreePlace,
   inboxState,
   isUnread,
   loadSeen,
@@ -70,30 +74,73 @@ describe('visibleRuns', () => {
 
 describe('acceptBlocker', () => {
   it('waits for a running run', () => {
-    expect(acceptBlocker({ outcome: 'running', workingDir: '/repo', sidecarCwd: '/repo' })).toBe(
+    expect(acceptBlocker({ outcome: 'running', checkout: '/repo', sidecarCwd: '/repo' })).toBe(
       'running'
     );
   });
 
   it('needs the sidecar cwd', () => {
-    expect(acceptBlocker({ outcome: 'done', workingDir: '/repo', sidecarCwd: null })).toBe(
+    expect(acceptBlocker({ outcome: 'done', checkout: '/repo', sidecarCwd: null })).toBe(
       'noSidecar'
     );
   });
 
   it('refuses another checkout', () => {
-    expect(acceptBlocker({ outcome: 'done', workingDir: '/other', sidecarCwd: '/repo' })).toBe(
+    expect(acceptBlocker({ outcome: 'done', checkout: '/other', sidecarCwd: '/repo' })).toBe(
       'otherCwd'
     );
   });
 
   it('accepts the same checkout with or without a trailing slash', () => {
-    expect(acceptBlocker({ outcome: 'done', workingDir: '/repo/', sidecarCwd: '/repo' })).toBe(
+    expect(acceptBlocker({ outcome: 'done', checkout: '/repo/', sidecarCwd: '/repo' })).toBe(null);
+    expect(acceptBlocker({ outcome: 'unknown', checkout: '/repo', sidecarCwd: '/repo' })).toBe(
       null
     );
-    expect(acceptBlocker({ outcome: 'unknown', workingDir: '/repo', sidecarCwd: '/repo' })).toBe(
-      null
-    );
+  });
+});
+
+describe('runWorktreePlace', () => {
+  const worktree = { path: '/repo/.worktrees/wt-20260916-0a1b', branch: 'wt/wt-20260916-0a1b' };
+
+  it('is null for a run on the checkout', () => {
+    expect(runWorktreePlace(run())).toBeNull();
+    expect(acceptCheckout(run())).toBe('/repo');
+  });
+
+  it('names the slug and the main checkout two levels above the worktree', () => {
+    expect(runWorktreePlace(run({ workingDir: worktree.path, worktree }))).toEqual({
+      slug: 'wt-20260916-0a1b',
+      branch: 'wt/wt-20260916-0a1b',
+      path: '/repo/.worktrees/wt-20260916-0a1b',
+      main: '/repo',
+    });
+    expect(acceptCheckout(run({ workingDir: worktree.path, worktree }))).toBe('/repo');
+    expect(
+      runWorktreePlace(run({ worktree: { ...worktree, path: `${worktree.path}/` } }))?.main
+    ).toBe('/repo');
+  });
+
+  it('lets Accept through for a worktree whose checkout is the sidecar cwd', () => {
+    const checkout = acceptCheckout(run({ workingDir: worktree.path, worktree }));
+    expect(acceptBlocker({ outcome: 'done', checkout, sidecarCwd: '/repo' })).toBeNull();
+    expect(acceptBlocker({ outcome: 'done', checkout, sidecarCwd: '/elsewhere' })).toBe('otherCwd');
+  });
+});
+
+describe('runActionError', () => {
+  it("lists a 409 merge's conflicts", () => {
+    const cause = new SidecarError('merge of wt/x conflicts in 1 path(s)', 409, {
+      conflicts: ['notes.md', 7],
+    });
+    expect(runActionError(cause, 'Failed')).toEqual({
+      message: 'merge of wt/x conflicts in 1 path(s)',
+      conflicts: ['notes.md'],
+    });
+  });
+
+  it('falls back for anything else', () => {
+    expect(runActionError(new Error('boom'), 'Failed')).toEqual({ message: 'boom', conflicts: [] });
+    expect(runActionError('nope', 'Failed')).toEqual({ message: 'Failed', conflicts: [] });
   });
 });
 

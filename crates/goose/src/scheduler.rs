@@ -4,9 +4,10 @@ use std::io::{self, Read, Write};
 use std::path::{Path, PathBuf};
 use std::sync::Arc;
 
-use anyhow::{anyhow, Result};
+use anyhow::{anyhow, bail, Result};
 use async_trait::async_trait;
 use chrono::{DateTime, Local, Utc};
+use rand::RngExt;
 use serde::{Deserialize, Serialize};
 use tokio::sync::Mutex;
 use tokio_cron_scheduler::{job::JobId, Job, JobScheduler as TokioJobScheduler};
@@ -20,7 +21,7 @@ use crate::conversation::message::Message;
 use crate::conversation::Conversation;
 #[cfg(feature = "telemetry")]
 use crate::posthog;
-use crate::providers::create;
+use crate::providers::create_with_working_dir;
 use crate::recipe::build_recipe::build_recipe_from_template;
 use crate::recipe::validate_recipe::{
     recipe_file_format, validate_recipe_for_scheduling, SchedulerRecipeError,
@@ -30,6 +31,7 @@ use crate::scheduler_trait::SchedulerTrait;
 use crate::session::extension_data::ExtensionState;
 use crate::session::session_manager::SessionType;
 use crate::session::{Session, SessionManager};
+use crate::subprocess::{git_command, SubprocessExt};
 
 type RunningTasksMap = HashMap<String, CancellationToken>;
 type JobsMap = HashMap<String, (JobId, ScheduledJob)>;
@@ -1021,21 +1023,73 @@ impl ExtensionState for RunOutcome {
     const VERSION: &'static str = "v0";
 }
 
+// The worktree a run was given (recipe `settings.worktree`), recorded at run start under
+// its own key so the outcome write at run end never has to carry it.
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+pub struct RunWorktree {
+    pub path: PathBuf,
+    pub branch: String,
+}
+
+impl ExtensionState for RunWorktree {
+    const EXTENSION_NAME: &'static str = "scheduler_worktree";
+    const VERSION: &'static str = "v0";
+}
+
 // The update builder replaces the whole extension_data blob, so merge into the
 // stored copy rather than writing a fresh one over enabled_extensions.
-async fn record_run_outcome(
+async fn record_run_state<S: ExtensionState>(
     session_manager: &SessionManager,
     session_id: &str,
-    outcome: &RunOutcome,
+    state: &S,
 ) -> Result<()> {
     let session = session_manager.get_session(session_id, false).await?;
     let mut extension_data = session.extension_data;
-    outcome.to_extension_data(&mut extension_data)?;
+    state.to_extension_data(&mut extension_data)?;
     session_manager
         .update(session_id)
         .extension_data(extension_data)
         .apply()
         .await
+}
+
+fn git_stdout(cwd: &Path, args: &[&str]) -> Result<String> {
+    let output = git_command()
+        .arg("-C")
+        .arg(cwd)
+        .args(args)
+        .set_no_window()
+        .output()?;
+    if !output.status.success() {
+        let stderr = String::from_utf8_lossy(&output.stderr);
+        bail!("git {} failed: {}", args.join(" "), stderr.trim());
+    }
+    Ok(String::from_utf8_lossy(&output.stdout).trim().to_string())
+}
+
+// `wt-<yyyymmdd>-<4 hex>`: the client's slug shape (ui/desktop/src/workspace/worktree.ts),
+// so the sidecar's Merge and Remove read a scheduled run's worktree like any other.
+fn worktree_slug() -> String {
+    format!(
+        "wt-{}-{:04x}",
+        Utc::now().format("%Y%m%d"),
+        rand::rng().random::<u16>()
+    )
+}
+
+// The scheduler has no sidecar to call, so this is the second git site: `add` only, the
+// same `<toplevel>/.worktrees/<slug>` on `wt/<slug>` as /git/worktree/add; list, remove and
+// merge stay the sidecar's. The toplevel is git's, never the cwd itself.
+fn add_run_worktree(cwd: &Path) -> Result<RunWorktree> {
+    let toplevel = PathBuf::from(git_stdout(cwd, &["rev-parse", "--show-toplevel"])?);
+    let slug = worktree_slug();
+    let path = toplevel.join(".worktrees").join(&slug);
+    let branch = format!("wt/{slug}");
+    git_stdout(
+        &toplevel,
+        &["worktree", "add", "-b", &branch, &path.to_string_lossy()],
+    )?;
+    Ok(RunWorktree { path, branch })
 }
 
 #[allow(clippy::too_many_lines)]
@@ -1070,6 +1124,22 @@ async fn execute_job(
     )
     .map_err(|e| anyhow!(e.to_string()))?;
 
+    // The worktree comes before the session so a git failure leaves no run on the checkout.
+    let cwd = std::env::current_dir()?;
+    let worktree = if recipe
+        .settings
+        .as_ref()
+        .is_some_and(|settings| settings.worktree)
+    {
+        let checkout = cwd.clone();
+        Some(tokio::task::spawn_blocking(move || add_run_worktree(&checkout)).await??)
+    } else {
+        None
+    };
+    let run_cwd = worktree
+        .as_ref()
+        .map_or(cwd, |worktree| worktree.path.clone());
+
     let agent = Agent::with_config(AgentConfig::new(
         session_manager,
         PermissionManager::instance(),
@@ -1090,24 +1160,30 @@ async fn execute_job(
         .config
         .session_manager
         .create_session(
-            std::env::current_dir()?,
+            run_cwd.clone(),
             format!("Scheduled job: {}", job.id),
             SessionType::Scheduled,
             GooseMode::Auto,
         )
         .await?;
+    if let Some(worktree) = &worktree {
+        record_run_state(&agent.config.session_manager, &session.id, worktree).await?;
+    }
 
     let mut extensions = resolve_extensions_for_new_session(recipe.extensions.as_deref(), None);
     if recipe.extensions.is_none() {
         extensions.extend(crate::plugins::mcp_servers::enabled_plugin_mcp_servers(
-            std::env::current_dir().ok().as_deref(),
+            Some(&run_cwd),
         ));
     }
     for ext in &extensions {
         agent.add_extension(ext.clone(), &session.id).await?;
     }
 
-    let agent_provider = create(&provider_name, extensions).await?;
+    // The ACP runtimes take their cwd from the provider, not the session, so the worktree
+    // has to reach the provider too.
+    let agent_provider =
+        create_with_working_dir(&provider_name, extensions, run_cwd.clone()).await?;
     agent
         .update_provider(agent_provider, model_config, &session.id)
         .await?;
@@ -1240,7 +1316,7 @@ async fn execute_job(
             },
         }
     };
-    record_run_outcome(&agent.config.session_manager, &session.id, &outcome).await?;
+    record_run_state(&agent.config.session_manager, &session.id, &outcome).await?;
 
     {
         let session_duration = start_time.elapsed();
@@ -1880,7 +1956,7 @@ mod tests {
             status: RunStatus::Failed,
             error: Some("provider returned 500".to_string()),
         };
-        record_run_outcome(&session_manager, &session.id, &outcome)
+        record_run_state(&session_manager, &session.id, &outcome)
             .await
             .unwrap();
 
@@ -1906,7 +1982,7 @@ mod tests {
             status: RunStatus::Done,
             error: None,
         };
-        record_run_outcome(&session_manager, &session.id, &done)
+        record_run_state(&session_manager, &session.id, &done)
             .await
             .unwrap();
         let stored = session_manager
@@ -1916,6 +1992,100 @@ mod tests {
             .extension_data;
         assert_eq!(
             stored.get_extension_state("scheduler", "v0"),
+            Some(&serde_json::json!({ "status": "done" }))
+        );
+    }
+
+    fn init_repo(dir: &Path) {
+        for args in [
+            vec!["init", "-q", "-b", "main"],
+            vec!["commit", "-q", "--allow-empty", "-m", "base"],
+        ] {
+            let mut command = git_command();
+            command.arg("-C").arg(dir).args([
+                "-c",
+                "user.name=scheduler",
+                "-c",
+                "user.email=scheduler@test",
+            ]);
+            let status = command.args(args).status().unwrap();
+            assert!(status.success());
+        }
+    }
+
+    #[tokio::test]
+    async fn scheduler_worktree_is_added_and_recorded() {
+        let temp_dir = tempdir().unwrap();
+        let repo = temp_dir.path().join("repo");
+        fs::create_dir_all(repo.join("src")).unwrap();
+        init_repo(&repo);
+
+        let worktree = add_run_worktree(&repo.join("src")).unwrap();
+        let toplevel = PathBuf::from(git_stdout(&repo, &["rev-parse", "--show-toplevel"]).unwrap());
+        let slug = worktree.path.file_name().unwrap().to_str().unwrap();
+        let (day, hex) = slug
+            .strip_prefix("wt-")
+            .and_then(|rest| rest.split_once('-'))
+            .unwrap_or_else(|| panic!("slug is wt-<yyyymmdd>-<4 hex>: {slug}"));
+        assert!(
+            day.len() == 8 && day.bytes().all(|b| b.is_ascii_digit()),
+            "{slug}"
+        );
+        assert!(
+            hex.len() == 4 && hex.bytes().all(|b| b.is_ascii_hexdigit()),
+            "{slug}"
+        );
+        assert_eq!(worktree.path, toplevel.join(".worktrees").join(slug));
+        assert_eq!(worktree.branch, format!("wt/{slug}"));
+        assert!(worktree.path.join(".git").is_file());
+        let listed = git_stdout(&repo, &["worktree", "list", "--porcelain"]).unwrap();
+        assert!(listed.contains(&format!("branch refs/heads/{}", worktree.branch)));
+        assert!(add_run_worktree(temp_dir.path()).is_err());
+
+        let session_manager = SessionManager::new(temp_dir.path().to_path_buf());
+        let session = session_manager
+            .create_session(
+                worktree.path.clone(),
+                "Scheduled job: worktree".to_string(),
+                SessionType::Scheduled,
+                GooseMode::Auto,
+            )
+            .await
+            .unwrap();
+        record_run_state(&session_manager, &session.id, &worktree)
+            .await
+            .unwrap();
+        record_run_state(
+            &session_manager,
+            &session.id,
+            &RunOutcome {
+                status: RunStatus::Done,
+                error: None,
+            },
+        )
+        .await
+        .unwrap();
+
+        let stored = session_manager
+            .get_session(&session.id, false)
+            .await
+            .unwrap();
+        assert_eq!(stored.working_dir, worktree.path);
+        assert_eq!(
+            stored
+                .extension_data
+                .get_extension_state("scheduler_worktree", "v0"),
+            Some(&serde_json::json!({
+                "path": worktree.path.to_string_lossy(),
+                "branch": worktree.branch,
+            }))
+        );
+        assert_eq!(
+            RunWorktree::from_extension_data(&stored.extension_data),
+            Some(worktree)
+        );
+        assert_eq!(
+            stored.extension_data.get_extension_state("scheduler", "v0"),
             Some(&serde_json::json!({ "status": "done" }))
         );
     }

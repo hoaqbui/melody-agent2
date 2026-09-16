@@ -5224,5 +5224,8 @@
   },
   "workspaceShell.worktreeOff": {
     "defaultMessage": "The next chat starts in the checkout; a worktree is picked before the chat."
+  },
+  "runsInbox.merged": {
+    "defaultMessage": "Merged {branch} into {checkout} at {sha}"
   }
 }

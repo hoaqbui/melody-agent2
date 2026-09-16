@@ -5,7 +5,8 @@ use goose_sdk_types::custom_requests::{
     ListScheduleSessionsRequest, ListScheduleSessionsResponse, ListSchedulesRequest,
     ListSchedulesResponse, PauseScheduleRequest, RunScheduleNowRequest, RunScheduleNowResponse,
     RunScheduleNowStatus, ScheduleRunDto, ScheduleRunOutcomeDto, ScheduleRunStatus,
-    ScheduledJobDto, UnpauseScheduleRequest, UpdateScheduleRequest, UpdateScheduleResponse,
+    ScheduleRunWorktreeDto, ScheduledJobDto, UnpauseScheduleRequest, UpdateScheduleRequest,
+    UpdateScheduleResponse,
 };
 use tokio::fs;
 
@@ -13,7 +14,8 @@ use super::{build_session_info, GooseAcpAgent, ResultExt};
 use crate::recipe::validate_recipe::validate_recipe_template_from_content;
 use crate::recipe::Recipe;
 use crate::scheduler::{
-    get_default_scheduled_recipes_dir, RunOutcome, RunStatus, ScheduledJob, SchedulerError,
+    get_default_scheduled_recipes_dir, RunOutcome, RunStatus, RunWorktree, ScheduledJob,
+    SchedulerError,
 };
 use crate::scheduler_trait::SchedulerTrait;
 use crate::session::extension_data::ExtensionState;
@@ -127,6 +129,13 @@ fn run_outcome_to_dto(outcome: RunOutcome) -> ScheduleRunOutcomeDto {
     }
 }
 
+fn run_worktree_to_dto(worktree: RunWorktree) -> ScheduleRunWorktreeDto {
+    ScheduleRunWorktreeDto {
+        path: worktree.path.to_string_lossy().into_owned(),
+        branch: worktree.branch,
+    }
+}
+
 fn schedule_run_to_dto(session: Session) -> Option<ScheduleRunDto> {
     Some(ScheduleRunDto {
         schedule_id: session.schedule_id?,
@@ -134,6 +143,8 @@ fn schedule_run_to_dto(session: Session) -> Option<ScheduleRunDto> {
         started_at: session.created_at.to_rfc3339(),
         outcome: RunOutcome::from_extension_data(&session.extension_data).map(run_outcome_to_dto),
         working_dir: session.working_dir.to_string_lossy().into_owned(),
+        worktree: RunWorktree::from_extension_data(&session.extension_data)
+            .map(run_worktree_to_dto),
         snippet: session.last_message_snippet,
         archived_at: session.archived_at.map(|value| value.to_rfc3339()),
     })
@@ -555,6 +566,12 @@ mod tests {
         }
         .to_extension_data(&mut extension_data)
         .unwrap();
+        RunWorktree {
+            path: root.path().join(".worktrees/wt-20260916-0a1b"),
+            branch: "wt/wt-20260916-0a1b".to_string(),
+        }
+        .to_extension_data(&mut extension_data)
+        .unwrap();
         session_manager
             .update(&older)
             .extension_data(extension_data)
@@ -576,6 +593,7 @@ mod tests {
         assert_eq!(runs[0].snippet.as_deref(), Some("newer run"));
         assert_eq!(runs[0].working_dir, root.path().to_string_lossy());
         assert_eq!(runs[0].archived_at, None);
+        assert_eq!(runs[0].worktree, None);
         assert_eq!(
             runs[1].outcome,
             Some(ScheduleRunOutcomeDto {
@@ -584,5 +602,16 @@ mod tests {
             })
         );
         assert_eq!(runs[1].snippet.as_deref(), Some("older run"));
+        assert_eq!(
+            runs[1].worktree,
+            Some(ScheduleRunWorktreeDto {
+                path: root
+                    .path()
+                    .join(".worktrees/wt-20260916-0a1b")
+                    .to_string_lossy()
+                    .into_owned(),
+                branch: "wt/wt-20260916-0a1b".to_string(),
+            })
+        );
     }
 }

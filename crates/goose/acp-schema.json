@@ -4010,6 +4010,10 @@
             "null"
           ],
           "minimum": 0
+        },
+        "worktree": {
+          "type": "boolean",
+          "default": false
         }
       }
     },
@@ -4673,6 +4677,16 @@
         "workingDir": {
           "type": "string"
         },
+        "worktree": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/ScheduleRunWorktreeDto"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
         "snippet": {
           "type": [
             "string",
@@ -4717,6 +4731,22 @@
         "failed",
         "killed"
       ]
+    },
+    "ScheduleRunWorktreeDto": {
+      "type": "object",
+      "properties": {
+        "path": {
+          "type": "string"
+        },
+        "branch": {
+          "type": "string"
+        }
+      },
+      "required": [
+        "path",
+        "branch"
+      ],
+      "description": "The worktree a run was given when its recipe set `settings.worktree`; `working_dir` is\nthen `path`, and the branch is what Accept merges."
     },
     "CreateScheduleRequest_unstable": {
       "type": "object",

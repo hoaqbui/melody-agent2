@@ -108,6 +108,7 @@ impl From<RecipeSettingsDto> for Settings {
             goose_model: dto.goose_model,
             temperature: dto.temperature,
             max_turns: dto.max_turns,
+            worktree: dto.worktree,
         }
     }
 }
@@ -119,6 +120,7 @@ impl From<Settings> for RecipeSettingsDto {
             goose_model: settings.goose_model,
             temperature: settings.temperature,
             max_turns: settings.max_turns,
+            worktree: settings.worktree,
         }
     }
 }
@@ -540,6 +542,7 @@ mod tests {
                 goose_model: Some("gpt-5".to_string()),
                 temperature: Some(0.2),
                 max_turns: Some(4),
+                worktree: true,
             }),
             activities: Some(vec!["plan".to_string(), "build".to_string()]),
             author: Some(RecipeAuthorDto {
@@ -620,9 +623,11 @@ mod tests {
             Some(HashMap::from([("target".to_string(), "dev".to_string())]))
         );
         assert_eq!(recipe.retry.as_ref().unwrap().max_retries, 2);
+        assert!(recipe.settings.as_ref().unwrap().worktree);
 
         let round_tripped = RecipeDto::try_from(recipe).unwrap();
         let serialized = serde_json::to_value(round_tripped).unwrap();
+        assert_eq!(serialized["settings"]["worktree"], json!(true));
         assert!(serialized.get("sub_recipes").is_some());
         assert!(serialized.get("subRecipes").is_none());
         assert_eq!(serialized["parameters"][0]["input_type"], json!("select"));

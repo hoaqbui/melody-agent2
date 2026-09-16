@@ -137,6 +137,15 @@ pub struct ScheduleRunOutcomeDto {
     pub error: Option<String>,
 }
 
+/// The worktree a run was given when its recipe set `settings.worktree`; `working_dir` is
+/// then `path`, and the branch is what Accept merges.
+#[derive(Debug, Default, Clone, PartialEq, Eq, Serialize, Deserialize, JsonSchema)]
+#[serde(rename_all = "camelCase")]
+pub struct ScheduleRunWorktreeDto {
+    pub path: String,
+    pub branch: String,
+}
+
 #[derive(Debug, Default, Clone, PartialEq, Eq, Serialize, Deserialize, JsonSchema)]
 #[serde(rename_all = "camelCase")]
 pub struct ScheduleRunDto {
@@ -146,6 +155,8 @@ pub struct ScheduleRunDto {
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub outcome: Option<ScheduleRunOutcomeDto>,
     pub working_dir: String,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub worktree: Option<ScheduleRunWorktreeDto>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub snippet: Option<String>,
     #[serde(default, skip_serializing_if = "Option::is_none")]

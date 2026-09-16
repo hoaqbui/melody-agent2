@@ -1,6 +1,7 @@
 // One finished (or running) agent run as a row: schedule · started · outcome · snippet ·
-// unread, the checkout it ran in, and Open · Accept · Dismiss. Props only — the Runs inbox
-// (task 53) and the Agents pane (task 28) feed it from different sources.
+// unread, the checkout it ran in (or its worktree branch, task 54), and Open · Accept ·
+// Dismiss. Props only — the Runs inbox (task 53) and the Agents pane (task 28) feed it from
+// different sources.
 
 import {
   Archive,
@@ -90,12 +91,16 @@ export interface RunRowProps {
   error?: string | null;
   snippet?: string | null;
   workingDir: string;
+  // The branch of the run's own worktree, when it had one; workingDir is then that worktree.
+  branch?: string | null;
   // The global goose mode, which is what an unattended run actually ran under.
   mode?: string | null;
   unread: boolean;
   acceptBlocker: AcceptBlocker | null;
   busy: boolean;
   actionError?: string | null;
+  // The paths a 409 merge stopped on; the user resolves them outside the inbox.
+  conflicts?: readonly string[];
   onOpen: () => void;
   onAccept: () => void;
   onDismiss: () => void;
@@ -156,9 +161,19 @@ export function RunRow(props: RunRowProps) {
                 {intl.formatMessage(i18n.mode, { mode: props.mode })}
               </span>
             )}
-            <span className="truncate font-mono" title={props.workingDir}>
-              {props.workingDir}
-            </span>
+            {props.branch ? (
+              <span
+                className="truncate font-mono"
+                title={props.workingDir}
+                data-testid="runs-inbox-branch"
+              >
+                {props.branch}
+              </span>
+            ) : (
+              <span className="truncate font-mono" title={props.workingDir}>
+                {props.workingDir}
+              </span>
+            )}
           </div>
         </div>
 
@@ -211,6 +226,13 @@ export function RunRow(props: RunRowProps) {
         >
           {props.actionError}
         </p>
+      )}
+      {props.conflicts && props.conflicts.length > 0 && (
+        <ul className="font-mono text-xs text-text-danger" data-testid="runs-inbox-conflicts">
+          {props.conflicts.map((path) => (
+            <li key={path}>{path}</li>
+          ))}
+        </ul>
       )}
     </li>
   );

@@ -1246,7 +1246,8 @@ export const zRecipeSettingsDto = z.object({
     goose_provider: z.string().nullish(),
     goose_model: z.string().nullish(),
     temperature: z.number().nullish(),
-    max_turns: z.int().gte(0).nullish()
+    max_turns: z.int().gte(0).nullish(),
+    worktree: z.boolean().optional().default(false)
 });
 
 export const zRecipeAuthorDto = z.object({
@@ -1501,12 +1502,22 @@ export const zScheduleRunOutcomeDto = z.object({
     error: z.string().nullish()
 });
 
+/**
+ * The worktree a run was given when its recipe set `settings.worktree`; `working_dir` is
+ * then `path`, and the branch is what Accept merges.
+ */
+export const zScheduleRunWorktreeDto = z.object({
+    path: z.string(),
+    branch: z.string()
+});
+
 export const zScheduleRunDto = z.object({
     sessionId: z.string(),
     scheduleId: z.string(),
     startedAt: z.string(),
     outcome: zScheduleRunOutcomeDto.nullish(),
     workingDir: z.string(),
+    worktree: zScheduleRunWorktreeDto.nullish(),
     snippet: z.string().nullish(),
     archivedAt: z.string().nullish()
 });
