@@ -88,8 +88,28 @@ re-checked at the fork base `426967d` (v1.51.0, 2026-09-15): all hold;
     - runs after tasks 12 and 14 merge (both replace placeholders in the same `panes` seam); base on main at that point
     - `pane-store.test.ts` pins `PANE_IDS` in three assertions — extend them; task 20's tab rail reads `PANE_IDS` too
     - keep the side panel's tab row (task 11) — the icon row is the launcher, the tab row is where a pane lives; `DESIGN.md` §Frame names both
+    - 2026-09-15 23:50: the side panel becomes the right dock (tasks 41–42); build the menu against the store's current names, task 42 rewires click → `openPane`, shift-click → `tearOff`
     - one icon set (`DESIGN.md` §Iconography); strings via the `workspaceShell.*` keys in every locale as task 11 did
   - confirm: `cd ui/desktop && pnpm vitest run src/workspace && pnpm run typecheck && pnpm exec playwright test -g "pane menu"; echo exit=$?` → `exit=0` (walk: Terminal, Changes, Browser and ⋯ visible and nothing else on the right; click Terminal → side panel shows Terminal; ⋯ → Markdown → side panel shows Markdown; shift-click Browser → centre pane opens with the Browser placeholder; the word "Diff" appears nowhere in the shell)
+
+- 41. Replace the pane store's "chat + one centre pane + side tabs" layout with a right dock of stacked panels in `ui/desktop/src/workspace/pane-store.ts` (+ test): `dock: Panel[]` top-to-bottom, `Panel { id, tabs: PaneId[], active: PaneId, size: number }` (sizes as fractions summing to 1); actions `openPane(id)` (into the panel that holds it, else the first panel, else a new one), `tearOff(id)` (a new panel below the one it came from holding only that pane), `moveTab(id, panelIndex, position)`, `movePanel(from, to)`, `resize(index, size)`, `closePane(id)` (an emptied panel disappears into its neighbour); phone mode unchanged (one visible pane, chat first); keep `PANE_IDS` and `modeForWidth`.
+  - status: todo · agent: — · worker: high
+  - card: as the user, tear any pane off into its own panel and put it where I want on the right so that the layout is mine, not a fixed split (user, 2026-09-15 23:50: "make them panels you can tear off and reposition on the right"; pick: right dock of stacked panels)
+  - context:
+    - supersedes PRD decision 3 ("chat + one centre pane", approved 2026-09-15) — chat stays centre, the centre pane goes; note the change in `docs/2026-09-15-workspace-prd-v1.md` step 8 as a dated amendment, not a rewrite, and in `DESIGN.md` §Frame
+    - pure state, no React, no ACP — the shape task 10 set; `createPaneStore` keeps `getState`/`subscribe`; the old `openCentre`/`selectSide`/`closeCentre` names go (tasks 11–16, 40 call them — task 42 rewires the shell; until 42 merges, keep the old functions as thin adapters over the dock so nothing in flight breaks: `openCentre` = `tearOff`, `selectSide` = `openPane`, `closeCentre` = `closePane` of the last torn pane)
+    - identity is stable: a pane id never changes across moves, so pane contents (terminal scrollback, editor buffer) survive repositioning (PRD criterion 5)
+    - tests ≥ 8: open into existing panel, open creates first panel, tear off below its source, move tab between panels, move panel up/down, resize keeps the sum at 1, close collapses an empty panel into its neighbour, phone mode ignores the dock
+  - confirm: `cd ui/desktop && pnpm vitest run src/workspace/pane-store.test.ts; echo exit=$?` → `exit=0` with ≥ 18 tests (untouched tree: 10)
+
+- 42. Render the dock in `ui/desktop/src/workspace/WorkspaceShell.tsx` (+ a `Dock.tsx` and `Panel.tsx` beside it): panels stacked on the right with a tab strip each, drag a tab out of its strip (pointer events, no new dependency unless the plan names one) to tear it off into a new panel at the drop position, drag a panel header to reorder, drag seams to resize, close returns a pane into its tab (Into Rule); the top-right menu (task 40) opens panes with `openPane` and shift-click tears off; phone width unchanged (task 20's rail).
+  - status: todo · agent: — · worker: high
+  - card: as the user, drag a panel where I want it on the right and see the others make room so that arranging the workspace feels physical (DESIGN.md §Principles: Floating Button Rule, Into Rule)
+  - context:
+    - runs after 40 and 41 merge and after the panes (12–16) are in, so every pane body already renders inside a panel; remove the `openCentre`/`selectSide` adapters from task 41 in this task
+    - drag: `pointerdown` on a tab or header → ghost follows the pointer → drop targets are panel strips and the seams between panels; keyboard alternative in the ⋯ menu (Move up / Move down / Tear off) for `DESIGN.md` §Accessibility
+    - sizes persist per project in `localStorage` (task 19's settings pattern); never a second store
+  - confirm: `cd ui/desktop && pnpm vitest run src/workspace && pnpm run typecheck && pnpm exec playwright test -g "dock"; echo exit=$?` → `exit=0` (walk: open Terminal and Changes → one panel with two tabs; drag Changes' tab below → two panels; drag the lower panel above the upper → order swapped; close Changes → one panel again)
 
 - 12. Add the Files pane (`src/workspace/panes/files/`) with a tree of the session cwd (a drill-down list at phone width), session-written-file dots, and click → Editor pane; `ui/sidecar/src/fs.ts` serves reads and watches the cwd (`chokidar`).
   - status: doing · agent: subagent-t12 via claude-session-opus-2 (23:15, worktree) · worker: high
