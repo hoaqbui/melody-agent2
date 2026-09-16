@@ -144,16 +144,6 @@ Planned 2026-09-15 21:25 from PRD steps 10–12 and the spine research §Activit
     - markdown rendering: reuse whatever the chat already uses for assistant text (`components/`), compose, do not fork
   - confirm: `cd ui/desktop && pnpm vitest run src/workspace/panes/artifact && pnpm run depcruise; echo exit=$?` → `exit=0`
 
-- 31. Add the Browser pane (`ui/desktop/src/workspace/panes/browser/`: address bar + iframe, default URL the project's dev server when `.goose` config lists one) and the Markdown pane (`panes/markdown/`: rendered view of the file selected in Files).
-  - status: doing · agent: subagent-t31 via claude-session-opus-2 (23:28, worktree) · worker: medium
-  - card: as the user, check the running app and read a doc beside the agent so that the last two alt-tabs go away (PRD step 12)
-  - context:
-    - pulled forward 2026-09-15 23:30 (user: browser and markdown in the menu now); task 40 adds the pane ids and placeholders, this task fills them; runs after 12 and 40
-    - iframe of the project's dev server only — arbitrary-site browsing is out (PRD §Scope); at V0.5 the address bar accepts any http(s) URL but the default and the "reset" target are the dev server
-    - depends on task 11 (shell) and task 12 (Files selection); on the web build (task 19) an iframe to `localhost` from the phone will not resolve — show the PRD "not reachable" line, do not proxy
-    - markdown rendering shares task 30's choice
-  - confirm: `cd ui/desktop && pnpm vitest run src/workspace/panes/browser src/workspace/panes/markdown && pnpm run depcruise; echo exit=$?` → `exit=0`
-
 ### Parity with Codex desktop and Claude Cowork — research (2026-09-16)
 
 User, 2026-09-16 00:15: "research it, plan it, and orchestrate it with sub agents" — the three gaps named in the parity comparison. Research first; the plan follows from these docs and waits on approval before source edits.
@@ -188,6 +178,7 @@ User, 2026-09-16 00:15: "research it, plan it, and orchestrate it with sub agent
 - task 13 hand checks — dark theme flips gutter/token colours and the markdown Preview palette; type without saving, close the pane, reopen from the side tab → draft, cursor, undo intact; chmod a file read-only, edit, ⌘S → error line with Retry, edit kept.
 - task 16 hand checks — press Esc mid-tool-call, then open Git: Commit stays disabled ("waits for the running tool call") because the orphaned `toolRequest` never gets a terminal status — spec (DESIGN Running row) or bug, your call; ask the agent to write a file with Git open → Unstaged refreshes on its own when the call ends; open Git in a non-repo cwd → "Not a git repository" + path.
 - task 40 hand checks — hover lift on the three header icons; ⋯ tooltip is hover-only (focus-opened tooltip lingered after the menu closed — a UX asymmetry to accept or not); Runtime/Mode carry a native `title` (`Claude · Direct`) rather than the styled tooltip; the side tab row now wraps to two lines at seven tabs until task 42 replaces it.
+- task 31 hand checks — Browser: open from the header, type `localhost:<port>` of a running dev server → frame renders; Reset clears to the empty line (no per-project dev-server config exists in the tree, so the default is empty — say if you want a `.goose` config key for it); phone web build: a loopback URL shows the "not reachable from here" line instead of the frame, and an `http://` frame under an `https://` workspace is blocked as mixed content (no proxy, by scope). Markdown: pick a `.md` in Files → rendered, dark palette flips; pick a `.rs` → "Not markdown" bar over raw text; the pane follows disk when the agent writes the open file.
 - task 14 hand check — "since session start" base: open a session in a git cwd, commit, open Changes → the selector offers it and lists the committed file; `git diff HEAD` omits untracked files (accepted gap, or queue).
 - `ARCHITECTURE.md` — sign-off deletes `## Bootstrap Status`; until then the map is a proposal and tasks 10–16 plan against a guess.
 - task 20 — the phone check is manual: open the URL on `hoa-phone`, walk PRD step 13, judge the terminal with the key bar.
