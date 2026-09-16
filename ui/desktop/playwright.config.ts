@@ -1,6 +1,7 @@
 import { PlaywrightTestConfig, devices } from '@playwright/test';
 
 const FORK_WALKS = [
+  'artifact-pane',
   'browser-pane',
   'diff-pane',
   'dock',

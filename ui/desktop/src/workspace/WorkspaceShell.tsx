@@ -27,6 +27,7 @@ import {
   Check,
   Ellipsis,
   FileCode,
+  FileText,
   FolderTree,
   GitBranch,
   GitCompare,
@@ -148,6 +149,7 @@ const i18n = defineMessages({
   paneGit: { id: 'workspaceShell.paneGit', defaultMessage: 'Git' },
   paneBrowser: { id: 'workspaceShell.paneBrowser', defaultMessage: 'Browser' },
   paneMarkdown: { id: 'workspaceShell.paneMarkdown', defaultMessage: 'Markdown' },
+  paneArtifact: { id: 'workspaceShell.paneArtifact', defaultMessage: 'Artifact' },
   panes: { id: 'workspaceShell.panes', defaultMessage: 'Panes' },
   morePanes: { id: 'workspaceShell.morePanes', defaultMessage: 'More panes' },
   columnSessions: { id: 'workspaceShell.columnSessions', defaultMessage: 'Sessions' },
@@ -164,6 +166,7 @@ const PANE_TITLES = {
   git: i18n.paneGit,
   browser: i18n.paneBrowser,
   markdown: i18n.paneMarkdown,
+  artifact: i18n.paneArtifact,
 } as const;
 
 // DESIGN.md §Iconography: one set, lucide, at upstream's control size.
@@ -175,6 +178,7 @@ const PANE_ICONS: Record<PaneId, ComponentType<{ className?: string }>> = {
   git: GitBranch,
   browser: Globe,
   markdown: BookOpen,
+  artifact: FileText,
 };
 
 // The code-editor standard (task 40): three panes one click away, the rest under ⋯.
@@ -566,6 +570,7 @@ export function WorkspaceShell({ chat, children, panes, paneStore }: WorkspaceSh
   const [workspaceUi, setWorkspaceUi] = useState<WorkspaceUi | undefined>();
   // The file the Editor shows, picked in Files (PRD step 4).
   const [file, setFile] = useState<string | null>(null);
+  const [artifact, setArtifact] = useState<string | null>(null);
   // The sheet's prefill, taken when "Save as routine…" is pressed so edits stay put
   // while the transcript streams on; null is the sheet closed (task 59).
   const [routine, setRoutine] = useState<{ title: string; instructions: string } | null>(null);
@@ -808,6 +813,14 @@ export function WorkspaceShell({ chat, children, panes, paneStore }: WorkspaceSh
     },
     [store]
   );
+  // Task 30: an Agents row or an RPI phase lands on its artifact in the Artifact pane.
+  const openArtifact = useCallback(
+    (childSessionId: string) => {
+      setArtifact(childSessionId);
+      store.openPane('artifact');
+    },
+    [store]
+  );
   // Task 40's menu: a click opens the pane in the top panel; shift-click tears it off.
   const openPane = useCallback(
     (id: PaneId, tear: boolean) => {
@@ -826,11 +839,14 @@ export function WorkspaceShell({ chat, children, panes, paneStore }: WorkspaceSh
     () => ({
       cwd,
       mode: layout.mode,
+      sessionId,
       messages: snapshot?.messages ?? NO_MESSAGES,
       file,
       openFile,
+      artifact,
+      openArtifact,
     }),
-    [cwd, file, layout.mode, openFile, snapshot?.messages]
+    [artifact, cwd, file, layout.mode, openArtifact, openFile, sessionId, snapshot?.messages]
   );
 
   // The transcript is read at the click, not closed over: it streams, the chips do not.
