@@ -7,16 +7,15 @@ import { useCallback, useEffect, useRef, useSyncExternalStore, type KeyboardEven
 import { defaultKeymap, history, historyKeymap, indentWithTab } from '@codemirror/commands';
 import {
   defaultHighlightStyle,
-  HighlightStyle,
   LanguageDescription,
   syntaxHighlighting,
 } from '@codemirror/language';
 import { languages } from '@codemirror/language-data';
 import { Compartment, EditorState } from '@codemirror/state';
 import { EditorView, highlightActiveLine, keymap, lineNumbers } from '@codemirror/view';
-import { tags } from '@lezer/highlight';
 import { defineMessages, useIntl } from '../../../i18n';
 import { useTheme } from '../../../contexts/ThemeContext';
+import { monokaiHighlight } from '../../../theme/monokai-highlight';
 import { Button } from '../../../components/ui/button';
 import {
   sidecarFetch,
@@ -75,20 +74,7 @@ const editorStore = createEditorStore();
 const languageConf = new Compartment();
 const themeConf = new Compartment();
 
-// One Dark's token colours, as components/MarkdownContent.tsx uses for code blocks;
-// CodeMirror ships a light default only.
-const darkHighlight = HighlightStyle.define([
-  { tag: [tags.keyword, tags.modifier, tags.operatorKeyword], color: '#c678dd' },
-  { tag: [tags.string, tags.special(tags.string)], color: '#98c379' },
-  { tag: tags.comment, color: '#7f848e', fontStyle: 'italic' },
-  { tag: [tags.number, tags.bool, tags.null, tags.atom], color: '#d19a66' },
-  { tag: [tags.typeName, tags.className], color: '#e5c07b' },
-  { tag: [tags.function(tags.variableName), tags.function(tags.propertyName)], color: '#61afef' },
-  { tag: [tags.propertyName, tags.attributeName], color: '#e06c75' },
-  { tag: tags.heading, fontWeight: 'bold' },
-  { tag: tags.link, textDecoration: 'underline' },
-]);
-
+// CodeMirror ships a light default only; every dark variant takes Monokai's palette.
 function editorTheme(dark: boolean) {
   return [
     EditorView.theme(
@@ -107,7 +93,7 @@ function editorTheme(dark: boolean) {
       },
       { dark }
     ),
-    syntaxHighlighting(dark ? darkHighlight : defaultHighlightStyle, { fallback: true }),
+    syntaxHighlighting(dark ? monokaiHighlight : defaultHighlightStyle, { fallback: true }),
   ];
 }
 

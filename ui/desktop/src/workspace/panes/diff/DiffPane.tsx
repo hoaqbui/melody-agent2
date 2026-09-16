@@ -4,11 +4,13 @@
 
 import { useEffect, useRef, useState, useSyncExternalStore } from 'react';
 import { useLocation, useSearchParams } from 'react-router';
+import { syntaxHighlighting } from '@codemirror/language';
 import { MergeView, unifiedMergeView } from '@codemirror/merge';
 import { EditorState } from '@codemirror/state';
 import { EditorView, lineNumbers } from '@codemirror/view';
 import { defineMessages, useIntl } from '../../../i18n';
 import { useTheme } from '../../../contexts/ThemeContext';
+import { monokaiHighlight } from '../../../theme/monokai-highlight';
 import { useAcpChatSessionSnapshot } from '../../../acp/chatSessionStore';
 import { Button } from '../../../components/ui/button';
 import { cn } from '../../../utils';
@@ -71,7 +73,7 @@ function useSessionStart(): string | null {
 }
 
 function editorTheme(dark: boolean) {
-  return EditorView.theme(
+  const theme = EditorView.theme(
     {
       '&': { backgroundColor: 'transparent', color: 'var(--color-text-primary)' },
       '.cm-content, .cm-gutters, .cm-deletedChunk': {
@@ -89,6 +91,9 @@ function editorTheme(dark: boolean) {
     },
     { dark }
   );
+  // Dark variants carry Monokai's syntax palette, as the Editor does; light shows the
+  // diff untinted as before.
+  return dark ? [theme, syntaxHighlighting(monokaiHighlight)] : theme;
 }
 
 function ChangeView({ file, view, dark }: { file: DiffFile; view: DiffView; dark: boolean }) {

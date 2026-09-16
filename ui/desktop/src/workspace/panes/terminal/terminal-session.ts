@@ -5,13 +5,14 @@
 // and the armed Ctrl live here and the component only mounts the element.
 
 import { FitAddon } from '@xterm/addon-fit';
-import { Terminal } from '@xterm/xterm';
+import { Terminal, type ITheme } from '@xterm/xterm';
 import '@xterm/xterm/css/xterm.css';
 import {
   sidecarSocket,
   type PtyClientMessage,
   type PtyServerMessage,
 } from '../../../native/sidecar';
+import type { ThemeVariant } from '../../../theme/theme-tokens';
 import { withCtrl } from './terminal-keys';
 
 export type TerminalStatus =
@@ -38,11 +39,37 @@ export interface TerminalSession {
   paste(text: string): void;
   setCtrl(armed: boolean): void;
   focus(): void;
-  syncTheme(): void;
+  syncTheme(variant: ThemeVariant): void;
 }
 
 const SCROLLBACK_LINES = 5000;
 const FONT_SIZE_PX = 12;
+
+// Monokai's canonical ANSI palette on the charcoal ground, for every dark variant. The
+// background is opaque, not the translucent token: xterm drops alpha unless
+// allowTransparency is set at open().
+const MONOKAI_TERMINAL_THEME: ITheme = {
+  background: '#1c1c1c',
+  foreground: '#f8f8f2',
+  cursor: '#f8f8f2',
+  selectionBackground: '#3a3a3a',
+  black: '#272822',
+  red: '#f92672',
+  green: '#a6e22e',
+  yellow: '#f4bf75',
+  blue: '#66d9ef',
+  magenta: '#ae81ff',
+  cyan: '#a1efe4',
+  white: '#f8f8f2',
+  brightBlack: '#75715e',
+  brightRed: '#f92672',
+  brightGreen: '#a6e22e',
+  brightYellow: '#f4bf75',
+  brightBlue: '#66d9ef',
+  brightMagenta: '#ae81ff',
+  brightCyan: '#a1efe4',
+  brightWhite: '#f9f8f5',
+};
 
 const sessions = new Map<string, TerminalSession>();
 
@@ -168,14 +195,17 @@ function createTerminalSession(id: string, cwd: string): TerminalSession {
     paste: (text) => term.paste(text),
     setCtrl: (armed) => setState({ ctrl: armed }),
     focus: () => term.focus(),
-    syncTheme: () => {
+    syncTheme: (variant) => {
       const root = window.getComputedStyle(document.documentElement);
       const token = (name: string) => root.getPropertyValue(name).trim();
-      term.options.theme = {
-        background: token('--color-background-primary'),
-        foreground: token('--color-text-primary'),
-        cursor: token('--color-text-primary'),
-      };
+      term.options.theme =
+        variant === 'dark'
+          ? MONOKAI_TERMINAL_THEME
+          : {
+              background: token('--color-background-primary'),
+              foreground: token('--color-text-primary'),
+              cursor: token('--color-text-primary'),
+            };
       term.options.fontFamily = token('--font-mono') || 'monospace';
     },
   };
