@@ -91,7 +91,7 @@ re-checked at the fork base `426967d` (v1.51.0, 2026-09-15): all hold;
   - confirm: `cd ui/sidecar && pnpm run typecheck && pnpm vitest run; echo exit=$?` → `exit=0` with ≥2 new tests; and from a built sidecar started with `--allowed-origin http://localhost:5173`: `curl -s -o /dev/null -w '%{http_code} %{header_json}\n' -X OPTIONS -H 'origin: http://localhost:5173' -H 'access-control-request-method: POST' http://127.0.0.1:3285/fs/list | grep -c 'access-control-allow-origin'` → `1` (untouched tree: `0`)
 
 - 12. Add the Files pane (`src/workspace/panes/files/`) with a tree of the session cwd (a drill-down list at phone width), session-written-file dots, and click → Editor pane; `ui/sidecar/src/fs.ts` serves reads and watches the cwd (`chokidar`).
-  - status: todo · agent: — · worker: high
+  - status: doing · agent: subagent-t12 via claude-session-opus-2 (23:15, worktree) · worker: high
   - card: as the user, see what the agent touched so that I don't alt-tab to check (PRD step 4)
   - context:
     - reaches the sidecar only through `src/native/sidecar.ts` (task 37: `sidecarBaseUrl`, `sidecarFetch`, `sidecarSocket`) — waits on it
@@ -109,7 +109,7 @@ re-checked at the fork base `426967d` (v1.51.0, 2026-09-15): all hold;
   - confirm: `cd ui/desktop && pnpm run typecheck && pnpm exec playwright test -g "editor pane"; echo exit=$?` → `exit=0` (open a file, type, ⌘S, file on disk changed)
 
 - 14. Add the Diff pane (`src/workspace/panes/diff/`, `@codemirror/merge`): working tree vs HEAD by default, "since session start" as the second base, unified and side-by-side; `ui/sidecar/src/git.ts` runs `git diff`.
-  - status: todo · agent: — · worker: high
+  - status: doing · agent: subagent-t14 via claude-session-opus-2 (23:15, worktree) · worker: high
   - card: as the user, review what changed against a chosen base so that I can judge the agent's work before committing (PRD step 5)
   - context:
     - reaches the sidecar only through `src/native/sidecar.ts` (task 37: `sidecarBaseUrl`, `sidecarFetch`, `sidecarSocket`) — waits on it
