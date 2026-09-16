@@ -147,16 +147,6 @@ re-checked at the fork base `426967d` (v1.51.0, 2026-09-15): all hold;
 
 ### docs/2026-09-15-goose-spine-bridge-plan-v1.md
 
-- 34. Move every Claude seat from `claude-acp` to `claude-code` in `.agents/agents/*.md` `runtimes:` (orchestrator `claude-opus-5` w1; planner backup `claude-opus-5` w1; implementer `claude-sonnet-5` w9; advisor and the four specialists `claude-fable-5-1` w1) and in `PRODUCT.md` §5 runtime table (Claude Code row: adapter `claude-code`, with `claude-acp` kept for Direct sessions), §6 map rows and the §10 example; append one line to `docs/2026-09-15-spine-bridge-spike-v1.md` §Not settled naming the pick.
-  - status: doing · agent: subagent-t34 via claude-session-opus-2 (22:30, worktree) · worker: low
-  - card: as a delegated Claude worker, receive my role through `--system-prompt-file` so that the harness never sees it as injected text (spike §Run 2, task 26 runs 3a–3d: 3 of 4 refused on `claude-acp`; 1 of 1 followed on `claude-code`)
-  - context:
-    - the pick (user, 2026-09-15 22:30, "continue" on the recommended path): A for Claude seats, C for the rest — `codex-acp` / `cursor-acp` children keep the fold and task 9 judges it
-    - `claude-code` is registered (`providers/init.rs:90`), takes `--model` (`claude_code.rs:398`), forwards `StreamableHttp` MCP servers (`:546-556`), and manages its own context (`:680`) so the bridge and the runtimes roll treat it like an adapter; children run `Auto` → `--dangerously-skip-permissions` (`:350-365`)
-    - trade: print-mode tool calls are not rendered as tool rows (`claude_code.rs:1011` drops `assistant`/`user` stream messages — research 27); a worker's transcript is its compact result plus text, which PRODUCT.md §3.4 accepts; Direct sessions stay on `claude-acp` for the full tool-row view
-    - `PRODUCT.md:71` row, `:88` and `:91` map rows, `:368` example, `:414` V0 line (`claude-acp` default is still right for Direct)
-  - confirm: `grep -c 'provider: claude-acp' .agents/agents/*.md | grep -v ':0$' | wc -l` → `0`; and `grep -c 'claude-code' PRODUCT.md` → a number ≥ 6 (untouched tree: 5 files still say `claude-acp`; PRODUCT.md count is lower)
-
 - 36. Bootstrap `DESIGN.md` at the fork root from `skills/rpi/templates/design.md` (`/Users/hoaqbui/.claude/skills/rpi/templates/design.md`) as the delta over Goose's design system: principles, the frame (regions = `ARCHITECTURE.md` module names the workspace renders into: header with Runtime · Mode, chat centre, one centre pane, side panel tabs, tab rail at phone width), vocabulary (Runtime, Mode, Direct, Orchestrate, pane, side panel, worker, role, artifact, "→ <Runtime> from here"), shared states (from the PRD §States), and two [direction] rules the user gave on 2026-09-15: buttons carry a soft shadow beneath them so they read as floating; transitions have things disappear *into* things (a closed pane returns into its tab, a promoted tab grows out of the panel) rather than cut.
   - status: doing · agent: subagent-t36 via claude-session-opus-2 (22:30, worktree) · worker: medium
   - card: as the user, have one file name the frame, the words and the motion so that task 11's header and the pane tasks make the same choices without re-arguing them (ARCHITECTURE.md §Ownership: DESIGN.md "from tranche 4")
