@@ -10,6 +10,8 @@ test.describe('files pane', () => {
     const shell = goosePage.locator('[data-testid="workspace-shell"]');
     await expect(shell).toBeVisible({ timeout: 30000 });
 
+    // The dock starts empty (task 41); Files is opened from its tab like the other walks.
+    await goosePage.locator('[data-testid="workspace-side-tab-files"]').click();
     const pane = goosePage.locator('[data-testid="files-pane"]');
     await expect(pane).toBeVisible();
     await expect(pane).not.toHaveAttribute('data-state', 'loading', { timeout: 15000 });
