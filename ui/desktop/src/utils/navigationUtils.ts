@@ -16,6 +16,7 @@ export type View =
   | 'settingsV2'
   | 'sessions'
   | 'schedules'
+  | 'board'
   | 'loading'
   | 'recipes'
   | 'skills'
@@ -68,6 +69,9 @@ export const createNavigationHandler = (navigate: NavigateFunction) => {
         break;
       case 'schedules':
         navigate('/schedules', { state: options });
+        break;
+      case 'board':
+        navigate('/board', { state: options });
         break;
       case 'recipes':
         navigate('/recipes', { state: options });
