@@ -138,16 +138,6 @@ re-checked at the fork base `426967d` (v1.51.0, 2026-09-15): all hold;
     - "since session start" needs the session's start commit or a stash-free snapshot; approach is this task's plan decision
   - confirm: `cd ui/desktop && pnpm run typecheck && pnpm exec playwright test -g "diff pane"; echo exit=$?` → `exit=0` (PRD step 5: a modified file shows in the list; unified and side-by-side render)
 
-- 15. Add the Terminal pane (`src/workspace/panes/terminal/`, `@xterm/xterm`) backed by `ui/sidecar/src/pty.ts` (`node-pty`), starting in the session cwd with the login-shell PATH, surviving session end and client disconnect (reattach by session id), with a key bar (Esc · Tab · Ctrl · arrows · paste) at phone width.
-  - status: doing · agent: subagent-t15 via claude-session-opus-2 (23:08, worktree) · worker: high
-  - card: as the user, run tests and commands beside the agent so that the loop closes in one window (PRD step 6)
-  - context:
-    - reaches the sidecar only through `src/native/sidecar.ts` (task 37: `sidecarBaseUrl`, `sidecarFetch`, `sidecarSocket`) — waits on it
-    - PATH source: `loginShellPath.ts` already resolves it for goosed — reuse
-    - `node-pty` is a native module in the *sidecar*, not the renderer bundle; the packaged Electron app must bundle and start the sidecar (`forge.config.ts` extraResource) — add a `pnpm run make` smoke to task 18's confirm if CI time allows
-    - xterm.js touch gaps on iOS (xtermjs/xterm.js#5377, #3727, #2403) are why the key bar and server-side reattach are in this task, not later
-  - confirm: `cd ui/desktop && pnpm run typecheck && pnpm exec playwright test -g "terminal pane"; echo exit=$?` → `exit=0` (PRD step 6: shell opens in the session cwd, `pwd` prints it)
-
 - 16. Add the Git pane (`src/workspace/panes/git/`): branch, staged/unstaged lists, stage/unstage, commit box; commit disabled while any tool call is `in_progress`; git commands run in `ui/sidecar/src/git.ts`.
   - status: todo · agent: — · worker: high
   - card: as the user, commit the reviewed change without leaving the window so that the walk ends where it started (PRD step 7)
@@ -245,6 +235,7 @@ Planned 2026-09-15 21:25 from PRD steps 10–12 and the spine research §Activit
 - Task 33 — filing the three upstream issues posts under your GitHub account; say "file them".
 - **Sidecar auth (2026-09-15 22:30):** `ARCHITECTURE.md` §Invariants names Tailscale the sidecar's only gate, and task 18 built exactly that — the sidecar answers pty/fs/git for anyone on the tailnet, unauthenticated, from the moment the desktop starts (packaged run logged `100.127.56.10:64870`). If anyone but you is ever on that tailnet, say "sidecar secret" and it becomes a task (a shared token the web build carries, same pattern as `goose serve`); otherwise the invariant stands as written.
 - task 11 hand check — one early run of the Mode selector produced three sessions from one click (worker's report, not reproduced in five later runs with a call-site trace). Open the desktop, pick Orchestrate once, count sessions in the list; more than one is a P0 bug.
+- task 15 hand checks — packaged build: the CSP lease rides `onHeadersReceived`, a `file://` load is governed by `index.html`'s meta CSP (untested); the `ws:` lease drops `upgrade-insecure-requests` from the renderer CSP while the sidecar runs (required for `ws://` to the tailnet IP — say if you'd rather the sidecar served TLS).
 - `ARCHITECTURE.md` — sign-off deletes `## Bootstrap Status`; until then the map is a proposal and tasks 10–16 plan against a guess.
 - task 20 — the phone check is manual: open the URL on `hoa-phone`, walk PRD step 13, judge the terminal with the key bar.
 - task 9 — the handoff-memo criterion (PRD §Criteria, second) is a manual check: ask "what did we just change?" after a runtime switch and judge the answer.
