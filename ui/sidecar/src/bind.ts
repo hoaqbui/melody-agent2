@@ -39,15 +39,27 @@ const tailscaleIp = (binary: string): Promise<string | null> =>
     });
   });
 
-export const resolveBindAddress = async (explicit?: string): Promise<string> => {
+const LOOPBACK = '127.0.0.1';
+
+// An explicit --bind is exactly that address. Otherwise the tailnet address
+// carries the phone and loopback carries the desktop renderer, whose CSP names
+// only 127.0.0.1; without a tailnet there is only loopback.
+export const bindAddresses = (tailnetIp: string | null, explicit?: string): string[] => {
   if (explicit) {
-    return explicit;
+    return [explicit];
+  }
+  return tailnetIp ? [tailnetIp, LOOPBACK] : [LOOPBACK];
+};
+
+export const resolveBindAddresses = async (explicit?: string): Promise<string[]> => {
+  if (explicit) {
+    return bindAddresses(null, explicit);
   }
   for (const binary of TAILSCALE_CANDIDATES) {
     const ip = await tailscaleIp(binary);
     if (ip) {
-      return ip;
+      return bindAddresses(ip);
     }
   }
-  return '127.0.0.1';
+  return bindAddresses(null);
 };

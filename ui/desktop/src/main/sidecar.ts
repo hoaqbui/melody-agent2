@@ -19,11 +19,24 @@ export interface StartSidecarOptions {
 }
 
 export interface SidecarResult {
+  /** The listener the renderer uses: loopback, which its connect-src already names. */
   url: string;
+  /** Every listener, the tailnet one included — the phone's URL. */
+  urls: string[];
   cleanup: () => void;
 }
 
 const LISTENING_PREFIX = 'SIDECAR_LISTENING=';
+
+const isLoopbackUrl = (url: string): boolean => {
+  const { hostname } = new URL(url);
+  return hostname === '127.0.0.1' || hostname === '[::1]' || hostname === 'localhost';
+};
+
+// The sidecar prints one SIDECAR_LISTENING= line per listener, in one write, so the
+// tailnet and loopback lines land in the same chunk; the renderer takes loopback.
+export const rendererSidecarUrl = (urls: string[]): string | undefined =>
+  urls.find(isLoopbackUrl) ?? urls[0];
 
 export const sidecarEntryPath = (
   isPackaged: boolean,
@@ -85,11 +98,18 @@ export const startSidecar = (options: StartSidecarOptions): Promise<SidecarResul
 
     let listening = false;
     child.stdout?.on('data', (chunk: Buffer) => {
-      for (const line of chunk.toString().split('\n')) {
-        if (line.startsWith(LISTENING_PREFIX) && !listening) {
-          listening = true;
-          resolve({ url: line.slice(LISTENING_PREFIX.length).trim(), cleanup: () => child.kill() });
-        }
+      if (listening) {
+        return;
+      }
+      const urls = chunk
+        .toString()
+        .split('\n')
+        .filter((line) => line.startsWith(LISTENING_PREFIX))
+        .map((line) => line.slice(LISTENING_PREFIX.length).trim());
+      const url = rendererSidecarUrl(urls);
+      if (url) {
+        listening = true;
+        resolve({ url, urls, cleanup: () => child.kill() });
       }
     });
     child.stderr?.on('data', (chunk: Buffer) => {
