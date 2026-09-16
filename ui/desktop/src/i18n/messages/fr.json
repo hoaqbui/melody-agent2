@@ -977,6 +977,45 @@
   "dirSwitcher.recentDirectories": {
     "defaultMessage": "Répertoires récents"
   },
+  "editorPane.changedOnDisk": {
+    "defaultMessage": "Changed on disk"
+  },
+  "editorPane.keepMine": {
+    "defaultMessage": "Keep mine"
+  },
+  "editorPane.loading": {
+    "defaultMessage": "Loading…"
+  },
+  "editorPane.nothingOpen": {
+    "defaultMessage": "Nothing open — pick a file in Files"
+  },
+  "editorPane.nothingToSave": {
+    "defaultMessage": "Nothing to save"
+  },
+  "editorPane.preview": {
+    "defaultMessage": "Preview"
+  },
+  "editorPane.reload": {
+    "defaultMessage": "Reload"
+  },
+  "editorPane.retry": {
+    "defaultMessage": "Retry"
+  },
+  "editorPane.save": {
+    "defaultMessage": "Save"
+  },
+  "editorPane.saveFailed": {
+    "defaultMessage": "Couldn't save — {cause}"
+  },
+  "editorPane.saving": {
+    "defaultMessage": "Saving…"
+  },
+  "editorPane.source": {
+    "defaultMessage": "Source"
+  },
+  "editorPane.unsaved": {
+    "defaultMessage": "Unsaved changes"
+  },
   "filesPane.back": {
     "defaultMessage": "Back"
   },
@@ -4732,9 +4771,6 @@
   },
   "workspaceShell.direct": {
     "defaultMessage": "Direct"
-  },
-  "workspaceShell.editorFile": {
-    "defaultMessage": "Selected: {path}"
   },
   "workspaceShell.install": {
     "defaultMessage": "Install"
