@@ -60,7 +60,7 @@ review list for scheduled runs — local-first > three PRs, one per unit.
   land, since it edits the shell header they rewrite) ∥ 50 (hunk
   controls, after 48; `DiffPane.tsx` is untouched by task 16) ∥ 52
   (runs on the wire, after 51) → 53 (inbox) → 54 (runs in worktrees,
-  after 48, 49, 53) → 55 (docs). 48 carries both the worktree routes
+  after 48, 49, 53) → 59 (save session as routine, after 53 and ledger 58) → 55 (docs). 48 carries both the worktree routes
   and `/git/apply` so one task owns the `cwd` guard every route shares.
 
 ## Out of scope
@@ -162,7 +162,16 @@ review list for scheduled runs — local-first > three PRs, one per unit.
     - `ARCHITECTURE.md` rule: constrain, don't describe — one line per new responsibility
   - confirm: `grep -c 'worktree' docs/2026-09-15-workspace-prd-v1.md ARCHITECTURE.md | awk -F: '{s+=$2} END {print s}'` → ≥ 3 (untouched tree: fewer); and `grep -c 'V0.5.*scheduling' PRODUCT.md` → `1` (untouched tree: 0 — the scheduling line moves from §12 Future into the V0.5 line)
 
-Approval gate: tasks 47–55 wait on sign-off. Four decisions the
+- 59. Save a session as a routine: "Save as routine…" in the session's Advanced controls (ledger task 58) and the ⋯ menu opens a sheet prefilled from the session — title (the session's display name), instructions (the first user prompt, editable), the session's provider · model · goose mode · extensions · working directory — with a trigger picker Manual · Hourly · Daily · Weekly · Custom cron and, after task 54, a "Run in its own worktree" checkbox; Save calls `save_recipe` then, unless Manual, `create_schedule` (`crates/goose/src/acp/server/custom_dispatch.rs` `dispatch_save_recipe`, `dispatch_create_schedule`); the sheet closes into the Schedules route where the routine appears with "Run now" (`run_schedule_now`) and its runs land in the Runs inbox (task 53); a routine's run session shows a "Routine: <title>" chip in the header linking back to the schedule.
+  - status: todo · agent: — · worker: high
+  - card: as the user, turn a session that worked into something that runs again — on a schedule or on demand — so that the work I supervised once becomes a routine I only review (user 2026-09-16: "sessions can become persistent in the form of routines/automations"; research 46 A1–A2)
+  - context:
+    - after 53 (inbox) and ledger 58 (Advanced controls host the button); the recipe is built client-side from the session record and the ACP config options — no new server method; `recipe.settings` carries provider/model/mode as today's recipe schema allows (`crates/goose/src/recipe/mod.rs`); extensions by name
+    - vocabulary: "routine" in copy, "schedule"/"recipe" stay the route and file names (DESIGN.md §Vocabulary row; PRODUCT.md §11 automations line amended in 55)
+    - the session's transcript is not part of the routine — instructions are the prompt, not the history; a "Save the reply as instructions" affordance is a later ask
+  - confirm: `cd ui/desktop && pnpm vitest run src/workspace/routine && pnpm run typecheck && pnpm exec playwright test -g "routine"; echo exit=$?` → `exit=0` (untouched tree: no `routine` dir or spec; walk: open a session, Advanced → Save as routine → title prefilled, Manual, Save → Schedules lists it → Run now → Runs inbox shows the run)
+
+Approval gate: tasks 47–55 and 59 wait on sign-off. Four decisions the
 list reverses or settles: (1) worktree-per-task comes into scope (PRD
 §Scope had it out); (2) per-hunk stage/revert replaces "view-only at
 V0" (decision 5), with Accept = **stage** (Codex's shape) rather than a
