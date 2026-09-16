@@ -11,6 +11,7 @@ import {
   isWritten,
   leaveDir,
   listing,
+  loadedDirs,
   markLoading,
   paneState,
   parentDir,
@@ -81,6 +82,12 @@ describe('desktop tree', () => {
     ]);
   });
 
+  it('names the loaded directories a remount refetches', () => {
+    let state = loaded(initialTree(ROOT), ROOT, ['src'], ['src']);
+    state = setError(markLoading(state, '/repo/src'), '/repo/locked', 'EACCES');
+    expect(loadedDirs(state)).toEqual([ROOT]);
+  });
+
   it('reloads only the loaded directory a watch event lands in', () => {
     const state = loaded(initialTree(ROOT), ROOT, ['a.txt']);
     expect(dirsToReload(state, { type: 'add', path: '/repo/new.txt' })).toEqual([ROOT]);
@@ -134,14 +141,17 @@ describe('written this session', () => {
     const messages = [
       toolMessage('developer__text_editor', { command: 'write', path: 'src/a.ts' }),
       toolMessage('developer__text_editor', { command: 'view', path: 'README.md' }),
-      toolMessage('Write', { file_path: '/repo/b.ts', content: '' }),
-      toolMessage('Edit', { file_path: '/elsewhere/c.ts' }),
+      toolMessage('Write b.ts', { file_path: '/repo/b.ts', content: '' }),
+      toolMessage('Edit c.ts', { file_path: '/elsewhere/c.ts', old_string: 'a', new_string: 'b' }),
+      toolMessage('Read README.md', { file_path: '/repo/README.md' }),
+      toolMessage('Edit notebook', { notebook_path: '/repo/n.ipynb', new_source: '' }),
       toolMessage('developer__shell', { command: 'echo hi > d.ts' }),
     ];
     expect([...writtenPaths(messages, ROOT)]).toEqual([
       '/repo/src/a.ts',
       '/repo/b.ts',
       '/elsewhere/c.ts',
+      '/repo/n.ipynb',
     ]);
   });
 

@@ -144,19 +144,32 @@ export function paneState(state: TreeState, mode: 'desktop' | 'phone'): FilesPan
   return unreadableSubtree ? 'partial' : null;
 }
 
-// Tool calls that write a file, by name and argument: goose's own editor and the file tools
-// an ACP runtime forwards (kind and locations do not reach the renderer; the args do).
-const WRITE_TOOLS: Record<string, string> = {
-  Write: 'file_path',
-  Edit: 'file_path',
-  MultiEdit: 'file_path',
-  NotebookEdit: 'notebook_path',
-};
+// Tool calls that write a file, by argument shape: goose's own editor by command, and the
+// file tools an ACP runtime forwards by the argument only a write carries (the renderer gets
+// the call's title, not its name, and neither kind nor locations).
+const FORWARDED_WRITE_SHAPES: ReadonlyArray<[path: string, marker: string]> = [
+  ['file_path', 'content'],
+  ['file_path', 'old_string'],
+  ['file_path', 'edits'],
+  ['notebook_path', 'new_source'],
+];
 
 function writtenPathOf(name: string, args: Record<string, unknown>): string | null {
-  const key = name.endsWith('text_editor') && args.command !== 'view' ? 'path' : WRITE_TOOLS[name];
+  const key = name.endsWith('text_editor')
+    ? args.command !== 'view'
+      ? 'path'
+      : undefined
+    : FORWARDED_WRITE_SHAPES.find(([, marker]) => marker in args)?.[0];
   const value = key ? args[key] : undefined;
   return typeof value === 'string' && value !== '' ? value : null;
+}
+
+// Directories the pane has entries for; a remounted pane refetches them in case the agent
+// wrote while its watch was down.
+export function loadedDirs(state: TreeState): string[] {
+  return Object.entries(state.dirs)
+    .filter(([, load]) => load.status === 'loaded')
+    .map(([dir]) => dir);
 }
 
 function absolute(cwd: string, path: string): string {

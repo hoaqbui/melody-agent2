@@ -23,6 +23,7 @@ import {
   isWritten,
   leaveDir,
   listing,
+  loadedDirs,
   markLoading,
   paneState,
   setEntries,
@@ -83,6 +84,9 @@ export function FilesPane() {
   useEffect(() => {
     let socket: WebSocket | null = null;
     let closed = false;
+    // The pane unmounts with its watch on every tab switch, so what the agent wrote
+    // meanwhile is only seen by asking again.
+    loadedDirs(store.getState()).forEach(load);
     // A watch that fails leaves the tree as it is; the rows still load on demand.
     sidecarSocket('/fs/watch', { path: cwd })
       .then((opened) => {
