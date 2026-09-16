@@ -167,14 +167,20 @@
   "browserPane.address": {
     "defaultMessage": "Address"
   },
+  "browserPane.back": {
+    "defaultMessage": "Back"
+  },
+  "browserPane.forward": {
+    "defaultMessage": "Forward"
+  },
   "browserPane.frame": {
     "defaultMessage": "Browser"
   },
-  "browserPane.go": {
-    "defaultMessage": "Go"
-  },
   "browserPane.invalidUrl": {
     "defaultMessage": "Only http and https URLs open here"
+  },
+  "browserPane.loadFailed": {
+    "defaultMessage": "{cause} — Refresh to try again"
   },
   "browserPane.loading": {
     "defaultMessage": "Loading…"
@@ -182,8 +188,20 @@
   "browserPane.noDevServer": {
     "defaultMessage": "No dev server listed — enter a URL"
   },
-  "browserPane.reset": {
-    "defaultMessage": "Reset"
+  "browserPane.refresh": {
+    "defaultMessage": "Refresh"
+  },
+  "browserPane.share": {
+    "defaultMessage": "Share with agent"
+  },
+  "browserPane.shareUrlOnly": {
+    "defaultMessage": "Share sends the address only from here"
+  },
+  "browserPane.stop": {
+    "defaultMessage": "Stop"
+  },
+  "browserPane.suggestions": {
+    "defaultMessage": "Recently opened"
   },
   "browserPane.unreachable": {
     "defaultMessage": "{url} is not reachable from here — it is localhost on {mac}"

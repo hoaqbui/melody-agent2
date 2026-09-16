@@ -58,6 +58,7 @@ declare global {
     'clear-initial-message': CustomEvent<{
       sessionId: string;
     }>;
+    'insert-input-text': CustomEvent<string>;
     responseStyleChanged: CustomEvent;
     'session-created': CustomEvent<{ session?: import('./types/session').Session }>;
     'session-deleted': CustomEvent<{ sessionId: string }>;
@@ -66,6 +67,16 @@ declare global {
       newName: string;
       userInitiated?: boolean;
     }>;
+  }
+}
+
+// Electron's <webview> is a custom element the renderer only sees with `webviewTag` on; the
+// Browser pane types the methods it calls itself (src/workspace cannot import 'electron').
+declare module 'react' {
+  namespace JSX {
+    interface IntrinsicElements {
+      webview: React.DetailedHTMLProps<React.HTMLAttributes<HTMLElement>, HTMLElement>;
+    }
   }
 }
 

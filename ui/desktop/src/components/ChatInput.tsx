@@ -767,6 +767,29 @@ export default function ChatInput({
     }
   }, [displayValue, textAreaRef, minTextareaHeight]);
 
+  // A pane hands text to the chat (the Browser's Share with agent): it lands at the caret,
+  // visibly, and the box takes focus so the user reads it before sending. Every mounted
+  // session has an input (ChatSessionsContainer hides the inactive ones), so only the one
+  // on screen takes it.
+  useEffect(() => {
+    const handleInsertInputText = (event: Event) => {
+      const textarea = textAreaRef.current;
+      if (!textarea?.checkVisibility()) return;
+      const inserted = (event as CustomEvent<string>).detail;
+      const start = textarea.selectionStart;
+      const end = textarea.selectionEnd;
+      applyInputValue(displayValue.slice(0, start) + inserted + displayValue.slice(end));
+      setHasUserTyped(true);
+      const caret = start + inserted.length;
+      requestAnimationFrame(() => {
+        textarea.focus();
+        textarea.setSelectionRange(caret, caret);
+      });
+    };
+    window.addEventListener(AppEvents.INSERT_INPUT_TEXT, handleInsertInputText);
+    return () => window.removeEventListener(AppEvents.INSERT_INPUT_TEXT, handleInsertInputText);
+  }, [applyInputValue, displayValue, textAreaRef]);
+
   const handleChange = (evt: React.ChangeEvent<HTMLTextAreaElement>) => {
     const val = evt.target.value;
     const cursorPosition = evt.target.selectionStart;
