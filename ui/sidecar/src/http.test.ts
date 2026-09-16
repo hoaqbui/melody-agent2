@@ -29,9 +29,15 @@ const send = (
 describe('jsonDispatcher', () => {
   let server: Server;
   let port = 0;
+  let handled = 0;
 
   beforeAll(async () => {
-    const routes = { 'POST /fs/list': async () => ({ entries: [] }) };
+    const routes = {
+      'POST /fs/list': async () => {
+        handled += 1;
+        return { entries: [] };
+      },
+    };
     const dispatch = jsonDispatcher(routes, [ALLOWED]);
     server = createServer((request, response) => {
       if (!dispatch(request, response)) {
@@ -89,5 +95,29 @@ describe('jsonDispatcher', () => {
       'access-control-request-method': 'POST',
     });
     expect(reply.status).toBe(404);
+  });
+
+  it('rejects a non-JSON content type with 415 before the handler runs', async () => {
+    const before = handled;
+    const plain = await send(port, 'POST', '/fs/list', {
+      origin: UNLISTED,
+      'content-type': 'text/plain',
+    });
+    expect(plain.status).toBe(415);
+    expect(plain.headers['access-control-allow-origin']).toBeUndefined();
+
+    const untyped = await send(port, 'POST', '/fs/list', { origin: UNLISTED });
+    expect(untyped.status).toBe(415);
+    expect(handled).toBe(before);
+  });
+
+  it('accepts application/json with a charset parameter', async () => {
+    const before = handled;
+    const reply = await send(port, 'POST', '/fs/list', {
+      origin: ALLOWED,
+      'content-type': 'Application/JSON; charset=utf-8',
+    });
+    expect(reply.status).toBe(200);
+    expect(handled).toBe(before + 1);
   });
 });
