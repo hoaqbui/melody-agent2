@@ -104,6 +104,30 @@
   "appsView.title": {
     "defaultMessage": "アプリ"
   },
+  "artifactPane.copied": {
+    "defaultMessage": "Copied"
+  },
+  "artifactPane.copy": {
+    "defaultMessage": "Copy"
+  },
+  "artifactPane.empty": {
+    "defaultMessage": "No artifacts yet — delegate work and the results land here"
+  },
+  "artifactPane.list": {
+    "defaultMessage": "Artifacts"
+  },
+  "artifactPane.loading": {
+    "defaultMessage": "Loading…"
+  },
+  "artifactPane.noTranscript": {
+    "defaultMessage": "No artifact yet — the worker has not replied"
+  },
+  "artifactPane.openTranscript": {
+    "defaultMessage": "Open transcript"
+  },
+  "artifactPane.retry": {
+    "defaultMessage": "Retry"
+  },
   "authSettings.activeProviderWarning": {
     "defaultMessage": "これは現在使用中のプロバイダーです。別の認証情報を設定するまで、新しいリクエストが失敗する可能性があります。"
   },
@@ -5413,6 +5437,9 @@
   },
   "workspaceShell.paneAgents": {
     "defaultMessage": "Agents"
+  },
+  "workspaceShell.paneArtifact": {
+    "defaultMessage": "Artifact"
   },
   "workspaceShell.paneBrowser": {
     "defaultMessage": "Browser"

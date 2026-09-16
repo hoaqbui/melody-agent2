@@ -37,6 +37,7 @@ import ProviderSettings from './components/settings/providers/ProviderSettingsPa
 import { AppLayout } from './components/Layout/AppLayout';
 import ChatSessionsContainer from './components/ChatSessionsContainer';
 import { WorkspaceShell } from './workspace/WorkspaceShell';
+import { ArtifactPane } from './workspace/panes/artifact/ArtifactPane';
 import { BrowserPane } from './workspace/panes/browser/BrowserPane';
 import { DiffPane } from './workspace/panes/diff/DiffPane';
 import { EditorPane } from './workspace/panes/editor/EditorPane';
@@ -677,6 +678,7 @@ export function AppInner() {
                           browser: <BrowserPane />,
                           markdown: <MarkdownPane />,
                           agents: <AgentsPane />,
+                          artifact: <ArtifactPane />,
                         }}
                       >
                         <Outlet />
