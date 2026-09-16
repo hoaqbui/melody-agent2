@@ -89,6 +89,8 @@ import type {
   ListProvidersResponse_unstable,
   ListRecipesRequest_unstable,
   ListRecipesResponse_unstable,
+  ListScheduleRunsRequest_unstable,
+  ListScheduleRunsResponse_unstable,
   ListScheduleSessionsRequest_unstable,
   ListScheduleSessionsResponse_unstable,
   ListSchedulesRequest_unstable,
@@ -223,6 +225,7 @@ import {
   zListPromptsResponse_unstable,
   zListProvidersResponse_unstable,
   zListRecipesResponse_unstable,
+  zListScheduleRunsResponse_unstable,
   zListScheduleSessionsResponse_unstable,
   zListSchedulesResponse_unstable,
   zListSlashCommandsResponse_unstable,
@@ -971,6 +974,18 @@ export class GooseExtClient {
     return zListScheduleSessionsResponse_unstable.parse(
       raw,
     ) as ListScheduleSessionsResponse_unstable;
+  }
+
+  async schedulesRuns_unstable(
+    params: ListScheduleRunsRequest_unstable,
+  ): Promise<ListScheduleRunsResponse_unstable> {
+    const raw = await this.conn.request(
+      "_goose/unstable/schedules/runs",
+      params,
+    );
+    return zListScheduleRunsResponse_unstable.parse(
+      raw,
+    ) as ListScheduleRunsResponse_unstable;
   }
 
   async schedulesCreate_unstable(

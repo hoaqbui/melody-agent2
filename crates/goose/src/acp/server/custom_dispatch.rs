@@ -572,6 +572,14 @@ impl GooseAcpAgent {
         self.on_list_schedule_sessions(req).await
     }
 
+    #[custom_method(ListScheduleRunsRequest)]
+    async fn dispatch_list_schedule_runs(
+        &self,
+        req: ListScheduleRunsRequest,
+    ) -> Result<ListScheduleRunsResponse, agent_client_protocol::Error> {
+        self.on_list_schedule_runs(req).await
+    }
+
     #[custom_method(CreateScheduleRequest)]
     async fn dispatch_create_schedule(
         &self,
