@@ -871,7 +871,7 @@ impl SummonClient {
                 },
                 "working_dir": {
                     "type": "string",
-                    "description": "Working directory for the delegate. Must be within the parent session's working directory. Defaults to the parent's working directory."
+                    "description": "Working directory for the delegate. Must be within the parent session's working directory or its git repository (e.g. <toplevel>/.worktrees/<slug>). Defaults to the parent's working directory."
                 },
                 "async": {
                     "type": "boolean",
@@ -1787,8 +1787,20 @@ impl SummonClient {
             }
         }
 
+        let effective_working_dir = match &params.working_dir {
+            Some(dir) => resolve_working_dir(&session.working_dir, dir)?,
+            None => session.working_dir.clone(),
+        };
+
         let (provider, model_config) = self
-            .resolve_rolled_provider(params, recipe, runtimes, session, &extensions)
+            .resolve_rolled_provider(
+                params,
+                recipe,
+                runtimes,
+                session,
+                &extensions,
+                &effective_working_dir,
+            )
             .await?;
 
         let max_turns = params
@@ -1803,11 +1815,6 @@ impl SummonClient {
                 max_turns
             );
         }
-
-        let effective_working_dir = match &params.working_dir {
-            Some(dir) => resolve_working_dir(&session.working_dir, dir)?,
-            None => session.working_dir.clone(),
-        };
 
         let task_config = TaskConfig::new(
             provider,
@@ -1922,6 +1929,7 @@ impl SummonClient {
         runtimes: &[AgentRuntime],
         session: &crate::session::Session,
         extensions: &[crate::config::ExtensionConfig],
+        working_dir: &Path,
     ) -> Result<
         (
             Arc<dyn crate::providers::base::Provider>,
@@ -1934,7 +1942,7 @@ impl SummonClient {
             || std::env::var("GOOSE_SUBAGENT_PROVIDER").is_ok()
         {
             return self
-                .resolve_provider(params, recipe, session, extensions)
+                .resolve_provider(params, recipe, session, extensions, working_dir)
                 .await;
         }
 
@@ -1958,7 +1966,7 @@ impl SummonClient {
             };
             let rolled = with_runtime(recipe, &pick);
             match self
-                .resolve_provider(params, &rolled, session, extensions)
+                .resolve_provider(params, &rolled, session, extensions, working_dir)
                 .await
             {
                 Ok(resolved) => return Ok(resolved),
@@ -1982,6 +1990,7 @@ impl SummonClient {
         recipe: &Recipe,
         session: &crate::session::Session,
         extensions: &[crate::config::ExtensionConfig],
+        working_dir: &Path,
     ) -> Result<
         (
             Arc<dyn crate::providers::base::Provider>,
@@ -2020,7 +2029,11 @@ impl SummonClient {
             provider_default_model,
         )?;
         let provider = match provider_entry {
-            Ok(entry) => entry.create(extensions.to_vec()).await?,
+            Ok(entry) => {
+                entry
+                    .create_with_working_dir(extensions.to_vec(), working_dir.to_path_buf())
+                    .await?
+            }
             Err(error) => {
                 let parent_provider = if let Some(extension_manager) = self
                     .context
@@ -2475,7 +2488,10 @@ impl McpClientTrait for SummonClient {
 
 /// Resolve a requested `working_dir` override against the parent session
 /// directory. Relative paths are joined to the parent dir; the result must
-/// canonicalize to an existing directory contained within the parent dir.
+/// canonicalize to an existing directory contained within the parent dir or,
+/// when the parent dir sits in a git repository, within that repository's
+/// toplevel — so a session opened in a subdirectory can still reach
+/// `<toplevel>/.worktrees/<slug>`.
 fn resolve_working_dir(parent_dir: &Path, requested: &str) -> Result<PathBuf, anyhow::Error> {
     let requested_path = PathBuf::from(requested);
     let resolved = if requested_path.is_absolute() {
@@ -2489,9 +2505,10 @@ fn resolve_working_dir(parent_dir: &Path, requested: &str) -> Result<PathBuf, an
     let parent_canonical = parent_dir
         .canonicalize()
         .unwrap_or_else(|_| parent_dir.to_path_buf());
-    if !canonical.starts_with(&parent_canonical) {
+    let containment_root = git_toplevel(&parent_canonical).unwrap_or(parent_canonical);
+    if !canonical.starts_with(&containment_root) {
         anyhow::bail!(
-            "working_dir '{}' is outside the parent session directory",
+            "working_dir '{}' is outside the parent session directory and its git repository",
             requested
         );
     }
@@ -2499,6 +2516,20 @@ fn resolve_working_dir(parent_dir: &Path, requested: &str) -> Result<PathBuf, an
         anyhow::bail!("working_dir '{}' is not a directory", requested);
     }
     Ok(canonical)
+}
+
+fn git_toplevel(dir: &Path) -> Option<PathBuf> {
+    let output = std::process::Command::new("git")
+        .arg("-C")
+        .arg(dir)
+        .args(["rev-parse", "--show-toplevel"])
+        .output()
+        .ok()?;
+    if !output.status.success() {
+        return None;
+    }
+    let toplevel = String::from_utf8(output.stdout).ok()?;
+    PathBuf::from(toplevel.trim_end()).canonicalize().ok()
 }
 
 #[cfg(test)]
@@ -2692,6 +2723,37 @@ You research."#,
             "unexpected error: {err}"
         );
     }
+
+    #[test]
+    fn test_resolve_working_dir_accepts_git_toplevel_sibling() {
+        let temp_dir = TempDir::new().unwrap();
+        let repo = temp_dir.path().join("repo");
+        let parent = repo.join("ui");
+        let worktree = repo.join(".worktrees").join("x");
+        let outside = temp_dir.path().join("outside");
+        fs::create_dir_all(&parent).unwrap();
+        fs::create_dir_all(&worktree).unwrap();
+        fs::create_dir(&outside).unwrap();
+        let status = std::process::Command::new("git")
+            .arg("-C")
+            .arg(&repo)
+            .arg("init")
+            .arg("--quiet")
+            .status()
+            .unwrap();
+        assert!(status.success());
+
+        let resolved = resolve_working_dir(&parent, "../.worktrees/x").unwrap();
+        assert_eq!(resolved, worktree.canonicalize().unwrap());
+
+        let err = resolve_working_dir(&parent, outside.to_str().unwrap()).unwrap_err();
+        assert!(
+            err.to_string()
+                .contains("outside the parent session directory"),
+            "unexpected error: {err}"
+        );
+    }
+
     #[test]
     fn test_agent_scan_skips_non_agent_markdown() {
         let temp_dir = TempDir::new().unwrap();
@@ -3263,7 +3325,7 @@ You research."#,
             ..Default::default()
         };
         let (resolved_provider, _) = client
-            .resolve_provider(&params, &empty_recipe(), &session, &[])
+            .resolve_provider(&params, &empty_recipe(), &session, &[], temp_dir.path())
             .await
             .unwrap();
 
@@ -3303,6 +3365,85 @@ You research."#,
 
         assert!(!Arc::ptr_eq(&parent_provider, &task_config.provider));
         assert!(task_config.extensions.is_empty());
+    }
+
+    const WORKING_DIR_STUB: &str = "summon-working-dir-stub";
+    static STUB_WORKING_DIR: std::sync::Mutex<Option<PathBuf>> = std::sync::Mutex::new(None);
+
+    struct WorkingDirStubProvider;
+
+    impl goose_providers::base::ProviderDescriptor for WorkingDirStubProvider {
+        fn metadata() -> crate::providers::base::ProviderMetadata {
+            crate::providers::base::ProviderMetadata::new(
+                WORKING_DIR_STUB,
+                "Working dir stub",
+                "Records the working directory the registry builds a delegate with",
+                "stub-model",
+                vec!["stub-model"],
+                "",
+                vec![],
+            )
+        }
+    }
+
+    impl crate::providers::base::ProviderDef for WorkingDirStubProvider {
+        type Provider = crate::providers::testprovider::TestProvider;
+
+        fn from_env(
+            _extensions: Vec<crate::config::ExtensionConfig>,
+            _tls_config: Option<crate::providers::api_client::TlsConfig>,
+        ) -> futures::future::BoxFuture<'static, Result<Self::Provider>> {
+            Box::pin(async { Err(anyhow::anyhow!("stub expects a working dir")) })
+        }
+
+        fn from_env_with_working_dir(
+            _extensions: Vec<crate::config::ExtensionConfig>,
+            working_dir: PathBuf,
+            _tls_config: Option<crate::providers::api_client::TlsConfig>,
+        ) -> futures::future::BoxFuture<'static, Result<Self::Provider>> {
+            *STUB_WORKING_DIR.lock().unwrap() = Some(working_dir.clone());
+            Box::pin(async move {
+                crate::providers::testprovider::TestProvider::new_replaying(
+                    working_dir.join("records.json").display().to_string(),
+                )
+            })
+        }
+    }
+
+    #[tokio::test]
+    #[serial]
+    async fn subagent_provider_working_dir_is_the_childs() {
+        let _env = env_lock::lock_env([
+            ("GOOSE_SUBAGENT_PROVIDER", None::<&str>),
+            ("GOOSE_SUBAGENT_MODEL", None::<&str>),
+        ]);
+        providers::register_for_test::<WorkingDirStubProvider>().await;
+        let temp_dir = TempDir::new().unwrap();
+        let child_dir = temp_dir.path().join("child");
+        fs::create_dir(&child_dir).unwrap();
+
+        let client = SummonClient::new(create_test_context()).unwrap();
+        let session = crate::session::Session {
+            working_dir: temp_dir.path().to_path_buf(),
+            ..Default::default()
+        };
+        let params = DelegateParams {
+            extensions: Some(Vec::new()),
+            provider: Some(WORKING_DIR_STUB.to_string()),
+            model: Some("stub-model".to_string()),
+            working_dir: Some("child".to_string()),
+            ..Default::default()
+        };
+
+        let task_config = client
+            .build_task_config(&params, &empty_recipe(), &[], &session)
+            .await
+            .unwrap();
+
+        let recorded = STUB_WORKING_DIR.lock().unwrap().clone().unwrap();
+        assert_eq!(recorded, child_dir.canonicalize().unwrap());
+        assert_eq!(recorded, task_config.parent_working_dir);
+        assert_ne!(recorded, std::env::current_dir().unwrap());
     }
 
     const PARENT_MODEL: &str = "claude-3-5-sonnet-20241022";
@@ -3549,7 +3690,7 @@ You research."#,
             ..Default::default()
         };
         let (_, result) = client
-            .resolve_provider(&params, &recipe, &session, &[])
+            .resolve_provider(&params, &recipe, &session, &[], &session.working_dir)
             .await
             .expect("resolve_provider");
 
@@ -3579,6 +3720,7 @@ You research."#,
                 &empty_recipe(),
                 &session_with(parent_config()),
                 &[],
+                Path::new("."),
             )
             .await
             .expect("resolve_provider");
