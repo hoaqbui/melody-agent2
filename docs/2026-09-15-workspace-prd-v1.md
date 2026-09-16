@@ -89,6 +89,23 @@
      a tab rail, chat included
    - → [Centre: chat + pane, resizable]; close → [pane returns to the
      side panel]
+   - amended 2026-09-15 (user: "make them panels you can tear off and
+     reposition on the right"; supersedes decision 3, chat + one centre
+     pane): the chat stays in the centre and the centre pane goes; the
+     side panel becomes a right dock of panels stacked top to bottom,
+     each a tab strip over one visible pane
+     - does: click a pane's launcher → it opens as a tab in the panel
+       that holds it, else the top panel, else a new panel; drag a tab
+       out of its strip (or shift-click the launcher) → it tears off
+       into a new panel below its source; drag a tab into another
+       strip, drag a panel header to reorder, drag a seam to resize
+     - rule: a pane keeps its identity across every move, so contents
+       survive repositioning (criterion 5); a panel emptied by its
+       last tab closing disappears into its neighbour; at phone width
+       the dock folds away behind the chat and the rail is unchanged —
+       one pane at a time, chat first
+     - → [Right dock: N panels, resizable]; close → [tab returns into
+       its launcher (DESIGN.md §Principles, Into Rule)]
 
 9. [Session on Claude, mid-conversation] · P0
    - does: change the runtime selector to Codex

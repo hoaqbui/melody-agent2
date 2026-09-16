@@ -22,19 +22,24 @@ Region names are the `ARCHITECTURE.md` §Modules they render into (`workspace`, 
 Application window
 ├── header — `workspace`: project name · Runtime ▾ · Mode ▾ (PRODUCT.md §11 sketch; PRD :36-47)
 ├── sessions — `components`: upstream's session list, unchanged (PRD :33)
-├── centre — chat plus at most one pane, resizable (`pane-store.ts:18`; PRD :85-91)
-│   ├── RPI strip — `workspace`, above the chat · later (PRD :110-117)
-│   ├── chat — `components`: transcript, tool rows, input with ⌘Enter; never moves
-│   └── centre pane — `workspace`: the one promoted pane, or nothing (`pane-store.ts:18`)
-└── side panel — `workspace`: tabs Files · Editor · Diff · Terminal · Git in rail order (`pane-store.ts:6`)
-    └── later: Agents · Browser · Markdown (PRD :101-123; PRODUCT.md §11)
+├── centre — the chat; never a pane (PRD :84-108, amended 2026-09-15)
+│   ├── RPI strip — `workspace`, above the chat · later (PRD :127-134)
+│   └── chat — `components`: transcript, tool rows, input with ⌘Enter; never moves
+└── right dock — `workspace`: panels stacked top to bottom, each a tab strip over one visible pane;
+    │           sizes are fractions of the dock's height summing to 1 (`pane-store.ts:14-19`, `:25`)
+    ├── panel — tabs Files · Editor · Diff · Terminal · Git open here in launcher order (`pane-store.ts:6`)
+    │           tear a tab off → a new panel below its source, half its height (`pane-store.ts:106`)
+    │           drag a panel → reorder; drag a seam → resize against the neighbour (`:141`, `:150`)
+    │           close the last tab → the panel disappears into its neighbour (`pane-store.ts:76`)
+    └── later: Agents · Browser · Markdown (PRD :118-140; PRODUCT.md §11)
 
-Phone width (≤ PHONE_MAX_WIDTH_PX, `pane-store.ts:10`, `:25-27`)
-└── tab rail — chat first, then the same tabs; one thing visible, no split (`pane-store.ts:22`; PRD :125-135)
+Phone width (≤ PHONE_MAX_WIDTH_PX, `pane-store.ts:10`, `:35-37`)
+└── tab rail — chat first, then the same tabs; one thing visible, no split (`pane-store.ts:27`; PRD :142-152)
 ```
 
+- 2026-09-15 amendment (tasks 41–42): the side panel and the one centre pane become the right dock; §Principles One Pane Rule and §Vocabulary rows "side panel" / "beside the chat" describe the superseded layout and wait on task 42's rewiring. Until then `centre` / `activeSide` / `sideTabs` are adapters over the dock (`pane-store.ts:184-201`).
 - The header and the chat keep their location and meaning at every width; the Hub and the spotlight launcher are upstream's, unchanged (PRD `:28-30`).
-- As space contracts: the centre pane goes first and becomes the visible rail tab (`pane-store.ts:77-78`); then the session list; the chat never shrinks below one readable line and its input. Growing back restores the pane to the centre (`pane-store.ts:80-81`, `pane-store.test.ts:74`).
+- As space contracts: the dock folds away whole behind the chat, its panels kept (`pane-store.ts:176-179`); then the session list; the chat never shrinks below one readable line and its input. Growing back shows the dock as it was, plus the pane the phone had on screen (`pane-store.ts:180-181`, `pane-store.test.ts:173`).
 - Dense surfaces: pane contents (tree, diff, terminal, git lists) at upstream's compact sizes; the header, tabs and chat are never dense.
 - Overlays: upstream's stack, unchanged — dialogs (`ui/desktop/src/components/ui/dialog.tsx`) above toasts (`react-toastify`, `ui/desktop/package.json:96`); the fork adds no overlay. A pane is never an overlay. Focus returns to the control that opened the dialog; Esc dismisses a dialog, and only a dialog (see §Accessibility).
 
