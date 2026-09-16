@@ -192,7 +192,7 @@ re-checked at the fork base `426967d` (v1.51.0, 2026-09-15): all hold;
 ### docs/2026-09-15-goose-spine-bridge-plan-v1.md
 
 - 22. Add `crates/goose/src/agents/session_bridge.rs` (registered in `agents/mod.rs`): a lazily started loopback `axum` listener (`127.0.0.1:0`, per-process random secret) serving `POST /mcp/{session_id}` as stateless MCP JSON-RPC — `initialize`, `notifications/initialized` (202), `ping`, `tools/list` (the session agent's tools whose extension is `summon`, published under their unprefixed names), `tools/call` (dispatched through `agent.extension_manager.dispatch_tool_call` with `ToolCallContext::new(session_id, Some(working_dir), None)` and a `CancellationToken` cancelled when the request future drops) — with `SessionBridge::global()`, `register(session_id, Weak<Agent>, working_dir)`, `unregister(session_id)`, and `extension_config(session_id) -> ExtensionConfig::StreamableHttp { name: "goose", uri, headers: {"X-Secret-Key": secret} }`.
-  - status: todo · agent: — · worker: high
+  - status: doing · agent: claude-session-opus-2 (21:05, worker via agy) · worker: high
   - card: as an orchestrator running on a subscription runtime, call Goose's `delegate` and `load` so that delegation, child-session lineage and transcripts stay Goose's whatever harness is thinking (spine research §Options → pick; `ARCHITECTURE.md` §Modules, spine)
   - context:
     - auth: `X-Secret-Key` header, constant-time compare (`crates/goose/src/acp/transport/auth.rs:9-13` is the pattern); unknown session → 404; bad or missing secret → 401; bind loopback only, never `0.0.0.0`
