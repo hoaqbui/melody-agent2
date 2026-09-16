@@ -35,7 +35,7 @@ function createGooseServeResult(
 describe('GooseServeLeaseRegistry', () => {
   it('returns the ACP URL for an attached live lease', () => {
     const store = new GooseServeLeaseRegistry(createLogger());
-    const lease = store.create(createGooseServeResult(), 'local-secret', null);
+    const lease = store.create(createGooseServeResult(), 'local-secret', null, null);
 
     store.attachWindow(1, lease);
 
@@ -46,21 +46,29 @@ describe('GooseServeLeaseRegistry', () => {
   it('keeps the sidecar URL on the lease and hides it once the backend exits', () => {
     const store = new GooseServeLeaseRegistry(createLogger());
     const result = createGooseServeResult();
-    const lease = store.create(result, 'local-secret', 'http://127.0.0.1:4321');
+    const lease = store.create(
+      result,
+      'local-secret',
+      'http://127.0.0.1:4321',
+      'http://100.127.56.10:4321'
+    );
     store.attachWindow(1, lease);
 
     expect(store.getSidecarUrl(1)).toBe('http://127.0.0.1:4321');
     expect(store.getSidecarUrl(2)).toBeNull();
+    expect(store.getPhoneUrl(1)).toBe('http://100.127.56.10:4321');
+    expect(store.getPhoneUrl(2)).toBeNull();
 
     result.process.emit('exit', 1, null);
     expect(() => store.getSidecarUrl(1)).toThrow(GOOSE_SERVE_EXITED_USER_MESSAGE);
+    expect(() => store.getPhoneUrl(1)).toThrow(GOOSE_SERVE_EXITED_USER_MESSAGE);
   });
 
   it('throws a recovery message after the process exits', () => {
     const logger = createLogger();
     const store = new GooseServeLeaseRegistry(logger);
     const result = createGooseServeResult();
-    const lease = store.create(result, 'local-secret', null);
+    const lease = store.create(result, 'local-secret', null, null);
     store.attachWindow(1, lease);
 
     result.process.emit('exit', 1, null);
@@ -81,6 +89,7 @@ describe('GooseServeLeaseRegistry', () => {
         getExitDetails: () => ({ code: null, signal: 'SIGTERM' }),
       }),
       'local-secret',
+      null,
       null
     );
 
@@ -92,7 +101,7 @@ describe('GooseServeLeaseRegistry', () => {
   it('cleans up once after the last attached window is released', async () => {
     const cleanup = vi.fn(async () => undefined);
     const store = new GooseServeLeaseRegistry(createLogger());
-    const lease = store.create(createGooseServeResult({ cleanup }), 'local-secret', null);
+    const lease = store.create(createGooseServeResult({ cleanup }), 'local-secret', null, null);
     store.attachWindow(1, lease);
     store.attachWindow(2, lease);
 

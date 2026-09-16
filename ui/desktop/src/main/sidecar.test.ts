@@ -1,15 +1,52 @@
-import { describe, expect, it } from 'vitest';
+import { EventEmitter } from 'node:events';
+import { beforeEach, describe, expect, it, vi } from 'vitest';
 
 import {
+  DEFAULT_SIDECAR_PORT,
   gooseHttpOrigin,
+  phoneSidecarUrl,
   rendererOrigins,
   rendererSidecarUrl,
   sidecarArgs,
   sidecarEntryPath,
   sidecarEnv,
+  sidecarPortSetting,
+  startSidecar,
   type StartSidecarOptions,
   withSidecarKey,
 } from './sidecar';
+
+// A fake utility process per fork: an `exit` with a code, or the sidecar's listening lines.
+type Script = { exit: number } | { listening: string[] };
+const scripts: Script[] = [];
+const forks: string[][] = [];
+
+vi.mock('electron', () => ({
+  utilityProcess: {
+    fork: (_entry: string, args: string[]) => {
+      forks.push(args);
+      const script = scripts.shift();
+      const child = Object.assign(new EventEmitter(), {
+        stdout: new EventEmitter(),
+        stderr: new EventEmitter(),
+        kill: vi.fn(),
+      });
+      process.nextTick(() => {
+        if (!script) throw new Error('unscripted fork');
+        if ('exit' in script) {
+          child.stderr.emit('data', Buffer.from('failed to bind 127.0.0.1:7788: EADDRINUSE'));
+          child.emit('exit', script.exit);
+        } else {
+          child.stdout.emit(
+            'data',
+            Buffer.from(script.listening.map((url) => `SIDECAR_LISTENING=${url}`).join('\n'))
+          );
+        }
+      });
+      return child;
+    },
+  },
+}));
 
 const options: StartSidecarOptions = {
   entry: '/repo/ui/sidecar/dist/index.js',
@@ -21,8 +58,14 @@ const options: StartSidecarOptions = {
   staticDir: null,
   allowedOrigins: [],
   loginShellPath: null,
+  port: DEFAULT_SIDECAR_PORT,
   logger: { info: () => {}, error: () => {} },
 };
+
+beforeEach(() => {
+  scripts.length = 0;
+  forks.length = 0;
+});
 
 describe('withSidecarKey', () => {
   it('puts the key on the root of each listener so the phone and the renderer get one URL', () => {
@@ -70,6 +113,27 @@ describe('rendererSidecarUrl', () => {
   });
 });
 
+describe('phoneSidecarUrl', () => {
+  it('picks the tailnet listener and nothing without one', () => {
+    expect(phoneSidecarUrl(['http://100.127.56.10:7788', 'http://127.0.0.1:7788'])).toBe(
+      'http://100.127.56.10:7788'
+    );
+    expect(phoneSidecarUrl(['http://127.0.0.1:7788'])).toBeNull();
+  });
+});
+
+describe('sidecarPortSetting', () => {
+  it('takes a port in range and defaults everything else', () => {
+    expect(sidecarPortSetting(7788)).toBe(7788);
+    expect(sidecarPortSetting(0)).toBe(0);
+    expect(sidecarPortSetting(65535)).toBe(65535);
+    expect(sidecarPortSetting(undefined)).toBe(DEFAULT_SIDECAR_PORT);
+    expect(sidecarPortSetting('7788')).toBe(DEFAULT_SIDECAR_PORT);
+    expect(sidecarPortSetting(65536)).toBe(DEFAULT_SIDECAR_PORT);
+    expect(sidecarPortSetting(7788.5)).toBe(DEFAULT_SIDECAR_PORT);
+  });
+});
+
 describe('gooseHttpOrigin', () => {
   it('drops the token and path from the goose serve ACP URL', () => {
     expect(gooseHttpOrigin('wss://127.0.0.1:52301/acp?token=s3cret')).toBe(
@@ -105,7 +169,7 @@ describe('sidecarArgs', () => {
       sidecarArgs({ ...options, allowedOrigins: ['http://localhost:5173', 'http://mac:5173'] })
     ).toEqual([
       '--port',
-      '0',
+      '7788',
       '--cwd',
       '/work',
       '--goose-url',
@@ -125,5 +189,32 @@ describe('sidecarArgs', () => {
 
   it("never puts goose serve's secret on the command line", () => {
     expect(sidecarArgs(options).join(' ')).not.toContain('s3cret');
+  });
+});
+
+describe('startSidecar', () => {
+  it('keys every listener on the fixed port', async () => {
+    scripts.push({ listening: ['http://100.127.56.10:7788', 'http://127.0.0.1:7788'] });
+    const result = await startSidecar(options);
+    expect(forks).toEqual([sidecarArgs(options)]);
+    expect(result.url).toMatch(/^http:\/\/127\.0\.0\.1:7788\/\?key=[0-9a-f]{64}$/);
+    expect(phoneSidecarUrl(result.urls)).toMatch(/^http:\/\/100\.127\.56\.10:7788\/\?key=/);
+  });
+
+  it('falls back to port 0 when the bind fails, and says so', async () => {
+    const info = vi.fn();
+    scripts.push({ exit: 2 }, { listening: ['http://127.0.0.1:64041'] });
+    const result = await startSidecar({ ...options, logger: { info, error: () => {} } });
+    expect(forks.map((args) => args[1])).toEqual(['7788', '0']);
+    expect(result.url).toMatch(/^http:\/\/127\.0\.0\.1:64041\//);
+    expect(info).toHaveBeenCalledWith('sidecar port 7788 taken, using 64041');
+  });
+
+  it('does not retry a port-0 launch or any other exit', async () => {
+    scripts.push({ exit: 2 });
+    await expect(startSidecar({ ...options, port: 0 })).rejects.toThrow('exited with code 2');
+    scripts.push({ exit: 1 });
+    await expect(startSidecar(options)).rejects.toThrow('exited with code 1');
+    expect(forks).toHaveLength(2);
   });
 });

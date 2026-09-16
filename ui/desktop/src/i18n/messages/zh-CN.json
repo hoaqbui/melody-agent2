@@ -4340,6 +4340,30 @@
   "settings.notifications.title": {
     "defaultMessage": "通知"
   },
+  "settings.phone.copied": {
+    "defaultMessage": "Copied"
+  },
+  "settings.phone.copy": {
+    "defaultMessage": "Copy"
+  },
+  "settings.phone.description": {
+    "defaultMessage": "Open goose on your phone over the tailnet — scan the code or copy the address"
+  },
+  "settings.phone.noTailnet": {
+    "defaultMessage": "No tailnet address — start Tailscale and relaunch goose"
+  },
+  "settings.phone.port": {
+    "defaultMessage": "Port"
+  },
+  "settings.phone.port.description": {
+    "defaultMessage": "The address the phone bookmarks; 0 lets the system pick. Takes effect at the next launch"
+  },
+  "settings.phone.qr": {
+    "defaultMessage": "QR code for the phone address"
+  },
+  "settings.phone.title": {
+    "defaultMessage": "Phone"
+  },
   "settings.preventSleep.description": {
     "defaultMessage": "goose 运行任务期间保持电脑不休眠（屏幕仍可锁定）"
   },
@@ -4999,6 +5023,9 @@
   },
   "workspaceShell.openInFiles": {
     "defaultMessage": "Open in Files"
+  },
+  "workspaceShell.openOnPhone": {
+    "defaultMessage": "Open on phone…"
   },
   "workspaceShell.optionFailed": {
     "defaultMessage": "Couldn't change {option}"

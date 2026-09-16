@@ -31,7 +31,14 @@ import { installBackendCertificateVerifiers } from './backendCertificateVerifier
 import { configureProxy } from './proxy';
 import { startGooseServe } from './gooseServe';
 import { getLoginShellPath } from './loginShellPath';
-import { gooseHttpOrigin, rendererOrigins, sidecarEntryPath, startSidecar } from './main/sidecar';
+import {
+  gooseHttpOrigin,
+  phoneSidecarUrl,
+  rendererOrigins,
+  sidecarEntryPath,
+  sidecarPortSetting,
+  startSidecar,
+} from './main/sidecar';
 import { GooseServeLeaseRegistry, type GooseServeLease } from './gooseServeLeaseRegistry';
 import { normalizeAcpHttpBaseUrl } from './acp/url';
 import { expandTilde, sanitizeGoosePathRoot } from './utils/pathUtils';
@@ -1266,6 +1273,7 @@ const createChat = async (
 
     const staticDir = path.join(app.getAppPath(), 'dist-web');
     let sidecarUrl: string | null = null;
+    let phoneUrl: string | null = null;
     try {
       const sidecar = await startSidecar({
         entry: sidecarEntryPath(app.isPackaged, app.getAppPath(), process.resourcesPath),
@@ -1277,12 +1285,14 @@ const createChat = async (
         staticDir: fsSync.existsSync(staticDir) ? staticDir : null,
         allowedOrigins: rendererOrigins(getAppUrl()),
         loginShellPath,
+        port: sidecarPortSetting(getSettings()['sidecar.port']),
         logger: log,
       });
       log.info(`sidecar listening at ${sidecar.urls.join(' ')}`);
       // The renderer reaches the sidecar over loopback, which connect-src already
       // names; the tailnet listener is the phone's and needs no CSP lease here.
       sidecarUrl = sidecar.url;
+      phoneUrl = phoneSidecarUrl(sidecar.urls);
       const cleanupWithoutSidecar = gooseServeResult.cleanup;
       gooseServeResult.cleanup = async () => {
         sidecar.cleanup();
@@ -1292,7 +1302,7 @@ const createChat = async (
       // The chat runs without the panes' process; only the sidecar-backed panes are lost.
       log.error('sidecar failed to start', error);
     }
-    gooseServeLease = gooseServeLeases.create(gooseServeResult, serverSecret, sidecarUrl);
+    gooseServeLease = gooseServeLeases.create(gooseServeResult, serverSecret, sidecarUrl, phoneUrl);
   }
 
   const cleanupUnregisteredGooseServeLease = async () => {
@@ -2043,6 +2053,7 @@ const validSettingKeys: Set<string> = new Set([
   'recentModels',
   'useLegacyAgentLoop',
   'workspace.ui',
+  'sidecar.port',
 ]);
 
 ipcMain.handle('set-setting', (_event, key: SettingKey, value: unknown) => {
@@ -2098,6 +2109,14 @@ ipcMain.handle('get-sidecar-url', async (event) => {
     return null;
   }
   return gooseServeLeases.getSidecarUrl(windowId) ?? null;
+});
+
+ipcMain.handle('get-phone-url', async (event) => {
+  const windowId = BrowserWindow.fromWebContents(event.sender)?.id;
+  if (!windowId) {
+    return null;
+  }
+  return gooseServeLeases.getPhoneUrl(windowId) ?? null;
 });
 
 // Handle menu bar icon visibility

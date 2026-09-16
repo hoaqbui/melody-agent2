@@ -30,6 +30,7 @@ import {
   GitBranch,
   GitCompare,
   Globe,
+  Smartphone,
   Terminal,
 } from 'lucide-react';
 import { v7 as uuidv7 } from 'uuid';
@@ -116,6 +117,7 @@ const i18n = defineMessages({
   modelFailed: { id: 'workspaceShell.modelFailed', defaultMessage: "Couldn't set model" },
   optionFailed: { id: 'workspaceShell.optionFailed', defaultMessage: "Couldn't change {option}" },
   advancedControls: { id: 'workspaceShell.advancedControls', defaultMessage: 'Advanced controls' },
+  openOnPhone: { id: 'workspaceShell.openOnPhone', defaultMessage: 'Open on phone…' },
   paneUnavailable: { id: 'workspaceShell.paneUnavailable', defaultMessage: 'Not available yet' },
   paneFiles: { id: 'workspaceShell.paneFiles', defaultMessage: 'Files' },
   paneEditor: { id: 'workspaceShell.paneEditor', defaultMessage: 'Editor' },
@@ -194,11 +196,12 @@ interface RailProps {
   docked: boolean;
   advanced: boolean;
   onToggleAdvanced(): void;
+  onOpenPhone(): void;
 }
 
 // The pane launchers, Terminal · Changes · Browser · ⋯; pressed = the pane is showing. One
 // layoutId per element, so the rail slides into the strip and back out (Into Rule).
-function Rail({ layout, onOpen, docked, advanced, onToggleAdvanced }: RailProps) {
+function Rail({ layout, onOpen, docked, advanced, onToggleAdvanced, onOpenPhone }: RailProps) {
   const intl = useIntl();
   const open = (id: PaneId) => (event: MouseEvent) => onOpen(id, event.shiftKey);
   const tooltipSide = docked ? 'bottom' : 'left';
@@ -298,6 +301,11 @@ function Rail({ layout, onOpen, docked, advanced, onToggleAdvanced }: RailProps)
             >
               <Check className={advanced ? undefined : 'invisible'} />
               {intl.formatMessage(i18n.advancedControls)}
+            </DropdownMenuItem>
+            {/* The phone's door (task 62): Settings › App's Phone card, the URL and its code. */}
+            <DropdownMenuItem data-testid="workspace-open-phone" onClick={onOpenPhone}>
+              <Smartphone />
+              {intl.formatMessage(i18n.openOnPhone)}
             </DropdownMenuItem>
           </DropdownMenuContent>
         </DropdownMenu>
@@ -882,6 +890,7 @@ export function WorkspaceShell({ chat, children, panes, paneStore }: WorkspaceSh
       docked={workOpen}
       advanced={workspaceUi === 'advanced'}
       onToggleAdvanced={toggleAdvanced}
+      onOpenPhone={() => setView('settings', { section: 'phone' })}
     />
   );
 
