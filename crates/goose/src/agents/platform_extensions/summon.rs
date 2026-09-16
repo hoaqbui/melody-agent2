@@ -5,6 +5,7 @@ use crate::agents::subagent_task_config::{TaskConfig, DEFAULT_SUBAGENT_MAX_TURNS
 use crate::agents::tool_execution::{ToolCallContext, ToolCallNotificationEmitter};
 use crate::agents::AgentConfig;
 use crate::config::paths::Paths;
+use crate::config::search_path::SearchPaths;
 use crate::config::{Config, GooseMode};
 use crate::providers;
 use crate::recipe::build_recipe::build_recipe_from_template;
@@ -18,11 +19,13 @@ use anyhow::Result;
 use async_trait::async_trait;
 use goose_agent::operation::messages_since_kickoff;
 use goose_sdk_types::custom_requests::{SourceEntry, SourceType};
+use rand::rngs::StdRng;
+use rand::{RngExt, SeedableRng};
 use rmcp::model::{
     CallToolResult, ContentBlock, Implementation, InitializeResult, JsonObject, ListToolsResult,
     MetaObject, Role, ServerCapabilities, ServerNotification, Tool,
 };
-use serde::Deserialize;
+use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
 use std::future::Future;
 use std::path::{Path, PathBuf};
@@ -82,6 +85,7 @@ pub struct DelegateParams {
     pub parameters: Option<HashMap<String, serde_json::Value>>,
     pub extensions: Option<Vec<String>>,
     pub provider: Option<String>,
+    pub exclude_provider: Option<String>,
     pub model: Option<String>,
     pub temperature: Option<f32>,
     pub max_turns: Option<usize>,
@@ -204,6 +208,19 @@ struct TaskLoadResult {
     duration_secs: Option<u64>,
 }
 
+/// One seat a role can run on. `weight: 0` is never rolled; it is the
+/// fail-over order once every weighted entry is gone.
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+struct AgentRuntime {
+    provider: String,
+    model: String,
+    // A missing weight reads as fail-over-only rather than making the
+    // whole file vanish: parse_agent_content treats "missing field" as
+    // "not an agent" and drops it without a warning.
+    #[serde(default)]
+    weight: u32,
+}
+
 #[derive(Debug, Deserialize)]
 struct AgentMetadata {
     name: String,
@@ -211,6 +228,84 @@ struct AgentMetadata {
     description: Option<String>,
     #[serde(default)]
     model: Option<String>,
+    #[serde(default)]
+    runtimes: Vec<AgentRuntime>,
+}
+
+const RUNTIMES_PROPERTY: &str = "runtimes";
+
+fn agent_runtimes(source: &SourceEntry) -> Vec<AgentRuntime> {
+    source
+        .properties
+        .get(RUNTIMES_PROPERTY)
+        .cloned()
+        .and_then(|value| serde_json::from_value(value).ok())
+        .unwrap_or_default()
+}
+
+fn exclude_runtime(runtimes: &[AgentRuntime], exclude: Option<&str>) -> Vec<AgentRuntime> {
+    runtimes
+        .iter()
+        .filter(|runtime| Some(runtime.provider.as_str()) != exclude)
+        .cloned()
+        .collect()
+}
+
+async fn runtime_binary_resolves(runtime: &AgentRuntime) -> bool {
+    let Ok(entry) = providers::get_from_registry(&runtime.provider).await else {
+        return false;
+    };
+    match entry
+        .metadata()
+        .setup
+        .as_ref()
+        .and_then(|setup| setup.binary_name.as_deref())
+    {
+        // Desktop PATH may lack the npm global bin dir, as claude_acp.rs notes.
+        Some(binary) => SearchPaths::builder().with_npm().resolve(binary).is_ok(),
+        None => true,
+    }
+}
+
+fn roll_rng() -> StdRng {
+    match std::env::var("GOOSE_RUNTIME_ROLL_SEED")
+        .ok()
+        .and_then(|seed| seed.parse().ok())
+    {
+        Some(seed) => StdRng::seed_from_u64(seed),
+        None => StdRng::from_rng(&mut rand::rng()),
+    }
+}
+
+fn roll_runtime<R: RngExt>(candidates: &[AgentRuntime], rng: &mut R) -> Option<AgentRuntime> {
+    let total: u32 = candidates.iter().map(|runtime| runtime.weight).sum();
+    if total == 0 {
+        return candidates.first().cloned();
+    }
+    let mut roll = rng.random_range(0..total);
+    candidates
+        .iter()
+        .find(|candidate| match roll.checked_sub(candidate.weight) {
+            Some(remaining) => {
+                roll = remaining;
+                false
+            }
+            None => true,
+        })
+        .cloned()
+}
+
+fn with_runtime(recipe: &Recipe, runtime: &AgentRuntime) -> Recipe {
+    let mut recipe = recipe.clone();
+    let settings = recipe.settings.get_or_insert(Settings {
+        goose_provider: None,
+        goose_model: None,
+        temperature: None,
+        max_turns: None,
+    });
+    settings.goose_provider = Some(runtime.provider.clone());
+    settings.goose_model = Some(runtime.model.clone());
+    recipe
 }
 
 fn parse_agent_content(content: &str, path: &Path) -> Option<SourceEntry> {
@@ -240,6 +335,12 @@ fn parse_agent_content(content: &str, path: &Path) -> Option<SourceEntry> {
     let mut properties = std::collections::HashMap::new();
     if let Some(model) = metadata.model {
         properties.insert("model".to_string(), serde_json::Value::String(model));
+    }
+    if !metadata.runtimes.is_empty() {
+        properties.insert(
+            RUNTIMES_PROPERTY.to_string(),
+            serde_json::json!(metadata.runtimes),
+        );
     }
 
     Some(SourceEntry {
@@ -745,7 +846,11 @@ impl SummonClient {
                 },
                 "provider": {
                     "type": "string",
-                    "description": "Override LLM provider."
+                    "description": "Override LLM provider. Wins over the agent's `runtimes:` roll."
+                },
+                "exclude_provider": {
+                    "type": "string",
+                    "description": "Drop this provider from the agent's `runtimes:` before rolling. Use it to keep an advisor off the runtime that produced the artifact it judges."
                 },
                 "model": {
                     "type": "string",
@@ -1381,12 +1486,12 @@ impl SummonClient {
         }
 
         let working_dir = session.working_dir.clone();
-        let recipe = self
+        let (recipe, runtimes) = self
             .build_delegate_recipe(&params, session_id, &working_dir)
             .await?;
 
         let task_config = self
-            .build_task_config(&params, &recipe, &session)
+            .build_task_config(&params, &recipe, &runtimes, &session)
             .await
             .map_err(|e| format!("Failed to build task config: {}", e))?;
 
@@ -1471,12 +1576,12 @@ impl SummonClient {
         params: &DelegateParams,
         session_id: &str,
         working_dir: &Path,
-    ) -> Result<Recipe, String> {
-        let mut recipe = if let Some(source_name) = &params.source {
+    ) -> Result<(Recipe, Vec<AgentRuntime>), String> {
+        let (mut recipe, runtimes) = if let Some(source_name) = &params.source {
             self.build_source_recipe(source_name, params, session_id, working_dir)
                 .await?
         } else {
-            self.build_adhoc_recipe(params)?
+            (self.build_adhoc_recipe(params)?, Vec::new())
         };
 
         if let Some(ref context) = params.context {
@@ -1484,7 +1589,7 @@ impl SummonClient {
             recipe.instructions = Some(build_instructions_with_context(context, &existing));
         }
 
-        Ok(recipe)
+        Ok((recipe, runtimes))
     }
 
     fn build_adhoc_recipe(&self, params: &DelegateParams) -> Result<Recipe, String> {
@@ -1508,7 +1613,7 @@ impl SummonClient {
         params: &DelegateParams,
         session_id: &str,
         working_dir: &Path,
-    ) -> Result<Recipe, String> {
+    ) -> Result<(Recipe, Vec<AgentRuntime>), String> {
         let source = self
             .resolve_source(session_id, source_name, working_dir)
             .await?
@@ -1537,7 +1642,7 @@ impl SummonClient {
             }
         }
 
-        Ok(recipe)
+        Ok((recipe, agent_runtimes(&source)))
     }
 
     async fn build_recipe_from_source(
@@ -1653,6 +1758,7 @@ impl SummonClient {
         &self,
         params: &DelegateParams,
         recipe: &Recipe,
+        runtimes: &[AgentRuntime],
         session: &crate::session::Session,
     ) -> Result<TaskConfig, anyhow::Error> {
         let mut extensions = EnabledExtensionsState::extensions_or_default(
@@ -1682,7 +1788,7 @@ impl SummonClient {
         }
 
         let (provider, model_config) = self
-            .resolve_provider(params, recipe, session, &extensions)
+            .resolve_rolled_provider(params, recipe, runtimes, session, &extensions)
             .await?;
 
         let max_turns = params
@@ -1804,6 +1910,70 @@ impl SummonClient {
         }
 
         Ok(model_config)
+    }
+
+    /// Rolls one `runtimes:` entry per delegate and re-rolls the rest when the
+    /// pick fails to start. An explicit `provider:` (param or env) skips the
+    /// roll so a forced provider is not retried once per candidate.
+    async fn resolve_rolled_provider(
+        &self,
+        params: &DelegateParams,
+        recipe: &Recipe,
+        runtimes: &[AgentRuntime],
+        session: &crate::session::Session,
+        extensions: &[crate::config::ExtensionConfig],
+    ) -> Result<
+        (
+            Arc<dyn crate::providers::base::Provider>,
+            goose_providers::model::ModelConfig,
+        ),
+        anyhow::Error,
+    > {
+        if runtimes.is_empty()
+            || params.provider.is_some()
+            || std::env::var("GOOSE_SUBAGENT_PROVIDER").is_ok()
+        {
+            return self
+                .resolve_provider(params, recipe, session, extensions)
+                .await;
+        }
+
+        let mut candidates = Vec::new();
+        for runtime in exclude_runtime(runtimes, params.exclude_provider.as_deref()) {
+            if runtime_binary_resolves(&runtime).await {
+                candidates.push(runtime);
+            } else {
+                warn!(
+                    "Runtime {}/{} skipped: provider unknown or its binary does not resolve",
+                    runtime.provider, runtime.model
+                );
+            }
+        }
+
+        loop {
+            let Some(pick) = roll_runtime(&candidates, &mut roll_rng()) else {
+                anyhow::bail!(
+                    "No runtime available: every `runtimes:` entry was excluded or does not resolve"
+                );
+            };
+            let rolled = with_runtime(recipe, &pick);
+            match self
+                .resolve_provider(params, &rolled, session, extensions)
+                .await
+            {
+                Ok(resolved) => return Ok(resolved),
+                Err(error) => {
+                    candidates.retain(|candidate| *candidate != pick);
+                    if candidates.is_empty() {
+                        return Err(error);
+                    }
+                    warn!(
+                        "Runtime {}/{} failed to start, re-rolling: {}",
+                        pick.provider, pick.model, error
+                    );
+                }
+            }
+        }
     }
 
     async fn resolve_provider(
@@ -2054,12 +2224,12 @@ impl SummonClient {
             .map_err(|e| format!("Failed to get session: {}", e))?;
 
         let working_dir = session.working_dir.clone();
-        let recipe = self
+        let (recipe, runtimes) = self
             .build_delegate_recipe(&params, session_id, &working_dir)
             .await?;
 
         let task_config = self
-            .build_task_config(&params, &recipe, &session)
+            .build_task_config(&params, &recipe, &runtimes, &session)
             .await
             .map_err(|e| format!("Failed to build task config: {}", e))?;
 
@@ -2400,6 +2570,74 @@ You review code."#;
                 .and_then(|value| value.as_str()),
             Some("sonnet")
         );
+    }
+
+    fn runtimes_from(frontmatter: &str) -> Vec<AgentRuntime> {
+        let source = parse_agent_content(frontmatter, Path::new("")).unwrap();
+        agent_runtimes(&source)
+    }
+
+    const WEIGHTED_AGENT: &str = r#"---
+name: advisor
+runtimes:
+  - { provider: claude-acp, model: claude-fable-5-1, weight: 9 }
+  - { provider: codex-acp, model: gpt-5.6-sol, weight: 1 }
+  - { provider: cursor-acp, model: cursor-grok-4.6-xhigh, weight: 0 }
+---
+You advise."#;
+
+    #[test]
+    fn agent_frontmatter_runtimes_roll_by_weight() {
+        let runtimes = runtimes_from(WEIGHTED_AGENT);
+        assert_eq!(runtimes.len(), 3);
+        assert_eq!(runtimes[0].model, "claude-fable-5-1");
+
+        let mut rng = StdRng::seed_from_u64(7);
+        let mut picks: HashMap<String, usize> = HashMap::new();
+        for _ in 0..200 {
+            let pick = roll_runtime(&runtimes, &mut rng).unwrap();
+            *picks.entry(pick.provider).or_default() += 1;
+        }
+        assert!(picks["claude-acp"] > picks["codex-acp"], "{picks:?}");
+        assert!(!picks.contains_key("cursor-acp"), "{picks:?}");
+    }
+
+    #[test]
+    fn agent_frontmatter_runtimes_exclude_provider() {
+        let runtimes = runtimes_from(WEIGHTED_AGENT);
+        let candidates = exclude_runtime(&runtimes, Some("claude-acp"));
+        assert_eq!(candidates.len(), 2);
+
+        let mut rng = StdRng::seed_from_u64(7);
+        for _ in 0..50 {
+            let pick = roll_runtime(&candidates, &mut rng).unwrap();
+            assert_eq!(pick.provider, "codex-acp");
+        }
+        assert_eq!(exclude_runtime(&runtimes, None).len(), 3);
+    }
+
+    #[test]
+    fn agent_frontmatter_runtimes_fall_through() {
+        let mut candidates = runtimes_from(
+            r#"---
+name: researcher
+runtimes:
+  - { provider: agy, model: gemini-3.8-flash-high, weight: 9 }
+  - { provider: cursor-acp, model: cursor-grok-4.6-medium, weight: 0 }
+  - { provider: codex-acp, model: gpt-5.6-sol }
+---
+You research."#,
+        );
+        let mut rng = StdRng::seed_from_u64(7);
+        assert_eq!(roll_runtime(&candidates, &mut rng).unwrap().provider, "agy");
+
+        let mut order = Vec::new();
+        candidates.retain(|runtime| runtime.provider != "agy");
+        while let Some(pick) = roll_runtime(&candidates, &mut rng) {
+            order.push(pick.provider.clone());
+            candidates.retain(|runtime| *runtime != pick);
+        }
+        assert_eq!(order, ["cursor-acp", "codex-acp"]);
     }
 
     #[test]
@@ -2822,7 +3060,7 @@ You review code."#;
             ..Default::default()
         };
 
-        let recipe = client
+        let (recipe, _) = client
             .build_delegate_recipe(&params, "test", temp_dir.path())
             .await
             .unwrap();
@@ -3059,7 +3297,7 @@ You review code."#;
         };
 
         let task_config = client
-            .build_task_config(&params, &empty_recipe(), &session)
+            .build_task_config(&params, &empty_recipe(), &[], &session)
             .await
             .unwrap();
 
