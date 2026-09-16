@@ -137,6 +137,93 @@
   "baseChat.retry": {
     "defaultMessage": "Cuba semula"
   },
+  "board.columnDone": {
+    "defaultMessage": "Done"
+  },
+  "board.columnReview": {
+    "defaultMessage": "Needs review"
+  },
+  "board.columnRunning": {
+    "defaultMessage": "Running"
+  },
+  "board.derived": {
+    "defaultMessage": "Cards move on their own: a column is read from the work — a reply streaming, changes uncommitted, a run unopened — never dragged."
+  },
+  "board.description": {
+    "defaultMessage": "What every session, routine and worker is doing, and which ones need you."
+  },
+  "board.empty": {
+    "defaultMessage": "Nothing running — start a chat"
+  },
+  "board.ended": {
+    "defaultMessage": "Ended {date}"
+  },
+  "board.filterAll": {
+    "defaultMessage": "All"
+  },
+  "board.filterDone": {
+    "defaultMessage": "Done"
+  },
+  "board.filterFailed": {
+    "defaultMessage": "Failed"
+  },
+  "board.filterProject": {
+    "defaultMessage": "Project"
+  },
+  "board.filterReview": {
+    "defaultMessage": "Needs review"
+  },
+  "board.filterRunning": {
+    "defaultMessage": "Running"
+  },
+  "board.filterRuntime": {
+    "defaultMessage": "Runtime"
+  },
+  "board.filterStatus": {
+    "defaultMessage": "Status"
+  },
+  "board.loading": {
+    "defaultMessage": "Loading"
+  },
+  "board.newChat": {
+    "defaultMessage": "New chat"
+  },
+  "board.noMatch": {
+    "defaultMessage": "No cards match these filters"
+  },
+  "board.retry": {
+    "defaultMessage": "Retry"
+  },
+  "board.reviewUnknown": {
+    "defaultMessage": "Uncommitted changes not checked: this folder is outside the sidecar’s repository"
+  },
+  "board.routine": {
+    "defaultMessage": "Routine"
+  },
+  "board.started": {
+    "defaultMessage": "Started {date}"
+  },
+  "board.statusDone": {
+    "defaultMessage": "Done"
+  },
+  "board.statusFailed": {
+    "defaultMessage": "Failed"
+  },
+  "board.statusReview": {
+    "defaultMessage": "Needs review"
+  },
+  "board.statusRunning": {
+    "defaultMessage": "Running"
+  },
+  "board.title": {
+    "defaultMessage": "Board"
+  },
+  "board.untitled": {
+    "defaultMessage": "Untitled session"
+  },
+  "board.worker": {
+    "defaultMessage": "Worker"
+  },
   "bottomMenuExtensionSelection.extensionUpdated": {
     "defaultMessage": "Sambungan Dikemas Kini"
   },
@@ -2701,6 +2788,9 @@
   },
   "navigation.itemApps": {
     "defaultMessage": "Apl"
+  },
+  "navigation.itemBoard": {
+    "defaultMessage": "Board"
   },
   "navigation.itemExtensions": {
     "defaultMessage": "Sambungan"

@@ -215,6 +215,18 @@
       · Diff · Terminal · Git]; fail(sidecar down) → [one-line "not
       reachable" page with the Mac's name]
 
+14. [Any route, several things in flight] · P0 (added 2026-09-16, task 67)
+    - does: click Board in the sidebar
+    - rule: one card per unit of work — a session, a routine run, a
+      delegated worker nested under its parent — in Running · Needs
+      review · Done; the column is read from the work (a reply
+      streaming, a run the inbox has not opened, uncommitted changes in
+      the session's checkout, polled every 30 s per distinct cwd) and
+      never set by hand — there is no drag; Easy shows the board,
+      Advanced adds a filter row (project · runtime · status)
+    - → [Board]; click a card → [the session on `/pair`]; click a
+      worker → [its own transcript, step 10]
+
 ## States
 
 - Hub: empty → no recent directories, chooser only; loading → session
@@ -256,6 +268,11 @@
     Sign in (logged out; checks again); error → gh's stderr with
     Retry; running → Push and open PR disabled with the reason, as
     Commit.
+- Board (2026-09-16, task 67): empty → "Nothing running — start a
+  chat" and the line that status is derived, never dragged; loading →
+  skeleton columns; partial → a session whose cwd the sidecar refuses
+  keeps its card without the review check and says so; error → the
+  list call's cause with Retry.
 - Agents: empty → "No delegated work yet"; loading → row spinner;
   partial → a worker whose transcript is not yet stored shows its
   status only; error → row shows the worker's error and stays.
