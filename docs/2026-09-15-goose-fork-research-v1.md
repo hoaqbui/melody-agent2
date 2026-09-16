@@ -377,3 +377,48 @@ in this tree at `391811a10`.
   (subscription, tools+system, contradicts Claude-first and puts the
   heaviest session on the $20 tier) or `anthropic` by API key (Claude,
   tools+system, contradicts subscription-first, costs money).
+
+### Correction, same evening — three checks that resize the repairs
+
+Run at `822dd1f51`; each line re-read in tree.
+
+- **No hidden system channel in ACP.** `grep -n system
+  crates/goose/src/acp/provider.rs` finds only the ignored `_system`
+  parameter; `session/new` carries no prompt or `_meta` field. Repair
+  (i) stands, but it is a *workers-on-ACP* patch, not an orchestrator
+  patch (next line).
+- **`claude-code` is a Claude-first orchestrator that needs only (ii).**
+  Registered (`providers/init.rs:90`), takes `--model`
+  (`claude_code.rs:398`), passes the role body as
+  `--system-prompt-file` (`:378`) and forwards `StreamableHttp` /
+  `Stdio` extensions via `--mcp-config --strict-mcp-config`
+  (`:391-392`, `:546-556`). Gating: `Auto` → `--dangerously-skip-permissions`;
+  `SmartApprove`/`Approve` → `--permission-prompt-tool stdio`
+  (`:350-365`), so a Direct session on it honours Goose's modes. Open
+  question for the spike, not assumed: whether Claude Code print mode
+  calls an MCP tool named `delegate` unprompted or needs the role body
+  to say when.
+- **(ii) is smaller than "medium" as a synthetic extension.** Register
+  one per-session `ExtensionConfig::StreamableHttp` whose `uri` is a
+  new `goose serve` route (`/mcp/<session_id>`, token in `headers`)
+  that dispatches to that session's platform clients. Both forwarders
+  already pass `StreamableHttp` through untouched, so the patch is the
+  route plus the injection at session start — neither
+  `extension_configs_to_mcp_servers` nor `claude_mcp_config_json`
+  changes.
+- **Every delegated child runs `Auto`, whatever its provider.**
+  `summon.rs:622,1400,2075,2373`, with the in-tree comment "Subagents
+  must use Auto until get_agent_messages forwards ActionRequired
+  messages to the parent." `PRODUCT.md` §5 ("`claude-acp`, `codex-acp`
+  run gated by Goose's modes") is true for a Direct session and false
+  for every worker; the accepted-ungated-`agy` carve-out was moot. Fix
+  §5 when the direction lands.
+- **(ii) makes `delegate` callable, not visible.** An adapter's tool
+  call is external dispatch; the Agents tree and RPI strip (`PRODUCT.md`
+  §11) depend on `tasks_update` / `subagent_tool_request`
+  notifications that no code path emits for a foreign-adapter call.
+  Tranche 5 work, not a blocker; do not read "(ii) done" as "the tree
+  lights up".
+- **For the task 9 proof, put the Implementer on `claude-code`, not
+  `claude-acp`.** Print-mode workers receive their role body today; ACP
+  workers do not until (i). One cell in `PRODUCT.md` §6, pending (i).
