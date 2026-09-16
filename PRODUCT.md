@@ -75,7 +75,7 @@ User → Claude ─┬─ agy            research
 
 - A runtime **is** a Goose provider: `AcpProvider` spawns the adapter, forwards Goose extensions as MCP servers, renders the agent's own tool calls through the normal path, and maps Goose modes to the adapter's permission modes. There is no separate `AgentRuntime` interface.
 - Grok has no subscription of its own here; it is a Cursor model, so `cursor-acp` is the Grok runtime and is required, not optional.
-- `claude-acp`, `codex-acp` run gated by Goose's modes. `cursor-acp` (ACP mode) is gated; `agy` runs its own tools ungated (print mode) — accepted for V0 at one implementation in ten, with the Reviewer gating the diff. Surfacing agy's approvals is out of scope until its weight rises.
+- A Direct session on `claude-acp`, `codex-acp`, `cursor-acp` or `claude-code` runs gated by Goose's modes. Every delegated worker runs `Auto` whatever its runtime (`summon.rs:622,1400,2075,2373`; upstream forwards no child approvals yet) — the Reviewer gates the diff, not the mode. Forwarding child approvals is upstream work, out of V0.
 - A runtime whose binary is missing shows "Install" and does not start; not authenticated shows the provider's own sign-in step.
 
 ## 6. Roles and the map

@@ -201,14 +201,6 @@ re-checked at the fork base `426967d` (v1.51.0, 2026-09-15): all hold;
     - light tier: the confirm is the walk and its record, not a suite
   - confirm: `test -f docs/2026-09-15-spine-bridge-spike-v1.md && grep -c 'spike-ok-4127' docs/2026-09-15-spine-bridge-spike-v1.md && grep -q '^- reached child: yes' docs/2026-09-15-spine-bridge-spike-v1.md && echo ok` → a count ≥ 1, then `ok` (untouched tree: `test -f` fails, nothing printed)
 
-- 25. Correct `PRODUCT.md` §5's gating line to what the tree does.
-  - status: todo · agent: — · worker: low
-  - card: as a reader of the product doc, learn that every delegated worker runs ungated so that the agy carve-out and the "gated like the other nine" card are not read as guarantees (fork research §Correction, fourth)
-  - context:
-    - from: "`claude-acp`, `codex-acp` run gated by Goose's modes. `cursor-acp` (ACP mode) is gated; `agy` runs its own tools ungated (print mode) — accepted for V0 at one implementation in ten, with the Reviewer gating the diff. Surfacing agy's approvals is out of scope until its weight rises." / to: "A Direct session on `claude-acp`, `codex-acp`, `cursor-acp` or `claude-code` runs gated by Goose's modes. Every delegated worker runs `Auto` whatever its runtime (`summon.rs:622,1400,2075,2373`; upstream forwards no child approvals yet) — the Reviewer gates the diff, not the mode. Forwarding child approvals is upstream work, out of V0."
-    - `PRODUCT.md` line 78 (2026-09-15, `aa44e934e`)
-  - confirm: `grep -c 'Every delegated worker runs `Auto`' PRODUCT.md` → `1` (untouched tree: `0`)
-
 ## Handoff — Goose spine evaluation (2026-09-15, Codex)
 
 - **Resume here:** `docs/2026-09-15-goose-spine-research-v1.md` owns the evidence and options. User said “continue” after the recommendation to preserve Claude-first and repair ACP integration, then requested handoff. Direction carried forward; no implementation plan has been completed or approved.
