@@ -41,7 +41,7 @@ re-checked at the fork base `426967d` (v1.51.0, 2026-09-15): all hold;
 ### docs/2026-09-15-goose-fork-plan-v1.md
 
 - 4. Add `ui/desktop/.dependency-cruiser.cjs` with the four mechanical invariants from `ARCHITECTURE.md` (new dirs never import `@agentclientprotocol/sdk` / `@aaif/goose-acp-client`; `src/{workspace,native}` never import `src/components/**/internal`; `src/native` ↔ `src/acp` forbidden both ways; `src/{workspace,native,acp}` never import `electron`, `node:*`, or `node-pty`) and a `depcruise` script in `ui/desktop/package.json`.
-  - status: todo · agent: — · worker: medium
+  - status: doing · agent: Comprehend [12ee2f] (fable, 2026-09-15) · worker: medium
   - card: as a planner, have every drawn boundary checked so that a task cannot add an undrawn edge
   - context:
     - rules scoped to `src/workspace`, `src/native`, `src/acp` (the electron/node ban) — upstream's four leaks (`types/extensions.ts`, `recipe/*`, `settings/providers/ProviderGrid.tsx`, `ProviderCatalogPicker.tsx`) stay out of scope
