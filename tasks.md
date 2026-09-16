@@ -36,6 +36,14 @@ lands). `file:line` cites are against `aaif-goose/goose@a23a8cd5` and were
 re-checked at the fork base `426967d` (v1.51.0, 2026-09-15): all hold;
 `summon.rs:1626` is now `:1628`.
 
+- **Light by default, full at the gates.** A task's `confirm:` runs the
+  light suite (`just test-light`) plus the one or two Electron walks the
+  change touches (`just walk "<pattern>"`) — never the whole Playwright
+  set. `just test-full` runs only before the app is relaunched for the
+  user and at the end of a tranche. Workers use a private
+  `PLAYWRIGHT_DEBUG_PORT_BASE`; one `until` wait, never a polling loop of
+  background sleeps (2026-09-16).
+
 ## Tasks
 
 ### docs/2026-09-15-goose-fork-plan-v1.md

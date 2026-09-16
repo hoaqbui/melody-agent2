@@ -199,6 +199,25 @@ generate-manpages:
 lint-ui:
     cd ui/desktop && pnpm run lint:check
 
+# Light suite (~2 min, no Electron): Rust unit tests for the fork's crates, sidecar tests,
+# desktop typecheck + eslint + i18n + depcruise + vitest. Run on every merge.
+test-light:
+    cargo test -p goose --lib -- session_bridge summon scheduler 2>&1 | grep -E 'test result|error'
+    cd ui/sidecar && pnpm run typecheck && pnpm vitest run
+    cd ui/desktop && pnpm run test:light
+
+# One walk: `just walk "git pane|diff pane"` — the Electron walks a change touches.
+walk pattern:
+    cd ui/desktop && pnpm exec playwright test --project=walks -g "{{pattern}}"
+
+# Full suite (~25 min): the light suite, clippy, the spine check, every fork walk, the phone
+# project and upstream's e2e specs. Run before a relaunch for the user or at a tranche's end.
+test-full:
+    cargo clippy --all-targets -- -D warnings
+    bash scripts/check-spine.sh
+    @just test-light
+    cd ui/desktop && pnpm exec playwright test
+
 # make GUI with latest binary
 make-ui:
     @just release-binary
