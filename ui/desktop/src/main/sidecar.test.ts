@@ -1,6 +1,12 @@
 import { describe, expect, it } from 'vitest';
 
-import { gooseHttpOrigin, sidecarEntryPath } from './sidecar';
+import {
+  gooseHttpOrigin,
+  rendererOrigins,
+  sidecarArgs,
+  sidecarEntryPath,
+  type StartSidecarOptions,
+} from './sidecar';
 
 describe('gooseHttpOrigin', () => {
   it('drops the token and path from the goose serve ACP URL', () => {
@@ -19,5 +25,52 @@ describe('sidecarEntryPath', () => {
     expect(
       sidecarEntryPath(true, '/App/Contents/Resources/app.asar', '/App/Contents/Resources')
     ).toBe('/App/Contents/Resources/sidecar/index.mjs');
+  });
+});
+
+describe('rendererOrigins', () => {
+  it('lists the Vite dev server origin and nothing for the packaged file URL', () => {
+    expect(rendererOrigins(new URL('http://localhost:5173/'))).toEqual(['http://localhost:5173']);
+    expect(rendererOrigins(new URL('file:///App/Contents/Resources/app.asar/index.html'))).toEqual(
+      []
+    );
+  });
+});
+
+describe('sidecarArgs', () => {
+  const options: StartSidecarOptions = {
+    entry: '/repo/ui/sidecar/dist/index.js',
+    cwd: '/work',
+    gooseUrl: 'https://127.0.0.1:52301',
+    gooseCertFingerprint: null,
+    serverSecret: 's3cret',
+    version: '1.51.0',
+    staticDir: null,
+    allowedOrigins: [],
+    loginShellPath: null,
+    logger: { info: () => {}, error: () => {} },
+  };
+
+  it('passes each allowed origin as its own --allowed-origin flag', () => {
+    expect(
+      sidecarArgs({ ...options, allowedOrigins: ['http://localhost:5173', 'http://mac:5173'] })
+    ).toEqual([
+      '--port',
+      '0',
+      '--cwd',
+      '/work',
+      '--goose-url',
+      'https://127.0.0.1:52301',
+      '--goose-version',
+      '1.51.0',
+      '--allowed-origin',
+      'http://localhost:5173',
+      '--allowed-origin',
+      'http://mac:5173',
+    ]);
+  });
+
+  it('passes no --allowed-origin for a packaged file:// renderer', () => {
+    expect(sidecarArgs(options)).not.toContain('--allowed-origin');
   });
 });

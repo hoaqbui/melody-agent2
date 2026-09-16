@@ -6,6 +6,7 @@ export interface SidecarArgs {
   gooseCertFingerprint?: string;
   gooseVersion?: string;
   staticDir?: string;
+  allowedOrigins: string[];
 }
 
 const flagValue = (argv: string[], flag: string): string | undefined => {
@@ -15,6 +16,9 @@ const flagValue = (argv: string[], flag: string): string | undefined => {
   }
   return argv[index + 1];
 };
+
+const flagValues = (argv: string[], flag: string): string[] =>
+  argv.flatMap((arg, index) => (arg === flag && index + 1 < argv.length ? [argv[index + 1]] : []));
 
 // Scans for flag names rather than positions: under Electron's utilityProcess
 // the argv prefix differs from a plain `node dist/index.js`.
@@ -28,5 +32,6 @@ export const parseArgs = (argv: string[]): SidecarArgs => {
     gooseCertFingerprint: flagValue(argv, '--goose-cert-fingerprint'),
     gooseVersion: flagValue(argv, '--goose-version'),
     staticDir: flagValue(argv, '--static'),
+    allowedOrigins: flagValues(argv, '--allowed-origin'),
   };
 };

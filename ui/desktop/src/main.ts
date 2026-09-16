@@ -31,7 +31,7 @@ import { installBackendCertificateVerifiers } from './backendCertificateVerifier
 import { configureProxy } from './proxy';
 import { startGooseServe } from './gooseServe';
 import { getLoginShellPath } from './loginShellPath';
-import { gooseHttpOrigin, sidecarEntryPath, startSidecar } from './main/sidecar';
+import { gooseHttpOrigin, rendererOrigins, sidecarEntryPath, startSidecar } from './main/sidecar';
 import { GooseServeLeaseRegistry, type GooseServeLease } from './gooseServeLeaseRegistry';
 import { normalizeAcpHttpBaseUrl } from './acp/url';
 import { expandTilde, sanitizeGoosePathRoot } from './utils/pathUtils';
@@ -1267,6 +1267,7 @@ const createChat = async (
         serverSecret,
         version: app.getVersion(),
         staticDir: fsSync.existsSync(staticDir) ? staticDir : null,
+        allowedOrigins: rendererOrigins(getAppUrl()),
         loginShellPath,
         logger: log,
       });

@@ -12,6 +12,8 @@ export interface StartSidecarOptions {
   serverSecret: string;
   version: string;
   staticDir: string | null;
+  /** Renderer origins the sidecar answers CORS for; see rendererOrigins. */
+  allowedOrigins: string[];
   loginShellPath: string | null;
   logger: Logger;
 }
@@ -40,27 +42,36 @@ export const gooseHttpOrigin = (acpUrl: string): string => {
   return url.origin;
 };
 
+// Only an http(s) renderer — the Vite dev server — is cross-origin to the
+// sidecar. A packaged file:// renderer has an opaque origin and Electron 43.4.0
+// sends no Origin header from it, so it needs no CORS entry (probed 2026-09-15);
+// listing `null` would admit every opaque origin, the wildcard the sidecar refuses.
+export const rendererOrigins = (appUrl: URL): string[] =>
+  appUrl.origin === 'null' ? [] : [appUrl.origin];
+
+export const sidecarArgs = (options: StartSidecarOptions): string[] => [
+  '--port',
+  '0',
+  '--cwd',
+  options.cwd,
+  '--goose-url',
+  options.gooseUrl,
+  '--goose-version',
+  options.version,
+  ...(options.gooseCertFingerprint
+    ? ['--goose-cert-fingerprint', options.gooseCertFingerprint]
+    : []),
+  ...(options.staticDir ? ['--static', options.staticDir] : []),
+  ...options.allowedOrigins.flatMap((origin) => ['--allowed-origin', origin]),
+];
+
 // The RunAsNode fuse is off in packaged builds, so the sidecar runs as an
 // Electron utility process rather than a `node` child; node-pty is N-API and
 // loads there unchanged.
 export const startSidecar = (options: StartSidecarOptions): Promise<SidecarResult> =>
   new Promise((resolve, reject) => {
-    const args = [
-      '--port',
-      '0',
-      '--cwd',
-      options.cwd,
-      '--goose-url',
-      options.gooseUrl,
-      '--goose-version',
-      options.version,
-      ...(options.gooseCertFingerprint
-        ? ['--goose-cert-fingerprint', options.gooseCertFingerprint]
-        : []),
-      ...(options.staticDir ? ['--static', options.staticDir] : []),
-    ];
     const pathKey = process.platform === 'win32' ? 'Path' : 'PATH';
-    const child = utilityProcess.fork(options.entry, args, {
+    const child = utilityProcess.fork(options.entry, sidecarArgs(options), {
       stdio: 'pipe',
       serviceName: 'sidecar',
       env: {
