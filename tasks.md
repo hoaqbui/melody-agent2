@@ -82,7 +82,7 @@ re-checked at the fork base `426967d` (v1.51.0, 2026-09-15): all hold;
   - confirm: `test -f docs/2026-09-15-runtime-matrix-v1.md && grep -c '^| \(codex-acp\|cursor-acp\|claude-acp\|agy\) |' docs/2026-09-15-runtime-matrix-v1.md` → `4`
 
 - 40. Redo the workspace header's top-right as a pane menu in the code-editor standard: three primary icon buttons — Terminal (`Terminal`), Changes (`GitCompare`; the Diff pane, renamed "Changes" everywhere it is shown), Browser (`Globe`) — and a three-dot More button (`Ellipsis`/`MoreHorizontal`) opening a dropdown with the rest (Files `FolderTree`, Editor `FileCode`, Git `GitBranch`, Markdown `BookOpen`), lucide names or the nearest the installed `lucide-react` exports; in `ui/desktop/src/workspace/pane-store.ts` add `'browser'` and `'markdown'` to `PaneId` / `PANE_IDS` (after `git`); in `ui/desktop/src/workspace/WorkspaceShell.tsx` replace the status text at the header's right (`data-testid="workspace-header-status"`) with that menu — each item has a tooltip/`aria-label` of the pane title, pressed state = the pane is visible (centre or active side tab), click = `selectSide`, shift-click or a second click on the pressed one = `openCentre`; styled per `DESIGN.md` §Principles Floating Button Rule (`--shadow-sm` at rest, `--shadow-md` lifted) and the Into Rule (the dropdown grows out of the ⋯ and closes back into it); the runtime · mode status moves into the Runtime/Mode controls' own tooltip; placeholder bodies for Browser and Markdown until task 31; "Changes" replaces "Diff" in `PANE_TITLES`, the side-tab label, `DESIGN.md` §Vocabulary (Diff → Changes, retired word noted), and the task 14 pane's own title if it has one.
-  - status: todo · agent: — · worker: high
+  - status: doing · agent: subagent-t40 via claude-session-opus-2 (00:20, worktree) · worker: high
   - card: as the user, reach Terminal, Changes and Browser in one click and everything else under ⋯ so that the header reads like a code editor's, not a sentence (user, 2026-09-15 23:30 and 23:45: "redo the top right menu and add in terminal and browser and markdown"; "the code standard: terminal, changes, browser, more options (3 dots)")
   - context:
     - runs after tasks 12 and 14 merge (both replace placeholders in the same `panes` seam); base on main at that point
@@ -103,7 +103,7 @@ re-checked at the fork base `426967d` (v1.51.0, 2026-09-15): all hold;
   - confirm: `cd ui/desktop && pnpm vitest run src/workspace && pnpm run typecheck && pnpm exec playwright test -g "dock"; echo exit=$?` → `exit=0` (walk: open Terminal and Changes → one panel with two tabs; drag Changes' tab below → two panels; drag the lower panel above the upper → order swapped; close Changes → one panel again)
 
 - 43. Bind the sidecar on loopback as well as the tailnet interface (`ui/sidecar/src/bind.ts` / `index.ts`: one listener per address, same port), have the desktop use the loopback URL for its own renderer (`ui/desktop/src/main.ts` sidecar spawn → lease/IPC `get-sidecar-url` returns `http://127.0.0.1:<port>`), keep the tailnet URL for the phone (task 19's web build is served from it), and revert the `http:` added to `index.html`'s meta `connect-src` (tasks 12/14) — `http://127.0.0.1:*` and `ws://127.0.0.1:*` are already in both CSPs.
-  - status: todo · agent: — · worker: medium
+  - status: doing · agent: subagent-t43 via claude-session-opus-2 (00:20, worktree) · worker: medium
   - card: as the user, have the desktop talk to the sidecar over loopback so that the renderer's CSP stays as strict as upstream shipped it and the tailnet listener exists only for the phone (auto-mode classifier flagged the `http:` widening; task 15's `ws:` lease also drops `upgrade-insecure-requests`, which this removes the need for on desktop)
   - context:
     - `bind.ts:42-53` `resolveBindAddress` prefers the tailnet IP; add loopback as a second listener on the same port rather than a `--bind` list; `--bind 127.0.0.1` alone (the confirms) stays valid
@@ -113,7 +113,7 @@ re-checked at the fork base `426967d` (v1.51.0, 2026-09-15): all hold;
   - confirm: `grep -c "connect-src 'self' http://127.0.0.1:\* https: ws: wss:" ui/desktop/index.html` → `1` (untouched tree: `0`, the line has `http:`); and `cd ui/desktop && pnpm run typecheck && pnpm exec playwright test -g "files pane|diff pane|terminal pane|workspace shell"; echo exit=$?` → `exit=0` with 4 passed
 
 - 13. Add the Editor pane (`src/workspace/panes/editor/`, CodeMirror 6) with ⌘S save, a reload bar on external change, and for `.md` files a Preview toggle (`react-markdown` + `remark-gfm` + `github-markdown-css`).
-  - status: todo · agent: — · worker: high
+  - status: doing · agent: subagent-t13 via claude-session-opus-2 (00:20, worktree) · worker: high
   - card: as the user, fix a line without leaving the window so that small corrections don't need another tool (PRD step 4, states)
   - context:
     - reaches the sidecar only through `src/native/sidecar.ts` (task 37: `sidecarBaseUrl`, `sidecarFetch`, `sidecarSocket`) — waits on it
@@ -122,7 +122,7 @@ re-checked at the fork base `426967d` (v1.51.0, 2026-09-15): all hold;
   - confirm: `cd ui/desktop && pnpm run typecheck && pnpm exec playwright test -g "editor pane"; echo exit=$?` → `exit=0` (open a file, type, ⌘S, file on disk changed)
 
 - 16. Add the Git pane (`src/workspace/panes/git/`): branch, staged/unstaged lists, stage/unstage, commit box; commit disabled while any tool call is `in_progress`; git commands run in `ui/sidecar/src/git.ts`.
-  - status: todo · agent: — · worker: high
+  - status: doing · agent: subagent-t16 via claude-session-opus-2 (00:20, worktree) · worker: high
   - card: as the user, commit the reviewed change without leaving the window so that the walk ends where it started (PRD step 7)
   - context:
     - reaches the sidecar only through `src/native/sidecar.ts` (task 37: `sidecarBaseUrl`, `sidecarFetch`, `sidecarSocket`) — waits on it
@@ -191,6 +191,35 @@ Planned 2026-09-15 21:25 from PRD steps 10–12 and the spine research §Activit
     - depends on task 11 (shell) and task 12 (Files selection); on the web build (task 19) an iframe to `localhost` from the phone will not resolve — show the PRD "not reachable" line, do not proxy
     - markdown rendering shares task 30's choice
   - confirm: `cd ui/desktop && pnpm vitest run src/workspace/panes/browser src/workspace/panes/markdown && pnpm run depcruise; echo exit=$?` → `exit=0`
+
+### Parity with Codex desktop and Claude Cowork — research (2026-09-16)
+
+User, 2026-09-16 00:15: "research it, plan it, and orchestrate it with sub agents" — the three gaps named in the parity comparison. Research first; the plan follows from these docs and waits on approval before source edits.
+
+- 44. Research worktree-per-task in `docs/2026-09-16-worktrees-research-v1.md`: how a Goose session (or a delegated child) can run in its own git worktree of the project — creation on session start or on `delegate`, the cwd the adapter and the sidecar see, the Changes/Git panes against that worktree, merge-back into the main checkout, cleanup — against the tree as it is (`crates/goose/src/session/session_manager.rs` `working_dir`, `summon.rs` child cwd, `ui/sidecar/src/git.ts`, `acp/server/new_session.rs` cwd handling) and against how Codex desktop does it (one worktree per thread, ~0.8 s, ~120 MB; review queue merges).
+  - status: doing · agent: subagent-t44 via claude-session-opus-2 (00:20, worktree, read-only) · worker: medium
+  - card: as the user, run several agents on the same repo at once without them stepping on each other's files so that parallel delegation is safe (Codex parity gap 1; PRD §Scope had it out at V0 — this research reopens it)
+  - context:
+    - the sidecar already owns git for the panes; the question is who owns worktree lifecycle — `goose serve` (session-bound), the sidecar (workspace IO), or the shell
+    - children today share the parent's cwd (`summon.rs` `build_task_config` working dir); a child in a worktree changes what `delegate` returns (a branch name, not edits in place)
+    - Goose upstream may have a worktree feature or issue — check `rg -n worktree crates/ ui/desktop/src` and the upstream issue tracker (URL + date)
+  - confirm: `test -f docs/2026-09-16-worktrees-research-v1.md && grep -c '^## Options' docs/2026-09-16-worktrees-research-v1.md` → `1`
+
+- 45. Research accept/reject per hunk in the Changes pane in `docs/2026-09-16-hunk-review-research-v1.md`: applying or reverting a single hunk of the working tree (`git apply --cached` / `git apply -R` on a hunk patch, or `git checkout -p`-style), what `@codemirror/merge` exposes for per-chunk accept (`mergeControls`, `acceptChunk`/`rejectChunk`), the sidecar route shape, and how "since session start" interacts (a reverted hunk vs a base that is not HEAD) — against `ui/desktop/src/workspace/panes/diff/*` and `ui/sidecar/src/git.ts` as landed by task 14.
+  - status: doing · agent: subagent-t45 via claude-session-opus-2 (00:20, worktree, read-only) · worker: medium
+  - card: as the user, keep the good half of an agent's change and drop the rest without leaving the window so that review ends in a commit, not a manual edit (Codex parity gap 2; PRD decision 5 had view-only at V0 — this research reopens it)
+  - context:
+    - `unified-diff.ts` already parses hunks; the pane rebuilds both sides from them — the question is the reverse path
+    - risks to name: a hunk applied against a working tree that moved since the diff was fetched; binary and rename entries; an agent writing the file mid-review
+  - confirm: `test -f docs/2026-09-16-hunk-review-research-v1.md && grep -c '^## Options' docs/2026-09-16-hunk-review-research-v1.md` → `1`
+
+- 46. Research surfacing Goose's scheduler as automations with a review list in `docs/2026-09-16-automations-research-v1.md`: what the in-tree scheduler already does (`crates/goose/src/scheduler*.rs`, the `scheduler` platform extension, `acp/server/schedule.rs`, the desktop's existing schedule UI under `components/`), what a scheduled run produces (a session; where its result lands), and what a Codex-style review queue would need (a list of finished runs with their Changes, accept → commit, dismiss) — local-first only (PRODUCT.md §1: no control plane, no cloud runs).
+  - status: doing · agent: subagent-t46 via claude-session-opus-2 (00:20, worktree, read-only) · worker: medium
+  - card: as the user, let the agent work on a schedule while I'm away and find its results waiting in one list so that unattended work is reviewed, not lost (Codex parity gap 3; Cowork's scheduled tasks, minus the cloud)
+  - context:
+    - Goose's scheduler runs recipes in sessions (`scheduler.rs`); the desktop has a Schedules route today — read it before proposing a new surface
+    - the review list is the same shape as task 28's Agents rows (a session, a status, a Changes view) — say whether it is one pane or two
+  - confirm: `test -f docs/2026-09-16-automations-research-v1.md && grep -c '^## Options' docs/2026-09-16-automations-research-v1.md` → `1`
 
 ## Handoff — Goose spine evaluation (2026-09-15, Codex)
 
