@@ -5021,6 +5021,36 @@
       "x-side": "agent",
       "x-method": "_goose/unstable/session/info"
     },
+    "GetSessionChildrenRequest_unstable": {
+      "type": "object",
+      "properties": {
+        "sessionId": {
+          "type": "string"
+        }
+      },
+      "required": [
+        "sessionId"
+      ],
+      "description": "List the sessions a session delegated to (its `sub_agent` children), newest first.",
+      "x-side": "agent",
+      "x-method": "_goose/unstable/session/children"
+    },
+    "GetSessionChildrenResponse_unstable": {
+      "type": "object",
+      "properties": {
+        "sessions": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/SessionInfo"
+          }
+        }
+      },
+      "required": [
+        "sessions"
+      ],
+      "x-side": "agent",
+      "x-method": "_goose/unstable/session/children"
+    },
     "TruncateSessionConversationRequest_unstable": {
       "type": "object",
       "properties": {
@@ -6846,6 +6876,19 @@
           "required": [
             "sessionUpdate"
           ]
+        },
+        {
+          "$ref": "#/$defs/DelegationUpdate",
+          "type": "object",
+          "properties": {
+            "sessionUpdate": {
+              "type": "string",
+              "const": "delegation_update"
+            }
+          },
+          "required": [
+            "sessionUpdate"
+          ]
         }
       ],
       "description": "Discriminated union of goose-specific session update payloads.\nVariant tag matches ACP's convention (`sessionUpdate: \"<snake_case>\"`).\n\n`discriminator.mapping` is what makes TS codegen (`@hey-api/openapi-ts`)\nemit the correct snake_case tag value even when this enum has a single\nvariant. Add a mapping entry per variant.",
@@ -6854,7 +6897,8 @@
         "mapping": {
           "usage_update": "#/$defs/SessionUsageUpdate",
           "status_message": "#/$defs/StatusMessageUpdate",
-          "message_usage": "#/$defs/MessageUsageUpdate"
+          "message_usage": "#/$defs/MessageUsageUpdate",
+          "delegation_update": "#/$defs/DelegationUpdate"
         }
       }
     },
@@ -7046,6 +7090,66 @@
         "usage"
       ],
       "description": "Per-message token usage/cost/timing, keyed by the message id used for\nchunk matching. Sent live after a turn's messages and on replay."
+    },
+    "DelegationStatus": {
+      "type": "string",
+      "enum": [
+        "running",
+        "done",
+        "failed"
+      ]
+    },
+    "DelegationUpdate": {
+      "type": "object",
+      "properties": {
+        "subagentSessionId": {
+          "type": "string"
+        },
+        "parentSessionId": {
+          "type": "string"
+        },
+        "source": {
+          "type": [
+            "string",
+            "null"
+          ],
+          "description": "The role or recipe the child runs (`delegate`'s `source`); absent for an ad-hoc delegation."
+        },
+        "provider": {
+          "type": "string"
+        },
+        "model": {
+          "type": "string"
+        },
+        "title": {
+          "type": "string",
+          "description": "First line of the instructions, truncated to 80 characters."
+        },
+        "status": {
+          "$ref": "#/$defs/DelegationStatus"
+        },
+        "error": {
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "parentToolCallId": {
+          "type": [
+            "string",
+            "null"
+          ]
+        }
+      },
+      "required": [
+        "subagentSessionId",
+        "parentSessionId",
+        "provider",
+        "model",
+        "title",
+        "status"
+      ],
+      "description": "A delegation the parent session started, keyed by the child session.\n`running` once the child session exists; `done` / `failed` when the\ndelegate call returns. Not transcript content; never replayed."
     },
     "ProviderDeviceCodeNotification_unstable": {
       "type": "object",
@@ -7843,6 +7947,15 @@
                 {
                   "allOf": [
                     {
+                      "$ref": "#/$defs/GetSessionChildrenRequest_unstable"
+                    }
+                  ],
+                  "description": "Params for _goose/unstable/session/children",
+                  "title": "GetSessionChildrenRequest_unstable"
+                },
+                {
+                  "allOf": [
+                    {
                       "$ref": "#/$defs/TruncateSessionConversationRequest_unstable"
                     }
                   ],
@@ -8604,6 +8717,14 @@
                         }
                       ],
                       "title": "GetSessionInfoResponse_unstable"
+                    },
+                    {
+                      "allOf": [
+                        {
+                          "$ref": "#/$defs/GetSessionChildrenResponse_unstable"
+                        }
+                      ],
+                      "title": "GetSessionChildrenResponse_unstable"
                     },
                     {
                       "allOf": [

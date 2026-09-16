@@ -652,6 +652,14 @@ impl GooseAcpAgent {
         self.on_get_session_info(req).await
     }
 
+    #[custom_method(GetSessionChildrenRequest)]
+    async fn dispatch_get_session_children(
+        &self,
+        req: GetSessionChildrenRequest,
+    ) -> Result<GetSessionChildrenResponse, agent_client_protocol::Error> {
+        self.on_get_session_children(req).await
+    }
+
     #[custom_method(TruncateSessionConversationRequest)]
     async fn dispatch_truncate_session_conversation(
         &self,

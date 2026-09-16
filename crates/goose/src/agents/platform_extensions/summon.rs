@@ -18,12 +18,13 @@ use crate::utils::safe_truncate;
 use anyhow::Result;
 use async_trait::async_trait;
 use goose_agent::operation::messages_since_kickoff;
+use goose_sdk_types::custom_notifications::{DelegationStatus, DelegationUpdate};
 use goose_sdk_types::custom_requests::{SourceEntry, SourceType};
 use rand::rngs::StdRng;
 use rand::{RngExt, SeedableRng};
 use rmcp::model::{
-    CallToolResult, ContentBlock, Implementation, InitializeResult, JsonObject, ListToolsResult,
-    MetaObject, Role, ServerCapabilities, ServerNotification, Tool,
+    CallToolResult, ContentBlock, CustomNotification, Implementation, InitializeResult, JsonObject,
+    ListToolsResult, MetaObject, Role, ServerCapabilities, ServerNotification, Tool,
 };
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
@@ -43,6 +44,89 @@ pub static EXTENSION_NAME: &str = "summon";
 const SUBAGENT_DESCRIPTION_BUDGET: usize = 160;
 
 const TASK_LABEL_BUDGET: usize = 60;
+
+const DELEGATION_TITLE_BUDGET: usize = 80;
+
+/// `platform_event` types summon emits on the delegating session's tool
+/// stream; the ACP server turns them into `DelegationUpdate`s.
+pub const DELEGATE_STARTED_EVENT: &str = "delegate_started";
+pub const DELEGATE_FINISHED_EVENT: &str = "delegate_finished";
+
+fn delegation_title(params: &DelegateParams) -> String {
+    let text = params
+        .instructions
+        .as_deref()
+        .or(params.source.as_deref())
+        .unwrap_or_default();
+    safe_truncate(
+        text.lines().next().unwrap_or_default().trim(),
+        DELEGATION_TITLE_BUDGET,
+    )
+}
+
+fn delegation_running(
+    params: &DelegateParams,
+    task_config: &TaskConfig,
+    subagent_session_id: &str,
+    parent_tool_call_id: Option<String>,
+) -> DelegationUpdate {
+    DelegationUpdate {
+        subagent_session_id: subagent_session_id.to_string(),
+        parent_session_id: task_config.parent_session_id.clone(),
+        source: params.source.clone(),
+        provider: task_config.provider.get_name().to_string(),
+        model: task_config.model_config.model_name.clone(),
+        title: delegation_title(params),
+        status: DelegationStatus::Running,
+        error: None,
+        parent_tool_call_id,
+    }
+}
+
+fn delegation_finished(mut update: DelegationUpdate, result: &Result<String>) -> DelegationUpdate {
+    match result {
+        Ok(_) => update.status = DelegationStatus::Done,
+        Err(error) => {
+            update.status = DelegationStatus::Failed;
+            update.error = Some(error.to_string());
+        }
+    }
+    update
+}
+
+fn delegation_notification(event_type: &str, update: &DelegationUpdate) -> ServerNotification {
+    let mut params = match serde_json::to_value(update) {
+        Ok(serde_json::Value::Object(params)) => params,
+        _ => serde_json::Map::new(),
+    };
+    params.insert("extension".to_string(), EXTENSION_NAME.into());
+    params.insert("event_type".to_string(), event_type.into());
+    ServerNotification::CustomNotification(CustomNotification::new(
+        "platform_event",
+        Some(serde_json::Value::Object(params)),
+    ))
+}
+
+/// The `DelegationUpdate` a summon `platform_event` carries, when it is one.
+pub fn delegation_update_from_notification(
+    notification: &ServerNotification,
+) -> Option<DelegationUpdate> {
+    let ServerNotification::CustomNotification(notification) = notification else {
+        return None;
+    };
+    if notification.method != "platform_event" {
+        return None;
+    }
+    let params = notification.params.as_ref()?;
+    if params.get("extension")?.as_str()? != EXTENSION_NAME {
+        return None;
+    }
+    let event_type = params.get("event_type")?.as_str()?;
+    if event_type != DELEGATE_STARTED_EVENT && event_type != DELEGATE_FINISHED_EVENT {
+        return None;
+    }
+    serde_json::from_value(params.clone()).ok()
+}
 
 fn durable_assistant_turn_count(conversation: &crate::conversation::Conversation) -> u32 {
     let Ok(messages) = messages_since_kickoff(conversation) else {
@@ -1456,6 +1540,7 @@ impl SummonClient {
         arguments: Option<JsonObject>,
         cancellation_token: CancellationToken,
         notification_emitter: Option<ToolCallNotificationEmitter>,
+        parent_tool_call_id: Option<String>,
     ) -> Result<CallToolResult, String> {
         self.cleanup_completed_tasks().await;
 
@@ -1479,7 +1564,14 @@ impl SummonClient {
         }
 
         if params.r#async {
-            let (content, task_id) = self.handle_async_delegate(session_id, params).await?;
+            let (content, task_id) = self
+                .handle_async_delegate(
+                    session_id,
+                    params,
+                    notification_emitter,
+                    parent_tool_call_id,
+                )
+                .await?;
             let mut meta = MetaObject::new();
             meta.0.insert(
                 "subagent_session_id".to_string(),
@@ -1518,6 +1610,17 @@ impl SummonClient {
 
         let subagent_session_id = subagent_session.id.clone();
 
+        let delegation = delegation_running(
+            &params,
+            &task_config,
+            &subagent_session_id,
+            parent_tool_call_id,
+        );
+        let sink = Self::notification_sink(notification_emitter);
+        sink.lock()
+            .await
+            .route(delegation_notification(DELEGATE_STARTED_EVENT, &delegation));
+
         let params = SubagentRunParams {
             config: agent_config,
             recipe,
@@ -1528,15 +1631,19 @@ impl SummonClient {
             on_message: None,
             notification_tx: None,
         };
-        let result = Self::run_subagent_with_notifications(
-            Self::notification_sink(notification_emitter),
-            move |notification_tx| {
+        let result =
+            Self::run_subagent_with_notifications(Arc::clone(&sink), move |notification_tx| {
                 let mut params = params;
                 params.notification_tx = Some(notification_tx);
                 run_subagent_task(params)
-            },
-        )
-        .await;
+            })
+            .await;
+
+        sink.lock().await.route(delegation_notification(
+            DELEGATE_FINISHED_EVENT,
+            &delegation_finished(delegation, &result),
+        ));
+        yield_to_outer_tool_stream().await;
 
         let mut meta = MetaObject::new();
         meta.0.insert(
@@ -2225,6 +2332,8 @@ impl SummonClient {
         &self,
         session_id: &str,
         params: DelegateParams,
+        notification_emitter: Option<ToolCallNotificationEmitter>,
+        parent_tool_call_id: Option<String>,
     ) -> Result<(Vec<ContentBlock>, String), String> {
         let task_count = self.background_tasks.lock().await.len();
         let max_tasks = max_background_tasks();
@@ -2274,6 +2383,13 @@ impl SummonClient {
 
         let task_id = subagent_session.id.clone();
 
+        // The start event rides the `delegate` call's own stream; the terminal
+        // event lands in the task's sink and surfaces on the next `load`.
+        let delegation = delegation_running(&params, &task_config, &task_id, parent_tool_call_id);
+        if let Some(emitter) = notification_emitter {
+            emitter.emit_best_effort(delegation_notification(DELEGATE_STARTED_EVENT, &delegation));
+        }
+
         let turns = Arc::new(AtomicU32::new(0));
         let last_activity = Arc::new(AtomicU64::new(0));
 
@@ -2300,12 +2416,23 @@ impl SummonClient {
                 on_message: Some(on_message),
                 notification_tx: None,
             };
-            Self::run_subagent_with_notifications(task_notification_sink, move |notification_tx| {
-                let mut params = params;
-                params.notification_tx = Some(notification_tx);
-                run_subagent_task(params)
-            })
-            .await
+            let result = Self::run_subagent_with_notifications(
+                Arc::clone(&task_notification_sink),
+                move |notification_tx| {
+                    let mut params = params;
+                    params.notification_tx = Some(notification_tx);
+                    run_subagent_task(params)
+                },
+            )
+            .await;
+            task_notification_sink
+                .lock()
+                .await
+                .route(delegation_notification(
+                    DELEGATE_FINISHED_EVENT,
+                    &delegation_finished(delegation, &result),
+                ));
+            result
         });
 
         let task = BackgroundTask {
@@ -2392,6 +2519,7 @@ impl McpClientTrait for SummonClient {
                         arguments,
                         cancellation_token,
                         ctx.notification_emitter().cloned(),
+                        ctx.tool_call_request_id.clone(),
                     )
                     .await
                 {

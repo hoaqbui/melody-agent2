@@ -1635,6 +1635,17 @@ export const zGetSessionInfoResponse_unstable = z.object({
 });
 
 /**
+ * List the sessions a session delegated to (its `sub_agent` children), newest first.
+ */
+export const zGetSessionChildrenRequest_unstable = z.object({
+    sessionId: z.string()
+});
+
+export const zGetSessionChildrenResponse_unstable = z.object({
+    sessions: z.array(zSessionInfo)
+});
+
+/**
  * Truncate a session conversation from the given message timestamp onward.
  */
 export const zTruncateSessionConversationRequest_unstable = z.object({
@@ -2289,6 +2300,29 @@ export const zMessageUsageUpdate = z.object({
     usage: zMessageUsageData
 });
 
+export const zDelegationStatus = z.enum([
+    'running',
+    'done',
+    'failed'
+]);
+
+/**
+ * A delegation the parent session started, keyed by the child session.
+ * `running` once the child session exists; `done` / `failed` when the
+ * delegate call returns. Not transcript content; never replayed.
+ */
+export const zDelegationUpdate = z.object({
+    subagentSessionId: z.string(),
+    parentSessionId: z.string(),
+    source: z.string().nullish(),
+    provider: z.string(),
+    model: z.string(),
+    title: z.string(),
+    status: zDelegationStatus,
+    error: z.string().nullish(),
+    parentToolCallId: z.string().nullish()
+});
+
 /**
  * Discriminated union of goose-specific session update payloads.
  * Variant tag matches ACP's convention (`sessionUpdate: "<snake_case>"`).
@@ -2300,7 +2334,8 @@ export const zMessageUsageUpdate = z.object({
 export const zGooseSessionUpdate = z.discriminatedUnion('sessionUpdate', [
     zSessionUsageUpdate.extend({ sessionUpdate: z.literal('usage_update') }),
     zStatusMessageUpdate.extend({ sessionUpdate: z.literal('status_message') }),
-    zMessageUsageUpdate.extend({ sessionUpdate: z.literal('message_usage') })
+    zMessageUsageUpdate.extend({ sessionUpdate: z.literal('message_usage') }),
+    zDelegationUpdate.extend({ sessionUpdate: z.literal('delegation_update') })
 ]);
 
 /**
@@ -2423,6 +2458,7 @@ export const zExtRequest = z.object({
             zKillRunningJobRequest_unstable,
             zInspectRunningJobRequest_unstable,
             zGetSessionInfoRequest_unstable,
+            zGetSessionChildrenRequest_unstable,
             zTruncateSessionConversationRequest_unstable,
             zUpdateSessionProjectRequest_unstable,
             zRenameSessionRequest_unstable,
@@ -2521,6 +2557,7 @@ export const zExtResponse = z.union([
                 zKillRunningJobResponse_unstable,
                 zInspectRunningJobResponse_unstable,
                 zGetSessionInfoResponse_unstable,
+                zGetSessionChildrenResponse_unstable,
                 zCreateSourceResponse_unstable,
                 zListSourcesResponse_unstable,
                 zListAgentMentionsResponse_unstable,

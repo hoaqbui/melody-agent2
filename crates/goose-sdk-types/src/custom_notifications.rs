@@ -26,13 +26,45 @@ pub struct GooseSessionNotification {
     "mapping": {
         "usage_update": "#/$defs/SessionUsageUpdate",
         "status_message": "#/$defs/StatusMessageUpdate",
-        "message_usage": "#/$defs/MessageUsageUpdate"
+        "message_usage": "#/$defs/MessageUsageUpdate",
+        "delegation_update": "#/$defs/DelegationUpdate"
     }
 }))]
 pub enum GooseSessionUpdate {
     UsageUpdate(SessionUsageUpdate),
     StatusMessage(StatusMessageUpdate),
     MessageUsage(MessageUsageUpdate),
+    DelegationUpdate(DelegationUpdate),
+}
+
+/// A delegation the parent session started, keyed by the child session.
+/// `running` once the child session exists; `done` / `failed` when the
+/// delegate call returns. Not transcript content; never replayed.
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize, JsonSchema)]
+#[serde(rename_all = "camelCase")]
+pub struct DelegationUpdate {
+    pub subagent_session_id: String,
+    pub parent_session_id: String,
+    /// The role or recipe the child runs (`delegate`'s `source`); absent for an ad-hoc delegation.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub source: Option<String>,
+    pub provider: String,
+    pub model: String,
+    /// First line of the instructions, truncated to 80 characters.
+    pub title: String,
+    pub status: DelegationStatus,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub error: Option<String>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub parent_tool_call_id: Option<String>,
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize, JsonSchema)]
+#[serde(rename_all = "snake_case")]
+pub enum DelegationStatus {
+    Running,
+    Done,
+    Failed,
 }
 
 /// Dedicated provider notification for OAuth device-code flow.
@@ -165,6 +197,44 @@ pub fn custom_notification_schemas(generator: &mut SchemaGenerator) -> Vec<Custo
 mod tests {
     use super::*;
     use serde_json::json;
+
+    #[test]
+    fn delegation_update_serializes_to_expected_wire_shape() {
+        let notification = GooseSessionNotification {
+            session_id: "parent".to_string(),
+            update: GooseSessionUpdate::DelegationUpdate(DelegationUpdate {
+                subagent_session_id: "child".to_string(),
+                parent_session_id: "parent".to_string(),
+                source: Some("reviewer".to_string()),
+                provider: "claude-acp".to_string(),
+                model: "claude-sonnet-5".to_string(),
+                title: "say hello".to_string(),
+                status: DelegationStatus::Failed,
+                error: Some("boom".to_string()),
+                parent_tool_call_id: None,
+            }),
+        };
+
+        let value = serde_json::to_value(notification).unwrap();
+
+        assert_eq!(
+            value,
+            json!({
+                "sessionId": "parent",
+                "update": {
+                    "sessionUpdate": "delegation_update",
+                    "subagentSessionId": "child",
+                    "parentSessionId": "parent",
+                    "source": "reviewer",
+                    "provider": "claude-acp",
+                    "model": "claude-sonnet-5",
+                    "title": "say hello",
+                    "status": "failed",
+                    "error": "boom"
+                }
+            })
+        );
+    }
 
     #[test]
     fn status_message_serializes_to_expected_wire_shape() {

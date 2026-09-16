@@ -7,6 +7,7 @@ import { AppEvents } from '../constants/events';
 import { maybeHandlePlatformEvent } from '../utils/platform_events';
 import { toolNotificationEvent } from './adapter/toolNotifications';
 import { acpChatSessionActions, acpChatSessionStore } from './chatSessionStore';
+import { applyDelegationUpdate } from './delegations';
 import { rememberSessionConfigOptions } from './sessionConfig';
 
 export function handleAcpSessionNotification(notification: SessionNotification): Promise<void> {
@@ -52,6 +53,9 @@ function maybeHandleLivePlatformEvent(notification: SessionNotification): void {
 export function handleAcpGooseSessionNotification(
   notification: GooseSessionNotification_unstable
 ): Promise<void> {
+  if (notification.update.sessionUpdate === 'delegation_update') {
+    applyDelegationUpdate(notification.update);
+  }
   acpChatSessionActions.applyAcpGooseSessionNotification(notification);
   return Promise.resolve();
 }

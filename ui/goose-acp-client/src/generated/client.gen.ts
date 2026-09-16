@@ -65,6 +65,8 @@ import type {
   GetConfigExtensionsResponse_unstable,
   GetPromptRequest_unstable,
   GetPromptResponse_unstable,
+  GetSessionChildrenRequest_unstable,
+  GetSessionChildrenResponse_unstable,
   GetSessionExtensionsRequest_unstable,
   GetSessionExtensionsResponse_unstable,
   GetSessionInfoRequest_unstable,
@@ -213,6 +215,7 @@ import {
   zExportSourceResponse_unstable,
   zGetConfigExtensionsResponse_unstable,
   zGetPromptResponse_unstable,
+  zGetSessionChildrenResponse_unstable,
   zGetSessionExtensionsResponse_unstable,
   zGetSessionInfoResponse_unstable,
   zGetToolsResponse_unstable,
@@ -1073,6 +1076,18 @@ export class GooseExtClient {
     return zGetSessionInfoResponse_unstable.parse(
       raw,
     ) as GetSessionInfoResponse_unstable;
+  }
+
+  async sessionChildren_unstable(
+    params: GetSessionChildrenRequest_unstable,
+  ): Promise<GetSessionChildrenResponse_unstable> {
+    const raw = await this.conn.request(
+      "_goose/unstable/session/children",
+      params,
+    );
+    return zGetSessionChildrenResponse_unstable.parse(
+      raw,
+    ) as GetSessionChildrenResponse_unstable;
   }
 
   async sessionConversationTruncate_unstable(

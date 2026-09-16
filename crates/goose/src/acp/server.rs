@@ -12,6 +12,7 @@ use crate::acp::{PermissionDecision, ACP_CURRENT_MODEL};
 use crate::agents::extension::{Envs, PLATFORM_EXTENSIONS};
 use crate::agents::mcp_client::{GooseMcpHostInfo, McpClientTrait};
 use crate::agents::platform_extensions::developer::DeveloperClient;
+use crate::agents::platform_extensions::summon;
 use crate::agents::session_bridge;
 use crate::agents::state_machine::{
     has_unapplied_tool_confirmation_response, pending_tool_confirmations,
@@ -1277,12 +1278,64 @@ impl GooseAcpAgent {
         let acp_session = GooseAcpSession {
             agent: agent.clone(),
         };
-        self.sessions
+        let previous = self
+            .sessions
             .lock()
             .await
             .insert(session_id.clone(), acp_session);
         self.subscribe_thinking_effort_updates(&session_id, &agent)
             .await;
+        // A reload of an active session keeps the forwarder it already has;
+        // the bridge keeps the channel across re-registration.
+        if previous.is_none() {
+            self.forward_delegation_updates(&session_id).await;
+        }
+    }
+
+    /// Bridge-dispatched `delegate` calls publish their start and end on the
+    /// session bridge; this pushes them to the client out of turn as
+    /// `DelegationUpdate`s. Ends when the session is unregistered (closed).
+    async fn forward_delegation_updates(&self, session_id: &str) {
+        if !self.supports_goose_custom_notifications() {
+            return;
+        }
+        let Some(cx) = self.client_cx.get().cloned() else {
+            return;
+        };
+        let Some(mut events) = session_bridge::SessionBridge::global()
+            .await
+            .subscribe(session_id)
+        else {
+            return;
+        };
+        let session_id = session_id.to_string();
+        let closed_session_ids = Arc::clone(&self.closed_session_ids);
+        tokio::spawn(async move {
+            loop {
+                let notification = match events.recv().await {
+                    Ok(notification) => notification,
+                    Err(tokio::sync::broadcast::error::RecvError::Lagged(_)) => continue,
+                    Err(tokio::sync::broadcast::error::RecvError::Closed) => break,
+                };
+                let Some(update) = summon::delegation_update_from_notification(&notification)
+                else {
+                    continue;
+                };
+                if closed_session_ids.lock().await.contains(&session_id) {
+                    continue;
+                }
+                if let Err(error) = cx.send_notification(GooseSessionNotification {
+                    session_id: session_id.clone(),
+                    update: GooseSessionUpdate::DelegationUpdate(update),
+                }) {
+                    warn!(
+                        session_id = %session_id,
+                        %error,
+                        "Failed to forward delegation update"
+                    );
+                }
+            }
+        });
     }
 
     async fn subscribe_thinking_effort_updates(&self, session_id: &str, agent: &Arc<Agent>) {

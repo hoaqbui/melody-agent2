@@ -333,6 +333,7 @@ pub(crate) struct SessionListPage {
 pub(crate) struct SessionListFilters<'a> {
     pub(crate) types: Option<&'a [SessionType]>,
     pub(crate) working_dir: Option<&'a Path>,
+    pub(crate) parent_session_id: Option<&'a str>,
     pub(crate) keyword: Option<&'a str>,
     pub(crate) only_sessions_with_messages: bool,
 }
@@ -479,6 +480,19 @@ impl SessionManager {
 
     pub async fn list_sessions_by_types(&self, types: &[SessionType]) -> Result<Vec<Session>> {
         self.storage.list_sessions_by_types(Some(types)).await
+    }
+
+    /// The sessions delegated from `parent_session_id`, newest first.
+    pub async fn list_children(&self, parent_session_id: &str) -> Result<Vec<Session>> {
+        self.storage
+            .list_sessions_matching(SessionListQuery {
+                filters: SessionListFilters {
+                    parent_session_id: Some(parent_session_id),
+                    ..Default::default()
+                },
+                ..Default::default()
+            })
+            .await
     }
 
     pub(crate) async fn list_sessions_paged(
@@ -2020,6 +2034,9 @@ impl SessionStorage {
         if filters.working_dir.is_some() {
             where_clauses.push("s.working_dir = ?".to_string());
         }
+        if filters.parent_session_id.is_some() {
+            where_clauses.push("s.parent_session_id = ?".to_string());
+        }
         if !keywords.is_empty() {
             where_clauses.push(message_keyword_clause(keywords.len()));
         }
@@ -2095,6 +2112,9 @@ impl SessionStorage {
         }
         if let Some(working_dir) = filters.working_dir {
             q = q.bind(working_dir.to_string_lossy().to_string());
+        }
+        if let Some(parent_session_id) = filters.parent_session_id {
+            q = q.bind(parent_session_id);
         }
         for term in keywords {
             q = q.bind(term);
@@ -4171,6 +4191,7 @@ mod tests {
         let filters = SessionListFilters {
             types: Some(&types),
             working_dir: Some(Path::new("/tmp/session-list/a")),
+            parent_session_id: None,
             keyword: Some("postgres"),
             only_sessions_with_messages: true,
         };
@@ -4752,6 +4773,48 @@ mod tests {
         let child_totals = sm.get_session_usage_totals(&child).await.unwrap();
         assert_eq!(child_totals.accumulated_usage.input_tokens, Some(40));
         assert!((child_totals.accumulated_cost.unwrap() - 0.04).abs() < 1e-9);
+    }
+
+    #[tokio::test]
+    async fn session_children_lists_subagents() {
+        let temp_dir = TempDir::new().unwrap();
+        let sm = SessionManager::new(temp_dir.path().to_path_buf());
+        let parent = new_session(&sm).await;
+        let unrelated = new_session(&sm).await;
+        let mut children = Vec::new();
+        for _ in 0..2 {
+            let child = sm
+                .create_session(
+                    PathBuf::from("/tmp"),
+                    "Delegated task".to_string(),
+                    SessionType::SubAgent,
+                    GooseMode::Auto,
+                )
+                .await
+                .unwrap();
+            sm.update(&child.id)
+                .parent_session_id(Some(parent.clone()))
+                .apply()
+                .await
+                .unwrap();
+            children.push(child.id);
+        }
+
+        let mut listed: Vec<String> = sm
+            .list_children(&parent)
+            .await
+            .unwrap()
+            .into_iter()
+            .inspect(|session| {
+                assert_eq!(session.session_type, SessionType::SubAgent);
+                assert_eq!(session.parent_session_id.as_deref(), Some(parent.as_str()));
+            })
+            .map(|session| session.id)
+            .collect();
+        listed.sort();
+        children.sort();
+        assert_eq!(listed, children);
+        assert!(sm.list_children(&unrelated).await.unwrap().is_empty());
     }
 
     #[tokio::test]

@@ -202,6 +202,7 @@ impl GooseAcpAgent {
                 filters: SessionListFilters {
                     types: Some(&session_types),
                     working_dir: cwd,
+                    parent_session_id: None,
                     keyword: keyword.as_deref(),
                     only_sessions_with_messages: true,
                 },

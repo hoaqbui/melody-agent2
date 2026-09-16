@@ -12,6 +12,7 @@ import type {
   SessionImportSource,
 } from '@aaif/goose-acp-client';
 import { getAcpClient } from './acpConnection';
+import { rememberSessionChildren } from './delegations';
 import { rememberSessionConfigOptions } from './sessionConfig';
 import type { ExtensionLoadResult } from '../types/extensions';
 import type { Session } from '../types/session';
@@ -188,6 +189,20 @@ export async function acpGetSessionListItem(sessionId: string): Promise<SessionL
   return sessionInfoToListItem(response.session);
 }
 
+// The sessions `sessionId` delegated to (its `sub_agent` children), newest first.
+export async function acpSessionChildren(sessionId: string): Promise<SessionListItem[]> {
+  const client = await getAcpClient();
+  const response = await client.goose.sessionChildren_unstable({ sessionId });
+  return response.sessions.map(sessionInfoToListItem);
+}
+
+// Seeds the delegations store; a session loads whether or not this read lands.
+function seedSessionDelegations(sessionId: string): void {
+  acpSessionChildren(sessionId)
+    .then((children) => rememberSessionChildren(sessionId, children))
+    .catch((error) => console.warn('Failed to list session children:', error));
+}
+
 export async function acpLoadSession(sessionId: string): Promise<AcpLoadSessionResult> {
   const pendingLoad = inFlightSessionLoads.get(sessionId);
   if (pendingLoad) {
@@ -219,6 +234,7 @@ async function loadAcpSession(sessionId: string): Promise<AcpLoadSessionResult> 
     mcpServers: [],
   });
   rememberSessionConfigOptions(sessionId, response.configOptions);
+  seedSessionDelegations(sessionId);
   // Loading can populate missing provider/model metadata.
   const sessionInfoResponse = await client.goose.sessionInfo_unstable({ sessionId });
 

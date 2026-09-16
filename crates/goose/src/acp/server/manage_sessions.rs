@@ -207,6 +207,28 @@ impl GooseAcpAgent {
         })
     }
 
+    pub(super) async fn on_get_session_children(
+        &self,
+        req: GetSessionChildrenRequest,
+    ) -> Result<GetSessionChildrenResponse, agent_client_protocol::Error> {
+        let session_id = req.session_id.trim();
+        if session_id.is_empty() {
+            return Err(
+                agent_client_protocol::Error::invalid_params().data("sessionId cannot be empty")
+            );
+        }
+
+        let children = self
+            .session_manager
+            .list_children(session_id)
+            .await
+            .internal_err()?;
+
+        Ok(GetSessionChildrenResponse {
+            sessions: children.into_iter().map(build_session_info).collect(),
+        })
+    }
+
     pub(super) async fn on_truncate_session_conversation(
         &self,
         req: TruncateSessionConversationRequest,

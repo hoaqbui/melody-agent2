@@ -11,17 +11,18 @@ use axum::{
     routing::post,
     Json, Router,
 };
+use futures::StreamExt;
 use rand::{distr::Alphanumeric, RngExt};
 use rmcp::model::{
     CallToolRequestParams, CallToolResult, ContentBlock, Implementation, InitializeResult,
-    ListToolsResult, ServerCapabilities,
+    ListToolsResult, ServerCapabilities, ServerNotification,
 };
 use serde_json::{json, Value};
 use std::collections::HashMap;
 use std::sync::{Arc, Mutex, Weak};
 use subtle::ConstantTimeEq;
 use tokio::net::TcpListener;
-use tokio::sync::OnceCell;
+use tokio::sync::{broadcast, OnceCell};
 use tokio_util::sync::CancellationToken;
 
 use super::Agent;
@@ -32,8 +33,19 @@ use crate::session::SessionType;
 pub const BRIDGE_EXTENSION_NAME: &str = "goose";
 pub const SECRET_HEADER: &str = "X-Secret-Key";
 const SUMMON_EXTENSION: &str = "summon";
+// Same class of loss as the dispatch channel's 32-slot `try_send`: a lagging
+// subscriber drops the oldest events, never blocks a tool call.
+const EVENT_CAPACITY: usize = 64;
 
-type Registry = Arc<Mutex<HashMap<String, Weak<Agent>>>>;
+struct Registered {
+    agent: Weak<Agent>,
+    /// Notifications the session's bridge-dispatched tool calls produce
+    /// (summon's `delegate_started` / `delegate_finished` among them); the ACP
+    /// server subscribes, the CLI has no receiver and the sends are dropped.
+    events: broadcast::Sender<ServerNotification>,
+}
+
+type Registry = Arc<Mutex<HashMap<String, Registered>>>;
 
 #[derive(Clone)]
 struct BridgeState {
@@ -80,16 +92,38 @@ impl SessionBridge {
             .await
     }
 
+    /// Re-registering a session (provider change, reload) refreshes the agent
+    /// and keeps its event channel, so an existing subscriber stays attached.
     pub fn register(&self, session_id: &str, agent: Weak<Agent>) {
+        let mut registry = self.state.registry.lock().unwrap();
+        match registry.get_mut(session_id) {
+            Some(registered) => registered.agent = agent,
+            None => {
+                registry.insert(
+                    session_id.to_string(),
+                    Registered {
+                        agent,
+                        events: broadcast::channel(EVENT_CAPACITY).0,
+                    },
+                );
+            }
+        }
+    }
+
+    /// Dropping the entry closes the channel; subscribers see `Closed` and stop.
+    pub fn unregister(&self, session_id: &str) {
+        self.state.registry.lock().unwrap().remove(session_id);
+    }
+
+    /// Notifications from this session's bridge-dispatched tool calls;
+    /// `None` when the session is not registered.
+    pub fn subscribe(&self, session_id: &str) -> Option<broadcast::Receiver<ServerNotification>> {
         self.state
             .registry
             .lock()
             .unwrap()
-            .insert(session_id.to_string(), agent);
-    }
-
-    pub fn unregister(&self, session_id: &str) {
-        self.state.registry.lock().unwrap().remove(session_id);
+            .get(session_id)
+            .map(|registered| registered.events.subscribe())
     }
 
     /// The extension an external runtime receives so it can call this session's tools.
@@ -192,13 +226,13 @@ async fn handle(
     headers: HeaderMap,
     body: String,
 ) -> Response {
-    let agent = state
+    let registered = state
         .registry
         .lock()
         .unwrap()
         .get(&session_id)
-        .and_then(Weak::upgrade);
-    let Some(agent) = agent else {
+        .and_then(|registered| Some((registered.agent.upgrade()?, registered.events.clone())));
+    let Some((agent, events)) = registered else {
         return StatusCode::NOT_FOUND.into_response();
     };
 
@@ -275,7 +309,7 @@ async fn handle(
                 )
                 .await;
             match dispatched {
-                Ok(result) => match result.result.await {
+                Ok(result) => match await_broadcasting(result, &events).await {
                     Ok(call_result) => rpc_ok(id, json!(call_result)),
                     Err(error) => rpc_ok(
                         id,
@@ -288,6 +322,33 @@ async fn handle(
             }
         }
         _ => rpc_error(StatusCode::OK, id, -32601, "method not found"),
+    }
+}
+
+/// Awaits the call while publishing its notification stream; a send with no
+/// subscriber (the CLI path) is dropped. The stream's client half never
+/// closes, so only what is already queued is drained once the result lands.
+async fn await_broadcasting(
+    dispatched: crate::agents::tool_execution::ToolCallResult,
+    events: &broadcast::Sender<ServerNotification>,
+) -> crate::mcp_utils::ToolResult<CallToolResult> {
+    let mut result = dispatched.result;
+    let Some(mut stream) = dispatched.notification_stream else {
+        return result.await;
+    };
+    loop {
+        tokio::select! {
+            biased;
+            call_result = &mut result => {
+                while let std::task::Poll::Ready(Some(notification)) = futures::poll!(stream.next()) {
+                    let _ = events.send(notification);
+                }
+                return call_result;
+            }
+            Some(notification) = stream.next() => {
+                let _ = events.send(notification);
+            }
+        }
     }
 }
 
@@ -453,8 +514,99 @@ mod tests {
             _tools: &[rmcp::model::Tool],
         ) -> Result<crate::providers::base::MessageStream, goose_providers::errors::ProviderError>
         {
-            Ok(Box::pin(futures::stream::empty()))
+            Ok(Box::pin(futures::stream::once(async {
+                Ok((
+                    Some(crate::conversation::message::Message::assistant().with_text("hello")),
+                    None,
+                ))
+            })))
         }
+    }
+
+    #[tokio::test]
+    async fn bridge_broadcasts_delegate_started_and_done() {
+        use goose_sdk_types::custom_notifications::DelegationStatus;
+
+        let root = tempfile::tempdir().unwrap();
+        let bridge = SessionBridge::global().await;
+        let secret = bridge.state.secret.as_str();
+        let (agent, session_id) = agent_on(false, root.path()).await;
+        agent
+            .extension_manager
+            .add_extension(
+                ExtensionConfig::Platform {
+                    name: crate::agents::platform_extensions::summon::EXTENSION_NAME.to_string(),
+                    description: "Load knowledge and delegate tasks to subagents".to_string(),
+                    display_name: Some("Summon".to_string()),
+                    bundled: Some(true),
+                    available_tools: vec![],
+                },
+                None,
+                None,
+                None,
+            )
+            .await
+            .unwrap();
+        assert!(bridge.subscribe(&session_id).is_none());
+        bridge.register(&session_id, Arc::downgrade(&agent));
+        let mut events = bridge.subscribe(&session_id).unwrap();
+
+        let call = json!({
+            "jsonrpc": "2.0",
+            "id": 3,
+            "method": "tools/call",
+            "params": {
+                "name": "delegate",
+                "arguments": {
+                    "instructions": "say hello\nthen stop",
+                    "extensions": [],
+                    "max_turns": 1
+                }
+            }
+        });
+        let response = bridge
+            .router()
+            .oneshot(post(&session_id, Some(secret), &call.to_string()))
+            .await
+            .unwrap();
+        assert_eq!(response.status(), StatusCode::OK);
+        let body = json_body(response).await;
+        let child_id = body["result"]["_meta"]["subagent_session_id"]
+            .as_str()
+            .expect("child session id on the result")
+            .to_string();
+
+        let mut delegations = Vec::new();
+        while let Ok(notification) = events.try_recv() {
+            if let Some(update) =
+                crate::agents::platform_extensions::summon::delegation_update_from_notification(
+                    &notification,
+                )
+            {
+                delegations.push(update);
+            }
+        }
+        let statuses: Vec<DelegationStatus> = delegations.iter().map(|d| d.status).collect();
+        assert_eq!(
+            statuses,
+            [DelegationStatus::Running, DelegationStatus::Done],
+            "{delegations:?}"
+        );
+        for update in &delegations {
+            assert_eq!(update.subagent_session_id, child_id);
+            assert_eq!(update.parent_session_id, session_id);
+            assert_eq!(update.provider, "stub");
+            assert_eq!(update.model, "stub-model");
+            assert_eq!(update.title, "say hello");
+            assert!(update.source.is_none());
+            assert!(update.error.is_none());
+        }
+
+        bridge.unregister(&session_id);
+        assert!(matches!(
+            events.try_recv(),
+            Err(broadcast::error::TryRecvError::Closed)
+        ));
     }
 
     async fn agent_on(own_context: bool, root: &std::path::Path) -> (Arc<Agent>, String) {

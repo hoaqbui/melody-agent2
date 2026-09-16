@@ -695,6 +695,23 @@ pub struct GetSessionInfoResponse {
     pub session: SessionInfo,
 }
 
+/// List the sessions a session delegated to (its `sub_agent` children), newest first.
+#[derive(Debug, Default, Clone, Serialize, Deserialize, JsonSchema, JsonRpcRequest)]
+#[request(
+    method = "_goose/unstable/session/children",
+    response = GetSessionChildrenResponse
+)]
+#[serde(rename_all = "camelCase")]
+pub struct GetSessionChildrenRequest {
+    pub session_id: String,
+}
+
+#[derive(Debug, Default, Clone, Serialize, Deserialize, JsonSchema, JsonRpcResponse)]
+#[serde(rename_all = "camelCase")]
+pub struct GetSessionChildrenResponse {
+    pub sessions: Vec<SessionInfo>,
+}
+
 /// Truncate a session conversation from the given message timestamp onward.
 #[derive(Debug, Default, Clone, Serialize, Deserialize, JsonSchema, JsonRpcRequest)]
 #[request(

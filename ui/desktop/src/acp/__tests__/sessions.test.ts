@@ -88,6 +88,7 @@ describe('ACP sessions', () => {
           .fn()
           .mockResolvedValueOnce({ session: sessionInfo() })
           .mockResolvedValueOnce({ session: loadedSessionInfo }),
+        sessionChildren_unstable: vi.fn().mockResolvedValue({ sessions: [] }),
       },
     };
     vi.mocked(getAcpClient).mockResolvedValue(
@@ -102,6 +103,7 @@ describe('ACP sessions', () => {
       mcpServers: [],
     });
     expect(client.goose.sessionInfo_unstable).toHaveBeenCalledTimes(2);
+    expect(client.goose.sessionChildren_unstable).toHaveBeenCalledWith({ sessionId: 'session-1' });
     expect(result.sessionInfo).toBe(loadedSessionInfo);
     expect(sessionInfoToSession(result.sessionInfo).provider_name).toBe('anthropic');
     expect(sessionInfoToSession(result.sessionInfo).model_config?.model_name).toBe(

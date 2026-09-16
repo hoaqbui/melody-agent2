@@ -29,6 +29,9 @@ export function applyGooseSessionNotification(
       return applyStatusMessage(state, notification.sessionId, update);
     case 'message_usage':
       return applyMessageUsage(state, update);
+    // Not transcript state: `delegations.ts` keeps it (`chatNotifications.ts`).
+    case 'delegation_update':
+      return [];
     default:
       return [];
   }
