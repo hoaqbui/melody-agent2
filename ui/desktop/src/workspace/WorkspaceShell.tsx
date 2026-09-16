@@ -66,7 +66,6 @@ const i18n = defineMessages({
   openAsPane: { id: 'workspaceShell.openAsPane', defaultMessage: 'Open as pane' },
   closePane: { id: 'workspaceShell.closePane', defaultMessage: 'Close pane' },
   paneUnavailable: { id: 'workspaceShell.paneUnavailable', defaultMessage: 'Not available yet' },
-  editorFile: { id: 'workspaceShell.editorFile', defaultMessage: 'Selected: {path}' },
   paneFiles: { id: 'workspaceShell.paneFiles', defaultMessage: 'Files' },
   paneEditor: { id: 'workspaceShell.paneEditor', defaultMessage: 'Editor' },
   paneDiff: { id: 'workspaceShell.paneDiff', defaultMessage: 'Changes' },
@@ -285,11 +284,6 @@ export function WorkspaceShell({ chat, children, panes, paneStore }: WorkspaceSh
         {panes?.[id] ?? defaultPane(id) ?? (
           <p className="p-4 text-sm text-text-secondary">
             {intl.formatMessage(PANE_TITLES[id])} — {intl.formatMessage(i18n.paneUnavailable)}
-            {id === 'editor' && file && (
-              <span className="block truncate" data-testid="workspace-editor-file">
-                {intl.formatMessage(i18n.editorFile, { path: file })}
-              </span>
-            )}
           </p>
         )}
       </PaneContext.Provider>

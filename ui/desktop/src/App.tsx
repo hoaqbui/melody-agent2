@@ -38,6 +38,7 @@ import { AppLayout } from './components/Layout/AppLayout';
 import ChatSessionsContainer from './components/ChatSessionsContainer';
 import { WorkspaceShell } from './workspace/WorkspaceShell';
 import { DiffPane } from './workspace/panes/diff/DiffPane';
+import { EditorPane } from './workspace/panes/editor/EditorPane';
 import { FilesPane } from './workspace/panes/files/FilesPane';
 import { GitPane } from './workspace/panes/git/GitPane';
 import { ChatProvider, DEFAULT_CHAT_TITLE } from './contexts/ChatContext';
@@ -665,7 +666,12 @@ export function AppInner() {
                             activeSessions={activeSessions}
                           />
                         }
-                        panes={{ files: <FilesPane />, diff: <DiffPane />, git: <GitPane /> }}
+                        panes={{
+                          files: <FilesPane />,
+                          editor: <EditorPane />,
+                          diff: <DiffPane />,
+                          git: <GitPane />,
+                        }}
                       >
                         <Outlet />
                       </WorkspaceShell>
