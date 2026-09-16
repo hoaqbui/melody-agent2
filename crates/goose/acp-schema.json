@@ -4011,11 +4011,37 @@
           ],
           "minimum": 0
         },
+        "goose_mode": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/RecipeGooseModeDto"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "working_dir": {
+          "type": [
+            "string",
+            "null"
+          ]
+        },
         "worktree": {
           "type": "boolean",
           "default": false
         }
       }
+    },
+    "RecipeGooseModeDto": {
+      "type": "string",
+      "enum": [
+        "auto",
+        "approve",
+        "smart_approve",
+        "chat"
+      ],
+      "description": "The goose mode a scheduled run of the recipe gets, spelled as the `session/set_mode` ids."
     },
     "RecipeAuthorDto": {
       "type": "object",

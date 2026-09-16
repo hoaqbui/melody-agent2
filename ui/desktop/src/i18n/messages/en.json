@@ -3656,6 +3656,9 @@
   "routineSheet.workingDir": {
     "defaultMessage": "Working directory"
   },
+  "routineSheet.worktree": {
+    "defaultMessage": "Run in its own worktree"
+  },
   "runsInbox.accept": {
     "defaultMessage": "Accept"
   },

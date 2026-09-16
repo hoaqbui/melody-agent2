@@ -6,6 +6,7 @@ use std::path::Path;
 
 use crate::agents::extension::ExtensionConfig;
 use crate::agents::types::RetryConfig;
+use crate::config::GooseMode;
 use crate::recipe::read_recipe_file_content::read_recipe_file;
 use crate::recipe::yaml_format_utils::reformat_fields_with_multiline_values;
 use crate::utils::contains_unicode_tags;
@@ -108,6 +109,15 @@ pub struct Settings {
 
     #[serde(skip_serializing_if = "Option::is_none")]
     pub max_turns: Option<usize>,
+
+    // A scheduled run's goose mode (scheduler.rs); unset, an unattended run stays on Auto.
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub goose_mode: Option<GooseMode>,
+
+    // Where a scheduled run of this recipe lives (scheduler.rs); unset, the checkout the
+    // scheduler was started in.
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub working_dir: Option<String>,
 
     // A scheduled run of this recipe gets its own worktree (scheduler.rs); off, it runs on
     // the checkout the scheduler was started in.

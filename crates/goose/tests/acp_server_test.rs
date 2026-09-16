@@ -901,6 +901,8 @@ fn test_new_session_honors_recipe_model_without_recipe_provider() {
                 goose_model: Some(recipe_model.to_string()),
                 temperature: None,
                 max_turns: None,
+                goose_mode: None,
+                working_dir: None,
                 worktree: false,
             })
             .build()

@@ -1636,8 +1636,15 @@ export type RecipeSettingsDto = {
     goose_model?: string | null;
     temperature?: number | null;
     max_turns?: number | null;
+    goose_mode?: RecipeGooseModeDto | null;
+    working_dir?: string | null;
     worktree?: boolean;
 };
+
+/**
+ * The goose mode a scheduled run of the recipe gets, spelled as the `session/set_mode` ids.
+ */
+export type RecipeGooseModeDto = 'auto' | 'approve' | 'smart_approve' | 'chat';
 
 export type RecipeAuthorDto = {
     contact?: string | null;

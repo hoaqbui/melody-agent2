@@ -302,6 +302,8 @@ fn with_runtime(recipe: &Recipe, runtime: &AgentRuntime) -> Recipe {
         goose_model: None,
         temperature: None,
         max_turns: None,
+        goose_mode: None,
+        working_dir: None,
         worktree: false,
     });
     settings.goose_provider = Some(runtime.provider.clone());
@@ -1734,6 +1736,8 @@ impl SummonClient {
             goose_provider: params.provider.clone(),
             temperature: params.temperature,
             max_turns: None,
+            goose_mode: None,
+            working_dir: None,
             worktree: false,
         });
 
@@ -3220,6 +3224,8 @@ You research."#,
                     goose_model: None,
                     temperature: None,
                     max_turns: Some(10),
+                    goose_mode: None,
+                    working_dir: None,
                     worktree: false,
                 }),
                 activities: None,
@@ -3639,6 +3645,8 @@ You research."#,
             goose_model: Some("recipe-model".to_string()),
             temperature: None,
             max_turns: None,
+            goose_mode: None,
+            working_dir: None,
             worktree: false,
         });
         let result = client
@@ -3679,6 +3687,8 @@ You research."#,
             goose_model: Some("recipe-model-for-another-provider".to_string()),
             temperature: None,
             max_turns: None,
+            goose_mode: None,
+            working_dir: None,
             worktree: false,
         });
         let default_model = providers::get_from_registry(PROVIDER)

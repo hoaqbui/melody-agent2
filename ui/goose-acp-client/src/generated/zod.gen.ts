@@ -1242,11 +1242,23 @@ export const zRecipeExtensionDto = z.union([
     })
 ]);
 
+/**
+ * The goose mode a scheduled run of the recipe gets, spelled as the `session/set_mode` ids.
+ */
+export const zRecipeGooseModeDto = z.enum([
+    'auto',
+    'approve',
+    'smart_approve',
+    'chat'
+]);
+
 export const zRecipeSettingsDto = z.object({
     goose_provider: z.string().nullish(),
     goose_model: z.string().nullish(),
     temperature: z.number().nullish(),
     max_turns: z.int().gte(0).nullish(),
+    goose_mode: zRecipeGooseModeDto.nullish(),
+    working_dir: z.string().nullish(),
     worktree: z.boolean().optional().default(false)
 });
 

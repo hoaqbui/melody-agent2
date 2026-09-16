@@ -2,7 +2,7 @@
 // the schedule id its title allows, the cron a trigger stands for, and the first user
 // prompt of a transcript. The transcript itself is not part of the routine.
 
-import type { Recipe } from '../../recipe';
+import type { Recipe, RecipeSettings } from '../../recipe';
 import type { SessionExtension } from '../../acp/session-extensions';
 import { getTextAndImageContent, type Message } from '../../types/message';
 
@@ -47,7 +47,19 @@ export interface RoutineSource {
   instructions: string;
   provider?: string;
   model?: string;
+  // The session's mode option value, one of the `session/set_mode` ids.
+  mode?: string;
+  cwd: string;
+  worktree: boolean;
   extensions: readonly SessionExtension[];
+}
+
+type GooseMode = NonNullable<RecipeSettings['goose_mode']>;
+
+const GOOSE_MODES: readonly GooseMode[] = ['auto', 'approve', 'smart_approve', 'chat'];
+
+export function gooseMode(mode: string | undefined): GooseMode | undefined {
+  return GOOSE_MODES.find((candidate) => candidate === mode);
 }
 
 export const ROUTINE_DESCRIPTION = 'Routine saved from a session.';
@@ -61,20 +73,25 @@ export function isSessionBridge(extension: SessionExtension): boolean {
 // The session's extensions travel whole (the server needs each one's type and command),
 // minus its bridge; none at all is left out, which the server reads as its defaults
 // rather than as "no extensions". The stdio path carries env key names only, never values.
+// The settings are what the scheduler reads (scheduler.rs `execute_job`): the runtime,
+// mode and folder the sheet showed, and whether each run gets its own worktree.
 export function routineRecipe(source: RoutineSource): Recipe {
   const extensions = source.extensions
     .filter((extension) => !isSessionBridge(extension))
     .map(({ extensionKey: _key, ...extension }) => extension);
-  const settings =
-    source.provider || source.model
-      ? { goose_provider: source.provider ?? null, goose_model: source.model ?? null }
-      : undefined;
+  const mode = gooseMode(source.mode);
   return {
     version: '1.0.0',
     title: source.title.trim(),
     description: ROUTINE_DESCRIPTION,
     instructions: source.instructions.trim(),
     ...(extensions.length > 0 && { extensions }),
-    ...(settings && { settings }),
+    settings: {
+      ...(source.provider && { goose_provider: source.provider }),
+      ...(source.model && { goose_model: source.model }),
+      ...(mode && { goose_mode: mode }),
+      working_dir: source.cwd,
+      worktree: source.worktree,
+    },
   };
 }

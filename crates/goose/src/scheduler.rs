@@ -7,6 +7,7 @@ use std::sync::Arc;
 use anyhow::{anyhow, bail, Result};
 use async_trait::async_trait;
 use chrono::{DateTime, Local, Utc};
+use goose_providers::model::ModelConfig;
 use rand::RngExt;
 use serde::{Deserialize, Serialize};
 use tokio::sync::Mutex;
@@ -16,17 +17,17 @@ use tokio_util::sync::CancellationToken;
 use crate::agents::{Agent, AgentConfig, AgentEvent, GoosePlatform, SessionConfig};
 use crate::config::paths::Paths;
 use crate::config::permission::PermissionManager;
-use crate::config::{resolve_extensions_for_new_session, Config, GooseMode};
+use crate::config::{resolve_extensions_for_new_session, Config};
 use crate::conversation::message::Message;
 use crate::conversation::Conversation;
 #[cfg(feature = "telemetry")]
 use crate::posthog;
-use crate::providers::create_with_working_dir;
+use crate::providers::{create_with_working_dir, get_from_registry};
 use crate::recipe::build_recipe::build_recipe_from_template;
 use crate::recipe::validate_recipe::{
     recipe_file_format, validate_recipe_for_scheduling, SchedulerRecipeError,
 };
-use crate::recipe::Recipe;
+use crate::recipe::{Recipe, Settings};
 use crate::scheduler_trait::SchedulerTrait;
 use crate::session::extension_data::ExtensionState;
 use crate::session::session_manager::SessionType;
@@ -1092,6 +1093,34 @@ fn add_run_worktree(cwd: &Path) -> Result<RunWorktree> {
     Ok(RunWorktree { path, branch })
 }
 
+// The run's provider and model resolve the way `session/new` resolves them for a session
+// on a recipe (acp/server/new_session.rs `resolve_provider_and_model`, minus the client's
+// meta): the recipe's provider, else the global one; the recipe's model, else the recipe
+// provider's default, else the global model. Mirrored rather than shared because that path
+// answers in ACP errors.
+async fn run_provider_and_model(settings: Option<&Settings>) -> Result<(String, ModelConfig)> {
+    let config = Config::global();
+    let recipe_provider = settings.and_then(|settings| settings.goose_provider.clone());
+    let recipe_model = settings.and_then(|settings| settings.goose_model.clone());
+    let provider_name = match recipe_provider.clone() {
+        Some(provider) => provider,
+        None => config.get_goose_provider()?,
+    };
+    let model_name = match recipe_model {
+        Some(model) => model,
+        None if recipe_provider.is_some() => get_from_registry(&provider_name)
+            .await?
+            .metadata()
+            .default_model
+            .clone(),
+        None => config.get_goose_model()?,
+    };
+    let model_config =
+        crate::model_config::model_config_from_user_config(&provider_name, &model_name)?
+            .with_cache_ttl_clamped();
+    Ok((provider_name, model_config))
+}
+
 #[allow(clippy::too_many_lines)]
 async fn execute_job(
     job: ScheduledJob,
@@ -1124,13 +1153,16 @@ async fn execute_job(
     )
     .map_err(|e| anyhow!(e.to_string()))?;
 
+    let settings = recipe.settings.as_ref();
+    let goose_mode = settings
+        .and_then(|settings| settings.goose_mode)
+        .unwrap_or_default();
+    let cwd = match settings.and_then(|settings| settings.working_dir.as_deref()) {
+        Some(working_dir) => PathBuf::from(working_dir),
+        None => std::env::current_dir()?,
+    };
     // The worktree comes before the session so a git failure leaves no run on the checkout.
-    let cwd = std::env::current_dir()?;
-    let worktree = if recipe
-        .settings
-        .as_ref()
-        .is_some_and(|settings| settings.worktree)
-    {
+    let worktree = if settings.is_some_and(|settings| settings.worktree) {
         let checkout = cwd.clone();
         Some(tokio::task::spawn_blocking(move || add_run_worktree(&checkout)).await??)
     } else {
@@ -1144,17 +1176,12 @@ async fn execute_job(
         session_manager,
         PermissionManager::instance(),
         None,
-        GooseMode::Auto,
+        goose_mode,
         true,
         GoosePlatform::GooseCli,
     ));
 
-    let config = Config::global();
-    let provider_name = config.get_goose_provider()?;
-    let model_name = config.get_goose_model()?;
-    let model_config =
-        crate::model_config::model_config_from_user_config(&provider_name, &model_name)?
-            .with_cache_ttl_clamped();
+    let (provider_name, model_config) = run_provider_and_model(settings).await?;
 
     let session = agent
         .config
@@ -1163,7 +1190,7 @@ async fn execute_job(
             run_cwd.clone(),
             format!("Scheduled job: {}", job.id),
             SessionType::Scheduled,
-            GooseMode::Auto,
+            goose_mode,
         )
         .await?;
     if let Some(worktree) = &worktree {
@@ -1187,9 +1214,7 @@ async fn execute_job(
     agent
         .update_provider(agent_provider, model_config, &session.id)
         .await?;
-    agent
-        .update_goose_mode(GooseMode::Auto, &session.id)
-        .await?;
+    agent.update_goose_mode(goose_mode, &session.id).await?;
 
     let mut jobs_guard = jobs.lock().await;
     if let Some((_, job_def)) = jobs_guard.get_mut(job_id.as_str()) {
@@ -1471,10 +1496,15 @@ impl SchedulerTrait for Scheduler {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::config::GooseMode;
     use tempfile::tempdir;
     use tokio::time::{sleep, Duration};
 
     fn create_test_recipe(dir: &Path, name: &str) -> PathBuf {
+        create_test_recipe_with_settings(dir, name, "")
+    }
+
+    fn create_test_recipe_with_settings(dir: &Path, name: &str, settings: &str) -> PathBuf {
         let recipe_path = dir.join(format!("{}.yaml", name));
         fs::write(
             &recipe_path,
@@ -1482,11 +1512,49 @@ mod tests {
                 "version: 1.0.0\n\
                  title: {name}\n\
                  description: Scheduler test recipe\n\
-                 prompt: test\n"
+                 prompt: test\n\
+                 {settings}"
             ),
         )
         .unwrap();
         recipe_path
+    }
+
+    fn scheduled_job(id: &str, recipe_path: &Path) -> ScheduledJob {
+        ScheduledJob {
+            id: id.to_string(),
+            source: recipe_path.to_string_lossy().to_string(),
+            cron: "* * * * * *".to_string(),
+            last_run: None,
+            currently_running: false,
+            paused: false,
+            current_session_id: None,
+            process_start_time: None,
+            parameters: vec![],
+            recipe_base_dir: None,
+        }
+    }
+
+    // One run of `recipe_path` on the every-second cron; the session it leaves behind.
+    async fn run_once(temp_dir: &Path, id: &str, recipe_path: &Path) -> Session {
+        let session_manager = Arc::new(SessionManager::new(temp_dir.to_path_buf()));
+        let scheduler = Scheduler::new(temp_dir.join("schedule.json"), session_manager.clone())
+            .await
+            .unwrap();
+        scheduler
+            .add_scheduled_job(scheduled_job(id, recipe_path), true)
+            .await
+            .unwrap();
+        sleep(Duration::from_millis(1500)).await;
+        let sessions = session_manager
+            .list_sessions_by_types(&[SessionType::Scheduled])
+            .await
+            .unwrap();
+        assert_eq!(sessions.len(), 1, "the job ran once");
+        session_manager
+            .get_session(&sessions[0].id, false)
+            .await
+            .unwrap()
     }
 
     #[test]
@@ -1704,6 +1772,61 @@ mod tests {
             .unwrap();
         assert_eq!(sessions.len(), 1);
         assert_eq!(sessions[0].goose_mode, GooseMode::Auto);
+    }
+
+    #[tokio::test]
+    async fn scheduler_run_uses_recipe_provider() {
+        let _guard = env_lock::lock_env([
+            ("GOOSE_PROVIDER", Some("openai")),
+            ("GOOSE_MODEL", Some("gpt-4o")),
+            ("GOOSE_MODE", Some("chat")),
+            ("OPENAI_API_KEY", Some("fake-openai-no-keyring")),
+            ("OPENAI_CUSTOM_HEADERS", Some("")),
+            ("ANTHROPIC_API_KEY", Some("fake-anthropic-no-keyring")),
+            ("ANTHROPIC_CUSTOM_HEADERS", Some("")),
+        ]);
+        let temp_dir = tempdir().unwrap();
+        let recipe_path = create_test_recipe_with_settings(
+            temp_dir.path(),
+            "recipe_provider_job",
+            "settings:\n  goose_provider: anthropic\n  goose_model: claude-sonnet-4-5\n  goose_mode: approve\n",
+        );
+
+        let session = run_once(temp_dir.path(), "recipe_provider_job", &recipe_path).await;
+        assert_eq!(session.provider_name.as_deref(), Some("anthropic"));
+        assert_eq!(
+            session
+                .model_config
+                .as_ref()
+                .map(|model| model.model_name.as_str()),
+            Some("claude-sonnet-4-5")
+        );
+        assert_eq!(session.goose_mode, GooseMode::Approve);
+    }
+
+    #[tokio::test]
+    async fn scheduler_run_uses_recipe_working_dir() {
+        let _guard = env_lock::lock_env([
+            ("GOOSE_PROVIDER", Some("openai")),
+            ("GOOSE_MODEL", Some("gpt-4o")),
+            ("GOOSE_MODE", Some("chat")),
+            ("OPENAI_API_KEY", Some("fake-openai-no-keyring")),
+            ("OPENAI_CUSTOM_HEADERS", Some("")),
+        ]);
+        let temp_dir = tempdir().unwrap();
+        let project = temp_dir.path().join("project");
+        fs::create_dir_all(&project).unwrap();
+        let recipe_path = create_test_recipe_with_settings(
+            temp_dir.path(),
+            "recipe_working_dir_job",
+            &format!("settings:\n  working_dir: {}\n", project.display()),
+        );
+
+        let session = run_once(temp_dir.path(), "recipe_working_dir_job", &recipe_path).await;
+        assert_eq!(session.working_dir, project);
+        assert_ne!(session.working_dir, std::env::current_dir().unwrap());
+        assert_eq!(session.provider_name.as_deref(), Some("openai"));
+        assert_eq!(session.goose_mode, GooseMode::Auto);
     }
 
     #[tokio::test]

@@ -1,12 +1,13 @@
 use anyhow::Result;
 use goose_sdk_types::custom_requests::{
-    RecipeAuthorDto, RecipeDto, RecipeExtensionDto, RecipeParameterDto,
+    RecipeAuthorDto, RecipeDto, RecipeExtensionDto, RecipeGooseModeDto, RecipeParameterDto,
     RecipeParameterInputTypeDto, RecipeParameterRequirementDto, RecipeResponseDto,
     RecipeRetryConfigDto, RecipeSettingsDto, RecipeSuccessCheckDto, SubRecipeDto,
 };
 
 use crate::agents::extension::{Envs, ExtensionConfig};
 use crate::agents::types::{RetryConfig, SuccessCheck};
+use crate::config::GooseMode;
 use crate::recipe::{
     Author, Recipe, RecipeParameter, RecipeParameterInputType, RecipeParameterRequirement,
     Response, Settings, SubRecipe,
@@ -108,6 +109,8 @@ impl From<RecipeSettingsDto> for Settings {
             goose_model: dto.goose_model,
             temperature: dto.temperature,
             max_turns: dto.max_turns,
+            goose_mode: dto.goose_mode.map(goose_mode_from_dto),
+            working_dir: dto.working_dir,
             worktree: dto.worktree,
         }
     }
@@ -120,8 +123,28 @@ impl From<Settings> for RecipeSettingsDto {
             goose_model: settings.goose_model,
             temperature: settings.temperature,
             max_turns: settings.max_turns,
+            goose_mode: settings.goose_mode.map(goose_mode_to_dto),
+            working_dir: settings.working_dir,
             worktree: settings.worktree,
         }
+    }
+}
+
+fn goose_mode_from_dto(dto: RecipeGooseModeDto) -> GooseMode {
+    match dto {
+        RecipeGooseModeDto::Auto => GooseMode::Auto,
+        RecipeGooseModeDto::Approve => GooseMode::Approve,
+        RecipeGooseModeDto::SmartApprove => GooseMode::SmartApprove,
+        RecipeGooseModeDto::Chat => GooseMode::Chat,
+    }
+}
+
+fn goose_mode_to_dto(mode: GooseMode) -> RecipeGooseModeDto {
+    match mode {
+        GooseMode::Auto => RecipeGooseModeDto::Auto,
+        GooseMode::Approve => RecipeGooseModeDto::Approve,
+        GooseMode::SmartApprove => RecipeGooseModeDto::SmartApprove,
+        GooseMode::Chat => RecipeGooseModeDto::Chat,
     }
 }
 
@@ -542,6 +565,8 @@ mod tests {
                 goose_model: Some("gpt-5".to_string()),
                 temperature: Some(0.2),
                 max_turns: Some(4),
+                goose_mode: Some(RecipeGooseModeDto::SmartApprove),
+                working_dir: Some("/tmp/project".to_string()),
                 worktree: true,
             }),
             activities: Some(vec!["plan".to_string(), "build".to_string()]),
@@ -623,11 +648,16 @@ mod tests {
             Some(HashMap::from([("target".to_string(), "dev".to_string())]))
         );
         assert_eq!(recipe.retry.as_ref().unwrap().max_retries, 2);
-        assert!(recipe.settings.as_ref().unwrap().worktree);
+        let settings = recipe.settings.as_ref().unwrap();
+        assert!(settings.worktree);
+        assert_eq!(settings.goose_mode, Some(GooseMode::SmartApprove));
+        assert_eq!(settings.working_dir.as_deref(), Some("/tmp/project"));
 
         let round_tripped = RecipeDto::try_from(recipe).unwrap();
         let serialized = serde_json::to_value(round_tripped).unwrap();
         assert_eq!(serialized["settings"]["worktree"], json!(true));
+        assert_eq!(serialized["settings"]["goose_mode"], json!("smart_approve"));
+        assert_eq!(serialized["settings"]["working_dir"], json!("/tmp/project"));
         assert!(serialized.get("sub_recipes").is_some());
         assert!(serialized.get("subRecipes").is_none());
         assert_eq!(serialized["parameters"][0]["input_type"], json!("select"));
