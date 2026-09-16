@@ -54,11 +54,14 @@ review list for scheduled runs — local-first > three PRs, one per unit.
   merge, Dismiss = remove. Two surfaces, one row component: task 28's
   Agents pane is the per-session live tree, the inbox is the global
   polled list. No cloud, no control plane (PRODUCT.md §1).
-- **Order.** 47 (spine cwd) → 48 (sidecar git: cwd + worktrees + apply)
-  → 49 (worktree UI) ∥ 50 (hunk controls) → 51 (scheduler outcome) → 52
-  (runs on the wire) → 53 (inbox) → 54 (runs in worktrees) → 55 (docs).
-  48 carries both the worktree routes and `/git/apply` because they
-  share the stdin-capable helper and the `cwd` field.
+- **Order.** Wave 1: 47 (spine cwd, Rust summon) ∥ 48 (sidecar git:
+  cwd + worktrees + apply) ∥ 51 (scheduler outcome, Rust) — disjoint
+  files. Then 49 (worktree UI, after 48 and after ledger tasks 40 and 42
+  land, since it edits the shell header they rewrite) ∥ 50 (hunk
+  controls, after 48; `DiffPane.tsx` is untouched by task 16) ∥ 52
+  (runs on the wire, after 51) → 53 (inbox) → 54 (runs in worktrees,
+  after 48, 49, 53) → 55 (docs). 48 carries both the worktree routes
+  and `/git/apply` so one task owns the `cwd` guard every route shares.
 
 ## Out of scope
 
@@ -93,16 +96,19 @@ review list for scheduled runs — local-first > three PRs, one per unit.
     - toplevel from `git rev-parse --show-toplevel` of the request cwd, never the cwd itself (research 44, #10272's review point); `.worktrees/` is gitignored by the fork (add the line)
     - cleanup policy lives here: never remove a dirty or locked tree without `force`; keep the newest N (Codex keeps 15) is a later policy, not this task
     - `MAX_BODY_BYTES` (`http.ts:16`) bounds a patch; patch paths are repo-root-relative as `git diff` emits them — the route runs `git -C <toplevel>`, so a session opened in a subdirectory still applies
-    - tests in `git.test.ts` against a temp repo: add/list/remove/merge round trip; merge conflict → 409; apply forward, reverse, refuse on drift (tree untouched after refusal), `cached` stages; cwd outside the toplevel → 400
-  - confirm: `cd ui/sidecar && pnpm run typecheck && pnpm vitest run; echo exit=$?` → `exit=0` with ≥ 35 tests (untouched tree: 25)
+    - `slug` is interpolated into a branch name and a path: validate `^[a-z0-9][a-z0-9-]{0,63}$` before any git call, `400` otherwise — a `../` slug walks out of `.worktrees/`
+    - the `cwd` guard resolves `fs.realpath` before the prefix check against the toplevel — symlinks and `..` escape a string compare; the sidecar is unauthenticated on the tailnet (ARCHITECTURE invariant), so these two guards are what stands between a tailnet peer and arbitrary git on the Mac
+    - tests in `git.test.ts` against a temp repo: add/list/remove/merge round trip; merge conflict → 409; apply forward, reverse, refuse on drift (tree untouched after refusal), `cached` stages; cwd outside the toplevel → 400; symlinked cwd out of the toplevel → 400; slug `../x` → 400
+  - confirm: `cd ui/sidecar && pnpm run typecheck && pnpm vitest run src/git.test.ts; echo exit=$?` → `exit=0` with ≥ 10 tests (untouched tree: no such file, exit 1)
 
-- 49. Add "Use worktree" to new chat and worktree actions to Changes: a toggle beside the Runtime/Mode controls in `ui/desktop/src/workspace/WorkspaceShell.tsx` that, when on, calls `/git/worktree/add` with a slug from the first prompt and starts the session with that path as cwd (`session/new` cwd, `src/acp/sessions.ts`); the Changes and Git panes pass `session.working_dir` as `cwd` on every git call; Changes gains "Merge into <main branch>" and "Remove worktree" when the session cwd is a worktree, with the branch name in the pane header; Files and Terminal already follow `working_dir`.
+- 49. Add "Use worktree" to new chat and worktree actions to Changes: a toggle beside the Runtime/Mode controls in `ui/desktop/src/workspace/WorkspaceShell.tsx` that, when on, calls `/git/worktree/add` with a generated slug (`wt-<yyyymmdd>-<4 hex>`; the cwd is fixed at `session/new`, which task 11's shell sends on the Runtime pick before any prompt, so no prompt-derived name is possible) and starts the session with that path as cwd (`session/new` cwd, `src/acp/sessions.ts`); the Changes and Git panes pass `session.working_dir` as `cwd` on every git call; Changes gains "Merge into <main branch>" and "Remove worktree" when the session cwd is a worktree, with the branch name in the pane header; Files and Terminal already follow `working_dir`.
   - status: todo · agent: — · worker: high
   - card: as the user, start a task in its own checkout and merge it back from the Changes pane so that two agents on the same repo never touch each other's files (Codex parity gap 1; reopens PRD §Scope "worktree-per-task", dated amendment)
   - context:
     - the session's cwd is the worktree, so every pane follows it for free (research 44 §Inventory: Files/Terminal use absolute paths; only git was pinned); the toggle's default is off — a fresh chat is chat in the checkout
     - a Rust worktree rebuilds `target/` unless `CARGO_TARGET_DIR` is shared — the Terminal starts with the session cwd; note it in the toggle's tooltip, not more
     - DESIGN.md §Vocabulary: "worktree" and "main checkout" rows; the branch name is mono (machine text)
+    - `/git/merge` → `409` is the pane's Error state: list the conflicting paths, keep Merge enabled for a retry, never auto-resolve — the user resolves in the Editor or the Terminal
   - confirm: `cd ui/desktop && pnpm run typecheck && pnpm exec playwright test -g "worktree"; echo exit=$?` → `exit=0` (walk: toggle on, send a prompt, header shows `wt/<slug>`, Terminal `pwd` ends in `.worktrees/<slug>`, Changes offers Merge; Merge → main checkout's log has the merge commit)
 
 - 50. Hunk controls in the Changes pane (`ui/desktop/src/workspace/panes/diff/`): a pure `chunk-patch.ts` (+ test) that turns a CodeMirror `Chunk` and the two docs into a unified patch with 3 context lines, real line numbers, `--- a/P` / `+++ b/P` (`/dev/null` for added/deleted), and the no-newline marker; `mergeControls` as a function rendering Reject and Stage per chunk that call `/git/apply` (`reverse` / `cached`) then `refresh()`; a scope selector Unstaged · Staged beside the base selector (Staged = `--cached` diff); Undo in place of a confirm (re-apply the last patch forward); buttons disabled with the reason while any tool call is `in_progress`; renamed and binary entries show file-level Stage only.
@@ -141,7 +147,7 @@ review list for scheduled runs — local-first > three PRs, one per unit.
     - strings as `runsInbox.*` keys in every locale as task 11 did
   - confirm: `cd ui/desktop && pnpm vitest run src/components/schedule/runs && pnpm run typecheck && pnpm exec playwright test -g "runs inbox"; echo exit=$?` → `exit=0` (walk: a schedule with one finished run → one row, unread; Open → pair with Changes; back → read)
 
-- 54. Run each scheduled job in its own worktree: `scheduler.rs` calls the sidecar? — no: the scheduler has no sidecar; instead `execute_job` runs `git worktree add` itself only when the schedule's recipe sets `worktree: true` (a recipe settings field), records the path and branch on the session, and the inbox's Accept becomes `/git/merge {slug}` with Dismiss = `/git/worktree/remove`; the main checkout is never the cwd of an unattended run when the field is on.
+- 54. Run each scheduled job in its own worktree: `execute_job` in `scheduler.rs` runs `git worktree add -b wt/<slug> <toplevel>/.worktrees/<slug>` itself when the schedule's recipe sets `worktree: true` (a recipe settings field; the scheduler has no sidecar), records the path and branch on the session, and the inbox's Accept becomes `/git/merge {slug}` with Dismiss = `/git/worktree/remove`; the main checkout is never the cwd of an unattended run when the field is on.
   - status: todo · agent: — · worker: high
   - card: as the user, let unattended runs land on branches so that accepting one is a merge and my checkout is never touched while I'm away (research 46 A2; research 44 §Recorded decisions)
   - context:
@@ -154,13 +160,16 @@ review list for scheduled runs — local-first > three PRs, one per unit.
   - card: as a reader, find the map and the PRD saying what the tree does so that the next plan does not re-argue these picks
   - context:
     - `ARCHITECTURE.md` rule: constrain, don't describe — one line per new responsibility
-  - confirm: `grep -c 'worktree' docs/2026-09-15-workspace-prd-v1.md ARCHITECTURE.md | awk -F: '{s+=$2} END {print s}'` → ≥ 3 (untouched tree: fewer); and `grep -c 'Future' PRODUCT.md` unchanged in count while the §12 scheduling line moves — state the before/after lines in the commit
+  - confirm: `grep -c 'worktree' docs/2026-09-15-workspace-prd-v1.md ARCHITECTURE.md | awk -F: '{s+=$2} END {print s}'` → ≥ 3 (untouched tree: fewer); and `grep -c 'V0.5.*scheduling' PRODUCT.md` → `1` (untouched tree: 0 — the scheduling line moves from §12 Future into the V0.5 line)
 
-Approval gate: tasks 47–55 wait on sign-off. Three decisions the
+Approval gate: tasks 47–55 wait on sign-off. Four decisions the
 list reverses or settles: (1) worktree-per-task comes into scope (PRD
 §Scope had it out); (2) per-hunk stage/revert replaces "view-only at
 V0" (decision 5), with Accept = **stage** (Codex's shape) rather than a
-non-durable mark; (3) local scheduling leaves PRODUCT.md §12 Future.
+non-durable mark; (3) local scheduling leaves PRODUCT.md §12 Future;
+(4) task 47 widens `delegate working_dir` containment from "under the
+session cwd" to "under the repo toplevel" — a session opened in
+`repo/sub/` can then delegate into `repo/other/`.
 What only the user can verify: task 47's before-fix hand check (which
 checkout an ACP child wrote to), and research 46's two hand checks —
 two desktop windows firing one cron twice, and a headless `claude-acp`
