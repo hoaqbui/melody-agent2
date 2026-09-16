@@ -1,7 +1,7 @@
 use crate::{
     agents::{subagent_task_config::TaskConfig, Agent, AgentConfig, AgentEvent, SessionConfig},
     conversation::{
-        message::{Message, MessageContent},
+        message::{Message, MessageContent, MessageErrorKind, SystemNotificationType},
         Conversation,
     },
     prompt_template::render_template,
@@ -44,6 +44,13 @@ pub struct SubagentRunParams {
     pub notification_tx: Option<tokio::sync::mpsc::UnboundedSender<ServerNotification>>,
 }
 
+/// The child's provider ran out of quota: its window closed or its balance is
+/// spent. Distinct from every other failure so the delegate can re-roll on it
+/// and on nothing else.
+#[derive(Debug, thiserror::Error)]
+#[error("{0}")]
+pub struct QuotaExhausted(pub String);
+
 pub async fn run_subagent_task(params: SubagentRunParams) -> Result<String, anyhow::Error> {
     let return_last_only = params.return_last_only;
     let (messages, final_output) = get_agent_messages(params).await.map_err(|e| {
@@ -54,11 +61,34 @@ pub async fn run_subagent_task(params: SubagentRunParams) -> Result<String, anyh
         )
     })?;
 
+    if let Some(quota) = messages.messages().last().and_then(quota_exhausted) {
+        return Err(QuotaExhausted(quota).into());
+    }
+
     if let Some(output) = final_output {
         return Ok(output);
     }
 
     Ok(extract_response_text(&messages, return_last_only))
+}
+
+// The two loops surface `ProviderError::CreditsExhausted` differently: the
+// legacy loop as a system notification, the state machine as an error block.
+fn quota_exhausted(message: &Message) -> Option<String> {
+    message.content.iter().find_map(|content| {
+        let error = content
+            .as_error()
+            .filter(|error| error.kind == MessageErrorKind::CreditsExhausted)
+            .map(|error| error.message.clone());
+        error.or_else(|| {
+            content
+                .as_system_notification()
+                .filter(|notification| {
+                    notification.notification_type == SystemNotificationType::CreditsExhausted
+                })
+                .map(|notification| notification.msg.clone())
+        })
+    })
 }
 
 fn extract_response_text(messages: &Conversation, return_last_only: bool) -> String {
