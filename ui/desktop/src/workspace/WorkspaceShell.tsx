@@ -32,7 +32,9 @@ import {
 import { createSession } from '../sessions';
 import { AppEvents } from '../constants/events';
 import { getEffectiveWorkingDir, getInitialWorkingDir } from '../utils/workingDir';
+import type { Message } from '../types/message';
 import type { ProviderDetails } from '../types/providers';
+import { PaneContext, type PaneContextValue } from './pane-context';
 import { createPaneStore, sideTabs, type PaneId, type PaneStore } from './pane-store';
 import { TerminalPane } from './panes/terminal/TerminalPane';
 import {
@@ -64,6 +66,7 @@ const i18n = defineMessages({
   openAsPane: { id: 'workspaceShell.openAsPane', defaultMessage: 'Open as pane' },
   closePane: { id: 'workspaceShell.closePane', defaultMessage: 'Close pane' },
   paneUnavailable: { id: 'workspaceShell.paneUnavailable', defaultMessage: 'Not available yet' },
+  editorFile: { id: 'workspaceShell.editorFile', defaultMessage: 'Selected: {path}' },
   paneFiles: { id: 'workspaceShell.paneFiles', defaultMessage: 'Files' },
   paneEditor: { id: 'workspaceShell.paneEditor', defaultMessage: 'Editor' },
   paneDiff: { id: 'workspaceShell.paneDiff', defaultMessage: 'Changes' },
@@ -80,6 +83,7 @@ const PANE_TITLES = {
 } as const;
 
 const WORKSPACE_ROUTES = new Set(['/', '/pair']);
+const NO_MESSAGES: readonly Message[] = [];
 
 function usePaneLayout(store: PaneStore) {
   return useSyncExternalStore(store.subscribe, store.getState, store.getState);
@@ -121,6 +125,8 @@ export function WorkspaceShell({ chat, children, panes, paneStore }: WorkspaceSh
   // default, which is what a Hub submit uses too.
   const [draftRuntime, setDraftRuntime] = useState<string | null>(null);
   const [draftMode, setDraftMode] = useState<Mode>('direct');
+  // The file the Editor shows, picked in Files (PRD step 4).
+  const [file, setFile] = useState<string | null>(null);
 
   const cwd = session?.working_dir ?? getInitialWorkingDir();
   const currentRuntime =
@@ -225,6 +231,24 @@ export function WorkspaceShell({ chat, children, panes, paneStore }: WorkspaceSh
     void startSession(currentRuntime, mode);
   };
 
+  const openFile = useCallback(
+    (path: string) => {
+      setFile(path);
+      store.openCentre('editor');
+    },
+    [store]
+  );
+  const paneContext = useMemo<PaneContextValue>(
+    () => ({
+      cwd,
+      mode: layout.mode,
+      messages: snapshot?.messages ?? NO_MESSAGES,
+      file,
+      openFile,
+    }),
+    [cwd, file, layout.mode, openFile, snapshot?.messages]
+  );
+
   const runtimeOptions = useMemo(() => {
     const options = RUNTIMES.map((runtime) => ({ ...runtime, more: false }));
     const more = moreRuntimes(providers).map((runtime) => ({ ...runtime, more: true }));
@@ -257,11 +281,18 @@ export function WorkspaceShell({ chat, children, panes, paneStore }: WorkspaceSh
     ) : undefined;
   const renderPane = (id: PaneId) => (
     <div className="flex-1 min-h-0 overflow-auto" data-testid={`workspace-pane-${id}`}>
-      {panes?.[id] ?? defaultPane(id) ?? (
-        <p className="p-4 text-sm text-text-secondary">
-          {intl.formatMessage(PANE_TITLES[id])} — {intl.formatMessage(i18n.paneUnavailable)}
-        </p>
-      )}
+      <PaneContext.Provider value={paneContext}>
+        {panes?.[id] ?? defaultPane(id) ?? (
+          <p className="p-4 text-sm text-text-secondary">
+            {intl.formatMessage(PANE_TITLES[id])} — {intl.formatMessage(i18n.paneUnavailable)}
+            {id === 'editor' && file && (
+              <span className="block truncate" data-testid="workspace-editor-file">
+                {intl.formatMessage(i18n.editorFile, { path: file })}
+              </span>
+            )}
+          </p>
+        )}
+      </PaneContext.Provider>
     </div>
   );
 

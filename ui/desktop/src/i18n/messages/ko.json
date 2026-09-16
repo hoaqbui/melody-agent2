@@ -977,6 +977,24 @@
   "dirSwitcher.recentDirectories": {
     "defaultMessage": "최근 디렉터리"
   },
+  "filesPane.back": {
+    "defaultMessage": "Back"
+  },
+  "filesPane.loading": {
+    "defaultMessage": "Loading…"
+  },
+  "filesPane.nothingHere": {
+    "defaultMessage": "Nothing here"
+  },
+  "filesPane.retry": {
+    "defaultMessage": "Retry"
+  },
+  "filesPane.unreadable": {
+    "defaultMessage": "Unreadable"
+  },
+  "filesPane.written": {
+    "defaultMessage": "Written this session"
+  },
   "gitBranchIndicator.failedToSwitch": {
     "defaultMessage": "{branch} 브랜치로 전환하지 못했습니다"
   },
@@ -4714,6 +4732,9 @@
   },
   "workspaceShell.direct": {
     "defaultMessage": "Direct"
+  },
+  "workspaceShell.editorFile": {
+    "defaultMessage": "Selected: {path}"
   },
   "workspaceShell.install": {
     "defaultMessage": "Install"
