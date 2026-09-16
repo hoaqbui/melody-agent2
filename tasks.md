@@ -204,14 +204,6 @@ User, 2026-09-16 00:15: "research it, plan it, and orchestrate it with sub agent
     - risks to name: a hunk applied against a working tree that moved since the diff was fetched; binary and rename entries; an agent writing the file mid-review
   - confirm: `test -f docs/2026-09-16-hunk-review-research-v1.md && grep -c '^## Options' docs/2026-09-16-hunk-review-research-v1.md` → `1`
 
-- 46. Research surfacing Goose's scheduler as automations with a review list in `docs/2026-09-16-automations-research-v1.md`: what the in-tree scheduler already does (`crates/goose/src/scheduler*.rs`, the `scheduler` platform extension, `acp/server/schedule.rs`, the desktop's existing schedule UI under `components/`), what a scheduled run produces (a session; where its result lands), and what a Codex-style review queue would need (a list of finished runs with their Changes, accept → commit, dismiss) — local-first only (PRODUCT.md §1: no control plane, no cloud runs).
-  - status: doing · agent: subagent-t46 via claude-session-opus-2 (00:20, worktree, read-only) · worker: medium
-  - card: as the user, let the agent work on a schedule while I'm away and find its results waiting in one list so that unattended work is reviewed, not lost (Codex parity gap 3; Cowork's scheduled tasks, minus the cloud)
-  - context:
-    - Goose's scheduler runs recipes in sessions (`scheduler.rs`); the desktop has a Schedules route today — read it before proposing a new surface
-    - the review list is the same shape as task 28's Agents rows (a session, a status, a Changes view) — say whether it is one pane or two
-  - confirm: `test -f docs/2026-09-16-automations-research-v1.md && grep -c '^## Options' docs/2026-09-16-automations-research-v1.md` → `1`
-
 ## Handoff — Goose spine evaluation (2026-09-15, Codex)
 
 - **Resume here:** `docs/2026-09-15-goose-spine-research-v1.md` owns the evidence and options. User said “continue” after the recommendation to preserve Claude-first and repair ACP integration, then requested handoff. Direction carried forward; no implementation plan has been completed or approved.
