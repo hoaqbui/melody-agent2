@@ -81,17 +81,6 @@ re-checked at the fork base `426967d` (v1.51.0, 2026-09-15): all hold;
     - record the subscription each run drew on (PRODUCT.md §5) and any quota message — that is the first fail-over datum
   - confirm: `test -f docs/2026-09-15-runtime-matrix-v1.md && grep -c '^| \(codex-acp\|cursor-acp\|claude-acp\|agy\) |' docs/2026-09-15-runtime-matrix-v1.md` → `4`
 
-- 11. Add `ui/desktop/src/workspace/WorkspaceShell.tsx` rendering the pane store around the existing `pair` route chat, and a header with Runtime (Claude · Codex · Cursor · agy · More…) and Mode (Direct · Orchestrate) selectors wired to `src/acp` session config (`provider`) and to loading `orchestrator.md`.
-  - status: doing · agent: subagent-t11 via claude-session-opus-2 (21:25, worktree) · worker: high
-  - card: as the user, pick who I talk to and whether it orchestrates so that Direct and Orchestrate are one click apart (PRD steps 2–3, 9)
-  - context:
-    - PRD decisions 1 (Runtime/Mode separate) and 4 (mid-session switch P0) — approved 2026-09-15; decision 2 ("agy out of V0") superseded by the role map: the Runtime list is Claude · Codex · Cursor · agy · More…
-    - Goose exposes `provider` and `model` as ACP config options (`acp/response_builder.rs:303-317`); the desktop already patches provider per session (`ModelAndProviderContext.tsx:92-140`) — reuse that path, do not add a registry
-    - Mode = whether the first prompt loads the orchestrator role; how the role is loaded is a plan decision for this task (recipe vs `load(source:)`)
-    - decided by the spike (2026-09-15, `docs/2026-09-15-spine-bridge-spike-v1.md`; plan spine-bridge §Approach, fifth): Orchestrate = `session/new` with `.agents/agents/orchestrator.md`'s body as recipe instructions — `claude-code`'s system prompt is fixed at spawn, so `load` mid-session cannot do it; the bridge already gives that session `delegate` on `goose serve` (`acp/server.rs` `sync_session_bridge`)
-    - session fail-over (added 2026-09-15): when the primary adapter fails to spawn or returns quota-exhausted, switch the session's `provider` to `orchestrator.md`'s weight-0 `runtimes:` entry with the handoff memo, show the "→ Grok from here" divider (PRD step 9), never roll at session start — the user is talking to this role
-  - confirm: `cd ui/desktop && pnpm run typecheck && pnpm exec playwright test -g "workspace shell"; echo exit=$?` → `exit=0` (one Playwright walk of PRD steps 2–3: pick Runtime and Mode, send a prompt, see a reply)
-
 - 12. Add the Files pane (`src/workspace/panes/files/`) with a tree of the session cwd (a drill-down list at phone width), session-written-file dots, and click → Editor pane; `ui/sidecar/src/fs.ts` serves reads and watches the cwd (`chokidar`).
   - status: todo · agent: — · worker: high
   - card: as the user, see what the agent touched so that I don't alt-tab to check (PRD step 4)
@@ -239,6 +228,7 @@ Planned 2026-09-15 21:25 from PRD steps 10–12 and the spine research §Activit
 - `npm i -g @agentclientprotocol/codex-acp` on this Mac — task 9 needs the Codex adapter (`codex_acp.rs:37-42`); a global npm install is yours to run or to tell me to run.
 - Task 33 — filing the three upstream issues posts under your GitHub account; say "file them".
 - **Sidecar auth (2026-09-15 22:30):** `ARCHITECTURE.md` §Invariants names Tailscale the sidecar's only gate, and task 18 built exactly that — the sidecar answers pty/fs/git for anyone on the tailnet, unauthenticated, from the moment the desktop starts (packaged run logged `100.127.56.10:64870`). If anyone but you is ever on that tailnet, say "sidecar secret" and it becomes a task (a shared token the web build carries, same pattern as `goose serve`); otherwise the invariant stands as written.
+- task 11 hand check — one early run of the Mode selector produced three sessions from one click (worker's report, not reproduced in five later runs with a call-site trace). Open the desktop, pick Orchestrate once, count sessions in the list; more than one is a P0 bug.
 - `ARCHITECTURE.md` — sign-off deletes `## Bootstrap Status`; until then the map is a proposal and tasks 10–16 plan against a guess.
 - task 20 — the phone check is manual: open the URL on `hoa-phone`, walk PRD step 13, judge the terminal with the key bar.
 - task 9 — the handoff-memo criterion (PRD §Criteria, second) is a manual check: ask "what did we just change?" after a runtime switch and judge the answer.
