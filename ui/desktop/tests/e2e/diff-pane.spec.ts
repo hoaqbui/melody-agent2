@@ -36,9 +36,10 @@ test.describe('diff pane', () => {
   });
 
   test.afterAll(() => {
-    process.env.HOME = previousEnv.HOME;
-    if (previousEnv.HERMIT_STATE_DIR === undefined) delete process.env.HERMIT_STATE_DIR;
-    else process.env.HERMIT_STATE_DIR = previousEnv.HERMIT_STATE_DIR;
+    for (const [key, value] of Object.entries(previousEnv)) {
+      if (value === undefined) delete process.env[key];
+      else process.env[key] = value;
+    }
     rmSync(scratch, { recursive: true, force: true });
   });
 
