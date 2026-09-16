@@ -277,6 +277,9 @@ const SchedulesView: React.FC<SchedulesViewProps> = ({ onClose: _onClose }) => {
         setPendingDeepLink(locationState.pendingScheduleDeepLink);
         setIsModalOpen(true);
         window.history.replaceState({}, document.title);
+      } else if (locationState?.scheduleId) {
+        setViewingScheduleId(locationState.scheduleId);
+        window.history.replaceState({}, document.title);
       }
     }
   }, [viewingScheduleId, location.state]);

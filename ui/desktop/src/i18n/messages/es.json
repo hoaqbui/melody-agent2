@@ -3539,6 +3539,75 @@
   "responseStyle.detailedLabel": {
     "defaultMessage": "Detallado"
   },
+  "routineSheet.cancel": {
+    "defaultMessage": "Cancel"
+  },
+  "routineSheet.cronField": {
+    "defaultMessage": "Cron expression"
+  },
+  "routineSheet.cronInvalid": {
+    "defaultMessage": "Six fields, seconds first"
+  },
+  "routineSheet.custom": {
+    "defaultMessage": "Custom cron"
+  },
+  "routineSheet.daily": {
+    "defaultMessage": "Daily"
+  },
+  "routineSheet.description": {
+    "defaultMessage": "A routine runs this prompt again, on demand or on a schedule; each run lands in the Runs inbox on Schedules."
+  },
+  "routineSheet.extensions": {
+    "defaultMessage": "{count,plural,=0{the default extensions} one{# extension} other{# extensions}}"
+  },
+  "routineSheet.extensionsLoading": {
+    "defaultMessage": "Reading extensions…"
+  },
+  "routineSheet.hourly": {
+    "defaultMessage": "Hourly"
+  },
+  "routineSheet.instructions": {
+    "defaultMessage": "Instructions"
+  },
+  "routineSheet.manual": {
+    "defaultMessage": "Manual — run only when I press Run now"
+  },
+  "routineSheet.manualHint": {
+    "defaultMessage": "Saved paused, on the daily cron: Run now on Schedules runs it, Resume makes it daily."
+  },
+  "routineSheet.promptRequired": {
+    "defaultMessage": "Write what the routine should do"
+  },
+  "routineSheet.runsWith": {
+    "defaultMessage": "Runs with"
+  },
+  "routineSheet.save": {
+    "defaultMessage": "Save"
+  },
+  "routineSheet.saveFailed": {
+    "defaultMessage": "{cause} — fix it and Save again"
+  },
+  "routineSheet.saving": {
+    "defaultMessage": "Saving…"
+  },
+  "routineSheet.title": {
+    "defaultMessage": "Save as routine"
+  },
+  "routineSheet.titleField": {
+    "defaultMessage": "Title"
+  },
+  "routineSheet.titleRequired": {
+    "defaultMessage": "Give the routine a title"
+  },
+  "routineSheet.trigger": {
+    "defaultMessage": "Trigger"
+  },
+  "routineSheet.weekly": {
+    "defaultMessage": "Weekly"
+  },
+  "routineSheet.workingDir": {
+    "defaultMessage": "Working directory"
+  },
   "runsInbox.accept": {
     "defaultMessage": "Accept"
   },
@@ -5134,6 +5203,18 @@
   },
   "workspaceShell.role": {
     "defaultMessage": "Role"
+  },
+  "workspaceShell.routine": {
+    "defaultMessage": "Routine: {title}"
+  },
+  "workspaceShell.routineFinding": {
+    "defaultMessage": "Finding the routine…"
+  },
+  "workspaceShell.routineNoSession": {
+    "defaultMessage": "Open a session first"
+  },
+  "workspaceShell.routineOpen": {
+    "defaultMessage": "Open the routine on Schedules"
   },
   "workspaceShell.runtime": {
     "defaultMessage": "Runtime"
