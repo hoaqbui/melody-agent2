@@ -18,6 +18,7 @@ use super::{
     codex::CodexProvider,
     codex_acp::CodexAcpProvider,
     copilot_acp::CopilotAcpProvider,
+    cursor_acp::CursorAcpProvider,
     cursor_agent::CursorAgentProvider,
     gcpvertexai::GcpVertexAIProvider,
     gemini_cli::GeminiCliProvider,
@@ -95,6 +96,10 @@ async fn init_registry() -> RwLock<ProviderRegistry> {
         registry.register_with_inventory::<CopilotAcpProvider>(
             false,
             Some(registrations::copilot_acp_inventory()),
+        );
+        registry.register_with_inventory::<CursorAcpProvider>(
+            false,
+            Some(registrations::cursor_acp_inventory()),
         );
         registry.register::<CodexProvider>(true);
         registry.register_with_inventory::<CursorAgentProvider>(

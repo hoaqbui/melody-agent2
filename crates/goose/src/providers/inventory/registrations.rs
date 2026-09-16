@@ -10,6 +10,7 @@ use crate::providers::chatgpt_codex::TokenCache as ChatGptCodexTokenCache;
 use crate::providers::claude_acp::{CLAUDE_ACP_BINARY, CLAUDE_ACP_PROVIDER_NAME};
 use crate::providers::codex_acp::CODEX_ACP_PROVIDER_NAME;
 use crate::providers::copilot_acp::{COPILOT_ACP_BINARY, COPILOT_ACP_PROVIDER_NAME};
+use crate::providers::cursor_acp::{CURSOR_ACP_BINARY, CURSOR_ACP_PROVIDER_NAME};
 use crate::providers::formats::anthropic::ANTHROPIC_PROVIDER_NAME;
 use crate::providers::gemini_oauth::TokenCache as GeminiOAuthTokenCache;
 use crate::providers::google::{GOOGLE_API_HOST, GOOGLE_PROVIDER_NAME};
@@ -253,6 +254,10 @@ pub fn codex_acp_inventory() -> InventoryRegistration {
 
 pub fn copilot_acp_inventory() -> InventoryRegistration {
     acp_inventory(COPILOT_ACP_PROVIDER_NAME, COPILOT_ACP_BINARY, true)
+}
+
+pub fn cursor_acp_inventory() -> InventoryRegistration {
+    acp_inventory(CURSOR_ACP_PROVIDER_NAME, CURSOR_ACP_BINARY, true)
 }
 
 pub fn pi_acp_inventory() -> InventoryRegistration {
