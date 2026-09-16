@@ -15,7 +15,9 @@ Plan: `docs/2026-09-15-goose-spine-bridge-plan-v1.md` task 24.
 - Child role `.agents/agents/spike-echo.md` (throwaway, deleted after):
   `model: claude-sonnet-5`, body "Begin every reply with the token
   spike-ok-4127. Then answer the task in one sentence."
-- Binaries: `claude` 2.1.270, `claude-agent-acp` 0.62.0.
+- Binaries: `claude` 2.1.270, `claude-agent-acp` 0.62.0. The `goose` binary
+  was a debug build of the tree plus another session's uncommitted
+  `cursor_acp` registration (task 6, in flight) — unused by these runs.
 
 ## Run 1 — child on `claude-code`
 
@@ -35,6 +37,7 @@ Plan: `docs/2026-09-15-goose-spine-bridge-plan-v1.md` task 24.
 - permission prompts on the parent: none (`GOOSE_MODE=auto` →
   `--dangerously-skip-permissions`)
 - subscription drawn: Claude Max (both processes are `claude`)
+- model ids: both children's `model_config_json` record `claude-sonnet-5`; run 2 shows `claude-agent-acp` 0.62.0 accepted it as the ACP `model` option and answered (task 8's "unverified" line for Sonnet is settled; Opus/Fable not tried)
 
 ## Run 2 — child on `claude-acp`
 

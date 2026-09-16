@@ -159,20 +159,20 @@ pub async fn sync_extension(
                 Config::global(),
             ))
         });
-    let has_bridge = state
+    let wanted = wants_bridge.then(|| bridge.extension_config(session_id));
+    let stored = state
         .extensions
         .iter()
-        .any(|extension| extension.name() == BRIDGE_EXTENSION_NAME);
-    if has_bridge == wants_bridge {
+        .find(|extension| extension.name() == BRIDGE_EXTENSION_NAME);
+    // The port and secret are per process: an entry a previous `goose serve`
+    // wrote is stale and must be replaced, not kept.
+    if stored == wanted.as_ref() {
         return Ok(None);
     }
-    if wants_bridge {
-        state.extensions.push(bridge.extension_config(session_id));
-    } else {
-        state
-            .extensions
-            .retain(|extension| extension.name() != BRIDGE_EXTENSION_NAME);
-    }
+    state
+        .extensions
+        .retain(|extension| extension.name() != BRIDGE_EXTENSION_NAME);
+    state.extensions.extend(wanted);
 
     let mut extension_data = session.extension_data.clone();
     state.to_extension_data(&mut extension_data)?;
@@ -525,6 +525,51 @@ mod tests {
         assert!(uri.ends_with(&format!("/mcp/{session_id}")), "{uri}");
         assert_eq!(uri, format!("{}/mcp/{session_id}", bridge.base_url()));
         assert!(sync_extension(&agent, &session_id).await.unwrap().is_none());
+
+        let stale = ExtensionConfig::StreamableHttp {
+            name: BRIDGE_EXTENSION_NAME.to_string(),
+            uri: format!("http://127.0.0.1:1/mcp/{session_id}"),
+            description: String::new(),
+            envs: Default::default(),
+            env_keys: Vec::new(),
+            headers: HashMap::new(),
+            timeout: None,
+            socket: None,
+            client_id: None,
+            client_secret_key: None,
+            scopes: Vec::new(),
+            bundled: None,
+            available_tools: Vec::new(),
+        };
+        let session = agent
+            .config
+            .session_manager
+            .get_session(&session_id, false)
+            .await
+            .unwrap();
+        let mut extension_data = session.extension_data.clone();
+        EnabledExtensionsState::new(vec![stale])
+            .to_extension_data(&mut extension_data)
+            .unwrap();
+        agent
+            .config
+            .session_manager
+            .update(&session_id)
+            .extension_data(extension_data)
+            .apply()
+            .await
+            .unwrap();
+        assert_eq!(
+            sync_extension(&agent, &session_id)
+                .await
+                .unwrap()
+                .as_deref(),
+            Some("stub")
+        );
+        assert_eq!(
+            stored_bridge_uri(&agent, &session_id).await.unwrap(),
+            format!("{}/mcp/{session_id}", bridge.base_url())
+        );
 
         let native = Arc::new(StubProvider { own_context: false });
         agent

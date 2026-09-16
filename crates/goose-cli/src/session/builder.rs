@@ -678,7 +678,7 @@ pub async fn build_session(session_config: SessionBuilderConfig) -> CliSession {
     goose::posthog::set_session_context("cli", session_config.resume);
 
     let config = Config::global();
-    let agent: Agent = Agent::new();
+    let agent = Arc::new(Agent::new());
 
     if session_config.container.is_some() {
         agent.set_container(session_config.container.clone()).await;
@@ -732,6 +732,12 @@ pub async fn build_session(session_config: SessionBuilderConfig) -> CliSession {
                 process::exit(1);
             }
         };
+
+    // Registered before the provider exists: an ACP adapter connects to its
+    // MCP servers inside session/new, which the provider constructor sends.
+    SessionBridge::global()
+        .await
+        .register(&session_id, Arc::downgrade(&agent));
 
     let (new_provider, effective_provider_name, effective_model_name, effective_model_config) =
         match create(&resolved.provider_name, extensions_for_provider.clone()).await {
@@ -859,10 +865,7 @@ pub async fn build_session(session_config: SessionBuilderConfig) -> CliSession {
 
     // Extensions are loaded after session creation because we may change
     // directory when resuming.
-    let agent_ptr = Arc::new(agent);
-    SessionBridge::global()
-        .await
-        .register(&session_id, Arc::downgrade(&agent_ptr));
+    let agent_ptr = agent;
     let loading_handle = match agent_ptr
         .persist_extension_configs(&session_id, extensions_for_provider.clone())
         .await
