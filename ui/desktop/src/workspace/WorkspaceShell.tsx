@@ -2,8 +2,9 @@
 // (upstream's sidebar), Chat (the chat, the Hub, or any other page) and Work (the dock) —
 // with a seam between each pair, the pane launchers on a floating rail that slides into the
 // dock's top strip, and the session controls handed to the chat input's bottom row: the lever
-// in Easy, the Runtime · Mode chips and the Session controls popover in Advanced (task 58).
-// Composes exported components only and reaches ACP through src/acp.
+// in Easy, the Runtime · Mode chips and the Session controls popover in Advanced (task 58),
+// the Worktree toggle in both (task 49). Composes exported components only and reaches ACP
+// through src/acp.
 
 import {
   useCallback,
@@ -39,6 +40,7 @@ import { useModelAndProvider } from '../components/ModelAndProviderContext';
 import { useNavigationContextSafe } from '../components/Layout/NavigationContext';
 import { Navigation } from '../components/Layout/NavigationPanel';
 import { SessionChipsSlot } from '../components/ChatInput';
+import { NextChatWorktree } from '../components/Hub';
 import { Button } from '../components/ui/button';
 import {
   DropdownMenu,
@@ -86,10 +88,11 @@ import {
 import { Dock, loadDock, saveDock } from './Dock';
 import type { PaneChrome } from './Panel';
 import { loadProjectEntry, saveProjectEntry } from './project-storage';
-import { MODE_MESSAGES, SessionChips, type RuntimeOption } from './SessionChips';
+import { MODE_MESSAGES, SessionChips, WorktreeChip, type RuntimeOption } from './SessionChips';
 import { SessionControls } from './SessionControls';
 import { Lever, STOP_MESSAGES } from './Lever';
 import { TerminalPane } from './panes/terminal/TerminalPane';
+import { newWorktreeSlug, worktreeSlugOf } from './worktree';
 import {
   modeOfSession,
   moreRuntimes,
@@ -422,6 +425,9 @@ export function WorkspaceShell({ chat, children, panes, paneStore }: WorkspaceSh
   const [draftMode, setDraftMode] = useState<Mode>('direct');
   // Easy's lever position before a session; once one is open the session's triple is it.
   const [draftStop, setDraftStop] = useState<Stop>('easy');
+  // The worktree slug the next chat starts in (task 49); off by default, and off again once
+  // a session has consumed it — a fresh chat is chat in the checkout.
+  const [draftWorktree, setDraftWorktree] = useState<string | null>(null);
   // The persisted face (task 58), unknown until read so the wrong one never flashes;
   // Settings › App and the ⋯ menu both write it and announce the change.
   const [workspaceUi, setWorkspaceUi] = useState<WorkspaceUi | undefined>();
@@ -441,6 +447,18 @@ export function WorkspaceShell({ chat, children, panes, paneStore }: WorkspaceSh
     window.addEventListener(AppEvents.WORKSPACE_UI_CHANGED, onChange);
     return () => window.removeEventListener(AppEvents.WORKSPACE_UI_CHANGED, onChange);
   }, []);
+
+  // Every session start, the Hub's included, dispatches SESSION_CREATED: the slug is spent.
+  useEffect(() => {
+    const reset = () => setDraftWorktree(null);
+    window.addEventListener(AppEvents.SESSION_CREATED, reset);
+    return () => window.removeEventListener(AppEvents.SESSION_CREATED, reset);
+  }, []);
+
+  const toggleWorktree = useCallback(
+    () => setDraftWorktree((slug) => (slug === null ? newWorktreeSlug() : null)),
+    []
+  );
 
   const toggleAdvanced = useCallback(() => {
     const next: WorkspaceUi = workspaceUi === 'easy' ? 'advanced' : 'easy';
@@ -507,6 +525,7 @@ export function WorkspaceShell({ chat, children, panes, paneStore }: WorkspaceSh
           provider: providerId,
           recipeDeeplink,
           allExtensions: extensionsList,
+          worktree: draftWorktree ?? undefined,
         });
         if (stop) await applyStopModel(newSession.id, stop);
         window.dispatchEvent(new CustomEvent(AppEvents.SESSION_CREATED));
@@ -520,7 +539,7 @@ export function WorkspaceShell({ chat, children, panes, paneStore }: WorkspaceSh
         setBusy(false);
       }
     },
-    [applyStopModel, extensionsList, intl, orchestratorRole, setView]
+    [applyStopModel, draftWorktree, extensionsList, intl, orchestratorRole, setView]
   );
 
   // Mid-session the switch is the ACP `provider` option; the store snapshot is the
@@ -684,18 +703,29 @@ export function WorkspaceShell({ chat, children, panes, paneStore }: WorkspaceSh
   const canOrchestrate = orchestratorRole === undefined ? undefined : orchestratorRole !== null;
   const extensionsEnabled = extensionsList.filter((extension) => extension.enabled).length;
   const sessionModel = session?.model_config?.model_name;
+  const sessionCwd = session?.working_dir;
+  // In a session the chip reads the cwd's own slug; before one, the draft.
+  const worktreeSlug = sessionCwd === undefined ? draftWorktree : worktreeSlugOf(sessionCwd);
   // One element per change, not per render: the chat input re-renders with its slot.
   const chips = useMemo(
     () =>
       workspaceUi === undefined ? null : workspaceUi === 'easy' ? (
-        <Lever
-          stop={currentStop}
-          providers={providers}
-          canOrchestrate={canOrchestrate}
-          busy={busy}
-          model={sessionModel}
-          onPick={pickStop}
-        />
+        <>
+          <Lever
+            stop={currentStop}
+            providers={providers}
+            canOrchestrate={canOrchestrate}
+            busy={busy}
+            model={sessionModel}
+            onPick={pickStop}
+          />
+          <WorktreeChip
+            slug={worktreeSlug}
+            cwd={sessionCwd}
+            busy={busy}
+            onToggle={toggleWorktree}
+          />
+        </>
       ) : (
         <>
           <SessionChips
@@ -708,6 +738,12 @@ export function WorkspaceShell({ chat, children, panes, paneStore }: WorkspaceSh
             status={sessionStatus}
             onPickRuntime={pickRuntime}
             onPickMode={pickMode}
+          />
+          <WorktreeChip
+            slug={worktreeSlug}
+            cwd={sessionCwd}
+            busy={busy}
+            onToggle={toggleWorktree}
           />
           <SessionControls
             options={configOptions}
@@ -736,12 +772,15 @@ export function WorkspaceShell({ chat, children, panes, paneStore }: WorkspaceSh
       pickStop,
       providers,
       runtimeOptions,
+      sessionCwd,
       sessionModel,
       sessionStatus,
       setConfigOption,
       setView,
       store,
+      toggleWorktree,
       workspaceUi,
+      worktreeSlug,
     ]
   );
 
@@ -876,10 +915,12 @@ export function WorkspaceShell({ chat, children, panes, paneStore }: WorkspaceSh
         data-testid="workspace-column-chat"
       >
         <SessionChipsSlot.Provider value={chipsFor}>
-          <div className="relative min-h-0 min-w-0 flex-1">
-            {children}
-            <div className={isOnPairRoute ? 'contents' : 'hidden'}>{chat}</div>
-          </div>
+          <NextChatWorktree.Provider value={draftWorktree}>
+            <div className="relative min-h-0 min-w-0 flex-1">
+              {children}
+              <div className={isOnPairRoute ? 'contents' : 'hidden'}>{chat}</div>
+            </div>
+          </NextChatWorktree.Provider>
         </SessionChipsSlot.Provider>
       </section>
 

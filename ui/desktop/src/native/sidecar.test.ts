@@ -1,6 +1,6 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
-import { sidecarBaseUrl, sidecarFetch, sidecarSocket } from './sidecar';
+import { SidecarError, sidecarBaseUrl, sidecarFetch, sidecarSocket } from './sidecar';
 
 const jsonResponse = (status: number, body: unknown): Response =>
   new Response(JSON.stringify(body), {
@@ -87,6 +87,17 @@ describe('sidecarFetch', () => {
 
     await expect(sidecarFetch('/fs/read', {})).rejects.toThrow('path must be a string');
     await expect(sidecarFetch('/nope')).rejects.toThrow('sidecar /nope answered 404');
+  });
+
+  it("carries the status and the body's other fields on the thrown error", async () => {
+    fetchMock.mockResolvedValueOnce(
+      jsonResponse(409, { error: 'merge of wt/x conflicts in 1 path(s)', conflicts: ['a.txt'] })
+    );
+
+    const error = await sidecarFetch('/git/merge', { slug: 'x' }).catch((cause) => cause);
+
+    expect(error).toBeInstanceOf(SidecarError);
+    expect(error).toMatchObject({ status: 409, details: { conflicts: ['a.txt'] } });
   });
 });
 

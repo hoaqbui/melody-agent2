@@ -123,7 +123,7 @@ export interface GitMergeResponse {
   sha: string;
 }
 
-// The 409 body of /git/merge; sidecarFetch surfaces only `error` today.
+// The 409 body of /git/merge; `conflicts` reaches the caller as SidecarError.details.
 export interface GitMergeConflictResponse {
   error: string;
   conflicts: string[];
@@ -154,6 +154,18 @@ const GET_ROUTES = new Set(['/health', '/config']);
 
 const KEY_HEADER = 'x-sidecar-key';
 
+// A route's refusal: the sidecar's `error` line as the message, the rest of its JSON body
+// (a 409 merge's `conflicts`) as details.
+export class SidecarError extends Error {
+  constructor(
+    message: string,
+    readonly status: number,
+    readonly details: Record<string, unknown> = {}
+  ) {
+    super(message);
+  }
+}
+
 // One URL from either shell — Electron's lease or the phone's stored origin — carries the
 // per-launch key as `?key=`; it is split here once and never leaves this module.
 export async function sidecarBaseUrl(): Promise<string> {
@@ -183,8 +195,14 @@ export async function sidecarFetch<T>(path: string, body?: unknown): Promise<T> 
       });
   const isJson = response.headers.get('content-type')?.includes('application/json') ?? false;
   if (!response.ok) {
-    const message = isJson ? ((await response.json()) as { error?: string }).error : null;
-    throw new Error(message || `sidecar ${path} answered ${response.status}`);
+    const { error, ...details } = isJson
+      ? ((await response.json()) as { error?: string; [key: string]: unknown })
+      : { error: undefined };
+    throw new SidecarError(
+      error || `sidecar ${path} answered ${response.status}`,
+      response.status,
+      details
+    );
   }
   return (isJson ? await response.json() : await response.text()) as T;
 }

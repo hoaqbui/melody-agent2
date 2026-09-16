@@ -971,6 +971,18 @@
   "diffPane.loading": {
     "defaultMessage": "Loading…"
   },
+  "diffPane.merge": {
+    "defaultMessage": "Merge into {branch}"
+  },
+  "diffPane.mergeConflicts": {
+    "defaultMessage": "Resolve these in the Editor or the Terminal, then merge again"
+  },
+  "diffPane.merged": {
+    "defaultMessage": "Merged into {branch} · {sha}"
+  },
+  "diffPane.merging": {
+    "defaultMessage": "Merging…"
+  },
   "diffPane.noChanges": {
     "defaultMessage": "No changes {base}"
   },
@@ -979,6 +991,12 @@
   },
   "diffPane.reject": {
     "defaultMessage": "Reject"
+  },
+  "diffPane.removeWorktree": {
+    "defaultMessage": "Remove worktree"
+  },
+  "diffPane.removingWorktree": {
+    "defaultMessage": "Removing…"
   },
   "diffPane.retry": {
     "defaultMessage": "Retry"
@@ -1012,6 +1030,15 @@
   },
   "diffPane.vsHead": {
     "defaultMessage": "vs HEAD"
+  },
+  "diffPane.worktreeBlockedRunning": {
+    "defaultMessage": "Merge and Remove wait for the running tool call to finish"
+  },
+  "diffPane.worktree": {
+    "defaultMessage": "Worktree"
+  },
+  "diffPane.worktreeRemoved": {
+    "defaultMessage": "Worktree removed; this chat continues in {path}"
   },
   "dirSwitcher.chooseDirectory": {
     "defaultMessage": "Pilih direktori…"
@@ -5083,5 +5110,23 @@
   },
   "workspaceShell.workingDir": {
     "defaultMessage": "Working directory"
+  },
+  "workspaceShell.worktree": {
+    "defaultMessage": "Worktree"
+  },
+  "workspaceShell.worktreeCargo": {
+    "defaultMessage": "A Rust worktree rebuilds target/ unless CARGO_TARGET_DIR is shared."
+  },
+  "workspaceShell.worktreeFixed": {
+    "defaultMessage": "This chat runs in the checkout; a worktree is picked before the chat."
+  },
+  "workspaceShell.worktreeHere": {
+    "defaultMessage": "This chat runs in {path}."
+  },
+  "workspaceShell.worktreeNext": {
+    "defaultMessage": "The next chat starts in its own checkout, {path} under the repository root, on the branch {branch}."
+  },
+  "workspaceShell.worktreeOff": {
+    "defaultMessage": "The next chat starts in the checkout; a worktree is picked before the chat."
   }
 }

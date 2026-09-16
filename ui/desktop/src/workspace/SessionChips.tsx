@@ -1,11 +1,13 @@
 // Runtime and Mode as chips in the chat card's bottom row (PRD steps 2-3, 9; task 60): each
 // a popover with the rows the header used to hold — Install and "no orchestrator role in
 // this project" kept. Sits left of the model chip, which keeps naming the model; the
-// Runtime chip names the provider (DESIGN.md Named Runtime Rule).
+// Runtime chip names the provider (DESIGN.md Named Runtime Rule). The Worktree chip
+// (task 49) is a toggle, not a menu, and the shell shows it in both faces.
 
 import type { ComponentType } from 'react';
-import { Cpu, Workflow } from 'lucide-react';
+import { Cpu, GitBranch, Workflow } from 'lucide-react';
 import { defineMessages, useIntl } from '../i18n';
+import { cn } from '../utils';
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -17,6 +19,7 @@ import {
 } from '../components/ui/dropdown-menu';
 import type { ProviderDetails } from '../types/providers';
 import { needsInstall, type Mode, type Runtime } from './session-controls';
+import { WORKTREES_DIR, worktreeBranch } from './worktree';
 
 const i18n = defineMessages({
   runtime: { id: 'workspaceShell.runtime', defaultMessage: 'Runtime' },
@@ -28,6 +31,25 @@ const i18n = defineMessages({
   noOrchestrator: {
     id: 'workspaceShell.noOrchestrator',
     defaultMessage: 'no orchestrator role in this project',
+  },
+  worktree: { id: 'workspaceShell.worktree', defaultMessage: 'Worktree' },
+  worktreeNext: {
+    id: 'workspaceShell.worktreeNext',
+    defaultMessage:
+      'The next chat starts in its own checkout, {path} under the repository root, on the branch {branch}.',
+  },
+  worktreeOff: {
+    id: 'workspaceShell.worktreeOff',
+    defaultMessage: 'The next chat starts in the checkout; a worktree is picked before the chat.',
+  },
+  worktreeHere: { id: 'workspaceShell.worktreeHere', defaultMessage: 'This chat runs in {path}.' },
+  worktreeFixed: {
+    id: 'workspaceShell.worktreeFixed',
+    defaultMessage: 'This chat runs in the checkout; a worktree is picked before the chat.',
+  },
+  worktreeCargo: {
+    id: 'workspaceShell.worktreeCargo',
+    defaultMessage: 'A Rust worktree rebuilds target/ unless CARGO_TARGET_DIR is shared.',
   },
 });
 
@@ -65,12 +87,15 @@ export interface ChipProps {
   iconOnly?: boolean;
 }
 
+const chipClass =
+  'flex min-w-4 items-center gap-1 text-xs text-text-primary/70 transition-colors hover:cursor-pointer hover:text-text-primary disabled:cursor-default disabled:opacity-50';
+
 // The same shape as the model chip beside it: an icon, a short label, a menu that opens up.
 // In a narrow bar (the chat input's own measure) the icon stands alone; the label is its name.
 export function Chip({ Icon, name, label, value, status, busy, testId, iconOnly }: ChipProps) {
   return (
     <DropdownMenuTrigger
-      className="flex min-w-4 items-center gap-1 text-xs text-text-primary/70 transition-colors hover:cursor-pointer hover:text-text-primary disabled:cursor-default disabled:opacity-50"
+      className={chipClass}
       aria-label={iconOnly ? name : `${name}: ${label}`}
       title={iconOnly ? name : status}
       disabled={busy}
@@ -82,6 +107,54 @@ export function Chip({ Icon, name, label, value, status, busy, testId, iconOnly 
         <span className="max-w-[120px] truncate group-data-[narrow]:hidden">{label}</span>
       )}
     </DropdownMenuTrigger>
+  );
+}
+
+export interface WorktreeChipProps {
+  // Before a session, the slug the next chat starts in; once one is open, the slug its cwd
+  // sits in. Null is the checkout.
+  slug: string | null;
+  // The open session's cwd; the toggle is fixed from then on (the cwd is set at session/new).
+  cwd?: string;
+  busy: boolean;
+  onToggle(): void;
+}
+
+// "Use worktree" (task 49), in Easy and Advanced alike: pressed = the next chat gets its own
+// checkout; in a session it reads the branch, mono, and no longer toggles. The tooltip names
+// the path and the one cost a Rust tree carries.
+export function WorktreeChip({ slug, cwd, busy, onToggle }: WorktreeChipProps) {
+  const intl = useIntl();
+  const on = slug !== null;
+  const name = intl.formatMessage(i18n.worktree);
+  const hint =
+    cwd !== undefined
+      ? on
+        ? intl.formatMessage(i18n.worktreeHere, { path: cwd })
+        : intl.formatMessage(i18n.worktreeFixed)
+      : on
+        ? intl.formatMessage(i18n.worktreeNext, {
+            path: `${WORKTREES_DIR}/${slug}`,
+            branch: worktreeBranch(slug),
+          })
+        : intl.formatMessage(i18n.worktreeOff);
+  return (
+    <button
+      type="button"
+      className={cn(chipClass, 'aria-pressed:text-text-primary')}
+      aria-label={name}
+      aria-pressed={on}
+      title={`${hint} ${intl.formatMessage(i18n.worktreeCargo)}`}
+      disabled={busy || cwd !== undefined}
+      data-testid="workspace-worktree"
+      data-slug={slug ?? undefined}
+      onClick={onToggle}
+    >
+      <GitBranch className="size-4 shrink-0" />
+      <span className={cn('max-w-[160px] truncate group-data-[narrow]:hidden', on && 'font-mono')}>
+        {on ? worktreeBranch(slug) : name}
+      </span>
+    </button>
   );
 }
 

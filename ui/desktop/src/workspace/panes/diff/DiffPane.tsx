@@ -2,7 +2,9 @@
 // base by, one file's changes in CodeMirror's merge view, unified or side by side, and per
 // chunk Reject and Stage in the unified view (task 50) — each a patch synthesized from the
 // chunk and applied by git, never CodeMirror's own accept/reject, which only edit the
-// in-memory doc. The pane reaches git only through src/native/sidecar.
+// in-memory doc. The pane reaches git only through src/native/sidecar and diffs the
+// session's cwd (task 49); when that cwd is a worktree, a row under the header names its
+// branch and offers Merge into the main checkout's branch and Remove worktree.
 
 import { useCallback, useEffect, useRef, useState, useSyncExternalStore } from 'react';
 import { useLocation, useSearchParams } from 'react-router';
@@ -20,18 +22,30 @@ import { defineMessages, useIntl } from '../../../i18n';
 import { useTheme } from '../../../contexts/ThemeContext';
 import { usePaneContext } from '../../pane-context';
 import { monokaiHighlight } from '../../../theme/monokai-highlight';
-import { useAcpChatSessionSnapshot } from '../../../acp/chatSessionStore';
+import {
+  acpChatSessionActions,
+  acpChatSessionStore,
+  useAcpChatSessionSnapshot,
+} from '../../../acp/chatSessionStore';
+import { acpUpdateWorkingDir } from '../../../acp/sessions';
 import { Button } from '../../../components/ui/button';
 import { cn } from '../../../utils';
 import {
   sidecarFetch,
+  SidecarError,
   type GitApplyRequest,
+  type GitCwdRequest,
   type GitDiffRequest,
   type GitDiffResponse,
+  type GitMergeRequest,
+  type GitMergeResponse,
   type GitPathsRequest,
   type GitRevParseRequest,
   type GitRevParseResponse,
+  type GitWorktreeListResponse,
+  type GitWorktreeRemoveRequest,
 } from '../../../native/sidecar';
+import { worktreePlace, type WorktreePlace } from '../../worktree';
 import { hasToolCallInProgress } from '../git/git-state';
 import {
   createDiffStore,
@@ -67,16 +81,37 @@ const i18n = defineMessages({
     defaultMessage: 'Reject and Stage wait for the running tool call to finish',
   },
   applying: { id: 'diffPane.applying', defaultMessage: 'Applying…' },
+  worktree: { id: 'diffPane.worktree', defaultMessage: 'Worktree' },
+  merge: { id: 'diffPane.merge', defaultMessage: 'Merge into {branch}' },
+  merging: { id: 'diffPane.merging', defaultMessage: 'Merging…' },
+  merged: { id: 'diffPane.merged', defaultMessage: 'Merged into {branch} · {sha}' },
+  mergeConflicts: {
+    id: 'diffPane.mergeConflicts',
+    defaultMessage: 'Resolve these in the Editor or the Terminal, then merge again',
+  },
+  removeWorktree: { id: 'diffPane.removeWorktree', defaultMessage: 'Remove worktree' },
+  removingWorktree: { id: 'diffPane.removingWorktree', defaultMessage: 'Removing…' },
+  worktreeRemoved: {
+    id: 'diffPane.worktreeRemoved',
+    defaultMessage: 'Worktree removed; this chat continues in {path}',
+  },
+  worktreeBlockedRunning: {
+    id: 'diffPane.worktreeBlockedRunning',
+    defaultMessage: 'Merge and Remove wait for the running tool call to finish',
+  },
 });
 
 const KIND_LETTERS = { added: 'A', deleted: 'D', modified: 'M', renamed: 'R' } as const;
 
 const diffStore = createDiffStore();
 
-function useSessionStart(): string | null {
+function useSessionId(): string {
   const location = useLocation();
   const [searchParams] = useSearchParams();
-  const sessionId = (location.pathname === '/pair' && searchParams.get('resumeSessionId')) || '';
+  return (location.pathname === '/pair' && searchParams.get('resumeSessionId')) || '';
+}
+
+function useSessionStart(sessionId: string, cwd: string): string | null {
   const createdAt = useAcpChatSessionSnapshot(sessionId)?.session?.created_at;
   const [sha, setSha] = useState<string | null>(null);
 
@@ -87,7 +122,7 @@ function useSessionStart(): string | null {
     setSha(null);
     if (!createdAt) return;
     let cancelled = false;
-    const request: GitRevParseRequest = { rev: `HEAD@{${createdAt}}` };
+    const request: GitRevParseRequest = { cwd, rev: `HEAD@{${createdAt}}` };
     sidecarFetch<GitRevParseResponse>('/git/rev-parse', request)
       .then((response) => {
         if (!cancelled) setSha(response.sha);
@@ -98,9 +133,32 @@ function useSessionStart(): string | null {
     return () => {
       cancelled = true;
     };
-  }, [createdAt]);
+  }, [createdAt, cwd]);
 
   return sha;
+}
+
+// Whether the cwd is one of the repository's `.worktrees/<slug>` checkouts, and which is the
+// main one Merge and Remove run in; null outside a repository, which the diff reports.
+function useWorktreePlace(cwd: string, attempt: number): WorktreePlace | null {
+  const [place, setPlace] = useState<WorktreePlace | null>(null);
+
+  useEffect(() => {
+    let cancelled = false;
+    const request: GitCwdRequest = { cwd };
+    sidecarFetch<GitWorktreeListResponse>('/git/worktree/list', request)
+      .then((response) => {
+        if (!cancelled) setPlace(worktreePlace(cwd, response.worktrees));
+      })
+      .catch(() => {
+        if (!cancelled) setPlace(null);
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [cwd, attempt]);
+
+  return place;
 }
 
 function editorTheme(dark: boolean) {
@@ -252,6 +310,11 @@ function ChangeView({
   return <div ref={host} data-testid="diff-view" data-view={view} data-path={file.path} />;
 }
 
+interface MergeFailure {
+  message: string;
+  conflicts: string[];
+}
+
 export function DiffPane() {
   const intl = useIntl();
   const { cwd, messages } = usePaneContext();
@@ -261,7 +324,8 @@ export function DiffPane() {
     diffStore.getState,
     diffStore.getState
   );
-  const sessionStart = useSessionStart();
+  const sessionId = useSessionId();
+  const sessionStart = useSessionStart(sessionId, cwd);
   const base: DiffBase = selection.base === 'session' && sessionStart ? 'session' : 'head';
   const baseRev = base === 'session' ? sessionStart : 'HEAD';
   const baseLabel = intl.formatMessage(base === 'session' ? i18n.sinceSessionStart : i18n.vsHead);
@@ -274,6 +338,12 @@ export function DiffPane() {
   const [attempt, setAttempt] = useState(0);
   const [applying, setApplying] = useState(false);
   const [actionError, setActionError] = useState<string | null>(null);
+  const place = useWorktreePlace(cwd, attempt);
+  const [merging, setMerging] = useState(false);
+  const [removing, setRemoving] = useState(false);
+  // The last worktree action's outcome: a merge sha, a removal, or a 409's conflict list.
+  const [notice, setNotice] = useState<string | null>(null);
+  const [mergeFailure, setMergeFailure] = useState<MergeFailure | null>(null);
 
   // One full-context fetch gives the list and every file's two sides; a path-filtered
   // fetch per click would lose rename pairing for the filtered-out side. The last list
@@ -285,7 +355,7 @@ export function DiffPane() {
     let cancelled = false;
     setLoading(true);
     setError(null);
-    const request: GitDiffRequest = { context: FULL_CONTEXT };
+    const request: GitDiffRequest = { cwd, context: FULL_CONTEXT };
     if (scope === 'staged') request.staged = true;
     if (scope === 'staged' || base === 'session') request.base = baseRev ?? 'HEAD';
     sidecarFetch<GitDiffResponse>('/git/diff', request)
@@ -301,18 +371,19 @@ export function DiffPane() {
     return () => {
       cancelled = true;
     };
-  }, [base, baseRev, scope, attempt]);
+  }, [cwd, base, baseRev, scope, attempt]);
 
   const file = files?.find((entry) => entry.path === selection.path) ?? null;
-  const state: DiffPaneState = error
-    ? 'error'
-    : files === null
-      ? 'loading'
-      : files.length === 0
-        ? 'empty'
-        : file?.binary
-          ? 'partial'
-          : 'ready';
+  const state: DiffPaneState =
+    error || mergeFailure
+      ? 'error'
+      : files === null
+        ? 'loading'
+        : files.length === 0
+          ? 'empty'
+          : file?.binary
+            ? 'partial'
+            : 'ready';
   const refresh = useCallback(() => setAttempt((count) => count + 1), []);
 
   // A finished tool call may have written files: refetch on the running→idle edge only, as
@@ -387,6 +458,60 @@ export function DiffPane() {
     void send('/git/stage', { paths, cwd });
   };
 
+  // Both run in the main checkout: from the worktree, git's toplevel is the worktree itself
+  // and `merge wt/<slug>` would merge the branch into itself. A 409 lists the paths and
+  // leaves Merge enabled; the user resolves in the Editor or the Terminal, never the pane.
+  const merge = () => {
+    if (!place || merging || removing || running) return;
+    const request: GitMergeRequest = { cwd: place.main.path, slug: place.slug };
+    setMerging(true);
+    setNotice(null);
+    setMergeFailure(null);
+    sidecarFetch<GitMergeResponse>('/git/merge', request)
+      .then((response) => {
+        setNotice(
+          intl.formatMessage(i18n.merged, {
+            branch: place.main.branch,
+            sha: response.sha.slice(0, 7),
+          })
+        );
+        refresh();
+      })
+      .catch((cause: Error) => {
+        const conflicts =
+          cause instanceof SidecarError && Array.isArray(cause.details.conflicts)
+            ? (cause.details.conflicts as string[])
+            : [];
+        setMergeFailure({ message: cause.message, conflicts });
+      })
+      .finally(() => setMerging(false));
+  };
+
+  // A removed cwd would strand the session (a deleted dir breaks session/load), so the
+  // session moves back to the main checkout, as a DirSwitcher pick does in BaseChat. A
+  // dirty or locked tree is git's refusal, shown as is: `force` is never sent.
+  const removeWorktree = () => {
+    if (!place || merging || removing || running) return;
+    const request: GitWorktreeRemoveRequest = { cwd: place.main.path, slug: place.slug };
+    const main = place.main.path;
+    setRemoving(true);
+    setNotice(null);
+    setMergeFailure(null);
+    sidecarFetch('/git/worktree/remove', request)
+      .then(async () => {
+        await acpUpdateWorkingDir(sessionId, main);
+        const current = acpChatSessionStore.getSnapshot(sessionId)?.session;
+        if (current) {
+          acpChatSessionActions.setSessionMetadata(sessionId, { ...current, working_dir: main });
+        }
+        setNotice(intl.formatMessage(i18n.worktreeRemoved, { path: main }));
+      })
+      .catch((cause: Error) => setMergeFailure({ message: cause.message, conflicts: [] }))
+      .finally(() => setRemoving(false));
+  };
+  const actionBlocked = merging || removing || running;
+  const actionTitle = running ? intl.formatMessage(i18n.worktreeBlockedRunning) : undefined;
+
   return (
     <div
       className="flex flex-col h-full min-h-0 text-sm"
@@ -460,7 +585,72 @@ export function DiffPane() {
         </Button>
       </div>
 
-      {state === 'error' && (
+      {/* The worktree row (task 49): the branch as machine text, then the two actions that
+          run in the main checkout. */}
+      {place && (
+        <div
+          className="flex flex-wrap items-center gap-1 px-2 py-1 border-b border-border-primary"
+          data-testid="diff-worktree"
+          data-slug={place.slug}
+        >
+          <span className="text-xs text-text-secondary">{intl.formatMessage(i18n.worktree)}</span>
+          <span className="min-w-0 truncate font-mono text-xs" data-testid="diff-branch">
+            {place.branch}
+          </span>
+          <Button
+            className="ml-auto"
+            variant="outline"
+            size="xs"
+            disabled={actionBlocked}
+            title={actionTitle}
+            data-testid="diff-merge"
+            onClick={merge}
+          >
+            {merging
+              ? intl.formatMessage(i18n.merging)
+              : intl.formatMessage(i18n.merge, { branch: place.main.branch ?? 'HEAD' })}
+          </Button>
+          <Button
+            variant="ghost"
+            size="xs"
+            disabled={actionBlocked}
+            title={actionTitle}
+            data-testid="diff-remove-worktree"
+            onClick={removeWorktree}
+          >
+            {intl.formatMessage(removing ? i18n.removingWorktree : i18n.removeWorktree)}
+          </Button>
+        </div>
+      )}
+      {notice && (
+        <p
+          className="px-2 py-1 border-b border-border-primary font-mono text-xs text-text-secondary"
+          data-testid="diff-notice"
+        >
+          {notice}
+        </p>
+      )}
+      {mergeFailure && (
+        <div
+          className="p-3 border-b border-border-primary text-text-secondary"
+          role="alert"
+          data-testid="diff-merge-error"
+        >
+          <p className="whitespace-pre-wrap font-mono text-xs">{mergeFailure.message}</p>
+          {mergeFailure.conflicts.length > 0 && (
+            <>
+              <ul className="mt-1 font-mono text-xs text-text-danger" data-testid="diff-conflicts">
+                {mergeFailure.conflicts.map((path) => (
+                  <li key={path}>{path}</li>
+                ))}
+              </ul>
+              <p className="mt-1 text-xs">{intl.formatMessage(i18n.mergeConflicts)}</p>
+            </>
+          )}
+        </div>
+      )}
+
+      {error && (
         <div className="p-3 text-text-secondary" role="alert">
           <p className="whitespace-pre-wrap font-mono text-xs">{error}</p>
           <Button className="mt-2" variant="outline" size="xs" onClick={refresh}>

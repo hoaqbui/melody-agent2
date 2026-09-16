@@ -8,6 +8,7 @@ import { getConfiguredGooseExtensions } from '../acp/extensions';
 import { acpChatSessionController } from '../acp/chatSessionController';
 import { beginConfiguredRecipeParameterScope } from '../acp/recipeParamRequests';
 import { getAcpFeatureCapabilities } from '../acp/capabilities';
+import { addWorktree } from '../workspace/worktree';
 
 vi.mock('../acp/extensions', async (importOriginal) => {
   const actual = await importOriginal<typeof import('../acp/extensions')>();
@@ -29,6 +30,10 @@ vi.mock('../acp/recipeParamRequests', () => ({
 
 vi.mock('../acp/capabilities', () => ({
   getAcpFeatureCapabilities: vi.fn(),
+}));
+
+vi.mock('../workspace/worktree', () => ({
+  addWorktree: vi.fn(),
 }));
 
 const testSession: Session = {
@@ -67,6 +72,7 @@ const mockedGetConfiguredGooseExtensions = vi.mocked(getConfiguredGooseExtension
 const mockedCreateAcpSession = vi.mocked(acpChatSessionController.createSession);
 const mockedBeginConfiguredRecipeParameterScope = vi.mocked(beginConfiguredRecipeParameterScope);
 const mockedGetAcpFeatureCapabilities = vi.mocked(getAcpFeatureCapabilities);
+const mockedAddWorktree = vi.mocked(addWorktree);
 const finishConfiguredRecipeParameterScope = vi.fn();
 
 describe('createSession ACP session extensions', () => {
@@ -89,6 +95,7 @@ describe('createSession ACP session extensions', () => {
       localInference: false,
       recipeParameterScopes: true,
     });
+    mockedAddWorktree.mockReset();
   });
 
   it('sends non-empty extension configs as ACP session extensions', async () => {
@@ -190,5 +197,31 @@ describe('createSession ACP session extensions', () => {
     await createSession('/tmp', { recipeId: 'recipe-1' });
 
     expect(mockedBeginConfiguredRecipeParameterScope).not.toHaveBeenCalled();
+  });
+
+  it('starts a worktree session in the worktree the sidecar adds', async () => {
+    mockedAddWorktree.mockResolvedValueOnce({
+      path: '/tmp/.worktrees/wt-20260916-0aff',
+      branch: 'wt/wt-20260916-0aff',
+    });
+
+    await createSession('/tmp', { worktree: 'wt-20260916-0aff' });
+
+    expect(mockedAddWorktree).toHaveBeenCalledWith('/tmp', 'wt-20260916-0aff');
+    expect(mockedCreateAcpSession).toHaveBeenCalledWith(
+      '/tmp/.worktrees/wt-20260916-0aff',
+      [],
+      expect.anything()
+    );
+  });
+
+  it('starts no session when the worktree cannot be added', async () => {
+    mockedAddWorktree.mockRejectedValueOnce(new Error('already exists'));
+
+    await expect(createSession('/tmp', { worktree: 'wt-20260916-0aff' })).rejects.toThrow(
+      'already exists'
+    );
+
+    expect(mockedCreateAcpSession).not.toHaveBeenCalled();
   });
 });
