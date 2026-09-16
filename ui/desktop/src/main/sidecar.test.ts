@@ -3,10 +3,28 @@ import { describe, expect, it } from 'vitest';
 import {
   gooseHttpOrigin,
   rendererOrigins,
+  rendererSidecarUrl,
   sidecarArgs,
   sidecarEntryPath,
   type StartSidecarOptions,
 } from './sidecar';
+
+describe('rendererSidecarUrl', () => {
+  it('leases the loopback listener to the renderer whatever order the sidecar prints', () => {
+    expect(rendererSidecarUrl(['http://100.127.56.10:64041', 'http://127.0.0.1:64041'])).toBe(
+      'http://127.0.0.1:64041'
+    );
+    expect(rendererSidecarUrl(['http://127.0.0.1:64041', 'http://100.127.56.10:64041'])).toBe(
+      'http://127.0.0.1:64041'
+    );
+  });
+
+  it('falls back to the only listener of an explicit --bind', () => {
+    expect(rendererSidecarUrl(['http://127.0.0.1:3285'])).toBe('http://127.0.0.1:3285');
+    expect(rendererSidecarUrl(['http://100.127.56.10:3285'])).toBe('http://100.127.56.10:3285');
+    expect(rendererSidecarUrl([])).toBeUndefined();
+  });
+});
 
 describe('gooseHttpOrigin', () => {
   it('drops the token and path from the goose serve ACP URL', () => {

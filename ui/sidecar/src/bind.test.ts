@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 
-import { isPrivateAddress } from './bind.js';
+import { bindAddresses, isPrivateAddress } from './bind.js';
 
 describe('isPrivateAddress', () => {
   it.each([
@@ -31,5 +31,20 @@ describe('isPrivateAddress', () => {
     '',
   ])('refuses %s', (address) => {
     expect(isPrivateAddress(address)).toBe(false);
+  });
+});
+
+describe('bindAddresses', () => {
+  it('adds loopback beside the tailnet address for the desktop renderer', () => {
+    expect(bindAddresses('100.127.56.10')).toEqual(['100.127.56.10', '127.0.0.1']);
+  });
+
+  it('listens on loopback alone without a tailnet', () => {
+    expect(bindAddresses(null)).toEqual(['127.0.0.1']);
+  });
+
+  it('honours an explicit --bind as the only listener', () => {
+    expect(bindAddresses(null, '127.0.0.1')).toEqual(['127.0.0.1']);
+    expect(bindAddresses('100.127.56.10', '192.168.1.10')).toEqual(['192.168.1.10']);
   });
 });

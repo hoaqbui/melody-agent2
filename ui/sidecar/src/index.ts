@@ -1,17 +1,31 @@
 import { randomUUID } from 'node:crypto';
 import { readFileSync } from 'node:fs';
-import { createServer } from 'node:http';
+import { createServer, type IncomingMessage, type Server, type ServerResponse } from 'node:http';
 import path from 'node:path';
+import type { Duplex } from 'node:stream';
 import { WebSocketServer } from 'ws';
 
 import { type AcpProxyTarget, proxyAcp } from './acpProxy.js';
 import { parseArgs } from './args.js';
-import { isPrivateAddress, resolveBindAddress } from './bind.js';
+import { isPrivateAddress, resolveBindAddresses } from './bind.js';
 import { attachFsWatch, fsRoutes } from './fs.js';
 import { gitRoutes } from './git.js';
 import { corsHeaders, type JsonHandler, jsonDispatcher, sendJson, sendText } from './http.js';
 import { attachPty, ensureSpawnHelperExecutable, killAllPty } from './pty.js';
 import { serveStatic } from './static.js';
+
+const errorMessage = (error: unknown): string =>
+  error instanceof Error ? error.message : String(error);
+
+const listen = (server: Server, port: number, host: string): Promise<number> =>
+  new Promise((resolve, reject) => {
+    server.once('error', reject);
+    server.listen(port, host, () => {
+      server.off('error', reject);
+      const address = server.address();
+      resolve(typeof address === 'object' && address ? address.port : port);
+    });
+  });
 
 const packageVersion = (): string => {
   try {
@@ -24,12 +38,14 @@ const packageVersion = (): string => {
 
 const main = async (): Promise<void> => {
   const args = parseArgs(process.argv);
-  const bind = await resolveBindAddress(args.bind);
-  if (!isPrivateAddress(bind)) {
-    console.error(
-      `refusing to bind ${bind}: the sidecar listens on loopback or the tailnet only, never on a public address`
-    );
-    process.exit(2);
+  const addresses = await resolveBindAddresses(args.bind);
+  for (const address of addresses) {
+    if (!isPrivateAddress(address)) {
+      console.error(
+        `refusing to bind ${address}: the sidecar listens on loopback or the tailnet only, never on a public address`
+      );
+      process.exit(2);
+    }
   }
 
   ensureSpawnHelperExecutable();
@@ -43,7 +59,7 @@ const main = async (): Promise<void> => {
   const routes: Record<string, JsonHandler> = { ...fsRoutes(cwd), ...gitRoutes(cwd) };
   const dispatchJson = jsonDispatcher(routes, args.allowedOrigins);
 
-  const server = createServer((request, response) => {
+  const handleRequest = (request: IncomingMessage, response: ServerResponse) => {
     const url = new URL(request.url ?? '/', 'http://sidecar');
     const cors = corsHeaders(request, args.allowedOrigins);
     if (request.method === 'GET' && url.pathname === '/health') {
@@ -62,10 +78,10 @@ const main = async (): Promise<void> => {
       return;
     }
     sendText(response, 404, 'not found', cors);
-  });
+  };
 
   const sockets = new WebSocketServer({ noServer: true });
-  server.on('upgrade', (request, socket, head) => {
+  const handleUpgrade = (request: IncomingMessage, socket: Duplex, head: Buffer) => {
     const url = new URL(request.url ?? '/', 'http://sidecar');
     const accept = (onOpen: (client: import('ws').WebSocket) => void) => {
       sockets.handleUpgrade(request, socket, head, onOpen);
@@ -92,10 +108,7 @@ const main = async (): Promise<void> => {
               rows: Number(url.searchParams.get('rows') ?? 24),
             });
           } catch (error) {
-            client.close(
-              1011,
-              (error instanceof Error ? error.message : String(error)).slice(0, 120)
-            );
+            client.close(1011, errorMessage(error).slice(0, 120));
           }
         });
         return;
@@ -105,18 +118,32 @@ const main = async (): Promise<void> => {
       default:
         refuse(404, 'Not Found');
     }
-  });
+  };
 
-  server.listen(args.port, bind, () => {
-    const address = server.address();
-    const port = typeof address === 'object' && address ? address.port : args.port;
-    const host = bind.includes(':') ? `[${bind}]` : bind;
-    console.log(`SIDECAR_LISTENING=http://${host}:${port}`);
-  });
+  // One listener per address on one port: the first bind settles a `--port 0`,
+  // the rest reuse it. The lines go out in one write so the desktop reads them
+  // in one chunk and picks the loopback one.
+  const servers: Server[] = [];
+  const listening: string[] = [];
+  let port = args.port;
+  for (const address of addresses) {
+    const server = createServer(handleRequest);
+    server.on('upgrade', handleUpgrade);
+    try {
+      port = await listen(server, port, address);
+    } catch (error) {
+      console.error(`failed to bind ${address}:${port}: ${errorMessage(error)}`);
+      process.exit(2);
+    }
+    servers.push(server);
+    const host = address.includes(':') ? `[${address}]` : address;
+    listening.push(`SIDECAR_LISTENING=http://${host}:${port}`);
+  }
+  console.log(listening.join('\n'));
 
   const shutdown = () => {
     killAllPty();
-    server.close();
+    servers.forEach((server) => server.close());
     process.exit(0);
   };
   process.on('SIGINT', shutdown);
