@@ -40,22 +40,6 @@ re-checked at the fork base `426967d` (v1.51.0, 2026-09-15): all hold;
 
 ### docs/2026-09-15-goose-fork-plan-v1.md
 
-- 9. Run the runtime matrix: from a Goose session in this directory on `claude-acp`, delegate the same one-file task ("add a `--version` line to `scripts/check-spine.sh` help") to implementer on `claude-acp`, `codex-acp`, `cursor-acp`, `agy`, then call `advisor` six times with `exclude_provider` set, and record per run: provider, model, turns, result shape, permission prompts seen, in `docs/2026-09-15-runtime-matrix-v1.md`.
-  - status: doing · agent: subagent-t9 via claude-session-opus-2 (14:00, worktree) · worker: medium
-  - unblocked 2026-09-16 14:00: 6, 17 landed, `codex-acp` installed; orchestrator on `claude-code` (bridge, task 24)
-  - was blocked: no subscription orchestrator in tree can call `delegate` except `chatgpt_codex` (research v1 addendum, evening). Unblocks: the user's pick — run the matrix from a `chatgpt_codex` session as the interim proof, or wait for repair (ii) — owner: user
-  - unblocks (2026-09-15 20:40, plan spine-bridge v1 approved): tasks 22–24 give `claude-code` `delegate` via the session bridge; run the matrix with the orchestrator on `claude-code` after 24
-  - still blocked 2026-09-15 21:20 on: task 26 (ACP workers refuse the folded template), task 6 (`cursor-acp`), and `npm i -g @agentclientprotocol/codex-acp` — owner: user for the install, this ledger for 26 and 6
-  - 2026-09-15 22:30: task 26 resolved by pick A+C — Claude worker seats move to `claude-code` (task 34), the role-body fold (`subagent_handler.rs` `first_user_message`, merged) stays for `codex-acp` / `cursor-acp` children; this matrix is where that fold is judged: record per ACP child whether its first reply follows the role body (token test as spike doc §Setup) — still waits on task 6 and the `codex-acp` install
-  - card: as the user, see each role×runtime pair work once so that the fork's UI work builds on a proven spine
-  - context:
-    - needs `codex-acp` installed (`npm i -g @agentclientprotocol/codex-acp`; `codex_acp.rs:37-42`), `claude-agent-acp` (present), `cursor-agent` (present, `~/.local/bin`), `agy` (present), and tasks 5, 6, 17 landed
-    - the unknowns this settles: does `delegate(provider: "<acp>")` run `AcpProvider` inside a `SubAgent` session with `max_turns` honoured (research v1 §Unknowns, first); do the Claude model ids pass through `claude-agent-acp`; does the advisor roll respect `exclude_provider` and never repeat the excluded provider
-    - print-mode flags seen 2026-09-15 running the same three runtimes by hand: `codex exec` needs `--skip-git-repo-check` outside a git repo; `cursor-agent -p` needs `--trust`; ACP mode may differ — record what each adapter needed
-    - use `goose session` CLI, not the desktop, so the result is independent of tranche 4
-    - record the subscription each run drew on (PRODUCT.md §5) and any quota message — that is the first fail-over datum
-  - confirm: `test -f docs/2026-09-15-runtime-matrix-v1.md && grep -c '^| \(codex-acp\|cursor-acp\|claude-acp\|agy\) |' docs/2026-09-15-runtime-matrix-v1.md` → `4`
-
 ### docs/2026-09-15-goose-spine-bridge-plan-v1.md
 
 - 33. File the three upstream Ready issues against `aaif-goose/goose` named by the spine bridge plan: (i) role bodies never reach an ACP worker (`acp/provider.rs:820`), (ii) a session's platform tools exposed to ACP/CLI providers as an MCP server (`agents/session_bridge.rs`), and `runtimes:` in agent frontmatter (task 5).
@@ -103,6 +87,15 @@ Planned 2026-09-15 21:25 from PRD steps 10–12 and the spine research §Activit
 ### Parity with Codex desktop and Claude Cowork — plan v1 (approved 2026-09-16)
 
 Planned in `docs/2026-09-16-parity-plan-v1.md` (approved 2026-09-16, "approved all recommendations"). Order: wave 1 = 47 ∥ 48 ∥ 51 (disjoint files); then 49 ∥ 50 (after 48) ∥ 52 (after 51) → 53 → 54 → 59 (after 53 and 58) → 55. 61 and 62 (below) run in wave 1 too — sidecar-only.
+
+- 64. Re-roll a delegated child that dies on quota: in `crates/goose/src/agents/platform_extensions/summon.rs` `resolve_rolled_provider` (`:1966-1986`) re-rolls only on provider-creation failure; when the child's first prompt fails with a quota/rate-limit error (`usageLimitExceeded`, HTTP 429, `CreditsExhausted` — the failover research's classification, `docs/2026-09-16-failover-research-v1.md`) the delegate should re-roll once among the role's remaining `runtimes:` (the failed provider added to `exclude_provider`), record both attempts on the child session, and surface a plain error only when the list is exhausted; test `delegate_rerolls_on_quota_error` with a stub provider whose first turn returns the classified error.
+  - status: todo · agent: — · worker: high
+  - card: as the orchestrator, keep working when one subscription hits its cap so that a quota reset time never stalls a delegation (runtime matrix 2026-09-16: `codex-acp` died on quota 4/4 and every parent got a hard error; AGENTS.md "advance one rung on rate limit")
+  - context:
+    - the quota classification belongs on the provider error, not the tool: `crates/goose/src/providers/errors.rs` (or wherever `ProviderError` is) — check what `claude_acp`/`codex_acp` surface for 429 today; the ACP adapter's error text carries `usageLimitExceeded` for Codex
+    - never re-roll on a refusal or a tool error — only the classified quota/rate-limit class; the re-roll is recorded so the matrix can see it
+    - `check-spine` stays the gate; `agent.rs` / `state_machine/` untouched
+  - confirm: `source bin/activate-hermit && cargo test -p goose --lib delegate_rerolls_on_quota 2>&1 | grep -E 'test result: ok\. 1 passed'; echo exit=$?` → `exit=0` (untouched tree: 0 tests); and `bash scripts/check-spine.sh` → `spine clean`
 
 - 63. Scheduled runs honour the recipe's `settings`: `execute_job` (`crates/goose/src/scheduler.rs:1082-1084`) builds the run's provider from `settings.goose_provider` / `goose_model` when set (global config otherwise), passes the session's goose mode from a new `settings.goose_mode` (`recipe/mod.rs:99-111`; `Auto` stays the default for unattended runs), and takes the run's cwd from a new `settings.working_dir` (default `current_dir()`); `RecipeSettingsDto` and the validator whitelist follow; the routine sheet (task 59) writes all three and gains the "Run in its own worktree" checkbox that writes `settings.worktree` (task 54 landed after 59; `RoutineSheet.tsx` carries the TODO); tests `scheduler_run_uses_recipe_provider` and `scheduler_run_uses_recipe_working_dir`.
   - status: doing · agent: subagent-t63 via claude-session-opus-2 (14:50, worktree) · worker: high
@@ -162,7 +155,7 @@ Planned in `docs/2026-09-16-parity-plan-v1.md` (approved 2026-09-16, "approved a
 - task 14 hand check — "since session start" base: open a session in a git cwd, commit, open Changes → the selector offers it and lists the committed file; `git diff HEAD` omits untracked files (accepted gap, or queue).
 - `ARCHITECTURE.md` — sign-off deletes `## Bootstrap Status`; until then the map is a proposal and tasks 10–16 plan against a guess.
 - task 20 hand checks — on `hoa-phone`: scan the Phone card's QR, walk PRD step 13 (chat first, tab rail, Files → Editor, Terminal with the key bar above the iOS keyboard), background the tab for a few minutes and return → terminal scrollback replayed, chat replayed, draft kept; every foreground forces a terminal reset+replay and an ACP teardown (a quick app switch blinks the terminal); `/fs/watch` (the Files dot) is not reattached on foreground (queue candidate); goose's ACP has no "messages since id" pull — whole replay for now (future spine task).
-- task 9 — the handoff-memo criterion (PRD §Criteria, second) is a manual check: ask "what did we just change?" after a runtime switch and judge the answer.
+- task 9 hand checks — rerun the `codex-acp` implementer cell after the ChatGPT quota reset (5:05 PM PDT; recipe `scratchpad/t9/recipes/impl-codex-acp.yaml`) — the one fold judgement still open; the `claude-acp` child called Claude Code's own `advisor` server tool despite the role's "Do not delegate" — breach or not is the role owner's call; `cursor-agent` ignores the seat's model id (`cursor_acp.rs:97-101`, ran `grok-4.6-high-fast` for an `xhigh` seat) and `sessions.db` records the seat id, not what ran; the handoff-memo criterion (PRD §Criteria, second) stays manual: ask "what did we just change?" after a runtime switch.
 - Goose spine integration — the next session must finish the concrete plan above and obtain plan approval before source edits; “continue” established the direction, not an unwritten implementation scope.
 
 ## Ownership
