@@ -35,6 +35,9 @@ export interface TerminalSession {
   // Attaches to the pty by id; the sidecar creates the shell on the first attach and
   // replays its scrollback on every later one.
   connect(): void;
+  // Drops the socket and attaches again: a backgrounded phone's socket can be dead
+  // without ever closing, so a plain connect would keep waiting on it.
+  reattach(): void;
   input(data: string): void;
   paste(text: string): void;
   setCtrl(armed: boolean): void;
@@ -80,6 +83,11 @@ export function terminalSession(id: string, cwd: string): TerminalSession {
     sessions.set(id, session);
   }
   return session;
+}
+
+// Every live shell, on the phone's return to the foreground (PRD step 13).
+export function reattachTerminals(): void {
+  sessions.forEach((session) => session.reattach());
 }
 
 function createTerminalSession(id: string, cwd: string): TerminalSession {
@@ -174,6 +182,20 @@ function createTerminalSession(id: string, cwd: string): TerminalSession {
     next.onclose = (event) => lost(event.reason || `connection closed (${event.code})`);
   };
 
+  // An exited shell stays exited: Restart is the user's call, not the foreground's.
+  const reattach = () => {
+    if (state.status.kind === 'exited') return;
+    const current = socket;
+    socket = null;
+    if (current) {
+      current.onmessage = null;
+      current.onerror = null;
+      current.onclose = null;
+      current.close();
+    }
+    void connect();
+  };
+
   return {
     getState: () => state,
     subscribe: (listener) => {
@@ -191,6 +213,7 @@ function createTerminalSession(id: string, cwd: string): TerminalSession {
     unmount: () => element.remove(),
     fit,
     connect: () => void connect(),
+    reattach,
     input: (data) => term.input(data),
     paste: (text) => term.paste(text),
     setCtrl: (armed) => setState({ ctrl: armed }),

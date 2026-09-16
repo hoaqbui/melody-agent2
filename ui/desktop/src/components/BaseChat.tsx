@@ -1,5 +1,5 @@
 import { AppEvents } from '../constants/events';
-import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import React, { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
 import { defineMessages, useIntl } from '../i18n';
 import { useLocation, useNavigate } from 'react-router';
 import { SearchView } from './conversation/SearchView';
@@ -271,8 +271,32 @@ export default function BaseChat({
   // Track if this is the initial render for session resuming
   const initialRenderRef = useRef(true);
 
+  // A session reload (the desktop's wake, the phone's return — task 20) empties the list
+  // and replays it. The viewport's last position is kept from the scroll events, since by
+  // the time the load shows in the store the emptied list has already clamped it to 0;
+  // a reader who had scrolled up lands back there once the replay has rendered.
+  const lastScroll = useRef<{ top: number; atBottom: boolean } | null>(null);
+  const scrollAfterLoad = useRef<number | null>(null);
+  const trackScroll = useCallback((viewport: HTMLDivElement) => {
+    lastScroll.current = {
+      top: viewport.scrollTop,
+      atBottom: scrollRef.current?.isAtBottom() ?? true,
+    };
+  }, []);
+  useLayoutEffect(() => {
+    if (chatState !== ChatState.LoadingConversation) return;
+    const last = lastScroll.current;
+    scrollAfterLoad.current = last && !last.atBottom ? last.top : null;
+  }, [chatState]);
+
   // Auto-scroll when messages are loaded (for session resuming)
   const handleRenderingComplete = React.useCallback(() => {
+    const restore = scrollAfterLoad.current;
+    scrollAfterLoad.current = null;
+    if (restore !== null) {
+      scrollRef.current?.scrollToPosition({ top: restore, behavior: 'auto' });
+      return;
+    }
     // Only force scroll on the very first render
     if (initialRenderRef.current && messages.length > 0) {
       initialRenderRef.current = false;
@@ -446,6 +470,7 @@ export default function BaseChat({
             ref={scrollRef}
             className={`flex-1 min-h-0 relative ${contentClassName}`}
             autoScroll
+            handleScroll={trackScroll}
             onDrop={handleDrop}
             onDragOver={handleDragOver}
             data-drop-zone="true"

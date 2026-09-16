@@ -3,8 +3,9 @@
 // with a seam between each pair, the pane launchers on a floating rail that slides into the
 // dock's top strip, and the session controls handed to the chat input's bottom row: the lever
 // in Easy, the Runtime · Mode chips and the Session controls popover in Advanced (task 58),
-// the Worktree toggle in both (task 49). Composes exported components only and reaches ACP
-// through src/acp.
+// the Worktree toggle in both (task 49). Below the phone breakpoint (task 20) one thing is on
+// screen behind a tab rail, and the foreground reattaches what the background dropped.
+// Composes exported components only and reaches ACP through src/acp.
 
 import {
   useCallback,
@@ -30,6 +31,7 @@ import {
   GitBranch,
   GitCompare,
   Globe,
+  MessageSquareText,
   Smartphone,
   Terminal,
 } from 'lucide-react';
@@ -53,6 +55,7 @@ import {
 import { Tooltip, TooltipContent, TooltipTrigger } from '../components/ui/Tooltip';
 import { cn } from '../utils';
 import { toastError } from '../toasts';
+import { reconnectAcpAfterSystemResume } from '../acp/acpConnection';
 import { formatAcpError } from '../acp/errors';
 import { acpListProviderDetails, acpSetSessionProviderModel } from '../acp/providers';
 import {
@@ -79,9 +82,11 @@ import { PaneContext, type PaneContextValue } from './pane-context';
 import {
   createPaneStore,
   initialLayout,
+  modeForWidth,
   restoreColumns,
   restoreDock,
   PANE_IDS,
+  PHONE_MAX_WIDTH_PX,
   type Columns,
   type PaneId,
   type PaneLayout,
@@ -95,6 +100,7 @@ import { MODE_MESSAGES, SessionChips, WorktreeChip, type RuntimeOption } from '.
 import { SessionControls } from './SessionControls';
 import { Lever, STOP_MESSAGES } from './Lever';
 import { TerminalPane } from './panes/terminal/TerminalPane';
+import { reattachTerminals } from './panes/terminal/terminal-session';
 import { newWorktreeSlug, worktreeSlugOf } from './worktree';
 import {
   modeOfSession,
@@ -316,6 +322,50 @@ function Rail({ layout, onOpen, docked, advanced, onToggleAdvanced, onOpenPhone 
   );
 }
 
+interface TabRailProps {
+  shown: 'chat' | PaneId;
+  onShow(target: 'chat' | PaneId): void;
+}
+
+// The phone's one-at-a-time strip (DESIGN.md §Frame): chat first, then every pane, along the
+// bottom edge where a thumb reaches; the shown tab is pressed.
+function TabRail({ shown, onShow }: TabRailProps) {
+  const intl = useIntl();
+  const tabs = [
+    { id: 'chat' as const, title: intl.formatMessage(i18n.columnChat), Icon: MessageSquareText },
+    ...PANE_IDS.map((id) => ({
+      id,
+      title: intl.formatMessage(PANE_TITLES[id]),
+      Icon: PANE_ICONS[id],
+    })),
+  ];
+  return (
+    <div
+      className="flex shrink-0 items-center justify-around gap-1 overflow-x-auto border-t border-border-primary px-1 pt-1"
+      style={{ paddingBottom: 'calc(0.25rem + env(safe-area-inset-bottom, 0px))' }}
+      role="toolbar"
+      aria-label={intl.formatMessage(i18n.panes)}
+      aria-orientation="horizontal"
+      data-testid="workspace-tab-rail"
+    >
+      {tabs.map(({ id, title, Icon }) => (
+        <Button
+          key={id}
+          variant={shown === id ? 'secondary' : 'ghost'}
+          size="sm"
+          className={cn('w-9 shrink-0 px-0', shown === id && floating)}
+          aria-label={title}
+          aria-pressed={shown === id}
+          data-testid={`workspace-tab-${id}`}
+          onClick={() => onShow(id)}
+        >
+          <Icon />
+        </Button>
+      ))}
+    </div>
+  );
+}
+
 interface SeamProps {
   column: keyof Columns;
   label: string;
@@ -401,10 +451,14 @@ export function WorkspaceShell({ chat, children, panes, paneStore }: WorkspaceSh
     () =>
       paneStore ??
       createPaneStore(
-        restoreColumns(restoreDock(initialLayout(), loadDock(project)), loadColumns(project))
+        restoreColumns(
+          restoreDock(initialLayout(modeForWidth(window.innerWidth)), loadDock(project)),
+          loadColumns(project)
+        )
       )
   );
   const layout = usePaneLayout(store);
+  const phone = layout.mode === 'phone';
   const rootRef = useRef<HTMLDivElement>(null);
   const [draggingSeam, setDraggingSeam] = useState(false);
   // Where focus goes once the next render has put the target on screen.
@@ -418,6 +472,30 @@ export function WorkspaceShell({ chat, children, panes, paneStore }: WorkspaceSh
       saveProjectEntry(COLUMNS_STORAGE_KEY, project, columns);
     });
   }, [paneStore, project, store]);
+
+  // The layout follows the viewport across the phone breakpoint (DESIGN.md §Frame); the
+  // media query is the trigger, the store's rule decides.
+  useEffect(() => {
+    const media = window.matchMedia(`(max-width: ${PHONE_MAX_WIDTH_PX}px)`);
+    const sync = () => store.setMode(modeForWidth(window.innerWidth));
+    sync();
+    media.addEventListener('change', sync);
+    return () => media.removeEventListener('change', sync);
+  }, [store]);
+
+  // iOS Safari suspends a background tab with its sockets; a return to the foreground
+  // reattaches every shell by id and rebuilds the ACP connection, whose recovery reloads
+  // each open session (ChatSessionsContainer) — the messages that arrived meanwhile with it.
+  useEffect(() => {
+    if (!phone) return;
+    const onVisibility = () => {
+      if (document.visibilityState !== 'visible') return;
+      reattachTerminals();
+      reconnectAcpAfterSystemResume();
+    };
+    document.addEventListener('visibilitychange', onVisibility);
+    return () => document.removeEventListener('visibilitychange', onVisibility);
+  }, [phone]);
 
   const isWorkspaceRoute = WORKSPACE_ROUTES.has(location.pathname);
   const isOnPairRoute = location.pathname === '/pair';
@@ -909,25 +987,88 @@ export function WorkspaceShell({ chat, children, panes, paneStore }: WorkspaceSh
     />
   );
 
-  return (
-    <div
-      ref={rootRef}
-      className="relative flex h-full min-h-0 min-w-0 flex-1 overflow-x-hidden p-2"
-      data-testid="workspace-shell"
-      data-ui={workspaceUi}
-      data-orchestrator-role={
-        orchestratorRole === undefined ? 'loading' : orchestratorRole ? 'present' : 'absent'
-      }
+  const chatBody = (
+    <SessionChipsSlot.Provider value={chipsFor}>
+      <NextChatWorktree.Provider value={draftWorktree}>
+        <div className="relative min-h-0 min-w-0 flex-1">
+          {children}
+          <div className={isOnPairRoute ? 'contents' : 'hidden'}>{chat}</div>
+        </div>
+      </NextChatWorktree.Provider>
+    </SessionChipsSlot.Provider>
+  );
+  const shellAttributes = {
+    className: 'relative flex h-full min-h-0 min-w-0 flex-1 overflow-x-hidden p-2',
+    'data-testid': 'workspace-shell',
+    'data-ui': workspaceUi,
+    'data-orchestrator-role':
+      orchestratorRole === undefined ? 'loading' : orchestratorRole ? 'present' : 'absent',
+  };
+  const sessionsColumn = (
+    <section
+      className={cn(column, 'flex-1')}
+      tabIndex={-1}
+      aria-label={columnLabel('sessions')}
+      data-testid="workspace-column-sessions"
     >
-      <div className={sessionsMotion} style={{ width: sessionsOpen ? layout.columns.sessions : 0 }}>
+      <Navigation />
+    </section>
+  );
+
+  // Phone: one thing on screen — the Sessions column whole when the titlebar toggle opens
+  // it, else the chat or a pane behind the tab rail. The bodies stack in one place and hide
+  // by visibility, so a scrolled transcript or tree is where it was when it comes back; the
+  // dock's panes stay mounted for the same reason (DESIGN.md Nothing Lost Rule).
+  if (phone) {
+    const shown = isWorkspaceRoute ? layout.visible : 'chat';
+    const mounted = PANE_IDS.filter(
+      (id) => id === shown || layout.dock.some((panel) => panel.tabs.includes(id))
+    );
+    const body = (id: 'chat' | PaneId) =>
+      cn(
+        'absolute inset-0 min-h-0 min-w-0',
+        shown === id
+          ? 'animate-in fade-in-0 zoom-in-95 origin-bottom ease-[var(--ease-g2)] duration-150'
+          : 'invisible'
+      );
+    return (
+      <div ref={rootRef} {...shellAttributes} data-mode="phone">
+        <div className={sessionsMotion} style={{ width: sessionsOpen ? '100%' : 0 }}>
+          {sessionsColumn}
+        </div>
         <section
-          className={cn(column, 'flex-1')}
+          className={cn(column, 'flex flex-1 flex-col', sessionsOpen && 'hidden')}
           tabIndex={-1}
-          aria-label={columnLabel('sessions')}
-          data-testid="workspace-column-sessions"
+          aria-label={columnLabel('chat')}
+          data-testid="workspace-column-chat"
         >
-          <Navigation />
+          <div className="relative min-h-0 min-w-0 flex-1">
+            <div className={cn(body('chat'), 'flex')} data-testid="workspace-pane-chat">
+              {chatBody}
+            </div>
+            {isWorkspaceRoute &&
+              mounted.map((id) => (
+                // Below the titlebar's 32 px band, as the Work column keeps its strip; the
+                // chat carries its own spacer.
+                <div
+                  key={id}
+                  className={cn(body(id), 'top-6 overflow-auto')}
+                  data-testid={`workspace-pane-${id}`}
+                >
+                  {renderPane(id)}
+                </div>
+              ))}
+          </div>
+          {isWorkspaceRoute && <TabRail shown={shown} onShow={store.show} />}
         </section>
+      </div>
+    );
+  }
+
+  return (
+    <div ref={rootRef} {...shellAttributes}>
+      <div className={sessionsMotion} style={{ width: sessionsOpen ? layout.columns.sessions : 0 }}>
+        {sessionsColumn}
       </div>
       {sessionsOpen && seam('sessions')}
 
@@ -938,14 +1079,7 @@ export function WorkspaceShell({ chat, children, panes, paneStore }: WorkspaceSh
         aria-label={columnLabel('chat')}
         data-testid="workspace-column-chat"
       >
-        <SessionChipsSlot.Provider value={chipsFor}>
-          <NextChatWorktree.Provider value={draftWorktree}>
-            <div className="relative min-h-0 min-w-0 flex-1">
-              {children}
-              <div className={isOnPairRoute ? 'contents' : 'hidden'}>{chat}</div>
-            </div>
-          </NextChatWorktree.Provider>
-        </SessionChipsSlot.Provider>
+        {chatBody}
       </section>
 
       {workOpen && (
