@@ -15,6 +15,7 @@ import type {
   UpdateCustomProviderRequest,
 } from '../types/providers';
 import { getAcpClient } from './acpConnection';
+import { rememberSessionConfigOptions } from './sessionConfig';
 
 export type { CanonicalModelInfoDto, ProviderSecretDto };
 
@@ -430,5 +431,6 @@ export async function acpSetSessionProviderModel(
     });
   }
 
+  rememberSessionConfigOptions(sessionId, response.configOptions);
   return extractAppliedSessionProviderModel(response.configOptions);
 }

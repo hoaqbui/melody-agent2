@@ -1,4 +1,4 @@
-import { test, expect, emptyDock, openPane } from './fixtures';
+import { test, expect, emptyDock, openPane, setAdvancedControls } from './fixtures';
 
 // PRD step 6: the Terminal tab opens a shell in the session's working directory; `pwd`
 // prints it. The session starts as in workspace-shell.spec.ts, on the ambient runtime.
@@ -10,8 +10,14 @@ test.describe('terminal pane', () => {
       timeout: 15000,
     });
 
-    await goosePage.locator('[data-testid="workspace-mode"]').click();
-    await goosePage.locator('[data-testid="workspace-mode-direct"]').click();
+    // The Mode chip is Advanced's (task 58); Easy comes back once the session is open.
+    await setAdvancedControls(goosePage, true);
+    try {
+      await goosePage.locator('[data-testid="workspace-mode"]').click();
+      await goosePage.locator('[data-testid="workspace-mode-direct"]').click();
+    } finally {
+      await setAdvancedControls(goosePage, false);
+    }
     const hubInput = goosePage.locator('[data-testid="chat-input"]');
     await hubInput.fill('Respond with the single word hello.');
     await hubInput.press('Enter');

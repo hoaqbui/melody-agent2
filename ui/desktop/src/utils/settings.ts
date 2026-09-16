@@ -34,6 +34,9 @@ export type LanguageSetting =
   | 'system' | 'en' | 'es' | 'fr' | 'de' | 'it' | 'pt' | 'id' | 'ms' | 'vi'
   | 'hi' | 'ja' | 'ko' | 'ru' | 'tr' | 'zh-CN' | 'zh-TW';
 
+// The workspace's two faces (task 58): Easy shows the lever, Advanced every session control.
+export type WorkspaceUi = 'easy' | 'advanced';
+
 export interface Settings {
   // Desktop app settings
   showMenuBarIcon: boolean;
@@ -56,6 +59,7 @@ export interface Settings {
   seenAnnouncementIds: string[];
   recentModels: RecentModel[];
   useLegacyAgentLoop: boolean;
+  'workspace.ui': WorkspaceUi;
 }
 
 export type SettingKey = keyof Settings;
@@ -98,6 +102,7 @@ export const defaultSettings: Settings = {
   seenAnnouncementIds: [],
   recentModels: [],
   useLegacyAgentLoop: false,
+  'workspace.ui': 'easy',
 };
 
 export function getKeyboardShortcuts(settings: Settings): KeyboardShortcuts {

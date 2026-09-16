@@ -45,8 +45,12 @@ export const test = base.extend<GooseTestFixtures>({
       console.log(`Using debug port ${debugPort} for parallel test execution`);
 
       // Start the electron-forge process with Playwright remote debugging enabled
-      // Use detached mode on Unix to create a process group we can kill together
-      appProcess = spawn('pnpm', ['run', 'start-gui'], {
+      // Use detached mode on Unix to create a process group we can kill together.
+      // GOOSE_TEST_DIR opens the window on that directory instead of the user's most
+      // recent one (a walk that needs the project's own `.agents/agents/` role, task 58).
+      const testDir = process.env.GOOSE_TEST_DIR;
+      const appArgs = ['run', 'start-gui', ...(testDir ? ['--', '--dir', testDir] : [])];
+      appProcess = spawn('pnpm', appArgs, {
         cwd: join(__dirname, '../..'),
         stdio: 'pipe',
         detached: process.platform !== 'win32',
@@ -203,4 +207,18 @@ export async function emptyDock(page: Page): Promise<void> {
     await page.locator('[data-testid^="workspace-pane-close-"]').first().click();
     await expect(tabs).toHaveCount(open - 1);
   }
+}
+
+// Task 58: Easy is the default, so a walk that clicks the Runtime · Mode chips switches the
+// workspace to Advanced first, through the rail's ⋯ menu, and hands Easy back in `finally`:
+// the setting lands in the user's own settings.json.
+export async function setAdvancedControls(page: Page, on: boolean): Promise<void> {
+  const shell = page.locator('[data-testid="workspace-shell"]');
+  const want = on ? 'advanced' : 'easy';
+  await expect(shell).toHaveAttribute('data-ui', /easy|advanced/, { timeout: 15000 });
+  if ((await shell.getAttribute('data-ui')) === want) return;
+  await page.locator('[data-testid="workspace-pane-more"]').click();
+  await page.locator('[data-testid="workspace-advanced-controls"]').click();
+  await expect(shell).toHaveAttribute('data-ui', want);
+  await expect(page.locator('[data-testid="workspace-pane-more-menu"]')).toHaveCount(0);
 }

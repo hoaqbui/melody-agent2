@@ -52,6 +52,18 @@
      with the same rows and the same Install / "no orchestrator role
      in this project" states; the session's "Claude · Orchestrate" is
      the chips' tooltip (DESIGN.md §Frame, §Vocabulary "chip")
+   - amended 2026-09-16 (task 58; user: "have an easy mode and advanced
+     mode. easy mode — give me a lever between easy, medium, or hard"):
+     two paths. Easy (the default) — pick a stop on the lever, Easy ·
+     Medium · Hard, and type; a stop is a (Runtime, model, Mode) triple
+     from one table, Hard being Claude Code · Orchestrate, and the
+     Install / "no orchestrator role" rules above apply to the stop
+     (its segment is dimmed, its tooltip says why). Advanced (⋯ →
+     "Advanced controls", or Settings › App) — this step as written,
+     plus a Session controls popover with every config option the
+     server publishes, the working directory, the role, the enabled
+     extensions and Save as routine…. Advanced → Easy shows the lever
+     on the stop the session matches, else Custom (read-only)
 
 3. [Session, empty chat] · P0
    - does: type a task, ⌘Enter

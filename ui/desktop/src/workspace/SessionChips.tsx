@@ -32,6 +32,8 @@ const i18n = defineMessages({
 });
 
 export const MODE_MESSAGES = { direct: i18n.direct, orchestrate: i18n.orchestrate } as const;
+export const INSTALL_MESSAGE = i18n.install;
+export const NO_ORCHESTRATOR_MESSAGE = i18n.noOrchestrator;
 
 export interface RuntimeOption extends Runtime {
   more: boolean;
@@ -51,7 +53,7 @@ export interface SessionChipsProps {
   onPickMode(mode: Mode): void;
 }
 
-interface ChipProps {
+export interface ChipProps {
   Icon: ComponentType<{ className?: string }>;
   name: string;
   label: string;
@@ -59,22 +61,26 @@ interface ChipProps {
   status?: string;
   busy: boolean;
   testId: string;
+  // The icon alone at every width; the label is the tooltip.
+  iconOnly?: boolean;
 }
 
 // The same shape as the model chip beside it: an icon, a short label, a menu that opens up.
 // In a narrow bar (the chat input's own measure) the icon stands alone; the label is its name.
-function Chip({ Icon, name, label, value, status, busy, testId }: ChipProps) {
+export function Chip({ Icon, name, label, value, status, busy, testId, iconOnly }: ChipProps) {
   return (
     <DropdownMenuTrigger
       className="flex min-w-4 items-center gap-1 text-xs text-text-primary/70 transition-colors hover:cursor-pointer hover:text-text-primary disabled:cursor-default disabled:opacity-50"
-      aria-label={`${name}: ${label}`}
-      title={status}
+      aria-label={iconOnly ? name : `${name}: ${label}`}
+      title={iconOnly ? name : status}
       disabled={busy}
       data-testid={testId}
       data-value={value}
     >
       <Icon className="size-4 shrink-0" />
-      <span className="max-w-[120px] truncate group-data-[narrow]:hidden">{label}</span>
+      {!iconOnly && (
+        <span className="max-w-[120px] truncate group-data-[narrow]:hidden">{label}</span>
+      )}
     </DropdownMenuTrigger>
   );
 }

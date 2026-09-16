@@ -60,6 +60,52 @@ export function orchestratorRecipe(role: { description: string; content: string 
   };
 }
 
+export type Stop = 'easy' | 'medium' | 'hard';
+
+export const STOPS: readonly Stop[] = ['easy', 'medium', 'hard'];
+
+export interface StopTriple {
+  provider: string;
+  // The stop's model is whichever the adapter lists that matches; ids are adapter data.
+  modelMatch: RegExp;
+  mode: Mode;
+}
+
+// The lever's one table (task 58): a stop is a (provider, model, mode) triple.
+export const LEVER: Record<Stop, StopTriple> = {
+  easy: { provider: 'claude-acp', modelMatch: /sonnet/i, mode: 'direct' },
+  medium: { provider: 'claude-acp', modelMatch: /opus/i, mode: 'direct' },
+  hard: { provider: 'claude-code', modelMatch: /opus/i, mode: 'orchestrate' },
+};
+
+export function stopModel(
+  stop: Stop,
+  choices: readonly { value: string; name: string }[]
+): string | undefined {
+  const { modelMatch } = LEVER[stop];
+  return choices.find((choice) => modelMatch.test(choice.value) || modelMatch.test(choice.name))
+    ?.value;
+}
+
+// The stop whose triple the session matches; Custom when none does (Advanced left it
+// somewhere the lever cannot name).
+export function stopOfSession(
+  session: Pick<Session, 'provider_name' | 'model_config' | 'recipe'>
+): Stop | 'custom' {
+  const mode = modeOfSession(session);
+  const model = session.model_config?.model_name ?? '';
+  return (
+    STOPS.find((stop) => {
+      const triple = LEVER[stop];
+      return (
+        triple.provider === session.provider_name &&
+        triple.mode === mode &&
+        triple.modelMatch.test(model)
+      );
+    }) ?? 'custom'
+  );
+}
+
 // A client-side marker in the message list (PRD step 9); the handoff memo itself is
 // the server's on the next prompt.
 export function runtimeDividerMessage(id: string, text: string): Message {

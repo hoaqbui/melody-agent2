@@ -12,6 +12,7 @@ import type {
   SessionImportSource,
 } from '@aaif/goose-acp-client';
 import { getAcpClient } from './acpConnection';
+import { rememberSessionConfigOptions } from './sessionConfig';
 import type { ExtensionLoadResult } from '../types/extensions';
 import type { Session } from '../types/session';
 import type { Recipe } from '../recipe';
@@ -217,6 +218,7 @@ async function loadAcpSession(sessionId: string): Promise<AcpLoadSessionResult> 
     cwd: initialSessionInfo.cwd,
     mcpServers: [],
   });
+  rememberSessionConfigOptions(sessionId, response.configOptions);
   // Loading can populate missing provider/model metadata.
   const sessionInfoResponse = await client.goose.sessionInfo_unstable({ sessionId });
 
@@ -265,6 +267,7 @@ export async function acpNewSession(
   const request: NewSessionRequest = { cwd, mcpServers: [], _meta: meta };
   const response = await client.connection.agent.request(methods.agent.session.new, request);
   const sessionId = String(response.sessionId);
+  rememberSessionConfigOptions(sessionId, response.configOptions);
   const sessionInfoResponse = await client.goose.sessionInfo_unstable({ sessionId });
 
   return {

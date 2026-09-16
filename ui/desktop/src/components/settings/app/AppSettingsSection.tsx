@@ -20,7 +20,8 @@ import BlockLogoBlack from './icons/block-lockup_black.png';
 import BlockLogoWhite from './icons/block-lockup_white.png';
 import TelemetrySettings from './TelemetrySettings';
 import { trackSettingToggled } from '../../../utils/analytics';
-import type { LanguageSetting } from '../../../utils/settings';
+import { AppEvents } from '../../../constants/events';
+import type { LanguageSetting, WorkspaceUi } from '../../../utils/settings';
 
 const i18n = defineMessages({
   appearanceTitle: { id: 'settings.appearance.title', defaultMessage: 'Appearance' },
@@ -65,6 +66,19 @@ const i18n = defineMessages({
   themeDesc: {
     id: 'settings.theme.description',
     defaultMessage: 'Customize the look and feel of goose',
+  },
+  workspaceTitle: { id: 'settings.workspace.title', defaultMessage: 'Workspace' },
+  workspaceDesc: {
+    id: 'settings.workspace.description',
+    defaultMessage: 'Easy shows one lever; Advanced shows every control the session has',
+  },
+  advancedControls: {
+    id: 'settings.workspace.advancedControls',
+    defaultMessage: 'Advanced controls',
+  },
+  advancedControlsDesc: {
+    id: 'settings.workspace.advancedControls.description',
+    defaultMessage: 'Runtime, Mode and the Session controls in the chat card',
   },
   languageTitle: { id: 'settings.language.title', defaultMessage: 'Language' },
   languageDesc: {
@@ -188,6 +202,7 @@ export default function AppSettingsSection({ scrollToSection }: AppSettingsSecti
   const [showNotificationModal, setShowNotificationModal] = useState(false);
   const [showPricing, setShowPricing] = useState(true);
   const [language, setLanguage] = useState<LanguageSetting>('system');
+  const [workspaceUi, setWorkspaceUi] = useState<WorkspaceUi>('easy');
   const [isDarkMode, setIsDarkMode] = useState(false);
   const updateSectionRef = useRef<HTMLDivElement>(null);
   const shouldShowUpdates = !window.appConfig.get('GOOSE_VERSION');
@@ -215,6 +230,7 @@ export default function AppSettingsSection({ scrollToSection }: AppSettingsSecti
   useEffect(() => {
     window.electron.getSetting('showPricing').then(setShowPricing);
     window.electron.getSetting('language').then((value) => setLanguage(value ?? 'system'));
+    window.electron.getSetting('workspace.ui').then((value) => setWorkspaceUi(value ?? 'easy'));
   }, []);
 
   useEffect(() => {
@@ -308,6 +324,14 @@ export default function AppSettingsSection({ scrollToSection }: AppSettingsSecti
     trackSettingToggled('cost_tracking', checked);
     // Trigger event for other components
     window.dispatchEvent(new CustomEvent('showPricingChanged'));
+  };
+
+  // The workspace shell listens for the event and switches its face live (task 58).
+  const handleAdvancedControlsToggle = async (checked: boolean) => {
+    const next: WorkspaceUi = checked ? 'advanced' : 'easy';
+    setWorkspaceUi(next);
+    await window.electron.setSetting('workspace.ui', next);
+    window.dispatchEvent(new CustomEvent(AppEvents.WORKSPACE_UI_CHANGED, { detail: next }));
   };
 
   const handleLanguageChange = async (value: string) => {
@@ -463,6 +487,33 @@ export default function AppSettingsSection({ scrollToSection }: AppSettingsSecti
               </div>
             </div>
           )}
+        </CardContent>
+      </Card>
+
+      <Card className="rounded-lg">
+        <CardHeader className="pb-0">
+          <CardTitle className="mb-1">{intl.formatMessage(i18n.workspaceTitle)}</CardTitle>
+          <CardDescription>{intl.formatMessage(i18n.workspaceDesc)}</CardDescription>
+        </CardHeader>
+        <CardContent className="pt-4 px-4">
+          <div className="flex items-center justify-between">
+            <div>
+              <h3 className="text-text-primary text-xs">
+                {intl.formatMessage(i18n.advancedControls)}
+              </h3>
+              <p className="text-xs text-text-secondary max-w-md mt-[2px]">
+                {intl.formatMessage(i18n.advancedControlsDesc)}
+              </p>
+            </div>
+            <div className="flex items-center">
+              <Switch
+                checked={workspaceUi === 'advanced'}
+                onCheckedChange={handleAdvancedControlsToggle}
+                variant="mono"
+                data-testid="settings-advanced-controls"
+              />
+            </div>
+          </div>
         </CardContent>
       </Card>
 

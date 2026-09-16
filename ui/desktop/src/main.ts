@@ -2042,6 +2042,7 @@ const validSettingKeys: Set<string> = new Set([
   'disableAutoDownload',
   'recentModels',
   'useLegacyAgentLoop',
+  'workspace.ui',
 ]);
 
 ipcMain.handle('set-setting', (_event, key: SettingKey, value: unknown) => {

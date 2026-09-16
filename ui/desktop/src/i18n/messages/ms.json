@@ -4310,6 +4310,18 @@
   "settings.version.title": {
     "defaultMessage": "Versi"
   },
+  "settings.workspace.advancedControls": {
+    "defaultMessage": "Advanced controls"
+  },
+  "settings.workspace.advancedControls.description": {
+    "defaultMessage": "Runtime, Mode and the Session controls in the chat card"
+  },
+  "settings.workspace.description": {
+    "defaultMessage": "Easy shows one lever; Advanced shows every control the session has"
+  },
+  "settings.workspace.title": {
+    "defaultMessage": "Workspace"
+  },
   "settingsView.tabApp": {
     "defaultMessage": "Aplikasi"
   },
@@ -4895,6 +4907,9 @@
   "settings.legacyAgentLoop.title": {
     "defaultMessage": "Use Legacy Agent Loop"
   },
+  "workspaceShell.advancedControls": {
+    "defaultMessage": "Advanced controls"
+  },
   "workspaceShell.columnChat": {
     "defaultMessage": "Chat"
   },
@@ -4907,11 +4922,20 @@
   "workspaceShell.direct": {
     "defaultMessage": "Direct"
   },
+  "workspaceShell.extensionsEnabled": {
+    "defaultMessage": "{count,plural,one{# extension enabled} other{# extensions enabled}}"
+  },
   "workspaceShell.install": {
     "defaultMessage": "Install"
   },
+  "workspaceShell.lever": {
+    "defaultMessage": "Lever"
+  },
   "workspaceShell.mode": {
     "defaultMessage": "Mode"
+  },
+  "workspaceShell.modelFailed": {
+    "defaultMessage": "Couldn't set model"
   },
   "workspaceShell.more": {
     "defaultMessage": "More…"
@@ -4921,6 +4945,12 @@
   },
   "workspaceShell.noOrchestrator": {
     "defaultMessage": "no orchestrator role in this project"
+  },
+  "workspaceShell.openInFiles": {
+    "defaultMessage": "Open in Files"
+  },
+  "workspaceShell.optionFailed": {
+    "defaultMessage": "Couldn't change {option}"
   },
   "workspaceShell.orchestrate": {
     "defaultMessage": "Orchestrate"
@@ -4955,14 +4985,35 @@
   "workspaceShell.resizeColumn": {
     "defaultMessage": "Resize {column}"
   },
+  "workspaceShell.role": {
+    "defaultMessage": "Role"
+  },
   "workspaceShell.runtime": {
     "defaultMessage": "Runtime"
   },
   "workspaceShell.runtimeDivider": {
     "defaultMessage": "→ {runtime} from here"
   },
+  "workspaceShell.saveRoutine": {
+    "defaultMessage": "Save as routine…"
+  },
+  "workspaceShell.sessionControls": {
+    "defaultMessage": "Session controls"
+  },
   "workspaceShell.startFailed": {
     "defaultMessage": "Couldn't start session"
+  },
+  "workspaceShell.stopCustom": {
+    "defaultMessage": "Custom"
+  },
+  "workspaceShell.stopEasy": {
+    "defaultMessage": "Easy"
+  },
+  "workspaceShell.stopHard": {
+    "defaultMessage": "Hard"
+  },
+  "workspaceShell.stopMedium": {
+    "defaultMessage": "Medium"
   },
   "workspaceShell.switchFailed": {
     "defaultMessage": "Couldn't switch runtime"
@@ -5005,5 +5056,8 @@
   },
   "terminalPane.up": {
     "defaultMessage": "Up"
+  },
+  "workspaceShell.workingDir": {
+    "defaultMessage": "Working directory"
   }
 }

@@ -1,7 +1,8 @@
 // The workspace around the chat (PRD steps 2-3, 8, 9; task 60): three columns — Sessions
 // (upstream's sidebar), Chat (the chat, the Hub, or any other page) and Work (the dock) —
 // with a seam between each pair, the pane launchers on a floating rail that slides into the
-// dock's top strip, and the Runtime · Mode chips handed to the chat input's bottom row.
+// dock's top strip, and the session controls handed to the chat input's bottom row: the lever
+// in Easy, the Runtime · Mode chips and the Session controls popover in Advanced (task 58).
 // Composes exported components only and reaches ACP through src/acp.
 
 import {
@@ -21,6 +22,7 @@ import { useLocation, useSearchParams } from 'react-router';
 import { motion } from 'framer-motion';
 import {
   BookOpen,
+  Check,
   Ellipsis,
   FileCode,
   FolderTree,
@@ -42,6 +44,7 @@ import {
   DropdownMenu,
   DropdownMenuContent,
   DropdownMenuItem,
+  DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from '../components/ui/dropdown-menu';
 import { Tooltip, TooltipContent, TooltipTrigger } from '../components/ui/Tooltip';
@@ -49,6 +52,12 @@ import { cn } from '../utils';
 import { toastError } from '../toasts';
 import { formatAcpError } from '../acp/errors';
 import { acpListProviderDetails, acpSetSessionProviderModel } from '../acp/providers';
+import {
+  acpSetSessionConfigOption,
+  configChoices,
+  getSessionConfigOptions,
+  useSessionConfigOptions,
+} from '../acp/sessionConfig';
 import { listAgentSources, type SourceEntry } from '../acp/sources';
 import { encodeRecipe } from '../acp/recipe';
 import {
@@ -61,6 +70,7 @@ import { AppEvents } from '../constants/events';
 import { getEffectiveWorkingDir, getInitialWorkingDir } from '../utils/workingDir';
 import type { Message } from '../types/message';
 import type { ProviderDetails } from '../types/providers';
+import type { WorkspaceUi } from '../utils/settings';
 import { PaneContext, type PaneContextValue } from './pane-context';
 import {
   createPaneStore,
@@ -77,6 +87,8 @@ import { Dock, loadDock, saveDock } from './Dock';
 import type { PaneChrome } from './Panel';
 import { loadProjectEntry, saveProjectEntry } from './project-storage';
 import { MODE_MESSAGES, SessionChips, type RuntimeOption } from './SessionChips';
+import { SessionControls } from './SessionControls';
+import { Lever, STOP_MESSAGES } from './Lever';
 import { TerminalPane } from './panes/terminal/TerminalPane';
 import {
   modeOfSession,
@@ -85,15 +97,22 @@ import {
   orchestratorRecipe,
   runtimeDividerMessage,
   runtimeLabel,
+  stopModel,
+  stopOfSession,
+  LEVER,
   ORCHESTRATOR_ROLE,
   RUNTIMES,
   type Mode,
+  type Stop,
 } from './session-controls';
 
 const i18n = defineMessages({
   runtimeDivider: { id: 'workspaceShell.runtimeDivider', defaultMessage: '→ {runtime} from here' },
   startFailed: { id: 'workspaceShell.startFailed', defaultMessage: "Couldn't start session" },
   switchFailed: { id: 'workspaceShell.switchFailed', defaultMessage: "Couldn't switch runtime" },
+  modelFailed: { id: 'workspaceShell.modelFailed', defaultMessage: "Couldn't set model" },
+  optionFailed: { id: 'workspaceShell.optionFailed', defaultMessage: "Couldn't change {option}" },
+  advancedControls: { id: 'workspaceShell.advancedControls', defaultMessage: 'Advanced controls' },
   paneUnavailable: { id: 'workspaceShell.paneUnavailable', defaultMessage: 'Not available yet' },
   paneFiles: { id: 'workspaceShell.paneFiles', defaultMessage: 'Files' },
   paneEditor: { id: 'workspaceShell.paneEditor', defaultMessage: 'Editor' },
@@ -170,11 +189,13 @@ interface RailProps {
   onOpen(id: PaneId, tear: boolean): void;
   // In the dock's top strip while a panel is open, floating at the right edge otherwise.
   docked: boolean;
+  advanced: boolean;
+  onToggleAdvanced(): void;
 }
 
 // The pane launchers, Terminal · Changes · Browser · ⋯; pressed = the pane is showing. One
 // layoutId per element, so the rail slides into the strip and back out (Into Rule).
-function Rail({ layout, onOpen, docked }: RailProps) {
+function Rail({ layout, onOpen, docked, advanced, onToggleAdvanced }: RailProps) {
   const intl = useIntl();
   const open = (id: PaneId) => (event: MouseEvent) => onOpen(id, event.shiftKey);
   const tooltipSide = docked ? 'bottom' : 'left';
@@ -263,6 +284,18 @@ function Rail({ layout, onOpen, docked }: RailProps) {
                 </DropdownMenuItem>
               );
             })}
+            <DropdownMenuSeparator />
+            {/* Easy ↔ Advanced (task 58): the one place the workspace's face is switched
+                from, beside Settings › App. */}
+            <DropdownMenuItem
+              role="menuitemcheckbox"
+              aria-checked={advanced}
+              data-testid="workspace-advanced-controls"
+              onClick={onToggleAdvanced}
+            >
+              <Check className={advanced ? undefined : 'invisible'} />
+              {intl.formatMessage(i18n.advancedControls)}
+            </DropdownMenuItem>
           </DropdownMenuContent>
         </DropdownMenu>
       </motion.div>
@@ -387,6 +420,11 @@ export function WorkspaceShell({ chat, children, panes, paneStore }: WorkspaceSh
   // default, which is what a Hub submit uses too.
   const [draftRuntime, setDraftRuntime] = useState<string | null>(null);
   const [draftMode, setDraftMode] = useState<Mode>('direct');
+  // Easy's lever position before a session; once one is open the session's triple is it.
+  const [draftStop, setDraftStop] = useState<Stop>('easy');
+  // The persisted face (task 58), unknown until read so the wrong one never flashes;
+  // Settings › App and the ⋯ menu both write it and announce the change.
+  const [workspaceUi, setWorkspaceUi] = useState<WorkspaceUi | undefined>();
   // The file the Editor shows, picked in Files (PRD step 4).
   const [file, setFile] = useState<string | null>(null);
 
@@ -394,6 +432,22 @@ export function WorkspaceShell({ chat, children, panes, paneStore }: WorkspaceSh
   const currentRuntime =
     session?.provider_name ?? draftRuntime ?? defaultProvider ?? RUNTIMES[0].id;
   const currentMode: Mode = session ? modeOfSession(session) : draftMode;
+  const currentStop: Stop | 'custom' = session ? stopOfSession(session) : draftStop;
+  const configOptions = useSessionConfigOptions(sessionId);
+
+  useEffect(() => {
+    window.electron.getSetting('workspace.ui').then(setWorkspaceUi).catch(console.error);
+    const onChange = (event: Event) => setWorkspaceUi((event as CustomEvent<WorkspaceUi>).detail);
+    window.addEventListener(AppEvents.WORKSPACE_UI_CHANGED, onChange);
+    return () => window.removeEventListener(AppEvents.WORKSPACE_UI_CHANGED, onChange);
+  }, []);
+
+  const toggleAdvanced = useCallback(() => {
+    const next: WorkspaceUi = workspaceUi === 'easy' ? 'advanced' : 'easy';
+    setWorkspaceUi(next);
+    window.dispatchEvent(new CustomEvent(AppEvents.WORKSPACE_UI_CHANGED, { detail: next }));
+    window.electron.setSetting('workspace.ui', next).catch(console.error);
+  }, [workspaceUi]);
 
   useEffect(() => {
     if (!isWorkspaceRoute) return;
@@ -418,8 +472,31 @@ export function WorkspaceShell({ chat, children, panes, paneStore }: WorkspaceSh
     };
   }, [cwd, isWorkspaceRoute]);
 
+  // The stop's model among what the session's provider lists, set on the session; the
+  // triple lands in two steps because session/new takes no model. Best-effort: a miss
+  // leaves the adapter's model and the lever reads Custom.
+  const applyStopModel = useCallback(
+    async (id: string, stop: Stop) => {
+      const option = getSessionConfigOptions(id).find((candidate) => candidate.id === 'model');
+      const model = option && stopModel(stop, configChoices(option));
+      if (!model) return;
+      try {
+        await acpSetSessionConfigOption(id, 'model', model);
+        const current = acpChatSessionStore.getSnapshot(id);
+        if (!current?.session) return;
+        acpChatSessionActions.setSessionMetadata(id, {
+          ...current.session,
+          model_config: { toolshim: false, ...current.session.model_config, model_name: model },
+        });
+      } catch (error) {
+        toastError({ title: intl.formatMessage(i18n.modelFailed), msg: formatAcpError(error) });
+      }
+    },
+    [intl]
+  );
+
   const startSession = useCallback(
-    async (providerId: string, mode: Mode) => {
+    async (providerId: string, mode: Mode, stop?: Stop) => {
       setBusy(true);
       try {
         const recipeDeeplink =
@@ -431,6 +508,7 @@ export function WorkspaceShell({ chat, children, panes, paneStore }: WorkspaceSh
           recipeDeeplink,
           allExtensions: extensionsList,
         });
+        if (stop) await applyStopModel(newSession.id, stop);
         window.dispatchEvent(new CustomEvent(AppEvents.SESSION_CREATED));
         window.dispatchEvent(
           new CustomEvent(AppEvents.ADD_ACTIVE_SESSION, { detail: { sessionId: newSession.id } })
@@ -442,13 +520,14 @@ export function WorkspaceShell({ chat, children, panes, paneStore }: WorkspaceSh
         setBusy(false);
       }
     },
-    [extensionsList, intl, orchestratorRole, setView]
+    [applyStopModel, extensionsList, intl, orchestratorRole, setView]
   );
 
   // Mid-session the switch is the ACP `provider` option; the store snapshot is the
-  // selector's value, so a failed request leaves it where it was (PRD step 9).
+  // selector's value, so a failed request leaves it where it was (PRD step 9). A stop
+  // names the divider ("→ Hard from here") and sets its model once the provider is on.
   const switchRuntime = useCallback(
-    async (providerId: string) => {
+    async (providerId: string, stop?: Stop) => {
       setBusy(true);
       try {
         const applied = await acpSetSessionProviderModel(sessionId, providerId);
@@ -460,19 +539,22 @@ export function WorkspaceShell({ chat, children, panes, paneStore }: WorkspaceSh
           provider_name: provider,
         });
         const divider = intl.formatMessage(i18n.runtimeDivider, {
-          runtime: runtimeLabel(provider, providers),
+          runtime: stop
+            ? intl.formatMessage(STOP_MESSAGES[stop])
+            : runtimeLabel(provider, providers),
         });
         acpChatSessionActions.setMessages(sessionId, [
           ...current.messages,
           runtimeDividerMessage(uuidv7(), divider),
         ]);
+        if (stop) await applyStopModel(sessionId, stop);
       } catch (error) {
         toastError({ title: intl.formatMessage(i18n.switchFailed), msg: formatAcpError(error) });
       } finally {
         setBusy(false);
       }
     },
-    [intl, providers, sessionId]
+    [applyStopModel, intl, providers, sessionId]
   );
 
   const pickRuntime = useCallback(
@@ -497,6 +579,54 @@ export function WorkspaceShell({ chat, children, panes, paneStore }: WorkspaceSh
       void startSession(currentRuntime, mode);
     },
     [currentMode, currentRuntime, orchestratorRole, startSession]
+  );
+
+  // The lever: a stop is the Runtime and Mode picks in one — a different mode starts a
+  // new session, the same mode switches the open one, a fresh chat starts on the triple.
+  const pickStop = useCallback(
+    (stop: Stop) => {
+      const triple = LEVER[stop];
+      if (triple.mode === 'orchestrate' && !orchestratorRole) return;
+      setDraftStop(stop);
+      setDraftRuntime(triple.provider);
+      setDraftMode(triple.mode);
+      if (session && triple.mode === currentMode) {
+        void switchRuntime(triple.provider, stop);
+        return;
+      }
+      void startSession(triple.provider, triple.mode, stop);
+    },
+    [currentMode, orchestratorRole, session, startSession, switchRuntime]
+  );
+
+  // Advanced's generic option rows: provider goes through the Runtime switch (its divider
+  // and metadata), the rest are the option alone.
+  const setConfigOption = useCallback(
+    async (configId: string, value: string) => {
+      if (configId === 'provider') {
+        pickRuntime(value);
+        return;
+      }
+      setBusy(true);
+      try {
+        await acpSetSessionConfigOption(sessionId, configId, value);
+        const current = acpChatSessionStore.getSnapshot(sessionId);
+        if (configId === 'model' && current?.session) {
+          acpChatSessionActions.setSessionMetadata(sessionId, {
+            ...current.session,
+            model_config: { toolshim: false, ...current.session.model_config, model_name: value },
+          });
+        }
+      } catch (error) {
+        toastError({
+          title: intl.formatMessage(i18n.optionFailed, { option: configId }),
+          msg: formatAcpError(error),
+        });
+      } finally {
+        setBusy(false);
+      }
+    },
+    [intl, pickRuntime, sessionId]
   );
 
   // A first pick tears the Editor off into its own panel so Files stays in view (PRD step 4);
@@ -551,31 +681,67 @@ export function WorkspaceShell({ chat, children, panes, paneStore }: WorkspaceSh
   const sessionStatus = session
     ? `${runtimeLabel(currentRuntime, providers)} · ${intl.formatMessage(MODE_MESSAGES[currentMode])}`
     : undefined;
+  const canOrchestrate = orchestratorRole === undefined ? undefined : orchestratorRole !== null;
+  const extensionsEnabled = extensionsList.filter((extension) => extension.enabled).length;
+  const sessionModel = session?.model_config?.model_name;
   // One element per change, not per render: the chat input re-renders with its slot.
   const chips = useMemo(
-    () => (
-      <SessionChips
-        runtimes={runtimeOptions}
-        currentRuntime={currentRuntime}
-        providers={providers}
-        currentMode={currentMode}
-        canOrchestrate={orchestratorRole === undefined ? undefined : orchestratorRole !== null}
-        busy={busy}
-        status={sessionStatus}
-        onPickRuntime={pickRuntime}
-        onPickMode={pickMode}
-      />
-    ),
+    () =>
+      workspaceUi === undefined ? null : workspaceUi === 'easy' ? (
+        <Lever
+          stop={currentStop}
+          providers={providers}
+          canOrchestrate={canOrchestrate}
+          busy={busy}
+          model={sessionModel}
+          onPick={pickStop}
+        />
+      ) : (
+        <>
+          <SessionChips
+            runtimes={runtimeOptions}
+            currentRuntime={currentRuntime}
+            providers={providers}
+            currentMode={currentMode}
+            canOrchestrate={canOrchestrate}
+            busy={busy}
+            status={sessionStatus}
+            onPickRuntime={pickRuntime}
+            onPickMode={pickMode}
+          />
+          <SessionControls
+            options={configOptions}
+            cwd={cwd}
+            role={currentMode === 'orchestrate' ? orchestratorRole?.name : undefined}
+            extensionsEnabled={extensionsEnabled}
+            busy={busy}
+            onSetOption={setConfigOption}
+            onOpenFiles={() => store.openPane('files')}
+            onOpenExtensions={() => setView('extensions')}
+          />
+        </>
+      ),
     [
       busy,
+      canOrchestrate,
+      configOptions,
       currentMode,
       currentRuntime,
-      orchestratorRole,
+      currentStop,
+      cwd,
+      extensionsEnabled,
+      orchestratorRole?.name,
       pickMode,
       pickRuntime,
+      pickStop,
       providers,
       runtimeOptions,
+      sessionModel,
       sessionStatus,
+      setConfigOption,
+      setView,
+      store,
+      workspaceUi,
     ]
   );
 
@@ -670,13 +836,22 @@ export function WorkspaceShell({ chat, children, panes, paneStore }: WorkspaceSh
       onDragChange={setDraggingSeam}
     />
   );
-  const rail = isWorkspaceRoute && <Rail layout={layout} onOpen={openPane} docked={workOpen} />;
+  const rail = isWorkspaceRoute && (
+    <Rail
+      layout={layout}
+      onOpen={openPane}
+      docked={workOpen}
+      advanced={workspaceUi === 'advanced'}
+      onToggleAdvanced={toggleAdvanced}
+    />
+  );
 
   return (
     <div
       ref={rootRef}
       className="relative flex h-full min-h-0 min-w-0 flex-1 overflow-x-hidden p-2"
       data-testid="workspace-shell"
+      data-ui={workspaceUi}
       data-orchestrator-role={
         orchestratorRole === undefined ? 'loading' : orchestratorRole ? 'present' : 'absent'
       }

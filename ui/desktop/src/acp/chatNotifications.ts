@@ -7,11 +7,14 @@ import { AppEvents } from '../constants/events';
 import { maybeHandlePlatformEvent } from '../utils/platform_events';
 import { toolNotificationEvent } from './adapter/toolNotifications';
 import { acpChatSessionActions, acpChatSessionStore } from './chatSessionStore';
+import { rememberSessionConfigOptions } from './sessionConfig';
 
 export function handleAcpSessionNotification(notification: SessionNotification): Promise<void> {
-  const sessionNameBeforeNotification = acpChatSessionStore.getSnapshot(
-    notification.sessionId
-  )?.session?.name;
+  if (notification.update.sessionUpdate === 'config_option_update') {
+    rememberSessionConfigOptions(notification.sessionId, notification.update.configOptions);
+  }
+  const sessionNameBeforeNotification = acpChatSessionStore.getSnapshot(notification.sessionId)
+    ?.session?.name;
   const updatedName =
     notification.update.sessionUpdate === 'session_info_update'
       ? notification.update.title

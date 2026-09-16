@@ -7,7 +7,11 @@ import {
   orchestratorRecipe,
   runtimeDividerMessage,
   runtimeLabel,
+  stopModel,
+  stopOfSession,
+  LEVER,
   RUNTIMES,
+  STOPS,
 } from './session-controls';
 
 function provider(
@@ -78,6 +82,42 @@ describe('session controls', () => {
       description: 'owns the objective',
       instructions: '# Body',
     });
+  });
+
+  it('maps the three stops to their triples', () => {
+    expect(STOPS).toEqual(['easy', 'medium', 'hard']);
+    expect(STOPS.map((stop) => [LEVER[stop].provider, LEVER[stop].mode])).toEqual([
+      ['claude-acp', 'direct'],
+      ['claude-acp', 'direct'],
+      ['claude-code', 'orchestrate'],
+    ]);
+    const choices = [
+      { value: 'default', name: 'Default' },
+      { value: 'claude-sonnet-5', name: 'Sonnet' },
+      { value: 'opus[1m]', name: 'Opus 1M' },
+    ];
+    expect(stopModel('easy', choices)).toBe('claude-sonnet-5');
+    expect(stopModel('medium', choices)).toBe('opus[1m]');
+    expect(stopModel('hard', choices)).toBe('opus[1m]');
+    expect(stopModel('hard', [{ value: 'default', name: 'Default' }])).toBeUndefined();
+  });
+
+  it('reads the stop off the session and Custom off anything else', () => {
+    const orchestrator = { title: 'Orchestrator', description: '' };
+    const session = (provider: string, model: string, recipe: typeof orchestrator | null) => ({
+      provider_name: provider,
+      model_config: { model_name: model, toolshim: false },
+      recipe,
+    });
+    expect(stopOfSession(session('claude-acp', 'claude-sonnet-5', null))).toBe('easy');
+    expect(stopOfSession(session('claude-acp', 'opus[1m]', null))).toBe('medium');
+    expect(stopOfSession(session('claude-code', 'claude-opus-5', orchestrator))).toBe('hard');
+    expect(stopOfSession(session('claude-code', 'claude-opus-5', null))).toBe('custom');
+    expect(stopOfSession(session('claude-acp', 'opus[1m]', orchestrator))).toBe('custom');
+    expect(stopOfSession(session('codex-acp', 'gpt-5', null))).toBe('custom');
+    expect(stopOfSession({ provider_name: 'claude-acp', model_config: null, recipe: null })).toBe(
+      'custom'
+    );
   });
 
   it('builds a user-visible, agent-invisible divider', () => {

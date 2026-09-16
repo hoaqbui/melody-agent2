@@ -14,4 +14,5 @@ export enum AppEvents {
   HIDE_ALERT_POPOVER = 'hide-alert-popover',
   INSERT_INPUT_TEXT = 'insert-input-text',
   RESPONSE_STYLE_CHANGED = 'responseStyleChanged',
+  WORKSPACE_UI_CHANGED = 'workspaceUiChanged',
 }

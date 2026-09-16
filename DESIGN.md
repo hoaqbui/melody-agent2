@@ -7,6 +7,7 @@ The delta over Goose Desktop's design system. Under a section upstream already s
 ## Principles
 
 - **The Upstream Rule** — chat, tool rows, settings and the session list are Goose's components, composed not restyled (`ARCHITECTURE.md:86`, `:98`); a fork-side copy of an upstream component is a bug.
+- **Starts as a chat** (2026-09-16, task 58; user: "have an easy mode and advanced mode") — Easy is the default; every control beyond the lever and the three pane icons waits behind Advanced (the ⋯ menu's "Advanced controls", or Settings › App). Easy → Advanced keeps the session; Advanced → Easy puts the lever on the stop whose triple the session matches, else Custom.
 - **The One Dock Rule** (2026-09-15, supersedes the One Pane Rule; tasks 41–42) — the centre is the chat and nothing else; every pane lives in the right dock, in a panel with a tab strip, and a panel holds one visible pane (`pane-store.ts:22-28`, `Dock.tsx`); a pane beside the chat outside the dock, a floating window, or a modal pane is forbidden.
 - **The Nothing Lost Rule** — a pane keeps its state while it is anywhere in the dock: a tab moved between panels, a torn-off tab, a panel reordered or resized is the same mounted pane (`pane-store.ts:20-21`, `Dock.tsx` renders every open pane once); a pane that remounts empty after a move is a bug. A closed pane leaves the dock, and reopening it joins the top panel's tabs (`pane-store.ts:93-104`) — the slot is not kept; the tab strip is the record of what is open, not of what was.
 - **The Named Runtime Rule** — every step on screen says which runtime did it, in the runtime's own name: the Runtime chip (the header until task 60), the "→ Codex from here" divider, the worker row (PRD `:21-24`, `:96-97`; PRODUCT.md §11); colour or an icon alone never carries it.
@@ -28,8 +29,11 @@ Application window — three columns, no top bar (2026-09-16, task 60; user: "pl
 ├── seam — drag or arrow to resize the column beside it (`WorkspaceShell.tsx` Seam); widths are remembered per project (`goose.workspace.columns`)
 ├── Chat — `components`: the chat (transcript, tool rows, input with ⌘Enter), the Hub, or any other page; never a pane; takes what the others leave, never under 240 px
 │   ├── RPI strip — `workspace`, above the chat · later (PRD :127-134)
-│   └── chips — `workspace` in the chat card's bottom row, left of the model and directory chips (`SessionChips.tsx`, `ChatInput.tsx` SessionChipsSlot):
-│                Runtime ▾ · Mode ▾, each a popover with Install / "no orchestrator role" kept; task 58's lever takes the same slot in Easy
+│   └── chips — `workspace` in the chat card's bottom row, left of the model and directory chips (`ChatInput.tsx` SessionChipsSlot):
+│                Easy (default, task 58): the lever alone — Easy · Medium · Hard, the knob's label under it (`Lever.tsx`)
+│                Advanced: Runtime ▾ · Mode ▾, each a popover with Install / "no orchestrator role" kept (`SessionChips.tsx`), then Session controls ▾ —
+│                a popover listing every ACP config option the server publishes, the working directory (Open in Files), the role, the enabled
+│                extensions (→ Extensions) and Save as routine… (`SessionControls.tsx`); the chips row is one flex line, so the popover is the strip's only form
 ├── seam
 └── Work — `workspace`: the dock (`Dock.tsx`), 480 px by default; absent when nothing is open — then the rail floats
     ├── rail — the pane launchers Terminal · Changes · Browser · ⋯ (`WorkspaceShell.tsx` Rail): glass icon buttons pinned to the window's right edge,
@@ -71,6 +75,10 @@ Phone width (≤ PHONE_MAX_WIDTH_PX, `pane-store.ts:18`, `:43-45`)
 | the line between two panels | **seam** | seam | `resize` (`pane-store.ts:150`) |
 | the pane launchers | **rail** — Terminal · Changes · Browser · ⋯, floating at the right edge or in the top panel's strip; on the phone the tab rail's launcher (task 60) | rail | `Rail` (`WorkspaceShell.tsx`); `workspace-pane-menu`, `workspace-pane-button-*` test ids |
 | a session control in the chat card's bottom row | **chip** — Runtime · Mode beside upstream's model and directory chips (task 60) | chip | `SessionChips.tsx`; `workspace-runtime`, `workspace-mode` test ids |
+| the workspace's two faces | **Easy** · **Advanced** — "Advanced controls" is the toggle's label (task 58) | ui | `workspace.ui` setting (`utils/settings.ts` `WorkspaceUi`); `workspace-shell[data-ui]`, `workspace-advanced-controls`, `settings-advanced-controls` test ids |
+| Easy's one control | **lever** — never "difficulty", "power" or "slider" in copy | lever | `Lever.tsx`; `workspace-lever`, `workspace-lever-stop-*`, `workspace-lever-knob`, `workspace-lever-label` test ids |
+| a position on the lever | **stop** — **Easy** · **Medium** · **Hard**, and **Custom** (read-only, when the session matches none) | stop | `Stop`, `LEVER`, `stopOfSession` (`session-controls.ts`); the (provider, model, mode) triple |
+| Advanced's list of everything the session has | **Session controls** — Provider · Mode · Model · Thinking effort in the server's own names, then Working directory · Role · extensions · Save as routine… | config options | `SessionControls.tsx`; `workspace-session-controls`, `workspace-config-<id>`, `workspace-config-<id>-<value>` test ids; `src/acp/sessionConfig.ts` |
 | the phone's one-at-a-time strip | **tab rail** | rail | `visible` (`pane-store.ts:35`) |
 | delegated work | **worker** — runtime · role · task · status (PRD `:103-104`) | subagent | SubAgent session, `tasks_update` (`ARCHITECTURE.md:87`, `:105`) |
 | the job a worker does | **role** — Orchestrator, Researcher, Planner, Implementer, Reviewer, Advisor (and the Advisor's four specialists) | role | the ten files in `.agents/agents/` (`ARCHITECTURE.md:94`) |
@@ -120,7 +128,7 @@ Upstream's, unchanged (`main.css:113-135`; values from `theme-tokens.ts`). Delta
 
 ## Iconography
 
-Upstream's, unchanged: `lucide-react` (`ui/desktop/package.json:87`), used by `components/ui/*`. The fork's tabs, pane toolbars, the rail and the chips draw from the same set at upstream's control size; a second set is a bug. One icon per pane wherever it is shown (`WorkspaceShell.tsx` `PANE_ICONS`): Files `FolderTree` · Editor `FileCode` · Changes `GitCompare` · Terminal `Terminal` · Git `GitBranch` · Browser `Globe` · Markdown `BookOpen`; the More button is `Ellipsis`. The chips (task 60): Runtime `Cpu` · Mode `Workflow`, beside upstream's model `Bot` and directory `FolderDot`; a narrow chat input shows the icon alone. The Browser's toolbar (task 56): Back `ArrowLeft` · Forward `ArrowRight` · Refresh `RotateCw` (Stop `Square` while loading) · Share `Share`. The Files dot is a dot, not an icon, and is always paired with text (§Accessibility).
+Upstream's, unchanged: `lucide-react` (`ui/desktop/package.json:87`), used by `components/ui/*`. The fork's tabs, pane toolbars, the rail and the chips draw from the same set at upstream's control size; a second set is a bug. One icon per pane wherever it is shown (`WorkspaceShell.tsx` `PANE_ICONS`): Files `FolderTree` · Editor `FileCode` · Changes `GitCompare` · Terminal `Terminal` · Git `GitBranch` · Browser `Globe` · Markdown `BookOpen`; the More button is `Ellipsis`. The chips (task 60): Runtime `Cpu` · Mode `Workflow`, beside upstream's model `Bot` and directory `FolderDot`; a narrow chat input shows the icon alone. Task 58: the lever's knob is a `Gauge`, the Session controls chip a `SlidersHorizontal`, the ⋯ menu's checked "Advanced controls" a `Check`. The Browser's toolbar (task 56): Back `ArrowLeft` · Forward `ArrowRight` · Refresh `RotateCw` (Stop `Square` while loading) · Share `Share`. The Files dot is a dot, not an icon, and is always paired with text (§Accessibility).
 
 ## Motion
 
@@ -131,6 +139,7 @@ Upstream's easing role `--ease-g2` (`main.css:65`); upstream names no duration r
 - Close (`closePane`, `:165-169`): the pane shrinks toward its strip (`animate-out zoom-out-95`, `Dock.tsx` CLOSE_MOTION_MS) and only then leaves the store; focus lands as §States says.
 - Rail (task 60, `WorkspaceShell.tsx` Rail): the launchers share a `layoutId` in both homes, so opening the first panel slides them from the window's edge into the strip and emptying the dock slides them back; the Sessions column eases shut into the titlebar toggle (`transition-[width]`), a seam drag moves with the pointer.
 - Phone (`show`, `:171-175`): the leaving pane returns into its rail tab; the arriving one grows out of its rail tab; chat is a rail tab like the others.
+- Lever (task 58, `Lever.tsx`): the knob and its label slide to the picked stop (`transition-[left]`, 150ms, `--ease-g2`) — the Into Rule on a track.
 - The "→ <Runtime> from here" divider appears in place; nothing animates in the transcript, the tool rows, or the terminal — text streams and rows appear, that is all.
 - Reduced motion: upstream's global block zeroes every transition (`main.css:380-392`), so an Into motion degrades to a cut; the focus rules in §States still hold, so only the picture is lost.
 
