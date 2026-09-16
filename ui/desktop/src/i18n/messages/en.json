@@ -3323,6 +3323,12 @@
   "providerSetupActions.submit": {
     "defaultMessage": "Submit"
   },
+  "rail.menu": {
+    "defaultMessage": "Session menu"
+  },
+  "rail.unseen": {
+    "defaultMessage": "{pane} — new since you looked"
+  },
   "recipeActivityEditor.activitiesDescription": {
     "defaultMessage": "The top-line prompts and activity buttons that will display in the recipe chat window."
   },
@@ -4250,6 +4256,99 @@
   "securityToggle.warpNotice": {
     "defaultMessage": "Command injection detection works best when connected to WARP (required to reach the classification service)."
   },
+  "sessionActions.archive": {
+    "defaultMessage": "Archive"
+  },
+  "sessionActions.archiveFailed": {
+    "defaultMessage": "Failed to archive session: {error}"
+  },
+  "sessionActions.archived": {
+    "defaultMessage": "Session archived"
+  },
+  "sessionActions.backgroundTasks": {
+    "defaultMessage": "Background tasks"
+  },
+  "sessionActions.delete": {
+    "defaultMessage": "Delete"
+  },
+  "sessionActions.deleteFailed": {
+    "defaultMessage": "Failed to delete session \"{name}\": {error}"
+  },
+  "sessionActions.deleteMessage": {
+    "defaultMessage": "Delete \"{name}\"? This cannot be undone."
+  },
+  "sessionActions.deleteTitle": {
+    "defaultMessage": "Delete session"
+  },
+  "sessionActions.deleted": {
+    "defaultMessage": "Session deleted"
+  },
+  "sessionActions.fork": {
+    "defaultMessage": "Fork"
+  },
+  "sessionActions.forkFailed": {
+    "defaultMessage": "Failed to fork session: {error}"
+  },
+  "sessionActions.forked": {
+    "defaultMessage": "Session forked"
+  },
+  "sessionActions.keepAwake": {
+    "defaultMessage": "Keep computer awake"
+  },
+  "sessionActions.keepAwakeSession": {
+    "defaultMessage": "Only for this session"
+  },
+  "sessionActions.noSession": {
+    "defaultMessage": "Open a session first"
+  },
+  "sessionActions.openFailed": {
+    "defaultMessage": "Couldn't open {path}"
+  },
+  "sessionActions.openIn": {
+    "defaultMessage": "Open in"
+  },
+  "sessionActions.openInEditor": {
+    "defaultMessage": "Code editor"
+  },
+  "sessionActions.openInFinder": {
+    "defaultMessage": "Finder"
+  },
+  "sessionActions.openInTerminal": {
+    "defaultMessage": "Terminal"
+  },
+  "sessionActions.openedDefault": {
+    "defaultMessage": "Opened with the system default — no code or cursor command found"
+  },
+  "sessionActions.openedIn": {
+    "defaultMessage": "Opened in {editor}"
+  },
+  "sessionActions.outputStyle": {
+    "defaultMessage": "Output style"
+  },
+  "sessionActions.outputStyleEverySession": {
+    "defaultMessage": "Applies to every session"
+  },
+  "sessionActions.rename": {
+    "defaultMessage": "Rename"
+  },
+  "sessionActions.responseStyles": {
+    "defaultMessage": "Settings › Response styles…"
+  },
+  "sessionActions.transcriptCompact": {
+    "defaultMessage": "Compact"
+  },
+  "sessionActions.transcriptFull": {
+    "defaultMessage": "Full"
+  },
+  "sessionActions.transcriptView": {
+    "defaultMessage": "Transcript view"
+  },
+  "sessionActions.viewJson": {
+    "defaultMessage": "View session JSON"
+  },
+  "sessionActions.viewModelInteractions": {
+    "defaultMessage": "View recent model interactions"
+  },
   "sessionActionsHeader.actionsLabel": {
     "defaultMessage": "Session actions"
   },
@@ -4274,14 +4373,8 @@
   "sessionActionsHeader.copyText": {
     "defaultMessage": "Copy text"
   },
-  "sessionActionsHeader.duplicateFailed": {
-    "defaultMessage": "Failed to duplicate session: {error}"
-  },
   "sessionActionsHeader.duplicateSession": {
     "defaultMessage": "Duplicate session"
-  },
-  "sessionActionsHeader.duplicated": {
-    "defaultMessage": "Session duplicated"
   },
   "sessionActionsHeader.fullTextTitle": {
     "defaultMessage": "Text value"
@@ -5302,9 +5395,6 @@
   },
   "workspaceShell.more": {
     "defaultMessage": "More…"
-  },
-  "workspaceShell.morePanes": {
-    "defaultMessage": "More panes"
   },
   "workspaceShell.noOrchestrator": {
     "defaultMessage": "no orchestrator role in this project"

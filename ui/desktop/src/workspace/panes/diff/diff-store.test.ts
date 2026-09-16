@@ -6,6 +6,7 @@ import {
   DIFF_PANE_STATES,
   INITIAL_SELECTION,
   presetDiffBase,
+  statusFingerprint,
   undoRequest,
 } from './diff-store';
 
@@ -66,5 +67,17 @@ describe('pane states', () => {
       .filter((row) => row !== 'state');
     expect(rows.length).toBeGreaterThan(0);
     expect([...DIFF_PANE_STATES].filter((state) => state !== 'ready').sort()).toEqual(rows.sort());
+  });
+});
+
+// Task 69: the Changes dot compares two polls of the working tree by this string.
+describe('statusFingerprint', () => {
+  it('is empty for a clean tree and the same whatever the order', () => {
+    expect(statusFingerprint([])).toBe('');
+    const a = { path: 'a.txt', index: ' ', worktree: 'M' };
+    const b = { path: 'b.txt', index: 'A', worktree: ' ' };
+    expect(statusFingerprint([a, b])).toBe(statusFingerprint([b, a]));
+    expect(statusFingerprint([a])).not.toBe(statusFingerprint([b]));
+    expect(statusFingerprint([a])).not.toBe(statusFingerprint([{ ...a, worktree: 'D' }]));
   });
 });

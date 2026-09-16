@@ -3275,6 +3275,12 @@
   "providerSetupActions.submit": {
     "defaultMessage": "Submeter"
   },
+  "rail.menu": {
+    "defaultMessage": "Session menu"
+  },
+  "rail.unseen": {
+    "defaultMessage": "{pane} — new since you looked"
+  },
   "recipeActivityEditor.activitiesDescription": {
     "defaultMessage": "Os prompts principais e os botões de atividade que serão apresentados na janela de conversa da receita."
   },
@@ -4199,6 +4205,99 @@
   "securityToggle.warpNotice": {
     "defaultMessage": "A deteção de injeção de comandos funciona melhor quando ligada ao WARP (necessário para aceder ao serviço de classificação)."
   },
+  "sessionActions.archive": {
+    "defaultMessage": "Archive"
+  },
+  "sessionActions.archiveFailed": {
+    "defaultMessage": "Failed to archive session: {error}"
+  },
+  "sessionActions.archived": {
+    "defaultMessage": "Session archived"
+  },
+  "sessionActions.backgroundTasks": {
+    "defaultMessage": "Background tasks"
+  },
+  "sessionActions.delete": {
+    "defaultMessage": "Delete"
+  },
+  "sessionActions.deleteFailed": {
+    "defaultMessage": "Failed to delete session \"{name}\": {error}"
+  },
+  "sessionActions.deleteMessage": {
+    "defaultMessage": "Delete \"{name}\"? This cannot be undone."
+  },
+  "sessionActions.deleteTitle": {
+    "defaultMessage": "Delete session"
+  },
+  "sessionActions.deleted": {
+    "defaultMessage": "Session deleted"
+  },
+  "sessionActions.fork": {
+    "defaultMessage": "Fork"
+  },
+  "sessionActions.forkFailed": {
+    "defaultMessage": "Failed to fork session: {error}"
+  },
+  "sessionActions.forked": {
+    "defaultMessage": "Session forked"
+  },
+  "sessionActions.keepAwake": {
+    "defaultMessage": "Keep computer awake"
+  },
+  "sessionActions.keepAwakeSession": {
+    "defaultMessage": "Only for this session"
+  },
+  "sessionActions.noSession": {
+    "defaultMessage": "Open a session first"
+  },
+  "sessionActions.openFailed": {
+    "defaultMessage": "Couldn't open {path}"
+  },
+  "sessionActions.openIn": {
+    "defaultMessage": "Open in"
+  },
+  "sessionActions.openInEditor": {
+    "defaultMessage": "Code editor"
+  },
+  "sessionActions.openInFinder": {
+    "defaultMessage": "Finder"
+  },
+  "sessionActions.openInTerminal": {
+    "defaultMessage": "Terminal"
+  },
+  "sessionActions.openedDefault": {
+    "defaultMessage": "Opened with the system default — no code or cursor command found"
+  },
+  "sessionActions.openedIn": {
+    "defaultMessage": "Opened in {editor}"
+  },
+  "sessionActions.outputStyle": {
+    "defaultMessage": "Output style"
+  },
+  "sessionActions.outputStyleEverySession": {
+    "defaultMessage": "Applies to every session"
+  },
+  "sessionActions.rename": {
+    "defaultMessage": "Rename"
+  },
+  "sessionActions.responseStyles": {
+    "defaultMessage": "Settings › Response styles…"
+  },
+  "sessionActions.transcriptCompact": {
+    "defaultMessage": "Compact"
+  },
+  "sessionActions.transcriptFull": {
+    "defaultMessage": "Full"
+  },
+  "sessionActions.transcriptView": {
+    "defaultMessage": "Transcript view"
+  },
+  "sessionActions.viewJson": {
+    "defaultMessage": "View session JSON"
+  },
+  "sessionActions.viewModelInteractions": {
+    "defaultMessage": "View recent model interactions"
+  },
   "sessionActionsHeader.actionsLabel": {
     "defaultMessage": "Ações da sessão"
   },
@@ -4223,14 +4322,8 @@
   "sessionActionsHeader.copyText": {
     "defaultMessage": "Copiar texto"
   },
-  "sessionActionsHeader.duplicateFailed": {
-    "defaultMessage": "Falha ao duplicar a sessão: {error}"
-  },
   "sessionActionsHeader.duplicateSession": {
     "defaultMessage": "Duplicar sessão"
-  },
-  "sessionActionsHeader.duplicated": {
-    "defaultMessage": "Sessão duplicada"
   },
   "sessionActionsHeader.fullTextTitle": {
     "defaultMessage": "Valor do texto"
@@ -5260,9 +5353,6 @@
   },
   "workspaceShell.more": {
     "defaultMessage": "More…"
-  },
-  "workspaceShell.morePanes": {
-    "defaultMessage": "More panes"
   },
   "workspaceShell.noOrchestrator": {
     "defaultMessage": "no orchestrator role in this project"

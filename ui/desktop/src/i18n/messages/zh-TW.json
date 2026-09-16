@@ -3275,6 +3275,12 @@
   "providerSetupActions.submit": {
     "defaultMessage": "提交"
   },
+  "rail.menu": {
+    "defaultMessage": "Session menu"
+  },
+  "rail.unseen": {
+    "defaultMessage": "{pane} — new since you looked"
+  },
   "recipeActivityEditor.activitiesDescription": {
     "defaultMessage": "將顯示在配方交談視窗中的頂端提示與活動按鈕。"
   },
@@ -4199,6 +4205,99 @@
   "securityToggle.warpNotice": {
     "defaultMessage": "連線至 WARP 時，指令注入偵測的效果最佳（為了連接分類服務所必需）。"
   },
+  "sessionActions.archive": {
+    "defaultMessage": "Archive"
+  },
+  "sessionActions.archiveFailed": {
+    "defaultMessage": "Failed to archive session: {error}"
+  },
+  "sessionActions.archived": {
+    "defaultMessage": "Session archived"
+  },
+  "sessionActions.backgroundTasks": {
+    "defaultMessage": "Background tasks"
+  },
+  "sessionActions.delete": {
+    "defaultMessage": "Delete"
+  },
+  "sessionActions.deleteFailed": {
+    "defaultMessage": "Failed to delete session \"{name}\": {error}"
+  },
+  "sessionActions.deleteMessage": {
+    "defaultMessage": "Delete \"{name}\"? This cannot be undone."
+  },
+  "sessionActions.deleteTitle": {
+    "defaultMessage": "Delete session"
+  },
+  "sessionActions.deleted": {
+    "defaultMessage": "Session deleted"
+  },
+  "sessionActions.fork": {
+    "defaultMessage": "Fork"
+  },
+  "sessionActions.forkFailed": {
+    "defaultMessage": "Failed to fork session: {error}"
+  },
+  "sessionActions.forked": {
+    "defaultMessage": "Session forked"
+  },
+  "sessionActions.keepAwake": {
+    "defaultMessage": "Keep computer awake"
+  },
+  "sessionActions.keepAwakeSession": {
+    "defaultMessage": "Only for this session"
+  },
+  "sessionActions.noSession": {
+    "defaultMessage": "Open a session first"
+  },
+  "sessionActions.openFailed": {
+    "defaultMessage": "Couldn't open {path}"
+  },
+  "sessionActions.openIn": {
+    "defaultMessage": "Open in"
+  },
+  "sessionActions.openInEditor": {
+    "defaultMessage": "Code editor"
+  },
+  "sessionActions.openInFinder": {
+    "defaultMessage": "Finder"
+  },
+  "sessionActions.openInTerminal": {
+    "defaultMessage": "Terminal"
+  },
+  "sessionActions.openedDefault": {
+    "defaultMessage": "Opened with the system default — no code or cursor command found"
+  },
+  "sessionActions.openedIn": {
+    "defaultMessage": "Opened in {editor}"
+  },
+  "sessionActions.outputStyle": {
+    "defaultMessage": "Output style"
+  },
+  "sessionActions.outputStyleEverySession": {
+    "defaultMessage": "Applies to every session"
+  },
+  "sessionActions.rename": {
+    "defaultMessage": "Rename"
+  },
+  "sessionActions.responseStyles": {
+    "defaultMessage": "Settings › Response styles…"
+  },
+  "sessionActions.transcriptCompact": {
+    "defaultMessage": "Compact"
+  },
+  "sessionActions.transcriptFull": {
+    "defaultMessage": "Full"
+  },
+  "sessionActions.transcriptView": {
+    "defaultMessage": "Transcript view"
+  },
+  "sessionActions.viewJson": {
+    "defaultMessage": "View session JSON"
+  },
+  "sessionActions.viewModelInteractions": {
+    "defaultMessage": "View recent model interactions"
+  },
   "sessionActionsHeader.actionsLabel": {
     "defaultMessage": "工作階段動作"
   },
@@ -4223,14 +4322,8 @@
   "sessionActionsHeader.copyText": {
     "defaultMessage": "複製文字"
   },
-  "sessionActionsHeader.duplicateFailed": {
-    "defaultMessage": "複製工作階段失敗：{error}"
-  },
   "sessionActionsHeader.duplicateSession": {
     "defaultMessage": "複製工作階段"
-  },
-  "sessionActionsHeader.duplicated": {
-    "defaultMessage": "工作階段已複製"
   },
   "sessionActionsHeader.fullTextTitle": {
     "defaultMessage": "文字值"
@@ -5260,9 +5353,6 @@
   },
   "workspaceShell.more": {
     "defaultMessage": "More…"
-  },
-  "workspaceShell.morePanes": {
-    "defaultMessage": "More panes"
   },
   "workspaceShell.noOrchestrator": {
     "defaultMessage": "no orchestrator role in this project"

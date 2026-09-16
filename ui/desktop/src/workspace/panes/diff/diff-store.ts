@@ -2,7 +2,21 @@
 // base, the scope, the view, the selected file and the last hunk applied, so Undo survives
 // a promote or close. Pure state; the pane refetches contents on mount.
 
-import type { GitApplyRequest } from '../../../native/sidecar';
+import type { GitApplyRequest, GitStatusEntry } from '../../../native/sidecar';
+
+// The rail's Changes dot (task 69): while the pane is hidden the shell polls `/git/status`
+// every 30 s and dots the launcher when the working tree differs from what the pane last
+// showed; the pane refreshes itself while it is on screen.
+export const CHANGES_POLL_MS = 30_000;
+
+// One string per working-tree state, order-free, so two polls compare by equality; a clean
+// tree is the empty string, which never earns a dot.
+export function statusFingerprint(entries: readonly GitStatusEntry[]): string {
+  return entries
+    .map((entry) => `${entry.index}${entry.worktree} ${entry.path}`)
+    .sort()
+    .join('\n');
+}
 
 // DESIGN.md §Shared component states, plus `ready` for a surface with nothing unresolved.
 export const DIFF_PANE_STATES = [

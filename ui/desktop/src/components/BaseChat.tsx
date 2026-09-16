@@ -89,6 +89,7 @@ export default function BaseChat({
   const scrollRef = useRef<ScrollAreaHandle>(null);
   const chatInputRef = useRef<HTMLTextAreaElement>(null);
   const disableAnimation = location.state?.disableAnimation || false;
+  const onWorkspaceRoute = location.pathname === '/' || location.pathname === '/pair';
   const [hasStartedUsingRecipe, setHasStartedUsingRecipe] = React.useState(false);
   const [hasNotAcceptedRecipe, setHasNotAcceptedRecipe] = useState<boolean>();
   const [hasRecipeSecurityWarnings, setHasRecipeSecurityWarnings] = useState(false);
@@ -464,7 +465,8 @@ export default function BaseChat({
             <EnvironmentBadge className="translate-y-px" />
           </div>
 
-          <SessionActionsHeader session={session} onSessionChange={updateSession} />
+          {/* The rail's ⋯ is the session's menu on the workspace route (task 69). */}
+          <SessionActionsHeader session={session} hidden={onWorkspaceRoute} />
 
           <ScrollArea
             ref={scrollRef}

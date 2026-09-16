@@ -995,6 +995,13 @@ pre:has(> code.bg-inline-code) {
   animation: mcp-enter-inline 180ms cubic-bezier(0.2, 0, 0, 1) both;
 }
 
+/* Transcript view ▸ Compact (task 69): a per-session choice on the chat column collapses
+   every tool-call row to its label line; the rows keep their own open/closed state for
+   when Full comes back. CSS only, no store. */
+[data-transcript-view='compact'] .tool-call-body {
+  display: none;
+}
+
 /* ═══════════════════════════════════════════════════════════
    AURA THEME — component overrides
    User message bubbles use the inverted bg-text-primary surface,
@@ -1020,20 +1027,23 @@ pre:has(> code.bg-inline-code) {
 [data-theme='dark'] .workspace-column,
 [data-theme='dark'] .workspace-rail-button,
 [data-theme='dark'] .chat-input-card,
-[data-theme='dark'] [data-slot='dropdown-menu-content'] {
+[data-theme='dark'] [data-slot='dropdown-menu-content'],
+[data-theme='dark'] [data-slot='dropdown-menu-sub-content'] {
   backdrop-filter: blur(18px) saturate(1.3);
 }
 
 [data-theme='dark'] .workspace-column,
 [data-theme='dark'] .chat-input-card,
 [data-theme='dark'] .user-message-bubble,
-[data-theme='dark'] [data-slot='dropdown-menu-content'] {
+[data-theme='dark'] [data-slot='dropdown-menu-content'],
+[data-theme='dark'] [data-slot='dropdown-menu-sub-content'] {
   box-shadow: var(--shadow-sm);
 }
 
 [data-theme='dark'] .workspace-column:hover,
 [data-theme='dark'] .chat-input-card:hover,
-[data-theme='dark'] [data-slot='dropdown-menu-content']:hover {
+[data-theme='dark'] [data-slot='dropdown-menu-content']:hover,
+[data-theme='dark'] [data-slot='dropdown-menu-sub-content']:hover {
   box-shadow: var(--shadow-md);
 }
 

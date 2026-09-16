@@ -138,7 +138,7 @@ function iframeTitle(frame: HTMLIFrameElement | null): string {
 
 export function BrowserPane() {
   const intl = useIntl();
-  const { cwd } = usePaneContext();
+  const { cwd, markUnseen } = usePaneContext();
   const store = storeFor(cwd);
   const browser = useBrowser(store);
   const pageHost = window.location.hostname;
@@ -174,7 +174,10 @@ export function BrowserPane() {
       if (wanted !== element.getURL()) void element.loadURL(wanted);
     };
     const onStart = () => store.apply(frameUnloaded);
-    const onStop = () => store.apply(frameLoaded);
+    const onStop = () => {
+      store.apply(frameLoaded);
+      markUnseen('browser');
+    };
     const onNavigate = (event: Event) => {
       const { url } = event as Event & { url: string };
       store.apply((current) => navigated(current, url, false));
@@ -225,7 +228,7 @@ export function BrowserPane() {
       element.removeEventListener('page-title-updated', onTitle);
       element.removeEventListener('did-fail-load', onFail);
     };
-  }, [intl, showFrame, store]);
+  }, [intl, markUnseen, showFrame, store]);
 
   // The bar asked for an address the guest is not on: a submit or a suggestion.
   useEffect(() => {
@@ -465,9 +468,12 @@ export function BrowserPane() {
               className="h-full w-full border-0 bg-background-primary"
               data-testid="browser-frame"
               // No title crosses the origin from an iframe, so the web build's history is URLs.
-              onLoad={() =>
-                store.apply((current) => visited(frameLoaded(current), current.url, '', Date.now()))
-              }
+              onLoad={() => {
+                store.apply((current) =>
+                  visited(frameLoaded(current), current.url, '', Date.now())
+                );
+                markUnseen('browser');
+              }}
             />
           )}
         </div>

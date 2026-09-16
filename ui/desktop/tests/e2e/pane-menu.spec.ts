@@ -15,7 +15,8 @@ test.describe('pane menu', () => {
     const menu = goosePage.locator('[data-testid="workspace-pane-menu"]');
     const buttons = menu.getByRole('button');
     await expect(buttons).toHaveCount(4);
-    for (const [index, name] of ['Terminal', 'Changes', 'Browser', 'More panes'].entries()) {
+    // Task 69: ⋯ is the session's menu, so its name says so.
+    for (const [index, name] of ['Terminal', 'Changes', 'Browser', 'Session menu'].entries()) {
       await expect(buttons.nth(index)).toHaveAccessibleName(name);
     }
     await expect(menu).toHaveAttribute('data-docked', 'false');

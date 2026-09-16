@@ -3,8 +3,10 @@
 // with a seam between each pair, the pane launchers on a floating rail that slides into the
 // dock's top strip, and the session controls handed to the chat input's bottom row: the lever
 // in Easy, the Runtime · Mode chips and the Session controls popover in Advanced (task 58),
-// the Worktree toggle in both (task 49). Below the phone breakpoint (task 20) one thing is on
-// screen behind a tab rail, and the foreground reattaches what the background dropped.
+// the Worktree toggle in both (task 49). The rail's ⋯ is the session's menu (task 69,
+// RailMenu) and its icons carry a dot for what arrived while a pane was hidden. Below the
+// phone breakpoint (task 20) one thing is on screen behind a tab rail, and the foreground
+// reattaches what the background dropped.
 // Composes exported components only and reaches ACP through src/acp.
 
 import {
@@ -14,6 +16,7 @@ import {
   useRef,
   useState,
   useSyncExternalStore,
+  type ComponentProps,
   type ComponentType,
   type KeyboardEvent as ReactKeyboardEvent,
   type MouseEvent,
@@ -24,7 +27,6 @@ import { useLocation, useSearchParams } from 'react-router';
 import { motion } from 'framer-motion';
 import {
   BookOpen,
-  Check,
   Ellipsis,
   FileCode,
   FolderTree,
@@ -32,8 +34,6 @@ import {
   GitCompare,
   Globe,
   MessageSquareText,
-  Repeat,
-  Smartphone,
   Terminal,
 } from 'lucide-react';
 import { v7 as uuidv7 } from 'uuid';
@@ -46,16 +46,13 @@ import { Navigation } from '../components/Layout/NavigationPanel';
 import { SessionChipsSlot } from '../components/ChatInput';
 import { NextChat, type NextChatDraft } from '../components/Hub';
 import { Button } from '../components/ui/button';
-import {
-  DropdownMenu,
-  DropdownMenuContent,
-  DropdownMenuItem,
-  DropdownMenuSeparator,
-  DropdownMenuTrigger,
-} from '../components/ui/dropdown-menu';
+import { DropdownMenu, DropdownMenuTrigger } from '../components/ui/dropdown-menu';
+import { SessionActionDialogs } from '../components/SessionActionsHeader';
+import { useSessionActions } from '../hooks/useSessionActions';
 import { Tooltip, TooltipContent, TooltipTrigger } from '../components/ui/Tooltip';
 import { cn } from '../utils';
 import { toastError } from '../toasts';
+import { sidecarFetch, type GitCwdRequest, type GitStatusResponse } from '../native/sidecar';
 import { reconnectAcpAfterSystemResume } from '../acp/acpConnection';
 import { formatAcpError } from '../acp/errors';
 import { acpListProviderDetails, acpSetSessionProviderModel } from '../acp/providers';
@@ -84,6 +81,7 @@ import {
   createPaneStore,
   initialLayout,
   modeForWidth,
+  paneVisible,
   restoreColumns,
   restoreDock,
   PANE_IDS,
@@ -95,7 +93,8 @@ import {
 } from './pane-store';
 import { Dock, loadDock, saveDock } from './Dock';
 import type { PaneChrome } from './Panel';
-import { presetDiffBase } from './panes/diff/diff-store';
+import { RailMenu, type TranscriptView } from './RailMenu';
+import { CHANGES_POLL_MS, presetDiffBase, statusFingerprint } from './panes/diff/diff-store';
 import { loadProjectEntry, saveProjectEntry } from './project-storage';
 import {
   MODE_MESSAGES,
@@ -109,7 +108,7 @@ import { RoutineSheet } from './routine/RoutineSheet';
 import { firstUserPrompt } from './routine/routine';
 import { Lever, STOP_MESSAGES } from './Lever';
 import { TerminalPane } from './panes/terminal/TerminalPane';
-import { reattachTerminals } from './panes/terminal/terminal-session';
+import { reattachTerminals, subscribeTerminalOutput } from './panes/terminal/terminal-session';
 import { newWorktreeSlug, worktreeSlugOf } from './worktree';
 import {
   modeOfSession,
@@ -133,13 +132,6 @@ const i18n = defineMessages({
   switchFailed: { id: 'workspaceShell.switchFailed', defaultMessage: "Couldn't switch runtime" },
   modelFailed: { id: 'workspaceShell.modelFailed', defaultMessage: "Couldn't set model" },
   optionFailed: { id: 'workspaceShell.optionFailed', defaultMessage: "Couldn't change {option}" },
-  advancedControls: { id: 'workspaceShell.advancedControls', defaultMessage: 'Advanced controls' },
-  openOnPhone: { id: 'workspaceShell.openOnPhone', defaultMessage: 'Open on phone…' },
-  saveRoutine: { id: 'workspaceShell.saveRoutine', defaultMessage: 'Save as routine…' },
-  routineNoSession: {
-    id: 'workspaceShell.routineNoSession',
-    defaultMessage: 'Open a session first',
-  },
   paneUnavailable: { id: 'workspaceShell.paneUnavailable', defaultMessage: 'Not available yet' },
   paneFiles: { id: 'workspaceShell.paneFiles', defaultMessage: 'Files' },
   paneEditor: { id: 'workspaceShell.paneEditor', defaultMessage: 'Editor' },
@@ -149,7 +141,8 @@ const i18n = defineMessages({
   paneBrowser: { id: 'workspaceShell.paneBrowser', defaultMessage: 'Browser' },
   paneMarkdown: { id: 'workspaceShell.paneMarkdown', defaultMessage: 'Markdown' },
   panes: { id: 'workspaceShell.panes', defaultMessage: 'Panes' },
-  morePanes: { id: 'workspaceShell.morePanes', defaultMessage: 'More panes' },
+  sessionMenu: { id: 'rail.menu', defaultMessage: 'Session menu' },
+  unseen: { id: 'rail.unseen', defaultMessage: '{pane} — new since you looked' },
   columnSessions: { id: 'workspaceShell.columnSessions', defaultMessage: 'Sessions' },
   columnChat: { id: 'workspaceShell.columnChat', defaultMessage: 'Chat' },
   columnWork: { id: 'workspaceShell.columnWork', defaultMessage: 'Work' },
@@ -194,12 +187,17 @@ const CHAT_MIN_PX = 240;
 
 type Column = keyof Columns | 'chat';
 
-function paneVisible(layout: PaneLayout, id: PaneId): boolean {
-  if (layout.mode === 'phone') return layout.visible === id;
-  return layout.dock.some((panel) => panel.active === id);
-}
-
 const WORKSPACE_ROUTES = new Set(['/', '/pair']);
+// The web shim's window.electron answers every key with a stub, so the shape cannot tell the
+// builds apart; the user agent can (task 56). No shell, no power blocker there.
+const WEB_SHIM = !/\bElectron\//.test(window.navigator.userAgent);
+const TRANSCRIPT_VIEW_KEY = 'goose.transcriptView';
+
+function loadTranscriptView(sessionId: string): TranscriptView {
+  return window.localStorage.getItem(`${TRANSCRIPT_VIEW_KEY}:${sessionId}`) === 'compact'
+    ? 'compact'
+    : 'full';
+}
 // iOS drops a background tab's sockets after tens of seconds, never within one glance.
 const FOREGROUND_REBUILD_AFTER_MS = 10_000;
 const NO_MESSAGES: readonly Message[] = [];
@@ -218,30 +216,25 @@ interface RailProps {
   onOpen(id: PaneId, tear: boolean): void;
   // In the dock's top strip while a panel is open, floating at the right edge otherwise.
   docked: boolean;
-  advanced: boolean;
-  onToggleAdvanced(): void;
-  onOpenPhone(): void;
-  // Undefined before a session: there is nothing to save yet (task 59).
-  onSaveRoutine?: () => void;
+  chrome: Record<PaneId, PaneChrome>;
+  // Everything the ⋯ menu shows and does, RailMenu's own props minus the geometry.
+  menu: Omit<
+    ComponentProps<typeof RailMenu>,
+    'layout' | 'panes' | 'chrome' | 'onOpenPane' | 'side' | 'align' | 'onClose'
+  >;
 }
 
-// The pane launchers, Terminal · Changes · Browser · ⋯; pressed = the pane is showing. One
-// layoutId per element, so the rail slides into the strip and back out (Into Rule).
-function Rail({
-  layout,
-  onOpen,
-  docked,
-  advanced,
-  onToggleAdvanced,
-  onOpenPhone,
-  onSaveRoutine,
-}: RailProps) {
+// The pane launchers, Terminal · Changes · Browser · ⋯; pressed = the pane is showing, a dot
+// = something arrived while it was not (task 69). One layoutId per element, so the rail
+// slides into the strip and back out (Into Rule).
+function Rail({ layout, onOpen, docked, chrome, menu }: RailProps) {
   const intl = useIntl();
+  const [menuOpen, setMenuOpen] = useState(false);
   const open = (id: PaneId) => (event: MouseEvent) => onOpen(id, event.shiftKey);
   const tooltipSide = docked ? 'bottom' : 'left';
   const button = cn(
     floating,
-    'workspace-rail-button w-8 px-0 aria-pressed:bg-background-secondary'
+    'workspace-rail-button relative w-8 px-0 aria-pressed:bg-background-secondary'
   );
   return (
     <motion.div
@@ -257,8 +250,8 @@ function Rail({
       data-docked={docked}
     >
       {PRIMARY_PANES.map((id) => {
-        const Icon = PANE_ICONS[id];
-        const title = intl.formatMessage(PANE_TITLES[id]);
+        const { Icon, title } = chrome[id];
+        const unseen = layout.unseen.has(id);
         return (
           <motion.div key={id} layoutId={`workspace-rail-${id}`}>
             <Tooltip>
@@ -270,18 +263,30 @@ function Rail({
                   aria-label={title}
                   aria-pressed={paneVisible(layout, id)}
                   data-testid={`workspace-pane-button-${id}`}
+                  data-unseen={unseen}
                   onClick={open(id)}
                 >
                   <Icon />
+                  {/* DESIGN.md: `info` marks what changed; the dot is paired with the tooltip's
+                      words, never alone (§Accessibility). */}
+                  {unseen && (
+                    <span
+                      aria-hidden
+                      className="absolute top-1 right-1 size-1.5 rounded-full bg-text-info"
+                      data-testid={`workspace-pane-dot-${id}`}
+                    />
+                  )}
                 </Button>
               </TooltipTrigger>
-              <TooltipContent side={tooltipSide}>{title}</TooltipContent>
+              <TooltipContent side={tooltipSide}>
+                {unseen ? intl.formatMessage(i18n.unseen, { pane: title }) : title}
+              </TooltipContent>
             </Tooltip>
           </motion.div>
         );
       })}
       <motion.div layoutId="workspace-rail-more">
-        <DropdownMenu>
+        <DropdownMenu open={menuOpen} onOpenChange={setMenuOpen}>
           <Tooltip>
             <TooltipTrigger asChild>
               <DropdownMenuTrigger asChild>
@@ -289,7 +294,7 @@ function Rail({
                   variant="outline"
                   size="sm"
                   className={button}
-                  aria-label={intl.formatMessage(i18n.morePanes)}
+                  aria-label={intl.formatMessage(i18n.sessionMenu)}
                   data-pane="more"
                   data-testid="workspace-pane-more"
                   // The menu hands focus back to ⋯ when it closes, and a focus-opened tooltip
@@ -300,58 +305,22 @@ function Rail({
                 </Button>
               </DropdownMenuTrigger>
             </TooltipTrigger>
-            <TooltipContent side={tooltipSide}>{intl.formatMessage(i18n.morePanes)}</TooltipContent>
+            <TooltipContent side={tooltipSide}>
+              {intl.formatMessage(i18n.sessionMenu)}
+            </TooltipContent>
           </Tooltip>
           {/* Into Rule: upstream's content scales from its trigger anchor, so the menu grows
               out of ⋯ and closes back into it. */}
-          <DropdownMenuContent
+          <RailMenu
+            {...menu}
+            layout={layout}
+            panes={MORE_PANES}
+            chrome={chrome}
+            onOpenPane={onOpen}
             side={docked ? 'bottom' : 'left'}
             align={docked ? 'end' : 'center'}
-            data-testid="workspace-pane-more-menu"
-          >
-            {MORE_PANES.map((id) => {
-              const Icon = PANE_ICONS[id];
-              return (
-                <DropdownMenuItem
-                  key={id}
-                  className="aria-[current=true]:bg-background-secondary"
-                  aria-current={paneVisible(layout, id) ? 'true' : undefined}
-                  data-testid={`workspace-pane-item-${id}`}
-                  onClick={open(id)}
-                >
-                  <Icon />
-                  {intl.formatMessage(PANE_TITLES[id])}
-                </DropdownMenuItem>
-              );
-            })}
-            <DropdownMenuSeparator />
-            {/* Easy ↔ Advanced (task 58): the one place the workspace's face is switched
-                from, beside Settings › App. */}
-            <DropdownMenuItem
-              role="menuitemcheckbox"
-              aria-checked={advanced}
-              data-testid="workspace-advanced-controls"
-              onClick={onToggleAdvanced}
-            >
-              <Check className={advanced ? undefined : 'invisible'} />
-              {intl.formatMessage(i18n.advancedControls)}
-            </DropdownMenuItem>
-            {/* The phone's door (task 62): Settings › App's Phone card, the URL and its code. */}
-            <DropdownMenuItem data-testid="workspace-open-phone" onClick={onOpenPhone}>
-              <Smartphone />
-              {intl.formatMessage(i18n.openOnPhone)}
-            </DropdownMenuItem>
-            {/* Easy has no Session controls chip, so the sheet (task 59) opens from here too. */}
-            <DropdownMenuItem
-              disabled={!onSaveRoutine}
-              title={onSaveRoutine ? undefined : intl.formatMessage(i18n.routineNoSession)}
-              data-testid="workspace-rail-save-routine"
-              onClick={onSaveRoutine}
-            >
-              <Repeat />
-              {intl.formatMessage(i18n.saveRoutine)}
-            </DropdownMenuItem>
-          </DropdownMenuContent>
+            onClose={() => setMenuOpen(false)}
+          />
         </DropdownMenu>
       </motion.div>
     </motion.div>
@@ -569,8 +538,13 @@ export function WorkspaceShell({ chat, children, panes, paneStore }: WorkspaceSh
   // The sheet's prefill, taken when "Save as routine…" is pressed so edits stay put
   // while the transcript streams on; null is the sheet closed (task 59).
   const [routine, setRoutine] = useState<{ title: string; instructions: string } | null>(null);
+  // The sessions whose "Keep computer awake" is on (task 69): main's word, per session.
+  const [awake, setAwake] = useState<ReadonlySet<string>>(() => new Set());
+  // Full or Compact, per session, in localStorage (task 69).
+  const [transcriptView, setTranscriptView] = useState<TranscriptView>('full');
 
   const cwd = session?.working_dir ?? getInitialWorkingDir();
+  const sessionActions = useSessionActions(session);
   const currentRuntime =
     session?.provider_name ?? draftRuntime ?? defaultProvider ?? RUNTIMES[0].id;
   const currentMode: Mode = session ? modeOfSession(session) : draftMode;
@@ -590,6 +564,52 @@ export function WorkspaceShell({ chat, children, panes, paneStore }: WorkspaceSh
     window.addEventListener(AppEvents.SESSION_CREATED, reset);
     return () => window.removeEventListener(AppEvents.SESSION_CREATED, reset);
   }, []);
+
+  // A session that leaves (archived, deleted) takes its blocker with it.
+  useEffect(() => {
+    const onDeleted = (event: Event) => {
+      const { sessionId: gone } = (event as CustomEvent<{ sessionId: string }>).detail;
+      setAwake((current) => {
+        if (!current.has(gone)) return current;
+        void window.electron.keepAwake(gone, false);
+        const next = new Set(current);
+        next.delete(gone);
+        return next;
+      });
+    };
+    window.addEventListener(AppEvents.SESSION_DELETED, onDeleted);
+    return () => window.removeEventListener(AppEvents.SESSION_DELETED, onDeleted);
+  }, []);
+
+  const keepAwake = useCallback(
+    (on: boolean) => {
+      if (!sessionId) return;
+      window.electron
+        .keepAwake(sessionId, on)
+        .then((active) =>
+          setAwake((current) => {
+            const next = new Set(current);
+            if (active) next.add(sessionId);
+            else next.delete(sessionId);
+            return next;
+          })
+        )
+        .catch(console.error);
+    },
+    [sessionId]
+  );
+
+  useEffect(() => {
+    setTranscriptView(sessionId ? loadTranscriptView(sessionId) : 'full');
+  }, [sessionId]);
+
+  const pickTranscriptView = useCallback(
+    (view: TranscriptView) => {
+      setTranscriptView(view);
+      if (sessionId) window.localStorage.setItem(`${TRANSCRIPT_VIEW_KEY}:${sessionId}`, view);
+    },
+    [sessionId]
+  );
 
   const toggleWorktree = useCallback(
     () => setDraftWorktree((slug) => (slug === null ? newWorktreeSlug() : null)),
@@ -797,6 +817,44 @@ export function WorkspaceShell({ chat, children, panes, paneStore }: WorkspaceSh
     [intl, pickRuntime, sessionId]
   );
 
+  // The Changes dot (task 69): while the pane is hidden, the working tree is polled every 30 s
+  // and a state the pane has not shown earns the dot; the first poll after the pane goes
+  // hidden is the baseline (what it showed), so only what appears afterwards counts. The
+  // pane refreshes itself while it is on screen.
+  const diffHidden = isWorkspaceRoute && !paneVisible(layout, 'diff');
+  useEffect(() => {
+    if (!diffHidden) return;
+    let cancelled = false;
+    let baseline: string | null = null;
+    const poll = () => {
+      const request: GitCwdRequest = { cwd };
+      sidecarFetch<GitStatusResponse>('/git/status', request)
+        .then((status) => {
+          if (cancelled) return;
+          const fingerprint = statusFingerprint(status.entries);
+          if (baseline === null) baseline = fingerprint;
+          else if (fingerprint !== baseline && fingerprint !== '') store.markUnseen('diff');
+        })
+        .catch(() => {});
+    };
+    poll();
+    const timer = window.setInterval(poll, CHANGES_POLL_MS);
+    return () => {
+      cancelled = true;
+      window.clearInterval(timer);
+    };
+  }, [cwd, diffHidden, store]);
+
+  // The Terminal dot: the session's shell wrote something while its pane was not showing.
+  const ptyId = sessionId || 'hub';
+  useEffect(
+    () =>
+      subscribeTerminalOutput((id) => {
+        if (id === ptyId) store.markUnseen('terminal');
+      }),
+    [ptyId, store]
+  );
+
   // A first pick tears the Editor off into its own panel so Files stays in view (PRD step 4);
   // once it is in the dock, a pick just brings it to the front where the user left it.
   const openFile = useCallback(
@@ -829,8 +887,9 @@ export function WorkspaceShell({ chat, children, panes, paneStore }: WorkspaceSh
       messages: snapshot?.messages ?? NO_MESSAGES,
       file,
       openFile,
+      markUnseen: store.markUnseen,
     }),
-    [cwd, file, layout.mode, openFile, snapshot?.messages]
+    [cwd, file, layout.mode, openFile, snapshot?.messages, store]
   );
 
   // The transcript is read at the click, not closed over: it streams, the chips do not.
@@ -966,10 +1025,18 @@ export function WorkspaceShell({ chat, children, panes, paneStore }: WorkspaceSh
 
   const workOpen = isWorkspaceRoute && layout.dock.length > 0;
 
-  // ⌘1 · ⌘2 · ⌘3 focus Sessions · Chat · Work; Work with nothing open is the rail.
+  // ⌘1 · ⌘2 · ⌘3 focus Sessions · Chat · Work; Work with nothing open is the rail. ⇧⌘F
+  // opens Files (the ⋯ menu's shortcut, task 69).
   useEffect(() => {
     const onKey = (event: KeyboardEvent) => {
-      if (!(event.metaKey || event.ctrlKey) || event.altKey || event.shiftKey) return;
+      if (!(event.metaKey || event.ctrlKey) || event.altKey) return;
+      if (event.shiftKey) {
+        if (event.key.toLowerCase() === 'f' && isWorkspaceRoute) {
+          event.preventDefault();
+          store.openPane('files');
+        }
+        return;
+      }
       const target = ({ '1': 'sessions', '2': 'chat', '3': 'work' } as const)[event.key];
       if (!target) return;
       event.preventDefault();
@@ -1009,7 +1076,7 @@ export function WorkspaceShell({ chat, children, panes, paneStore }: WorkspaceSh
   // still loading has no working_dir yet, and the shell it would spawn is cached.
   const defaultPane = (id: PaneId) =>
     id === 'terminal' && (!sessionId || session) ? (
-      <TerminalPane ptyId={sessionId || 'hub'} cwd={cwd} />
+      <TerminalPane ptyId={ptyId} cwd={cwd} />
     ) : undefined;
   const renderPane = (id: PaneId) => (
     <PaneContext.Provider value={paneContext}>
@@ -1053,10 +1120,24 @@ export function WorkspaceShell({ chat, children, panes, paneStore }: WorkspaceSh
       layout={layout}
       onOpen={openPane}
       docked={workOpen}
-      advanced={workspaceUi === 'advanced'}
-      onToggleAdvanced={toggleAdvanced}
-      onOpenPhone={() => setView('settings', { section: 'phone' })}
-      onSaveRoutine={saveRoutine}
+      chrome={chrome}
+      menu={{
+        actions: session ? sessionActions : undefined,
+        cwd,
+        webShim: WEB_SHIM,
+        transcriptView,
+        onTranscriptView: pickTranscriptView,
+        keepAwake: awake.has(sessionId),
+        onKeepAwake: keepAwake,
+        advanced: workspaceUi === 'advanced',
+        onToggleAdvanced: toggleAdvanced,
+        onOpenPhone: () => setView('settings', { section: 'phone' }),
+        // SettingsView maps `styles` to the Chat tab, where the Response styles live.
+        onOpenResponseStyles: () => setView('settings', { section: 'styles' }),
+        // The Board (task 67) once it lands; the Runs inbox on Schedules until then.
+        onBackgroundTasks: () => setView('schedules'),
+        onSaveRoutine: saveRoutine,
+      }}
     />
   );
 
@@ -1138,6 +1219,7 @@ export function WorkspaceShell({ chat, children, panes, paneStore }: WorkspaceSh
           tabIndex={-1}
           aria-label={columnLabel('chat')}
           data-testid="workspace-column-chat"
+          data-transcript-view={transcriptView}
         >
           <div className="relative min-h-0 min-w-0 flex-1">
             <div className={cn(body('chat'), 'flex')} data-testid="workspace-pane-chat">
@@ -1158,6 +1240,7 @@ export function WorkspaceShell({ chat, children, panes, paneStore }: WorkspaceSh
           </div>
           {isWorkspaceRoute && <TabRail shown={shown} onShow={store.show} />}
         </section>
+        <SessionActionDialogs actions={sessionActions} />
       </div>
     );
   }
@@ -1175,6 +1258,7 @@ export function WorkspaceShell({ chat, children, panes, paneStore }: WorkspaceSh
         tabIndex={-1}
         aria-label={columnLabel('chat')}
         data-testid="workspace-column-chat"
+        data-transcript-view={transcriptView}
       >
         {chatBody}
       </section>
@@ -1210,6 +1294,7 @@ export function WorkspaceShell({ chat, children, panes, paneStore }: WorkspaceSh
         </div>
       )}
 
+      <SessionActionDialogs actions={sessionActions} />
       <RoutineSheet
         open={routine !== null}
         onOpenChange={(open) => !open && setRoutine(null)}
