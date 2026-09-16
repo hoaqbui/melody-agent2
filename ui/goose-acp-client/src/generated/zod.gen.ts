@@ -1484,6 +1484,38 @@ export const zListScheduleSessionsResponse_unstable = z.object({
 });
 
 /**
+ * List runs across every scheduled recipe job, newest first.
+ */
+export const zListScheduleRunsRequest_unstable = z.object({
+    limit: z.int().gte(0)
+});
+
+export const zScheduleRunStatus = z.enum([
+    'done',
+    'failed',
+    'killed'
+]);
+
+export const zScheduleRunOutcomeDto = z.object({
+    status: zScheduleRunStatus,
+    error: z.string().nullish()
+});
+
+export const zScheduleRunDto = z.object({
+    sessionId: z.string(),
+    scheduleId: z.string(),
+    startedAt: z.string(),
+    outcome: zScheduleRunOutcomeDto.nullish(),
+    workingDir: z.string(),
+    snippet: z.string().nullish(),
+    archivedAt: z.string().nullish()
+});
+
+export const zListScheduleRunsResponse_unstable = z.object({
+    runs: z.array(zScheduleRunDto)
+});
+
+/**
  * Create a scheduled recipe job.
  */
 export const zCreateScheduleRequest_unstable = z.object({
@@ -2358,6 +2390,7 @@ export const zExtRequest = z.object({
             zRecipeToYamlRequest_unstable,
             zListSchedulesRequest_unstable,
             zListScheduleSessionsRequest_unstable,
+            zListScheduleRunsRequest_unstable,
             zCreateScheduleRequest_unstable,
             zDeleteScheduleRequest_unstable,
             zPauseScheduleRequest_unstable,
@@ -2458,6 +2491,7 @@ export const zExtResponse = z.union([
                 zRecipeToYamlResponse_unstable,
                 zListSchedulesResponse_unstable,
                 zListScheduleSessionsResponse_unstable,
+                zListScheduleRunsResponse_unstable,
                 zCreateScheduleResponse_unstable,
                 zUpdateScheduleResponse_unstable,
                 zRunScheduleNowResponse_unstable,

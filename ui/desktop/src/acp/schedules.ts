@@ -4,6 +4,7 @@ import type {
   KillRunningJobResponse_unstable,
   RunScheduleNowResponse_unstable,
   ScheduledJobDto,
+  ScheduleRunDto,
   SessionInfo,
 } from '@aaif/goose-acp-client';
 import { getAcpClient } from './acpConnection';
@@ -120,6 +121,16 @@ export async function acpListScheduleSessions(
     if (inFlightListScheduleSessions.get(key) === listPromise) {
       inFlightListScheduleSessions.delete(key);
     }
+  }
+}
+
+export async function acpListScheduleRuns(limit: number): Promise<ScheduleRunDto[]> {
+  try {
+    const client = await getAcpClient();
+    const response = await client.goose.schedulesRuns_unstable({ limit });
+    return response.runs;
+  } catch (error) {
+    throw normalizeAcpError(error, 'Failed to list schedule runs');
   }
 }
 

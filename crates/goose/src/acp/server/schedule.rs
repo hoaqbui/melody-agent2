@@ -1,18 +1,25 @@
 use goose_sdk_types::custom_requests::{
     CreateScheduleRequest, CreateScheduleResponse, DeleteScheduleRequest, EmptyResponse,
     InspectRunningJobRequest, InspectRunningJobResponse, KillRunningJobRequest,
-    KillRunningJobResponse, ListScheduleSessionsRequest, ListScheduleSessionsResponse,
-    ListSchedulesRequest, ListSchedulesResponse, PauseScheduleRequest, RunScheduleNowRequest,
-    RunScheduleNowResponse, RunScheduleNowStatus, ScheduledJobDto, UnpauseScheduleRequest,
-    UpdateScheduleRequest, UpdateScheduleResponse,
+    KillRunningJobResponse, ListScheduleRunsRequest, ListScheduleRunsResponse,
+    ListScheduleSessionsRequest, ListScheduleSessionsResponse, ListSchedulesRequest,
+    ListSchedulesResponse, PauseScheduleRequest, RunScheduleNowRequest, RunScheduleNowResponse,
+    RunScheduleNowStatus, ScheduleRunDto, ScheduleRunOutcomeDto, ScheduleRunStatus,
+    ScheduledJobDto, UnpauseScheduleRequest, UpdateScheduleRequest, UpdateScheduleResponse,
 };
 use tokio::fs;
 
 use super::{build_session_info, GooseAcpAgent, ResultExt};
 use crate::recipe::validate_recipe::validate_recipe_template_from_content;
 use crate::recipe::Recipe;
-use crate::scheduler::{get_default_scheduled_recipes_dir, ScheduledJob, SchedulerError};
+use crate::scheduler::{
+    get_default_scheduled_recipes_dir, RunOutcome, RunStatus, ScheduledJob, SchedulerError,
+};
 use crate::scheduler_trait::SchedulerTrait;
+use crate::session::extension_data::ExtensionState;
+use crate::session::session_manager::{
+    Session, SessionListFilters, SessionListPageQuery, SessionType,
+};
 use std::sync::Arc;
 
 fn validate_schedule_id(id: &str) -> Result<(), agent_client_protocol::Error> {
@@ -109,6 +116,29 @@ fn run_schedule_now_error(
     }
 }
 
+fn run_outcome_to_dto(outcome: RunOutcome) -> ScheduleRunOutcomeDto {
+    ScheduleRunOutcomeDto {
+        status: match outcome.status {
+            RunStatus::Done => ScheduleRunStatus::Done,
+            RunStatus::Failed => ScheduleRunStatus::Failed,
+            RunStatus::Killed => ScheduleRunStatus::Killed,
+        },
+        error: outcome.error,
+    }
+}
+
+fn schedule_run_to_dto(session: Session) -> Option<ScheduleRunDto> {
+    Some(ScheduleRunDto {
+        schedule_id: session.schedule_id?,
+        session_id: session.id,
+        started_at: session.created_at.to_rfc3339(),
+        outcome: RunOutcome::from_extension_data(&session.extension_data).map(run_outcome_to_dto),
+        working_dir: session.working_dir.to_string_lossy().into_owned(),
+        snippet: session.last_message_snippet,
+        archived_at: session.archived_at.map(|value| value.to_rfc3339()),
+    })
+}
+
 fn scheduled_job_to_dto(job: ScheduledJob) -> ScheduledJobDto {
     ScheduledJobDto {
         id: job.id,
@@ -161,6 +191,37 @@ impl GooseAcpAgent {
             .collect();
 
         Ok(ListScheduleSessionsResponse { sessions })
+    }
+
+    // Runs are session records, so past runs stay readable even when this
+    // launch has the scheduler off. The page is cut on last-message time and
+    // re-sorted on start; the two only disagree when runs overlap.
+    pub(super) async fn on_list_schedule_runs(
+        &self,
+        req: ListScheduleRunsRequest,
+    ) -> Result<ListScheduleRunsResponse, agent_client_protocol::Error> {
+        let mut sessions = self
+            .session_manager
+            .list_sessions_paged(SessionListPageQuery {
+                filters: SessionListFilters {
+                    types: Some(&[SessionType::Scheduled]),
+                    ..Default::default()
+                },
+                cursor: None,
+                page_size: req.limit,
+                include_last_message_snippet: true,
+            })
+            .await
+            .internal_err_ctx("Failed to fetch schedule runs")?
+            .sessions;
+        sessions.sort_by_key(|session| std::cmp::Reverse(session.created_at));
+
+        Ok(ListScheduleRunsResponse {
+            runs: sessions
+                .into_iter()
+                .filter_map(schedule_run_to_dto)
+                .collect(),
+        })
     }
 
     pub(super) async fn on_create_schedule(
@@ -347,8 +408,55 @@ mod tests {
     use crate::acp::server::AcpBuiltinSelection;
     use crate::acp::server_factory::{AcpServer, AcpServerFactoryConfig};
     use crate::agents::GoosePlatform;
+    use crate::config::GooseMode;
+    use crate::conversation::message::Message;
+    use crate::session::session_manager::SessionManager;
     use goose_sdk_types::custom_requests::{ListRecipesRequest, ScheduleRecipeRequest};
     use serial_test::serial;
+    use std::path::Path;
+
+    fn scheduler_disabled_server(root: &Path) -> AcpServer {
+        AcpServer::new(AcpServerFactoryConfig {
+            builtins: AcpBuiltinSelection::default(),
+            data_dir: root.join("data"),
+            config_dir: root.join("config"),
+            goose_platform: GoosePlatform::GooseCli,
+            additional_source_roots: Vec::new(),
+            session_cwd: None,
+            enable_scheduler: false,
+        })
+    }
+
+    async fn scheduled_run(
+        session_manager: &SessionManager,
+        root: &Path,
+        schedule_id: &str,
+        message: &str,
+        message_at: i64,
+    ) -> String {
+        let session = session_manager
+            .create_session(
+                root.to_path_buf(),
+                format!("Scheduled job: {schedule_id}"),
+                SessionType::Scheduled,
+                GooseMode::Auto,
+            )
+            .await
+            .unwrap();
+        session_manager
+            .update(&session.id)
+            .schedule_id(Some(schedule_id.to_string()))
+            .apply()
+            .await
+            .unwrap();
+        let mut user_message = Message::user().with_text(message);
+        user_message.created = message_at;
+        session_manager
+            .add_message(&session.id, &user_message)
+            .await
+            .unwrap();
+        session.id
+    }
 
     fn assert_scheduler_disabled(error: agent_client_protocol::Error) {
         assert_eq!(
@@ -369,15 +477,7 @@ mod tests {
             ("GOOSE_DISABLE_KEYRING", Some("true")),
             ("GOOSE_PATH_ROOT", root.path().to_str()),
         ]);
-        let server = AcpServer::new(AcpServerFactoryConfig {
-            builtins: AcpBuiltinSelection::default(),
-            data_dir: root.path().join("data"),
-            config_dir: root.path().join("config"),
-            goose_platform: GoosePlatform::GooseCli,
-            additional_source_roots: Vec::new(),
-            session_cwd: None,
-            enable_scheduler: false,
-        });
+        let server = scheduler_disabled_server(root.path());
         let agent = server.create_agent().await.unwrap();
 
         let list_error = agent
@@ -413,5 +513,76 @@ mod tests {
             .await
             .expect_err("recipe scheduling must be unsupported");
         assert_scheduler_disabled(schedule_recipe_error);
+    }
+
+    // created_at is SQLite CURRENT_TIMESTAMP (second resolution), so the two
+    // runs are created a second apart; the older run then gets the newer
+    // message so the storage order disagrees with the start order.
+    #[tokio::test]
+    #[serial]
+    async fn schedule_runs_list_orders_newest_first() {
+        let root = tempfile::tempdir().unwrap();
+        let _guard = env_lock::lock_env([
+            ("GOOSE_DISABLE_KEYRING", Some("true")),
+            ("GOOSE_PATH_ROOT", root.path().to_str()),
+        ]);
+        let server = scheduler_disabled_server(root.path());
+        let agent = server.create_agent().await.unwrap();
+        let session_manager = &agent.session_manager;
+
+        let older =
+            scheduled_run(session_manager, root.path(), "nightly", "older run", 2_000).await;
+        tokio::time::sleep(std::time::Duration::from_millis(1100)).await;
+        let newer = scheduled_run(session_manager, root.path(), "hourly", "newer run", 1_000).await;
+        session_manager
+            .create_session(
+                root.path().to_path_buf(),
+                "not a run".to_string(),
+                SessionType::User,
+                GooseMode::Auto,
+            )
+            .await
+            .unwrap();
+
+        let mut extension_data = session_manager
+            .get_session(&older, false)
+            .await
+            .unwrap()
+            .extension_data;
+        RunOutcome {
+            status: RunStatus::Failed,
+            error: Some("provider returned 500".to_string()),
+        }
+        .to_extension_data(&mut extension_data)
+        .unwrap();
+        session_manager
+            .update(&older)
+            .extension_data(extension_data)
+            .apply()
+            .await
+            .unwrap();
+
+        let runs = agent
+            .on_list_schedule_runs(ListScheduleRunsRequest { limit: 10 })
+            .await
+            .unwrap()
+            .runs;
+
+        let ids: Vec<&str> = runs.iter().map(|run| run.session_id.as_str()).collect();
+        assert_eq!(ids, [newer.as_str(), older.as_str()]);
+        assert!(runs[0].started_at > runs[1].started_at);
+        assert_eq!(runs[0].schedule_id, "hourly");
+        assert_eq!(runs[0].outcome, None);
+        assert_eq!(runs[0].snippet.as_deref(), Some("newer run"));
+        assert_eq!(runs[0].working_dir, root.path().to_string_lossy());
+        assert_eq!(runs[0].archived_at, None);
+        assert_eq!(
+            runs[1].outcome,
+            Some(ScheduleRunOutcomeDto {
+                status: ScheduleRunStatus::Failed,
+                error: Some("provider returned 500".to_string()),
+            })
+        );
+        assert_eq!(runs[1].snippet.as_deref(), Some("older run"));
     }
 }

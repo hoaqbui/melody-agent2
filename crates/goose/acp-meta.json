@@ -341,6 +341,11 @@
       "responseType": "ListScheduleSessionsResponse_unstable"
     },
     {
+      "method": "_goose/unstable/schedules/runs",
+      "requestType": "ListScheduleRunsRequest_unstable",
+      "responseType": "ListScheduleRunsResponse_unstable"
+    },
+    {
       "method": "_goose/unstable/schedules/create",
       "requestType": "CreateScheduleRequest_unstable",
       "responseType": "CreateScheduleResponse_unstable"

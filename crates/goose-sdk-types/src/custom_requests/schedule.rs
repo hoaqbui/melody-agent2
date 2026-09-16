@@ -120,6 +120,53 @@ pub struct ListScheduleSessionsResponse {
     pub sessions: Vec<SessionInfo>,
 }
 
+#[derive(Debug, Default, Clone, Copy, PartialEq, Eq, Serialize, Deserialize, JsonSchema)]
+#[serde(rename_all = "camelCase")]
+pub enum ScheduleRunStatus {
+    #[default]
+    Done,
+    Failed,
+    Killed,
+}
+
+#[derive(Debug, Default, Clone, PartialEq, Eq, Serialize, Deserialize, JsonSchema)]
+#[serde(rename_all = "camelCase")]
+pub struct ScheduleRunOutcomeDto {
+    pub status: ScheduleRunStatus,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub error: Option<String>,
+}
+
+#[derive(Debug, Default, Clone, PartialEq, Eq, Serialize, Deserialize, JsonSchema)]
+#[serde(rename_all = "camelCase")]
+pub struct ScheduleRunDto {
+    pub session_id: String,
+    pub schedule_id: String,
+    pub started_at: String,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub outcome: Option<ScheduleRunOutcomeDto>,
+    pub working_dir: String,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub snippet: Option<String>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub archived_at: Option<String>,
+}
+
+/// List runs across every scheduled recipe job, newest first.
+#[derive(Debug, Default, Clone, Serialize, Deserialize, JsonSchema, JsonRpcRequest)]
+#[request(
+    method = "_goose/unstable/schedules/runs",
+    response = ListScheduleRunsResponse
+)]
+pub struct ListScheduleRunsRequest {
+    pub limit: usize,
+}
+
+#[derive(Debug, Default, Clone, Serialize, Deserialize, JsonSchema, JsonRpcResponse)]
+pub struct ListScheduleRunsResponse {
+    pub runs: Vec<ScheduleRunDto>,
+}
+
 /// Pause a scheduled recipe job.
 #[derive(Debug, Default, Clone, Serialize, Deserialize, JsonSchema, JsonRpcRequest)]
 #[request(method = "_goose/unstable/schedules/pause", response = EmptyResponse)]

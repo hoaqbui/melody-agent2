@@ -4617,6 +4617,107 @@
       "type": "string",
       "description": "A unique identifier for a conversation session between a client and agent.\n\nSessions maintain their own context, conversation history, and state,\nallowing multiple independent interactions with the same agent.\n\nSee protocol docs: [Session ID](https://agentclientprotocol.com/protocol/session-setup#session-id)"
     },
+    "ListScheduleRunsRequest_unstable": {
+      "type": "object",
+      "properties": {
+        "limit": {
+          "type": "integer",
+          "minimum": 0
+        }
+      },
+      "required": [
+        "limit"
+      ],
+      "description": "List runs across every scheduled recipe job, newest first.",
+      "x-side": "agent",
+      "x-method": "_goose/unstable/schedules/runs"
+    },
+    "ListScheduleRunsResponse_unstable": {
+      "type": "object",
+      "properties": {
+        "runs": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/ScheduleRunDto"
+          }
+        }
+      },
+      "required": [
+        "runs"
+      ],
+      "x-side": "agent",
+      "x-method": "_goose/unstable/schedules/runs"
+    },
+    "ScheduleRunDto": {
+      "type": "object",
+      "properties": {
+        "sessionId": {
+          "type": "string"
+        },
+        "scheduleId": {
+          "type": "string"
+        },
+        "startedAt": {
+          "type": "string"
+        },
+        "outcome": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/ScheduleRunOutcomeDto"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "workingDir": {
+          "type": "string"
+        },
+        "snippet": {
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "archivedAt": {
+          "type": [
+            "string",
+            "null"
+          ]
+        }
+      },
+      "required": [
+        "sessionId",
+        "scheduleId",
+        "startedAt",
+        "workingDir"
+      ]
+    },
+    "ScheduleRunOutcomeDto": {
+      "type": "object",
+      "properties": {
+        "status": {
+          "$ref": "#/$defs/ScheduleRunStatus"
+        },
+        "error": {
+          "type": [
+            "string",
+            "null"
+          ]
+        }
+      },
+      "required": [
+        "status"
+      ]
+    },
+    "ScheduleRunStatus": {
+      "type": "string",
+      "enum": [
+        "done",
+        "failed",
+        "killed"
+      ]
+    },
     "CreateScheduleRequest_unstable": {
       "type": "object",
       "properties": {
@@ -7596,6 +7697,15 @@
                 {
                   "allOf": [
                     {
+                      "$ref": "#/$defs/ListScheduleRunsRequest_unstable"
+                    }
+                  ],
+                  "description": "Params for _goose/unstable/schedules/runs",
+                  "title": "ListScheduleRunsRequest_unstable"
+                },
+                {
+                  "allOf": [
+                    {
                       "$ref": "#/$defs/CreateScheduleRequest_unstable"
                     }
                   ],
@@ -8382,6 +8492,14 @@
                         }
                       ],
                       "title": "ListScheduleSessionsResponse_unstable"
+                    },
+                    {
+                      "allOf": [
+                        {
+                          "$ref": "#/$defs/ListScheduleRunsResponse_unstable"
+                        }
+                      ],
+                      "title": "ListScheduleRunsResponse_unstable"
                     },
                     {
                       "allOf": [
