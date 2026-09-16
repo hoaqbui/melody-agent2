@@ -187,7 +187,7 @@ describe('pane-store adapters until task 42', () => {
     const layout = openCentre(initialLayout(), 'diff');
     expect(layout.centre).toBe('diff');
     expect(tabsOf(layout)).toEqual([['diff']]);
-    expect(sideTabs(layout)).toEqual(['files', 'editor', 'terminal', 'git']);
+    expect(sideTabs(layout)).toEqual(['files', 'editor', 'terminal', 'git', 'browser', 'markdown']);
     expect(openCentre(layout, 'diff')).toBe(layout);
   });
 

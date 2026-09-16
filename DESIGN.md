@@ -20,18 +20,18 @@ Region names are the `ARCHITECTURE.md` §Modules they render into (`workspace`, 
 
 ```text
 Application window
-├── header — `workspace`: project name · Runtime ▾ · Mode ▾ (PRODUCT.md §11 sketch; PRD :36-47)
+├── header — `workspace`: project name · Runtime ▾ · Mode ▾ ··· pane menu Terminal · Changes · Browser · ⋯ (PRODUCT.md §11 sketch; PRD :36-47; task 40)
 ├── sessions — `components`: upstream's session list, unchanged (PRD :33)
 ├── centre — the chat; never a pane (PRD :84-108, amended 2026-09-15)
 │   ├── RPI strip — `workspace`, above the chat · later (PRD :127-134)
 │   └── chat — `components`: transcript, tool rows, input with ⌘Enter; never moves
 └── right dock — `workspace`: panels stacked top to bottom, each a tab strip over one visible pane;
     │           sizes are fractions of the dock's height summing to 1 (`pane-store.ts:14-19`, `:25`)
-    ├── panel — tabs Files · Editor · Diff · Terminal · Git open here in launcher order (`pane-store.ts:6`)
+    ├── panel — tabs Files · Editor · Changes · Terminal · Git · Browser · Markdown open here in launcher order (`pane-store.ts:6`)
     │           tear a tab off → a new panel below its source, half its height (`pane-store.ts:106`)
     │           drag a panel → reorder; drag a seam → resize against the neighbour (`:141`, `:150`)
     │           close the last tab → the panel disappears into its neighbour (`pane-store.ts:76`)
-    └── later: Agents · Browser · Markdown (PRD :118-140; PRODUCT.md §11)
+    └── later: Agents (PRD :118-140; PRODUCT.md §11); Browser and Markdown are placeholders until task 31
 
 Phone width (≤ PHONE_MAX_WIDTH_PX, `pane-store.ts:10`, `:35-37`)
 └── tab rail — chat first, then the same tabs; one thing visible, no split (`pane-store.ts:27`; PRD :142-152)
@@ -52,7 +52,7 @@ Phone width (≤ PHONE_MAX_WIDTH_PX, `pane-store.ts:10`, `:35-37`)
 | Goose's permission gate | **Autonomous · Manual …**, in Settings only (`components/settings/mode/ModeSelectionItem.tsx:10`, `:18`) | goose mode | `GOOSE_MODE` (`components/settings/mode/ModeSection.tsx:13`) |
 | talk to one runtime, no role | **Direct** | direct | no role loaded (PRD `:52`) |
 | Claude owns the request, delegates | **Orchestrate** | orchestrate | orchestrator role loaded (PRD `:51`; PRODUCT.md §4) |
-| a tool surface | **pane** — Files · Editor · Diff · Terminal · Git | pane | `PaneId` (`pane-store.ts:4`) |
+| a tool surface | **pane** — Files · Editor · Changes · Terminal · Git · Browser · Markdown | pane | `PaneId` (`pane-store.ts:4`); the Changes pane's id stays `diff` |
 | where panes live when not promoted | **side panel** | side tabs | `activeSide`, `sideTabs` (`pane-store.ts:20`, `:39`) |
 | a pane beside the chat | **beside the chat**; the action is **Open as pane** (PRD `:85`) | centre | `centre` (`pane-store.ts:18`) |
 | the phone's one-at-a-time strip | **tab rail** | rail | `visible` (`pane-store.ts:22`) |
@@ -66,7 +66,7 @@ Phone width (≤ PHONE_MAX_WIDTH_PX, `pane-store.ts:10`, `:35-37`)
 - Runtimes are named as the user says them (Claude, Codex, Cursor, agy); a provider id never rises to the default surface.
 - "Mode" in the workspace means Direct · Orchestrate only; the permission gate keeps upstream's words and stays in Settings.
 - Pane names are nouns; a tab reads Files, never "File browser".
-- No retired words yet; when one retires it goes to `docs/decisions/`, dated.
+- Retired: **Diff** → **Changes** (user, 2026-09-15; task 40) — the pane shows what changed, "diff" names the artifact; the word survives only as the id `diff` (`pane-store.ts:4`) and the `diffPane.*` message ids, never on a surface. A retired word goes to `docs/decisions/`, dated; that directory does not exist yet, so this line is the record until it does.
 - check: open — see §Open decisions (no workspace strings exist to check yet).
 
 ## Shared component states [contract]
@@ -101,7 +101,7 @@ Upstream's, unchanged (`main.css:113-135`; values from `theme-tokens.ts`). Delta
 
 ## Iconography
 
-Upstream's, unchanged: `lucide-react` (`ui/desktop/package.json:87`), used by `components/ui/*`. The fork's tabs and pane toolbars draw from the same set at upstream's control size; a second set is a bug. The Files dot is a dot, not an icon, and is always paired with text (§Accessibility).
+Upstream's, unchanged: `lucide-react` (`ui/desktop/package.json:87`), used by `components/ui/*`. The fork's tabs, pane toolbars and the header's pane menu draw from the same set at upstream's control size; a second set is a bug. One icon per pane wherever it is shown (`WorkspaceShell.tsx` `PANE_ICONS`): Files `FolderTree` · Editor `FileCode` · Changes `GitCompare` · Terminal `Terminal` · Git `GitBranch` · Browser `Globe` · Markdown `BookOpen`; the More button is `Ellipsis`. The Files dot is a dot, not an icon, and is always paired with text (§Accessibility).
 
 ## Motion
 

@@ -8,9 +8,21 @@ import {
   useMemo,
   useState,
   useSyncExternalStore,
+  type ComponentType,
+  type MouseEvent,
   type ReactNode,
 } from 'react';
 import { useLocation, useSearchParams } from 'react-router';
+import {
+  BookOpen,
+  Ellipsis,
+  FileCode,
+  FolderTree,
+  GitBranch,
+  GitCompare,
+  Globe,
+  Terminal,
+} from 'lucide-react';
 import { v7 as uuidv7 } from 'uuid';
 import { defineMessages, useIntl } from '../i18n';
 import { useNavigation } from '../hooks/useNavigation';
@@ -18,6 +30,13 @@ import { useConfig } from '../components/ConfigContext';
 import { useModelAndProvider } from '../components/ModelAndProviderContext';
 import { useNavigationContextSafe } from '../components/Layout/NavigationContext';
 import { Button } from '../components/ui/button';
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from '../components/ui/dropdown-menu';
+import { Tooltip, TooltipContent, TooltipTrigger } from '../components/ui/Tooltip';
 import { cn } from '../utils';
 import { toastError } from '../toasts';
 import { formatAcpError } from '../acp/errors';
@@ -35,7 +54,14 @@ import { getEffectiveWorkingDir, getInitialWorkingDir } from '../utils/workingDi
 import type { Message } from '../types/message';
 import type { ProviderDetails } from '../types/providers';
 import { PaneContext, type PaneContextValue } from './pane-context';
-import { createPaneStore, sideTabs, type PaneId, type PaneStore } from './pane-store';
+import {
+  createPaneStore,
+  sideTabs,
+  PANE_IDS,
+  type PaneId,
+  type PaneLayout,
+  type PaneStore,
+} from './pane-store';
 import { TerminalPane } from './panes/terminal/TerminalPane';
 import {
   modeOfSession,
@@ -72,6 +98,10 @@ const i18n = defineMessages({
   paneDiff: { id: 'workspaceShell.paneDiff', defaultMessage: 'Changes' },
   paneTerminal: { id: 'workspaceShell.paneTerminal', defaultMessage: 'Terminal' },
   paneGit: { id: 'workspaceShell.paneGit', defaultMessage: 'Git' },
+  paneBrowser: { id: 'workspaceShell.paneBrowser', defaultMessage: 'Browser' },
+  paneMarkdown: { id: 'workspaceShell.paneMarkdown', defaultMessage: 'Markdown' },
+  panes: { id: 'workspaceShell.panes', defaultMessage: 'Panes' },
+  morePanes: { id: 'workspaceShell.morePanes', defaultMessage: 'More panes' },
 });
 
 const PANE_TITLES = {
@@ -80,13 +110,120 @@ const PANE_TITLES = {
   diff: i18n.paneDiff,
   terminal: i18n.paneTerminal,
   git: i18n.paneGit,
+  browser: i18n.paneBrowser,
+  markdown: i18n.paneMarkdown,
 } as const;
+
+// DESIGN.md §Iconography: one set, lucide, at upstream's control size.
+const PANE_ICONS: Record<PaneId, ComponentType<{ className?: string }>> = {
+  files: FolderTree,
+  editor: FileCode,
+  diff: GitCompare,
+  terminal: Terminal,
+  git: GitBranch,
+  browser: Globe,
+  markdown: BookOpen,
+};
+
+// The code-editor standard (task 40): three panes one click away, the rest under ⋯.
+const PRIMARY_PANES: readonly PaneId[] = ['terminal', 'diff', 'browser'];
+const MORE_PANES: readonly PaneId[] = PANE_IDS.filter((id) => !PRIMARY_PANES.includes(id));
+
+// DESIGN.md Floating Button Rule: --shadow-sm at rest, --shadow-md lifted.
+const floating = 'shadow-[var(--shadow-sm)] hover:shadow-[var(--shadow-md)]';
+
+function paneVisible(layout: PaneLayout, id: PaneId): boolean {
+  if (layout.mode === 'phone') return layout.visible === id;
+  return layout.centre === id || layout.activeSide === id;
+}
 
 const WORKSPACE_ROUTES = new Set(['/', '/pair']);
 const NO_MESSAGES: readonly Message[] = [];
 
 function usePaneLayout(store: PaneStore) {
   return useSyncExternalStore(store.subscribe, store.getState, store.getState);
+}
+
+interface PaneMenuProps {
+  layout: PaneLayout;
+  onOpen(id: PaneId, tear: boolean): void;
+}
+
+// The header's right: Terminal · Changes · Browser · ⋯. Pressed = the pane is showing.
+function PaneMenu({ layout, onOpen }: PaneMenuProps) {
+  const intl = useIntl();
+  const open = (id: PaneId) => (event: MouseEvent) => onOpen(id, event.shiftKey);
+  return (
+    <div
+      className="ml-auto flex items-center gap-1"
+      role="toolbar"
+      aria-label={intl.formatMessage(i18n.panes)}
+      data-testid="workspace-pane-menu"
+    >
+      {PRIMARY_PANES.map((id) => {
+        const Icon = PANE_ICONS[id];
+        const title = intl.formatMessage(PANE_TITLES[id]);
+        return (
+          <Tooltip key={id}>
+            <TooltipTrigger asChild>
+              <Button
+                variant="outline"
+                size="sm"
+                className={cn(floating, 'w-8 px-0 aria-pressed:bg-background-secondary')}
+                aria-label={title}
+                aria-pressed={paneVisible(layout, id)}
+                data-testid={`workspace-pane-button-${id}`}
+                onClick={open(id)}
+              >
+                <Icon />
+              </Button>
+            </TooltipTrigger>
+            <TooltipContent side="bottom">{title}</TooltipContent>
+          </Tooltip>
+        );
+      })}
+      <DropdownMenu>
+        <Tooltip>
+          <TooltipTrigger asChild>
+            <DropdownMenuTrigger asChild>
+              <Button
+                variant="outline"
+                size="sm"
+                className={cn(floating, 'w-8 px-0')}
+                aria-label={intl.formatMessage(i18n.morePanes)}
+                data-testid="workspace-pane-more"
+                // The menu hands focus back to ⋯ when it closes, and a focus-opened tooltip
+                // would linger there; hover still opens it, the aria-label names it.
+                onFocus={(event) => event.preventDefault()}
+              >
+                <Ellipsis />
+              </Button>
+            </DropdownMenuTrigger>
+          </TooltipTrigger>
+          <TooltipContent side="bottom">{intl.formatMessage(i18n.morePanes)}</TooltipContent>
+        </Tooltip>
+        {/* Into Rule: upstream's content scales from its trigger anchor, so the menu grows
+            out of ⋯ and closes back into it. */}
+        <DropdownMenuContent align="end" data-testid="workspace-pane-more-menu">
+          {MORE_PANES.map((id) => {
+            const Icon = PANE_ICONS[id];
+            return (
+              <DropdownMenuItem
+                key={id}
+                className="aria-[current=true]:bg-background-secondary"
+                aria-current={paneVisible(layout, id) ? 'true' : undefined}
+                data-testid={`workspace-pane-item-${id}`}
+                onClick={open(id)}
+              >
+                <Icon />
+                {intl.formatMessage(PANE_TITLES[id])}
+              </DropdownMenuItem>
+            );
+          })}
+        </DropdownMenuContent>
+      </DropdownMenu>
+    </div>
+  );
 }
 
 interface WorkspaceShellProps {
@@ -238,6 +375,15 @@ export function WorkspaceShell({ chat, children, panes, paneStore }: WorkspaceSh
     },
     [store]
   );
+  // Task 40: a click shows the pane in the side panel; shift-click, or a click on the pane
+  // already showing, opens it in the centre. Task 42 rewires these to openPane/tearOff.
+  const openPane = useCallback(
+    (id: PaneId, tear: boolean) => {
+      if (tear || paneVisible(store.getState(), id)) store.openCentre(id);
+      else store.selectSide(id);
+    },
+    [store]
+  );
   const paneContext = useMemo<PaneContextValue>(
     () => ({
       cwd,
@@ -272,6 +418,11 @@ export function WorkspaceShell({ chat, children, panes, paneStore }: WorkspaceSh
 
   const modeLabel = (mode: Mode) =>
     intl.formatMessage(mode === 'direct' ? i18n.direct : i18n.orchestrate);
+  // What the open session runs on, as the Runtime and Mode controls' tooltip (task 40 moved
+  // it off the header's right, which is the pane menu now).
+  const sessionStatus = session
+    ? `${runtimeLabel(currentRuntime, providers)} · ${modeLabel(currentMode)}`
+    : undefined;
   // The pty is keyed by the chat session so a reload or the phone reattaches to its shell;
   // the Hub, with no session yet, gets one shell in the window's working dir. A session
   // still loading has no working_dir yet, and the shell it would spawn is cached.
@@ -311,7 +462,7 @@ export function WorkspaceShell({ chat, children, panes, paneStore }: WorkspaceSh
           isNavCollapsed ? 'pl-[140px]' : 'pl-4'
         )}
       >
-        <label className="flex items-center gap-2">
+        <label className="flex items-center gap-2" title={sessionStatus}>
           <span className="text-text-secondary">{intl.formatMessage(i18n.runtime)}</span>
           <select
             className="rounded-md border border-border-primary bg-background-primary px-2 py-1 text-text-primary"
@@ -356,6 +507,8 @@ export function WorkspaceShell({ chat, children, panes, paneStore }: WorkspaceSh
           className="flex items-center gap-2"
           role="group"
           aria-label={intl.formatMessage(i18n.mode)}
+          title={sessionStatus}
+          data-testid="workspace-mode"
         >
           <span className="text-text-secondary">{intl.formatMessage(i18n.mode)}</span>
           {(['direct', 'orchestrate'] as const).map((mode) => (
@@ -385,14 +538,7 @@ export function WorkspaceShell({ chat, children, panes, paneStore }: WorkspaceSh
             </span>
           )}
         </div>
-        {session && (
-          <span
-            className="ml-auto whitespace-nowrap text-text-secondary"
-            data-testid="workspace-header-status"
-          >
-            {runtimeLabel(currentRuntime, providers)} · {modeLabel(currentMode)}
-          </span>
-        )}
+        <PaneMenu layout={layout} onOpen={openPane} />
       </header>
 
       <div className="flex flex-1 min-h-0">
