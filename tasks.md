@@ -141,17 +141,8 @@ Planned in `docs/2026-09-16-parity-plan-v1.md` (approved 2026-09-16, "approved a
     - tests: synthesizer cases from `unified-diff.test.ts`'s recorded shapes (added, deleted, no-newline, top-of-file chunk); the running gate is pure — test it
   - confirm: `cd ui/desktop && pnpm vitest run src/workspace/panes/diff && pnpm run typecheck && pnpm exec playwright test -g "hunk"; echo exit=$?` → `exit=0` (walk: a file with two separated edits; Reject the first → file shows only the second; Stage the second → Staged scope lists it; Undo → back)
 
-- 51. Record a scheduled run's outcome in `crates/goose/src/scheduler.rs`: after `execute_job` finishes, write `extension_data["scheduler"] = {status: done | failed | killed, error?}` on the run's session through the update builder (`:1140-1146`), return `Err` on `stream_error` (`:1168-1183`, `:1250`) and `killed` from the cancel token; test `scheduler_run_outcome_is_recorded`.
-  - status: doing · agent: subagent-t51 via claude-session-opus-2 (03:45, worktree) · worker: medium
-  - card: as the user, know whether an unattended run finished, failed or was killed so that a review list can say so instead of listing every run as success (research 46 §Inventory; upstream #11051 open)
-  - context:
-    - the cron arm's telemetry and `run_now`'s response change with the `Err` — the desktop's "Run now" toast starts reporting failure, which is the point
-    - `scheduler.rs` is not on the spine deny list; `agent.rs` / `state_machine/` untouched — `check-spine` stays clean
-    - upstream-shaped: file a Ready issue referencing #11051
-  - confirm: `source bin/activate-hermit && cargo test -p goose --lib scheduler_run_outcome 2>&1 | grep -E 'test result: ok\. 1 passed'; echo exit=$?` → `exit=0` (untouched tree: 0 tests); and `bash scripts/check-spine.sh` → `spine clean`
-
-- 52. Put a runs list on the wire: a `schedules/runs` custom request in `crates/goose/src/acp/server/schedule.rs` and `crates/goose-sdk-types/src/custom_requests/schedule.rs` returning runs across schedules newest first — `session_id`, `schedule_id`, `started_at`, `outcome` (from task 51), `working_dir`, first-line snippet, `archived_at` — regenerate with `just generate-acp-types`, and expose it in `ui/desktop/src/acp/schedules.ts` (the one ACP call site); test `schedule_runs_list_orders_newest_first`.
-  - status: todo · agent: — · worker: medium
+- 52. Put a runs list on the wire: a `schedules/runs` custom request in `crates/goose/src/acp/server/schedule.rs` and `crates/goose-sdk-types/src/custom_requests/schedule.rs` returning runs across schedules newest first — `session_id`, `schedule_id`, `started_at`, `outcome` (from task 51: `goose::scheduler::RunOutcome::from_extension_data`, key `scheduler.v0`), `working_dir`, first-line snippet, `archived_at` — regenerate with `just generate-acp-types`, and expose it in `ui/desktop/src/acp/schedules.ts` (the one ACP call site); test `schedule_runs_list_orders_newest_first`.
+  - status: doing · agent: subagent-t52 via claude-session-opus-2 (12:40, worktree) · worker: medium
   - card: as the inbox, read one list instead of walking every schedule so that the row has what it shows (research 46 §Scope)
   - context:
     - `run_now` holds the ACP request for the whole run (`scheduler.rs:802-868`, `schedule.rs:286-297`) — the list is polled by the client, never derived from that response
@@ -247,6 +238,7 @@ Planned in `docs/2026-09-16-parity-plan-v1.md` (approved 2026-09-16, "approved a
 - task 60 hand checks — rail slide (edge ↔ dock strip) and the Sessions collapse ease; Settings/Extensions now render inside the Chat column beside Sessions; Ctrl+1/2/3 inside a focused terminal fires the column shortcut (⌘ is the binding); at 600 px the chips go icon-only and the send button clips at the card edge (upstream's bar layout); `navigation_width` in upstream's NavigationContext is now dead code.
 - task 58 hand checks — Settings › App "Advanced controls" switch syncs live with the shell; the Install affordance on a stop (no uninstalled adapter here); the phone build's lever; the ⋯ menu checkbox; Hard on `claude-code` runs whatever model the claude CLI is configured with (it publishes no list) — Easy/Medium land on `sonnet` / `opus[1m]` via `claude-acp`; a Playwright walk that dies mid-run leaves the app in Advanced (settings.json is the real file).
 - task 48 hand checks — a merge conflict aborts the merge before the 409 (no resolve route exists); `wt/<slug>` branches survive `worktree/remove`, so re-adding the same slug fails until the branch is deleted by hand — say if remove should delete the branch when merged.
+- task 51 hand checks — "Run now" in the desktop's schedule view now receives a rejected request when the run's stream fails (`ScheduleDetailView.tsx:162-170`) — confirm it shows a toast rather than swallowing it; a run that fails before its stream starts (provider/extension setup) leaves no outcome on its session (follow-up candidate); Posthog still emits `schedule_job_completed` on failed runs (pre-existing).
 - task 14 hand check — "since session start" base: open a session in a git cwd, commit, open Changes → the selector offers it and lists the committed file; `git diff HEAD` omits untracked files (accepted gap, or queue).
 - `ARCHITECTURE.md` — sign-off deletes `## Bootstrap Status`; until then the map is a proposal and tasks 10–16 plan against a guess.
 - task 20 — the phone check is manual: open the URL on `hoa-phone`, walk PRD step 13, judge the terminal with the key bar.
