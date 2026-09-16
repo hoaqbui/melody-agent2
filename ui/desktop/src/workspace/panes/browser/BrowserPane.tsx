@@ -244,9 +244,15 @@ export function BrowserPane() {
     if (event.key === 'ArrowDown' || event.key === 'ArrowUp') {
       event.preventDefault();
       store.apply((current) => suggestionMoved(current, event.key === 'ArrowDown' ? 1 : -1));
-    } else if (event.key === 'Enter' && browser.selectedSuggestion !== -1) {
+    } else if (event.key === 'Enter') {
+      // Explicit rather than the form's implicit submission: software keyboards and injected
+      // key events deliver Enter without it (seen from the phone build in a driven browser).
       event.preventDefault();
-      store.apply((current) => suggestionChosen(current, current.selectedSuggestion));
+      store.apply((current) =>
+        current.selectedSuggestion === -1
+          ? submitted(current, intl.formatMessage(i18n.invalidUrl))
+          : suggestionChosen(current, current.selectedSuggestion)
+      );
     } else if (event.key === 'Escape' && browser.suggestionsOpen) {
       event.preventDefault();
       store.apply(suggestionsClosed);
@@ -410,7 +416,8 @@ export function BrowserPane() {
           <span className="sr-only">{intl.formatMessage(i18n.share)}</span>
         </Button>
         {!HAS_WEBVIEW && (
-          <span className="truncate text-text-secondary" data-testid="browser-share-note">
+          // Visible only to assistive tech: inline, the note starved the address bar at pane widths under ~400 px.
+          <span className="sr-only" data-testid="browser-share-note">
             {intl.formatMessage(i18n.shareUrlOnly)}
           </span>
         )}
@@ -457,7 +464,10 @@ export function BrowserPane() {
               title={intl.formatMessage(i18n.frame)}
               className="h-full w-full border-0 bg-background-primary"
               data-testid="browser-frame"
-              onLoad={() => store.apply(frameLoaded)}
+              // No title crosses the origin from an iframe, so the web build's history is URLs.
+              onLoad={() =>
+                store.apply((current) => visited(frameLoaded(current), current.url, '', Date.now()))
+              }
             />
           )}
         </div>
