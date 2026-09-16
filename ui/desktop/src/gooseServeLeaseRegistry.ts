@@ -7,6 +7,8 @@ export interface GooseServeLease {
   acpUrl: string;
   secretKey: string;
   sidecarUrl: string | null;
+  /** The tailnet listener with its key — what the Phone card shows; null without a tailnet. */
+  phoneUrl: string | null;
   cleanup: () => Promise<void>;
   windowIds: Set<number>;
   cleanedUp: boolean;
@@ -20,11 +22,17 @@ export class GooseServeLeaseRegistry {
 
   constructor(private readonly logger: Logger) {}
 
-  create(result: GooseServeResult, secretKey: string, sidecarUrl: string | null): GooseServeLease {
+  create(
+    result: GooseServeResult,
+    secretKey: string,
+    sidecarUrl: string | null,
+    phoneUrl: string | null
+  ): GooseServeLease {
     const lease: GooseServeLease = {
       acpUrl: result.acpUrl,
       secretKey,
       sidecarUrl,
+      phoneUrl,
       cleanup: result.cleanup,
       windowIds: new Set<number>(),
       cleanedUp: false,
@@ -81,6 +89,7 @@ export class GooseServeLeaseRegistry {
       acpUrl,
       secretKey,
       sidecarUrl: null,
+      phoneUrl: null,
       cleanup,
       windowIds: new Set<number>(),
       cleanedUp: false,
@@ -125,6 +134,17 @@ export class GooseServeLeaseRegistry {
       throw new Error(GOOSE_SERVE_EXITED_USER_MESSAGE);
     }
     return lease.sidecarUrl;
+  }
+
+  getPhoneUrl(windowId: number): string | null {
+    const lease = this.get(windowId);
+    if (!lease) {
+      return null;
+    }
+    if (lease.exited) {
+      throw new Error(GOOSE_SERVE_EXITED_USER_MESSAGE);
+    }
+    return lease.phoneUrl;
   }
 
   attachWindow(windowId: number, lease: GooseServeLease) {

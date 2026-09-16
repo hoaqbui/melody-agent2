@@ -60,6 +60,8 @@ export interface Settings {
   recentModels: RecentModel[];
   useLegacyAgentLoop: boolean;
   'workspace.ui': WorkspaceUi;
+  // The sidecar's fixed port (task 62): what the phone bookmarks; 0 lets the OS pick.
+  'sidecar.port': number;
 }
 
 export type SettingKey = keyof Settings;
@@ -103,6 +105,7 @@ export const defaultSettings: Settings = {
   recentModels: [],
   useLegacyAgentLoop: false,
   'workspace.ui': 'easy',
+  'sidecar.port': 7788,
 };
 
 export function getKeyboardShortcuts(settings: Settings): KeyboardShortcuts {

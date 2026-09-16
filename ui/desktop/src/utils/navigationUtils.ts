@@ -30,6 +30,8 @@ export type ViewOptions = {
   initialMessage?: UserInput;
   resumeSessionId?: string;
   pendingScheduleDeepLink?: string;
+  /** A Settings tab or card to open on: what SettingsRoute reads from `?section=` too. */
+  section?: string;
 };
 
 export const createNavigationHandler = (navigate: NavigateFunction) => {

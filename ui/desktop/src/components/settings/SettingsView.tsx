@@ -98,6 +98,7 @@ export default function SettingsView({
       // Map section names to tab values
       const sectionToTab: Record<string, string> = {
         update: 'app',
+        phone: 'app',
         models: 'models',
         modes: 'chat',
         sharing: 'sharing',

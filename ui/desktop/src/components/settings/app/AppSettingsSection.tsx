@@ -2,7 +2,8 @@ import { useState, useEffect, useRef } from 'react';
 import { defineMessages, useIntl } from '../../../i18n';
 import { Switch } from '../../ui/switch';
 import { Button } from '../../ui/button';
-import { ChevronDown, Settings } from 'lucide-react';
+import { Input } from '../../ui/input';
+import { Check, ChevronDown, Copy, QrCode, Settings } from 'lucide-react';
 import { Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle } from '../../ui/dialog';
 import {
   DropdownMenu,
@@ -22,6 +23,7 @@ import TelemetrySettings from './TelemetrySettings';
 import { trackSettingToggled } from '../../../utils/analytics';
 import { AppEvents } from '../../../constants/events';
 import type { LanguageSetting, WorkspaceUi } from '../../../utils/settings';
+import { qr, qrSvg } from '../../../utils/qr';
 
 const i18n = defineMessages({
   appearanceTitle: { id: 'settings.appearance.title', defaultMessage: 'Appearance' },
@@ -79,6 +81,24 @@ const i18n = defineMessages({
   advancedControlsDesc: {
     id: 'settings.workspace.advancedControls.description',
     defaultMessage: 'Runtime, Mode and the Session controls in the chat card',
+  },
+  phoneTitle: { id: 'settings.phone.title', defaultMessage: 'Phone' },
+  phoneDesc: {
+    id: 'settings.phone.description',
+    defaultMessage: 'Open goose on your phone over the tailnet — scan the code or copy the address',
+  },
+  phoneNoTailnet: {
+    id: 'settings.phone.noTailnet',
+    defaultMessage: 'No tailnet address — start Tailscale and relaunch goose',
+  },
+  phoneCopy: { id: 'settings.phone.copy', defaultMessage: 'Copy' },
+  phoneCopied: { id: 'settings.phone.copied', defaultMessage: 'Copied' },
+  phoneQr: { id: 'settings.phone.qr', defaultMessage: 'QR code for the phone address' },
+  phonePort: { id: 'settings.phone.port', defaultMessage: 'Port' },
+  phonePortDesc: {
+    id: 'settings.phone.port.description',
+    defaultMessage:
+      'The address the phone bookmarks; 0 lets the system pick. Takes effect at the next launch',
   },
   languageTitle: { id: 'settings.language.title', defaultMessage: 'Language' },
   languageDesc: {
@@ -192,6 +212,26 @@ interface AppSettingsSectionProps {
   scrollToSection?: string;
 }
 
+// Black on white whatever the theme: a scanner wants dark modules on a light ground.
+function PhoneQr({ url, label }: { url: string; label: string }) {
+  const { viewBox, path } = qrSvg(qr(url));
+  return (
+    <div className="relative shrink-0 rounded-md bg-white p-1" data-testid="settings-phone-qr">
+      <svg
+        viewBox={viewBox}
+        width={160}
+        height={160}
+        shapeRendering="crispEdges"
+        role="img"
+        aria-label={label}
+      >
+        <path d={path} fill="#000" />
+      </svg>
+      <QrCode className="absolute right-1 bottom-1 h-3 w-3 text-black/40" aria-hidden />
+    </div>
+  );
+}
+
 export default function AppSettingsSection({ scrollToSection }: AppSettingsSectionProps) {
   const [menuBarIconEnabled, setMenuBarIconEnabled] = useState(true);
   const [dockIconEnabled, setDockIconEnabled] = useState(true);
@@ -203,8 +243,13 @@ export default function AppSettingsSection({ scrollToSection }: AppSettingsSecti
   const [showPricing, setShowPricing] = useState(true);
   const [language, setLanguage] = useState<LanguageSetting>('system');
   const [workspaceUi, setWorkspaceUi] = useState<WorkspaceUi>('easy');
+  // undefined until read; null when the sidecar has no tailnet listener.
+  const [phoneUrl, setPhoneUrl] = useState<string | null | undefined>();
+  const [phoneCopied, setPhoneCopied] = useState(false);
+  const [sidecarPort, setSidecarPort] = useState('');
   const [isDarkMode, setIsDarkMode] = useState(false);
   const updateSectionRef = useRef<HTMLDivElement>(null);
+  const phoneSectionRef = useRef<HTMLDivElement>(null);
   const shouldShowUpdates = !window.appConfig.get('GOOSE_VERSION');
 
   useEffect(() => {
@@ -231,12 +276,24 @@ export default function AppSettingsSection({ scrollToSection }: AppSettingsSecti
     window.electron.getSetting('showPricing').then(setShowPricing);
     window.electron.getSetting('language').then((value) => setLanguage(value ?? 'system'));
     window.electron.getSetting('workspace.ui').then((value) => setWorkspaceUi(value ?? 'easy'));
+    window.electron.getSetting('sidecar.port').then((value) => setSidecarPort(String(value)));
+    // Read on every mount: the key, and so the URL, changes with every launch.
+    window.electron
+      .getPhoneUrl()
+      .then((url) => setPhoneUrl(url))
+      .catch(() => setPhoneUrl(null));
   }, []);
 
   useEffect(() => {
-    if (scrollToSection === 'update' && updateSectionRef.current) {
+    const target =
+      scrollToSection === 'update'
+        ? updateSectionRef.current
+        : scrollToSection === 'phone'
+          ? phoneSectionRef.current
+          : null;
+    if (target) {
       setTimeout(() => {
-        updateSectionRef.current?.scrollIntoView({ behavior: 'smooth', block: 'center' });
+        target.scrollIntoView({ behavior: 'smooth', block: 'center' });
       }, 100);
     }
   }, [scrollToSection]);
@@ -332,6 +389,26 @@ export default function AppSettingsSection({ scrollToSection }: AppSettingsSecti
     setWorkspaceUi(next);
     await window.electron.setSetting('workspace.ui', next);
     window.dispatchEvent(new CustomEvent(AppEvents.WORKSPACE_UI_CHANGED, { detail: next }));
+  };
+
+  const handlePhoneCopy = async () => {
+    if (!phoneUrl) return;
+    await navigator.clipboard.writeText(phoneUrl);
+    setPhoneCopied(true);
+    setTimeout(() => setPhoneCopied(false), 1500);
+  };
+
+  // Anything but a port in range reverts, as the main process would on read.
+  const handleSidecarPortBlur = async () => {
+    const value = Number(sidecarPort);
+    const previous = await window.electron.getSetting('sidecar.port');
+    if (!Number.isInteger(value) || value < 0 || value > 65535) {
+      setSidecarPort(String(previous));
+      return;
+    }
+    if (value !== previous) {
+      await window.electron.setSetting('sidecar.port', value);
+    }
   };
 
   const handleLanguageChange = async (value: string) => {
@@ -516,6 +593,67 @@ export default function AppSettingsSection({ scrollToSection }: AppSettingsSecti
           </div>
         </CardContent>
       </Card>
+
+      <div ref={phoneSectionRef}>
+        <Card className="rounded-lg" data-testid="settings-phone">
+          <CardHeader className="pb-0">
+            <CardTitle className="mb-1">{intl.formatMessage(i18n.phoneTitle)}</CardTitle>
+            <CardDescription>{intl.formatMessage(i18n.phoneDesc)}</CardDescription>
+          </CardHeader>
+          <CardContent className="pt-4 px-4 space-y-4">
+            {phoneUrl === null && (
+              <p className="text-xs text-text-secondary" data-testid="settings-phone-url">
+                {intl.formatMessage(i18n.phoneNoTailnet)}
+              </p>
+            )}
+            {phoneUrl && (
+              <div className="flex flex-wrap items-start gap-4">
+                <PhoneQr url={phoneUrl} label={intl.formatMessage(i18n.phoneQr)} />
+                <div className="flex min-w-0 flex-1 flex-col gap-2">
+                  <p
+                    className="text-xs text-text-primary break-all select-all"
+                    data-testid="settings-phone-url"
+                  >
+                    {phoneUrl}
+                  </p>
+                  <div>
+                    <Button
+                      variant="secondary"
+                      size="sm"
+                      className="flex items-center gap-2"
+                      onClick={handlePhoneCopy}
+                      data-testid="settings-phone-copy"
+                    >
+                      {phoneCopied ? <Check /> : <Copy />}
+                      {intl.formatMessage(phoneCopied ? i18n.phoneCopied : i18n.phoneCopy)}
+                    </Button>
+                  </div>
+                </div>
+              </div>
+            )}
+            <div className="flex items-center justify-between gap-4">
+              <div>
+                <h3 className="text-text-primary text-xs">{intl.formatMessage(i18n.phonePort)}</h3>
+                <p className="text-xs text-text-secondary max-w-md mt-[2px]">
+                  {intl.formatMessage(i18n.phonePortDesc)}
+                </p>
+              </div>
+              <Input
+                type="number"
+                min={0}
+                max={65535}
+                step={1}
+                className="w-24 h-8"
+                value={sidecarPort}
+                onChange={(event) => setSidecarPort(event.target.value)}
+                onBlur={handleSidecarPortBlur}
+                aria-label={intl.formatMessage(i18n.phonePort)}
+                data-testid="settings-phone-port"
+              />
+            </div>
+          </CardContent>
+        </Card>
+      </div>
 
       <Card className="rounded-lg">
         <CardHeader className="pb-0">
