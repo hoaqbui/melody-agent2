@@ -6,8 +6,52 @@ import {
   rendererSidecarUrl,
   sidecarArgs,
   sidecarEntryPath,
+  sidecarEnv,
   type StartSidecarOptions,
+  withSidecarKey,
 } from './sidecar';
+
+const options: StartSidecarOptions = {
+  entry: '/repo/ui/sidecar/dist/index.js',
+  cwd: '/work',
+  gooseUrl: 'https://127.0.0.1:52301',
+  gooseCertFingerprint: null,
+  serverSecret: 's3cret',
+  version: '1.51.0',
+  staticDir: null,
+  allowedOrigins: [],
+  loginShellPath: null,
+  logger: { info: () => {}, error: () => {} },
+};
+
+describe('withSidecarKey', () => {
+  it('puts the key on the root of each listener so the phone and the renderer get one URL', () => {
+    const key = 'ab'.repeat(32);
+    expect(withSidecarKey('http://127.0.0.1:64041', key)).toBe(
+      `http://127.0.0.1:64041/?key=${key}`
+    );
+    expect(withSidecarKey('http://100.127.56.10:64041', key)).toBe(
+      `http://100.127.56.10:64041/?key=${key}`
+    );
+  });
+});
+
+describe('sidecarEnv', () => {
+  it("passes the sidecar key and goose serve's secret as separate variables", () => {
+    const env = sidecarEnv(options, 'k3y', { PATH: '/usr/bin', HOME: '/Users/me' });
+    expect(env.SIDECAR_SECRET).toBe('k3y');
+    expect(env.GOOSE_SERVER__SECRET_KEY).toBe('s3cret');
+    expect(env.HOME).toBe('/Users/me');
+    expect(env.PATH).toBe('/usr/bin');
+  });
+
+  it('appends the login shell PATH after the process PATH', () => {
+    const env = sidecarEnv({ ...options, loginShellPath: '/opt/homebrew/bin' }, 'k3y', {
+      PATH: '/usr/bin',
+    });
+    expect(env.PATH).toBe('/usr/bin:/opt/homebrew/bin');
+  });
+});
 
 describe('rendererSidecarUrl', () => {
   it('leases the loopback listener to the renderer whatever order the sidecar prints', () => {
@@ -56,19 +100,6 @@ describe('rendererOrigins', () => {
 });
 
 describe('sidecarArgs', () => {
-  const options: StartSidecarOptions = {
-    entry: '/repo/ui/sidecar/dist/index.js',
-    cwd: '/work',
-    gooseUrl: 'https://127.0.0.1:52301',
-    gooseCertFingerprint: null,
-    serverSecret: 's3cret',
-    version: '1.51.0',
-    staticDir: null,
-    allowedOrigins: [],
-    loginShellPath: null,
-    logger: { info: () => {}, error: () => {} },
-  };
-
   it('passes each allowed origin as its own --allowed-origin flag', () => {
     expect(
       sidecarArgs({ ...options, allowedOrigins: ['http://localhost:5173', 'http://mac:5173'] })
@@ -90,5 +121,9 @@ describe('sidecarArgs', () => {
 
   it('passes no --allowed-origin for a packaged file:// renderer', () => {
     expect(sidecarArgs(options)).not.toContain('--allowed-origin');
+  });
+
+  it("never puts goose serve's secret on the command line", () => {
+    expect(sidecarArgs(options).join(' ')).not.toContain('s3cret');
   });
 });

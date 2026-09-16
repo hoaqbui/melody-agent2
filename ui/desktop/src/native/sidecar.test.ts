@@ -8,12 +8,15 @@ const jsonResponse = (status: number, body: unknown): Response =>
     headers: { 'content-type': 'application/json' },
   });
 
+const KEY = 'ab'.repeat(32);
+const KEY_HEADER = { 'x-sidecar-key': KEY };
+
 const getSidecarUrl = vi.fn<() => Promise<string | null>>();
 const fetchMock = vi.fn<typeof fetch>();
 const webSocketMock = vi.fn();
 
 beforeEach(() => {
-  getSidecarUrl.mockResolvedValue('http://127.0.0.1:4321');
+  getSidecarUrl.mockResolvedValue(`http://127.0.0.1:4321/?key=${KEY}`);
   window.electron = { getSidecarUrl } as unknown as typeof window.electron;
   vi.stubGlobal('fetch', fetchMock);
   vi.stubGlobal('WebSocket', webSocketMock);
@@ -25,8 +28,8 @@ afterEach(() => {
 });
 
 describe('sidecarBaseUrl', () => {
-  it('returns the URL the window holds', async () => {
-    await expect(sidecarBaseUrl()).resolves.toBe('http://127.0.0.1:4321');
+  it('returns the URL the window holds, key and all', async () => {
+    await expect(sidecarBaseUrl()).resolves.toBe(`http://127.0.0.1:4321/?key=${KEY}`);
   });
 
   it('throws when the sidecar did not start', async () => {
@@ -36,7 +39,7 @@ describe('sidecarBaseUrl', () => {
 });
 
 describe('sidecarFetch', () => {
-  it('POSTs JSON to a handler route and returns its body', async () => {
+  it('POSTs JSON to a handler route with the key header and returns its body', async () => {
     fetchMock.mockResolvedValue(jsonResponse(200, { path: '/repo/a.txt', content: 'hi' }));
 
     const result = await sidecarFetch<{ path: string; content: string }>('/fs/read', {
@@ -48,7 +51,7 @@ describe('sidecarFetch', () => {
     expect(String(url)).toBe('http://127.0.0.1:4321/fs/read');
     expect(init).toEqual({
       method: 'POST',
-      headers: { 'content-type': 'application/json' },
+      headers: { 'content-type': 'application/json', ...KEY_HEADER },
       body: JSON.stringify({ path: 'a.txt' }),
     });
   });
@@ -61,7 +64,7 @@ describe('sidecarFetch', () => {
     expect(fetchMock.mock.calls[0][1]).toMatchObject({ method: 'POST', body: '{}' });
   });
 
-  it('GETs /health and /config and reads text or JSON by content-type', async () => {
+  it('GETs /health and /config without the key and reads text or JSON by content-type', async () => {
     fetchMock.mockResolvedValueOnce(
       new Response('ok', { status: 200, headers: { 'content-type': 'text/plain; charset=utf-8' } })
     );
@@ -88,20 +91,22 @@ describe('sidecarFetch', () => {
 });
 
 describe('sidecarSocket', () => {
-  it('opens a ws:// socket on the sidecar with the params as the query', async () => {
+  it('opens a ws:// socket on the sidecar with the key and the params as the query', async () => {
     await sidecarSocket('/pty', { id: 'abc', cols: '120', rows: '40' });
 
     expect(webSocketMock).toHaveBeenCalledTimes(1);
     expect(String(webSocketMock.mock.calls[0][0])).toBe(
-      'ws://127.0.0.1:4321/pty?id=abc&cols=120&rows=40'
+      `ws://127.0.0.1:4321/pty?key=${KEY}&id=abc&cols=120&rows=40`
     );
   });
 
-  it('upgrades to wss:// behind https and sends no query without params', async () => {
-    getSidecarUrl.mockResolvedValue('https://mac.tailnet.ts.net:4321');
+  it('upgrades to wss:// behind https and sends only the key without params', async () => {
+    getSidecarUrl.mockResolvedValue(`https://mac.tailnet.ts.net:4321/?key=${KEY}`);
 
     await sidecarSocket('/fs/watch');
 
-    expect(String(webSocketMock.mock.calls[0][0])).toBe('wss://mac.tailnet.ts.net:4321/fs/watch');
+    expect(String(webSocketMock.mock.calls[0][0])).toBe(
+      `wss://mac.tailnet.ts.net:4321/fs/watch?key=${KEY}`
+    );
   });
 });

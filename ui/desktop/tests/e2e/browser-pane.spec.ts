@@ -13,8 +13,9 @@ test.describe('browser pane', () => {
     });
     const sidecar = await goosePage.evaluate(() => window.electron.getSidecarUrl());
     expect(sidecar).toMatch(/^http:\/\//);
-    const health = `${sidecar}/health`;
-    const config = `${sidecar}/config`;
+    // The URL carries `?key=` (task 61); the pages sit on its origin.
+    const health = new URL('/health', sidecar).toString();
+    const config = new URL('/config', sidecar).toString();
     // The sidecar's port changes per run, so an earlier run's /health would be a second row.
     await goosePage.evaluate(() => {
       Object.keys(window.localStorage)

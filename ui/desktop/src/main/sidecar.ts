@@ -1,4 +1,5 @@
 import { utilityProcess } from 'electron';
+import { randomBytes } from 'node:crypto';
 import path from 'node:path';
 
 import type { Logger } from '../gooseServe';
@@ -19,9 +20,9 @@ export interface StartSidecarOptions {
 }
 
 export interface SidecarResult {
-  /** The listener the renderer uses: loopback, which its connect-src already names. */
+  /** The listener the renderer uses: loopback, which its connect-src already names, with `?key=`. */
   url: string;
-  /** Every listener, the tailnet one included — the phone's URL. */
+  /** Every listener with `?key=`, the tailnet one included — the phone's URL. */
   urls: string[];
   cleanup: () => void;
 }
@@ -62,6 +63,31 @@ export const gooseHttpOrigin = (acpUrl: string): string => {
 export const rendererOrigins = (appUrl: URL): string[] =>
   appUrl.origin === 'null' ? [] : [appUrl.origin];
 
+// The key rides in the URL rather than beside it so the Electron renderer and the
+// phone's web build hand `native/sidecar.ts` the same string.
+export const withSidecarKey = (url: string, key: string): string => {
+  const keyed = new URL(url);
+  keyed.pathname = '/';
+  keyed.searchParams.set('key', key);
+  return keyed.toString();
+};
+
+// Both secrets go by environment, not argv: `ps` shows every user the sidecar's
+// arguments, the environment only its owner's.
+export const sidecarEnv = (
+  options: StartSidecarOptions,
+  key: string,
+  processEnv: Record<string, string | undefined>
+): Record<string, string | undefined> => {
+  const pathKey = process.platform === 'win32' ? 'Path' : 'PATH';
+  return {
+    ...processEnv,
+    [pathKey]: [processEnv[pathKey], options.loginShellPath].filter(Boolean).join(path.delimiter),
+    GOOSE_SERVER__SECRET_KEY: options.serverSecret,
+    SIDECAR_SECRET: key,
+  };
+};
+
 export const sidecarArgs = (options: StartSidecarOptions): string[] => [
   '--port',
   '0',
@@ -83,17 +109,11 @@ export const sidecarArgs = (options: StartSidecarOptions): string[] => [
 // loads there unchanged.
 export const startSidecar = (options: StartSidecarOptions): Promise<SidecarResult> =>
   new Promise((resolve, reject) => {
-    const pathKey = process.platform === 'win32' ? 'Path' : 'PATH';
+    const key = randomBytes(32).toString('hex');
     const child = utilityProcess.fork(options.entry, sidecarArgs(options), {
       stdio: 'pipe',
       serviceName: 'sidecar',
-      env: {
-        ...process.env,
-        [pathKey]: [process.env[pathKey], options.loginShellPath]
-          .filter(Boolean)
-          .join(path.delimiter),
-        GOOSE_SERVER__SECRET_KEY: options.serverSecret,
-      },
+      env: sidecarEnv(options, key, process.env),
     });
 
     let listening = false;
@@ -109,7 +129,11 @@ export const startSidecar = (options: StartSidecarOptions): Promise<SidecarResul
       const url = rendererSidecarUrl(urls);
       if (url) {
         listening = true;
-        resolve({ url, urls, cleanup: () => child.kill() });
+        resolve({
+          url: withSidecarKey(url, key),
+          urls: urls.map((listener) => withSidecarKey(listener, key)),
+          cleanup: () => child.kill(),
+        });
       }
     });
     child.stderr?.on('data', (chunk: Buffer) => {
