@@ -89,6 +89,16 @@ re-checked at the fork base `426967d` (v1.51.0, 2026-09-15): all hold;
     - with this, an unlisted origin cannot reach a JSON route at all: it fails the preflight (task 38) or the type check (this task)
   - confirm: `cd ui/sidecar && pnpm vitest run src/http.test.ts; echo exit=$?` → `exit=0` with ≥5 tests (untouched tree: 4)
 
+- 40. Redo the workspace header's top-right as a pane menu: in `ui/desktop/src/workspace/pane-store.ts` add `'browser'` and `'markdown'` to `PaneId` / `PANE_IDS` (after `git`); in `ui/desktop/src/workspace/WorkspaceShell.tsx` replace the status text at the header's right (`data-testid="workspace-header-status"`) with one lucide icon button per pane (Files `FolderTree`, Editor `FileCode`, Diff `GitCompare`, Terminal `Terminal`, Git `GitBranch`, Browser `Globe`, Markdown `BookOpen` — or the nearest names the installed `lucide-react` exports), each with a tooltip/`aria-label` of the pane title, pressed state = the pane is visible (centre or active side tab), click = `selectSide` (shift-click or a second click on the active one = `openCentre`), styled per `DESIGN.md` §Principles Floating Button Rule (`--shadow-sm` at rest, `--shadow-md` lifted) and the Into Rule for the pressed transition; the runtime · mode status moves into the Runtime/Mode controls' own tooltip; placeholder bodies for Browser and Markdown until task 31.
+  - status: todo · agent: — · worker: high
+  - card: as the user, open any pane from one row of icons at the top right — terminal, browser and markdown included — so that the panes read as one set and the header stops being a sentence (user, 2026-09-15 23:30: "redo the top right menu and add in terminal and browser and markdown")
+  - context:
+    - runs after tasks 12 and 14 merge (both replace placeholders in the same `panes` seam); base on main at that point
+    - `pane-store.test.ts` pins `PANE_IDS` in three assertions — extend them; task 20's tab rail reads `PANE_IDS` too
+    - keep the side panel's tab row (task 11) — the icon row is the launcher, the tab row is where a pane lives; `DESIGN.md` §Frame names both
+    - one icon set (`DESIGN.md` §Iconography); strings via the `workspaceShell.*` keys in every locale as task 11 did
+  - confirm: `cd ui/desktop && pnpm vitest run src/workspace && pnpm run typecheck && pnpm exec playwright test -g "pane menu"; echo exit=$?` → `exit=0` (walk: seven icons visible; click Terminal → side panel shows Terminal; shift-click Browser → centre pane opens with the Browser placeholder)
+
 - 12. Add the Files pane (`src/workspace/panes/files/`) with a tree of the session cwd (a drill-down list at phone width), session-written-file dots, and click → Editor pane; `ui/sidecar/src/fs.ts` serves reads and watches the cwd (`chokidar`).
   - status: doing · agent: subagent-t12 via claude-session-opus-2 (23:15, worktree) · worker: high
   - card: as the user, see what the agent touched so that I don't alt-tab to check (PRD step 4)
@@ -191,6 +201,7 @@ Planned 2026-09-15 21:25 from PRD steps 10–12 and the spine research §Activit
   - status: todo · agent: — · worker: medium
   - card: as the user, check the running app and read a doc beside the agent so that the last two alt-tabs go away (PRD step 12)
   - context:
+    - pulled forward 2026-09-15 23:30 (user: browser and markdown in the menu now); task 40 adds the pane ids and placeholders, this task fills them; runs after 12 and 40
     - iframe of the project's dev server only — arbitrary-site browsing is out (PRD §Scope); at V0.5 the address bar accepts any http(s) URL but the default and the "reset" target are the dev server
     - depends on task 11 (shell) and task 12 (Files selection); on the web build (task 19) an iframe to `localhost` from the phone will not resolve — show the PRD "not reachable" line, do not proxy
     - markdown rendering shares task 30's choice
