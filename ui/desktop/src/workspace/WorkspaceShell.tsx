@@ -1155,7 +1155,7 @@ export function WorkspaceShell({ chat, children, panes, paneStore }: WorkspaceSh
         // SettingsView maps `styles` to the Chat tab, where the Response styles live.
         onOpenResponseStyles: () => setView('settings', { section: 'styles' }),
         // The Board (task 67) once it lands; the Runs inbox on Schedules until then.
-        onBackgroundTasks: () => setView('schedules'),
+        onBackgroundTasks: () => setView('board'),
         onSaveRoutine: saveRoutine,
       }}
     />

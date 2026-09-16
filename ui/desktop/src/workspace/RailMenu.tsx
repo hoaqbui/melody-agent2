@@ -14,7 +14,7 @@ import {
   FileJson,
   FolderOpen,
   GitFork,
-  Inbox,
+  Kanban,
   LoaderCircle,
   MoonStar,
   Palette,
@@ -239,7 +239,7 @@ export function RailMenu({
       <DropdownMenuSeparator />
       {/* The Board (task 67) once it lands; the Runs inbox on Schedules until then. */}
       <DropdownMenuItem data-testid="workspace-background-tasks" onSelect={onBackgroundTasks}>
-        <Inbox />
+        <Kanban />
         {intl.formatMessage(i18n.backgroundTasks)}
       </DropdownMenuItem>
       <DropdownMenuSeparator />

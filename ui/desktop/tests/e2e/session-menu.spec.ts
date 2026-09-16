@@ -72,6 +72,8 @@ test.describe('session menu', () => {
       'Editor',
       'Git',
       'Markdown',
+      'Agents',
+      'Artifact',
       'Background tasks',
       'Open in',
       'RenameR',
