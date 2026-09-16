@@ -166,7 +166,7 @@ Planned 2026-09-15 21:25 from PRD steps 10–12 and the spine research §Activit
     - Editor/Changes: `EditorPane.tsx:80` `darkHighlight` and `DiffPane.tsx`'s private theme are keyed on `dark` today — key on the theme id from `ThemeContext` (a `useTheme()` hook exists there; read it); Terminal: find the xterm `theme` option in `panes/terminal/` and pass the Monokai one when active
     - do not edit `WorkspaceShell.tsx`, `pane-store.ts`, or `Dock.tsx` (task 42 in flight) — the shell adopts the glass classes in the merge; put the glass in `[data-theme='monokai']` selectors on stable class names (`.workspace-header`, `.workspace-dock-panel`, `.chat-input-card` — add the class names to the elements you may touch, list the ones you could not in the report)
     - i18n: `themeSelector.monokai` in all 16 locales; screenshot the four themes side by side for the report (`scratchpad/t57/`)
-  - confirm: `cd ui/desktop && pnpm vitest run src/theme src/contexts && pnpm run typecheck && pnpm run lint:check && grep -c "data-theme='monokai'" src/styles/main.css; echo exit=$?` → `exit=0` with the grep ≥ 1 (untouched tree: grep prints 0 and exits 1)
+  - confirm: `cd ui/desktop && pnpm vitest run src/theme && pnpm run typecheck && pnpm run lint:check && grep -c "data-theme='monokai'" src/styles/main.css; echo exit=$?` → `exit=0` with the grep ≥ 1 (untouched tree: `src/theme` has no test file — add `theme-tokens.test.ts` asserting every monokai token resolves and every text/background pair meets AA — so vitest exits 1)
 
 ### Parity with Codex desktop and Claude Cowork — research (2026-09-16)
 
