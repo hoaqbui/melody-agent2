@@ -1,6 +1,8 @@
 use crate::agents::extension::PlatformExtensionContext;
 use crate::agents::mcp_client::{Error, McpClientTrait};
-use crate::agents::subagent_handler::{run_subagent_task, OnMessageCallback, SubagentRunParams};
+use crate::agents::subagent_handler::{
+    run_subagent_task, OnMessageCallback, QuotaExhausted, SubagentRunParams,
+};
 use crate::agents::subagent_task_config::{TaskConfig, DEFAULT_SUBAGENT_MAX_TURNS};
 use crate::agents::tool_execution::{ToolCallContext, ToolCallNotificationEmitter};
 use crate::agents::AgentConfig;
@@ -11,7 +13,7 @@ use crate::providers;
 use crate::recipe::build_recipe::build_recipe_from_template;
 use crate::recipe::local_recipes::load_local_recipe_file;
 use crate::recipe::{Recipe, RecipeParameter, Settings, RECIPE_FILE_EXTENSIONS};
-use crate::session::extension_data::EnabledExtensionsState;
+use crate::session::extension_data::{EnabledExtensionsState, ExtensionState};
 use crate::session::SessionType;
 use crate::sources::parse_frontmatter;
 use crate::utils::safe_truncate;
@@ -221,6 +223,34 @@ struct AgentRuntime {
     weight: u32,
 }
 
+#[derive(Debug, Clone, Serialize, Deserialize)]
+struct RuntimeSeat {
+    provider: String,
+    model: String,
+}
+
+#[derive(Debug, Serialize, Deserialize)]
+struct RerolledSeat {
+    provider: String,
+    model: String,
+    session_id: String,
+}
+
+/// Stored on the replacement child as `summon_reroll.v0`: `from` names the
+/// child that died on quota, so both attempts are findable from the session
+/// the parent is handed, and a chain of hops walks back one record at a time.
+#[derive(Debug, Serialize, Deserialize)]
+struct RerollRecord {
+    from: RerolledSeat,
+    to: RuntimeSeat,
+    reason: String,
+}
+
+impl ExtensionState for RerollRecord {
+    const EXTENSION_NAME: &'static str = "summon_reroll";
+    const VERSION: &'static str = "v0";
+}
+
 #[derive(Debug, Deserialize)]
 struct AgentMetadata {
     name: String,
@@ -241,6 +271,14 @@ fn agent_runtimes(source: &SourceEntry) -> Vec<AgentRuntime> {
         .cloned()
         .and_then(|value| serde_json::from_value(value).ok())
         .unwrap_or_default()
+}
+
+/// An explicit `provider:` (param or env) skips the roll so a forced provider
+/// is neither retried once per candidate nor re-rolled away from.
+fn roll_applies(params: &DelegateParams, runtimes: &[AgentRuntime]) -> bool {
+    !runtimes.is_empty()
+        && params.provider.is_none()
+        && std::env::var("GOOSE_SUBAGENT_PROVIDER").is_err()
 }
 
 fn exclude_runtime(runtimes: &[AgentRuntime], exclude: Option<&str>) -> Vec<AgentRuntime> {
@@ -739,6 +777,27 @@ impl SummonClient {
         }
 
         Ok(session)
+    }
+
+    // Bookkeeping for the matrix, not part of the delegation: a failed write
+    // is logged rather than turned into a failed delegate.
+    async fn record_reroll(&self, session_id: &str, record: RerollRecord) {
+        let session_manager = &self.context.session_manager;
+        let write = async {
+            let mut extension_data = session_manager
+                .get_session(session_id, false)
+                .await?
+                .extension_data;
+            record.to_extension_data(&mut extension_data)?;
+            session_manager
+                .update(session_id)
+                .extension_data(extension_data)
+                .apply()
+                .await
+        };
+        if let Err(error) = write.await {
+            warn!("Failed to record re-roll on child session {session_id}: {error}");
+        }
     }
 
     fn notification_sink(emitter: Option<ToolCallNotificationEmitter>) -> SharedNotificationSink {
@@ -1489,14 +1548,9 @@ impl SummonClient {
         }
 
         let working_dir = session.working_dir.clone();
-        let (recipe, runtimes) = self
+        let (recipe, mut runtimes) = self
             .build_delegate_recipe(&params, session_id, &working_dir)
             .await?;
-
-        let task_config = self
-            .build_task_config(&params, &recipe, &runtimes, &session)
-            .await
-            .map_err(|e| format!("Failed to build task config: {}", e))?;
 
         // Subagents must use Auto until get_agent_messages forwards
         // ActionRequired messages to the parent. Until then, any mode
@@ -1512,31 +1566,101 @@ impl SummonClient {
         .with_use_login_shell_path(self.context.use_login_shell_path);
         agent_config.is_subagent = true;
 
-        let subagent_session = self
-            .create_subagent_session(&task_config, "Delegated task".to_string())
-            .await?;
+        let sink = Self::notification_sink(notification_emitter);
+        let mut rerolled_from: Option<(RerolledSeat, String)> = None;
+        let (result, subagent_session_id) = loop {
+            let task_config = match self
+                .build_task_config(&params, &recipe, &runtimes, &session)
+                .await
+            {
+                Ok(task_config) => task_config,
+                // The seats left after a quota re-roll can all be excluded or
+                // unresolvable; that is the list running out, and the parent
+                // needs the quota reason and the dead child's id, not a config error.
+                Err(error) => match rerolled_from.take() {
+                    Some((from, reason)) => {
+                        break (
+                            Err(anyhow::anyhow!(
+                                "{reason}; no `runtimes:` entry left to re-roll: {error}"
+                            )),
+                            from.session_id,
+                        );
+                    }
+                    None => return Err(format!("Failed to build task config: {}", error)),
+                },
+            };
+            let attempt = RuntimeSeat {
+                provider: task_config.provider.get_name().to_string(),
+                model: task_config.model_config.model_name.clone(),
+            };
 
-        let subagent_session_id = subagent_session.id.clone();
+            let subagent_session = self
+                .create_subagent_session(&task_config, "Delegated task".to_string())
+                .await?;
 
-        let params = SubagentRunParams {
-            config: agent_config,
-            recipe,
-            task_config,
-            return_last_only: true,
-            session_id: subagent_session.id,
-            cancellation_token: Some(cancellation_token),
-            on_message: None,
-            notification_tx: None,
+            let subagent_session_id = subagent_session.id.clone();
+
+            let run_params = SubagentRunParams {
+                config: agent_config.clone(),
+                recipe: recipe.clone(),
+                task_config,
+                return_last_only: true,
+                session_id: subagent_session.id,
+                cancellation_token: Some(cancellation_token.clone()),
+                on_message: None,
+                notification_tx: None,
+            };
+            let result =
+                Self::run_subagent_with_notifications(Arc::clone(&sink), move |notification_tx| {
+                    let mut params = run_params;
+                    params.notification_tx = Some(notification_tx);
+                    run_subagent_task(params)
+                })
+                .await;
+
+            // Written after the run: the loops persist a snapshot of the
+            // child's extension_data during the turn, which would drop it.
+            if let Some((from, reason)) = rerolled_from.take() {
+                let record = RerollRecord {
+                    from,
+                    to: attempt.clone(),
+                    reason,
+                };
+                self.record_reroll(&subagent_session_id, record).await;
+            }
+
+            let quota = match result {
+                Err(error)
+                    if roll_applies(&params, &runtimes)
+                        && error.downcast_ref::<QuotaExhausted>().is_some() =>
+                {
+                    error
+                }
+                result => break (result, subagent_session_id),
+            };
+
+            // A spent seat joins the exclusion for the rest of this delegate;
+            // an empty list must not fall through to the parent's provider.
+            runtimes.retain(|runtime| runtime.provider != attempt.provider);
+            if runtimes.is_empty() {
+                break (
+                    Err(anyhow::anyhow!(
+                        "{quota}; no `runtimes:` entry left to re-roll"
+                    )),
+                    subagent_session_id,
+                );
+            }
+            warn!(
+                "Runtime {}/{} died on quota, re-rolling: {}",
+                attempt.provider, attempt.model, quota
+            );
+            let from = RerolledSeat {
+                provider: attempt.provider,
+                model: attempt.model,
+                session_id: subagent_session_id,
+            };
+            rerolled_from = Some((from, quota.to_string()));
         };
-        let result = Self::run_subagent_with_notifications(
-            Self::notification_sink(notification_emitter),
-            move |notification_tx| {
-                let mut params = params;
-                params.notification_tx = Some(notification_tx);
-                run_subagent_task(params)
-            },
-        )
-        .await;
 
         let mut meta = MetaObject::new();
         meta.0.insert(
@@ -1926,8 +2050,8 @@ impl SummonClient {
     }
 
     /// Rolls one `runtimes:` entry per delegate and re-rolls the rest when the
-    /// pick fails to start. An explicit `provider:` (param or env) skips the
-    /// roll so a forced provider is not retried once per candidate.
+    /// pick fails to start. A pick that starts and then dies on quota is
+    /// re-rolled by `handle_delegate`, which shrinks the list it passes here.
     async fn resolve_rolled_provider(
         &self,
         params: &DelegateParams,
@@ -1943,10 +2067,7 @@ impl SummonClient {
         ),
         anyhow::Error,
     > {
-        if runtimes.is_empty()
-            || params.provider.is_some()
-            || std::env::var("GOOSE_SUBAGENT_PROVIDER").is_ok()
-        {
+        if !roll_applies(params, runtimes) {
             return self
                 .resolve_provider(params, recipe, session, extensions, working_dir)
                 .await;
@@ -3453,6 +3574,210 @@ You research."#,
         assert_eq!(recorded, child_dir.canonicalize().unwrap());
         assert_eq!(recorded, task_config.parent_working_dir);
         assert_ne!(recorded, std::env::current_dir().unwrap());
+    }
+
+    const QUOTA_STUB: &str = "summon-quota-stub";
+    const ANSWER_STUB: &str = "summon-answer-stub";
+    const ANSWER: &str = "answered by the fallback seat";
+    static QUOTA_STUB_PROMPTS: std::sync::atomic::AtomicUsize =
+        std::sync::atomic::AtomicUsize::new(0);
+
+    fn stub_metadata(
+        name: &'static str,
+        model: &'static str,
+    ) -> crate::providers::base::ProviderMetadata {
+        crate::providers::base::ProviderMetadata::new(
+            name,
+            name,
+            "Scripted seat for the re-roll test",
+            model,
+            vec![model],
+            "",
+            vec![],
+        )
+    }
+
+    struct QuotaStub;
+
+    #[async_trait]
+    impl crate::providers::base::Provider for QuotaStub {
+        fn get_name(&self) -> &str {
+            QUOTA_STUB
+        }
+
+        async fn stream(
+            &self,
+            _model_config: &goose_providers::model::ModelConfig,
+            _system: &str,
+            _messages: &[Message],
+            _tools: &[Tool],
+        ) -> std::result::Result<
+            crate::providers::base::MessageStream,
+            goose_providers::errors::ProviderError,
+        > {
+            QUOTA_STUB_PROMPTS.fetch_add(1, Ordering::SeqCst);
+            Err(goose_providers::errors::ProviderError::CreditsExhausted {
+                details: "usageLimitExceeded: try again at 5:05 PM".to_string(),
+                top_up_url: None,
+            })
+        }
+    }
+
+    struct QuotaStubProvider;
+
+    impl goose_providers::base::ProviderDescriptor for QuotaStubProvider {
+        fn metadata() -> crate::providers::base::ProviderMetadata {
+            stub_metadata(QUOTA_STUB, "quota-model")
+        }
+    }
+
+    impl crate::providers::base::ProviderDef for QuotaStubProvider {
+        type Provider = QuotaStub;
+
+        fn from_env(
+            _extensions: Vec<crate::config::ExtensionConfig>,
+            _tls_config: Option<crate::providers::api_client::TlsConfig>,
+        ) -> futures::future::BoxFuture<'static, Result<Self::Provider>> {
+            Box::pin(async { Ok(QuotaStub) })
+        }
+    }
+
+    struct AnswerStub;
+
+    #[async_trait]
+    impl crate::providers::base::Provider for AnswerStub {
+        fn get_name(&self) -> &str {
+            ANSWER_STUB
+        }
+
+        async fn stream(
+            &self,
+            _model_config: &goose_providers::model::ModelConfig,
+            _system: &str,
+            _messages: &[Message],
+            _tools: &[Tool],
+        ) -> std::result::Result<
+            crate::providers::base::MessageStream,
+            goose_providers::errors::ProviderError,
+        > {
+            Ok(crate::providers::base::stream_from_single_message(
+                Message::assistant().with_text(ANSWER),
+                goose_providers::conversation::token_usage::ProviderUsage::new(
+                    "answer-model".to_string(),
+                    Default::default(),
+                ),
+            ))
+        }
+    }
+
+    struct AnswerStubProvider;
+
+    impl goose_providers::base::ProviderDescriptor for AnswerStubProvider {
+        fn metadata() -> crate::providers::base::ProviderMetadata {
+            stub_metadata(ANSWER_STUB, "answer-model")
+        }
+    }
+
+    impl crate::providers::base::ProviderDef for AnswerStubProvider {
+        type Provider = AnswerStub;
+
+        fn from_env(
+            _extensions: Vec<crate::config::ExtensionConfig>,
+            _tls_config: Option<crate::providers::api_client::TlsConfig>,
+        ) -> futures::future::BoxFuture<'static, Result<Self::Provider>> {
+            Box::pin(async { Ok(AnswerStub) })
+        }
+    }
+
+    // weight 0 is never rolled, so the quota seat always goes first and the
+    // fallback is the only candidate left after it is excluded: no seed needed.
+    const REROLL_ROLE: &str = "---\nname: roller\nruntimes:\n  - { provider: summon-quota-stub, model: quota-model, weight: 1 }\n  - { provider: summon-answer-stub, model: answer-model, weight: 0 }\n---\nYou roll.";
+
+    #[tokio::test]
+    #[serial]
+    async fn delegate_rerolls_on_quota_error() {
+        providers::register_for_test::<QuotaStubProvider>().await;
+        providers::register_for_test::<AnswerStubProvider>().await;
+
+        for state_machine in [None, Some("1")] {
+            let _env = env_lock::lock_env([
+                ("GOOSE_SUBAGENT_PROVIDER", None),
+                ("GOOSE_SUBAGENT_MODEL", None),
+                ("GOOSE_STATE_MACHINE", state_machine),
+            ]);
+            QUOTA_STUB_PROMPTS.store(0, Ordering::SeqCst);
+
+            let temp_dir = TempDir::new().unwrap();
+            let agents = temp_dir.path().join(".agents/agents");
+            fs::create_dir_all(&agents).unwrap();
+            fs::write(agents.join("roller.md"), REROLL_ROLE).unwrap();
+
+            let session_manager = Arc::new(crate::session::SessionManager::new(
+                temp_dir.path().to_path_buf(),
+            ));
+            let parent = session_manager
+                .create_session(
+                    temp_dir.path().to_path_buf(),
+                    "parent".to_string(),
+                    SessionType::User,
+                    GooseMode::Auto,
+                )
+                .await
+                .unwrap();
+            let client = SummonClient::new(create_test_context_with_session_manager(Arc::clone(
+                &session_manager,
+            )))
+            .unwrap();
+
+            let arguments = serde_json::json!({ "source": "roller", "extensions": [] });
+            let result = client
+                .handle_delegate(
+                    &parent.id,
+                    arguments.as_object().cloned(),
+                    CancellationToken::new(),
+                    None,
+                )
+                .await
+                .unwrap();
+
+            let text = result
+                .content
+                .iter()
+                .filter_map(|block| block.as_text().map(|text| text.text.clone()))
+                .collect::<String>();
+            assert_eq!(text, ANSWER, "state_machine={state_machine:?}");
+            assert_eq!(QUOTA_STUB_PROMPTS.load(Ordering::SeqCst), 1);
+
+            let child_id = result.meta.unwrap().0["subagent_session_id"]
+                .as_str()
+                .unwrap()
+                .to_string();
+            let child = session_manager.get_session(&child_id, false).await.unwrap();
+            let record = RerollRecord::from_extension_data(&child.extension_data)
+                .expect("summon_reroll.v0 on the replacement child");
+            assert_eq!(record.from.provider, QUOTA_STUB);
+            assert_eq!(record.from.model, "quota-model");
+            assert_eq!(record.to.provider, ANSWER_STUB);
+            assert_eq!(record.to.model, "answer-model");
+            // The legacy loop's notification carries only its generic
+            // "add credits" line; the state machine's error carries the
+            // provider's own details.
+            let expected_reason = match state_machine {
+                Some(_) => "usageLimitExceeded",
+                None => "add more credits",
+            };
+            assert!(
+                record.reason.contains(expected_reason),
+                "state_machine={state_machine:?}: {}",
+                record.reason
+            );
+            assert_ne!(record.from.session_id, child_id);
+            let dead = session_manager
+                .get_session(&record.from.session_id, false)
+                .await
+                .unwrap();
+            assert_eq!(dead.session_type, SessionType::SubAgent);
+        }
     }
 
     const PARENT_MODEL: &str = "claude-3-5-sonnet-20241022";
