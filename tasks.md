@@ -40,15 +40,6 @@ re-checked at the fork base `426967d` (v1.51.0, 2026-09-15): all hold;
 
 ### docs/2026-09-15-goose-fork-plan-v1.md
 
-- 2. Build the fork once: `source bin/activate-hermit && cargo build -p goose-cli` and `cd ui/desktop && pnpm install && pnpm run typecheck`.
-  - status: doing · agent: Comprehend [12ee2f] (fable, 2026-09-15) · worker: low
-    - prior claim `claude-session (opus, 2026-09-15)` released 2026-09-15: no live session, no build process; user told, said continue
-  - card: as the team, know the untouched fork builds so that the first red is ours, not upstream's
-  - context:
-    - Hermit pins node 24.10.0 / pnpm 10.30.3 / just 1.40.0 (`bin/`); Rust 1.96.1 (`rust-toolchain.toml`)
-    - `just run-ui` is the dev loop (`Justfile:87`)
-  - confirm: `source bin/activate-hermit && cargo build -p goose-cli && (cd ui/desktop && pnpm install --frozen-lockfile && pnpm run typecheck); echo exit=$?` → `exit=0`
-
 - 4. Add `ui/desktop/.dependency-cruiser.cjs` with the four mechanical invariants from `ARCHITECTURE.md` (new dirs never import `@agentclientprotocol/sdk` / `@aaif/goose-acp-client`; `src/{workspace,native}` never import `src/components/**/internal`; `src/native` ↔ `src/acp` forbidden both ways; `src/{workspace,native,acp}` never import `electron`, `node:*`, or `node-pty`) and a `depcruise` script in `ui/desktop/package.json`.
   - status: todo · agent: — · worker: medium
   - card: as a planner, have every drawn boundary checked so that a task cannot add an undrawn edge
