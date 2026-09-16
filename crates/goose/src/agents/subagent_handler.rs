@@ -163,13 +163,13 @@ fn get_agent_messages(params: SubagentRunParams) -> AgentMessagesFuture {
             .apply_recipe_components(recipe.response.clone(), true)
             .await?;
 
-        let subagent_prompt =
-            build_subagent_prompt(&agent, &task_config, &session_id, system_instructions).await?;
         let user_message = first_user_message(
             task_config.provider.accepts_system_prompt(),
-            &subagent_prompt,
+            &system_instructions,
             &user_task,
         );
+        let subagent_prompt =
+            build_subagent_prompt(&agent, &task_config, &session_id, system_instructions).await?;
         agent.override_system_prompt(subagent_prompt).await;
         let mut conversation = Conversation::new_unvalidated(vec![user_message.clone()]);
 
@@ -246,15 +246,16 @@ fn get_agent_messages(params: SubagentRunParams) -> AgentMessagesFuture {
     })
 }
 
-fn first_user_message(
-    accepts_system_prompt: bool,
-    subagent_prompt: &str,
-    user_task: &str,
-) -> Message {
+// ACP adapters drop the system prompt, so the role body rides in the first user turn.
+// Only the role body goes: Claude Code's harness reads Goose's subagent template
+// arriving as a user message as a prompt injection and refuses it.
+fn first_user_message(accepts_system_prompt: bool, role_body: &str, user_task: &str) -> Message {
     if accepts_system_prompt {
         return Message::user().with_text(user_task);
     }
-    Message::user().with_text(format!("{subagent_prompt}\n\n---\n\n{user_task}"))
+    Message::user().with_text(format!(
+        "The orchestrator that delegated this task set your role as follows:\n\n{role_body}\n\n---\n\nYour task:\n\n{user_task}"
+    ))
 }
 
 async fn build_subagent_prompt(
@@ -382,9 +383,13 @@ mod tests {
     fn subagent_first_prompt_carries_role_body_when_system_is_dropped() {
         let message = first_user_message(false, "You are the reviewer.", "Review the diff.");
         let text = message.as_concat_text();
-        assert!(text.starts_with("You are the reviewer."));
-        assert!(text.ends_with("Review the diff."));
+        assert!(
+            text.starts_with("The orchestrator that delegated this task set your role as follows:")
+        );
+        assert!(text.contains("You are the reviewer."));
         assert!(text.contains("\n\n---\n\n"));
+        assert!(text.ends_with("Your task:\n\nReview the diff."));
+        assert!(!text.contains("goose AI framework"));
     }
 
     #[test]
