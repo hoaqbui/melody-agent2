@@ -78,6 +78,12 @@ ask agent to create it"). The fork owns creation, or nobody does.
   last text plus `_meta.subagent_session_id` — no path, no branch;
   `:2479-2499` `resolve_working_dir` canonicalizes and requires
   `starts_with(parent)`.
+- Negative check on the surprise: `subagent_handler.rs:143` hands the
+  prebuilt provider to `update_provider`, which stores it as given
+  (`agent.rs:3577-3595`; the registry lookup there only normalizes the
+  model config); `restore_provider_from_session` is called from
+  `gateway/handler.rs:509`, `execution/manager.rs:217` (evicted-session
+  restore) and `manage_sessions.rs:45` — none on the child's path.
 - `crates/goose/src/providers/provider_registry.rs:77-92`, `:138` — two
   constructors; only `create_with_working_dir` reaches
   `from_env_with_working_dir`. `claude_acp.rs:56`, `:89` — `work_dir`
@@ -220,6 +226,18 @@ mechanism. B waits until A's merge-back has been used by hand.
   session pointing at it — Goose keeps the path (`session_manager.rs:64`)
   and #10643 shows a deleted dir breaks `session/load` — cheap to test?
   yes; reversible? no (a deleted tree is gone; snapshot first, as Codex).
+- Containment vs a subdirectory cwd: `<toplevel>/.worktrees/x` passes
+  `resolve_working_dir` only when the session cwd *is* the toplevel; a
+  chat started in `ui/desktop` (#10272's case) is refused. Relax the
+  check to the repo toplevel (a second line in the same `summon.rs`
+  touch) or accept that C needs a toplevel session? — cheap to test?
+  yes; reversible? yes.
+- Nested sub-worktrees: workers under a session worktree land at
+  `.worktrees/a/.worktrees/b`; git permits it, `rev-parse
+  --show-toplevel` inside `a` returns `a`, and `a`'s Files pane and
+  `git status` see `b` unless the fork's `.gitignore` and `WATCH_IGNORED`
+  cover `.worktrees/` at every depth — cheap to test? yes; reversible?
+  yes.
 - The one-call fix changes behaviour for every ACP child today (they
   would start following DirSwitcher moves) — desired, but a hand check
   on task 9's delegate proof is owed.
