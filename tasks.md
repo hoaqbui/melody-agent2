@@ -82,7 +82,7 @@ re-checked at the fork base `426967d` (v1.51.0, 2026-09-15): all hold;
   - confirm: `test -f docs/2026-09-15-runtime-matrix-v1.md && grep -c '^| \(codex-acp\|cursor-acp\|claude-acp\|agy\) |' docs/2026-09-15-runtime-matrix-v1.md` → `4`
 
 - 39. Reject JSON-route requests whose `content-type` is not `application/json` in `ui/sidecar/src/http.ts` (`415`, before the body is read), with a test beside the CORS ones.
-  - status: todo · agent: — · worker: low
+  - status: doing · agent: subagent-t39 via claude-session-opus-2 (23:25, worktree) · worker: low
   - card: as the user, have no web page open in a browser on this Mac able to write files through the sidecar so that CORS's allowlist is a real gate, not a readable-response gate (task 38's finding: a `text/plain` POST is a CORS "simple request" that skips the preflight — the response is unreadable but `fs/write` runs)
   - context:
     - `http.ts` `jsonDispatcher` / `readJson` — check the header first; `sidecarFetch` (`src/native/sidecar.ts`) already sends `content-type: application/json`, so no client changes
