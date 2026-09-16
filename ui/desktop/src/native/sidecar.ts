@@ -52,8 +52,13 @@ export interface GitStatusEntry {
   worktree: string;
 }
 
+// `upstream` is null for a branch never pushed (or whose remote ref is gone); `ahead` counts
+// the commits a push would send.
 export interface GitStatusResponse {
   branch: string | null;
+  upstream: string | null;
+  ahead: number;
+  behind: number;
   entries: GitStatusEntry[];
 }
 
@@ -134,6 +139,66 @@ export interface GitApplyRequest extends GitCwdRequest {
   reverse?: boolean;
   cached?: boolean;
 }
+
+export interface GitPushRequest extends GitCwdRequest {
+  setUpstream?: boolean;
+}
+
+// The commits on the branch since `base` (the remote's default branch when omitted),
+// newest first; `base` comes back null when git could not resolve one.
+export interface GitLogRequest extends GitCwdRequest {
+  base?: string;
+}
+
+export interface GitLogCommit {
+  sha: string;
+  subject: string;
+}
+
+export interface GitLogResponse {
+  base: string | null;
+  commits: GitLogCommit[];
+}
+
+export interface GitPrCreateRequest extends GitCwdRequest {
+  title: string;
+  body: string;
+  base?: string;
+  draft?: boolean;
+}
+
+export interface GitPrCreateResponse {
+  url: string;
+  number: number;
+}
+
+export type GitPrStatusRequest = GitCwdRequest;
+
+export type GitPrCheckState = 'pending' | 'pass' | 'fail' | 'skipped';
+
+export interface GitPrCheck {
+  name: string;
+  state: GitPrCheckState;
+  link: string;
+}
+
+// `gh pr view --json` as gh returns it; `state` is OPEN, CLOSED or MERGED.
+export interface GitPr {
+  number: number;
+  url: string;
+  state: string;
+  isDraft: boolean;
+  mergeable: string;
+}
+
+export interface GitPrStatusResponse {
+  pr: GitPr | null;
+  checks: GitPrCheck[];
+}
+
+// The 503 body of the gh-backed routes: `reason` reaches the caller as SidecarError.details
+// and picks Install (gh missing) or Sign in (gh logged out).
+export type GhUnavailableReason = 'missing' | 'auth';
 
 export interface SidecarConfig {
   GOOSE_WORKING_DIR: string;

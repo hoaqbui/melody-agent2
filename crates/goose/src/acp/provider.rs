@@ -168,20 +168,37 @@ enum AcpUpdate {
 /// says nothing about the prompt at all, so retrying would burn the single fallback the
 /// session gets and consume a memo the agent never actually refused.
 fn retry_without_memo_could_help(error: &agent_client_protocol::Error) -> bool {
-    if error.code == agent_client_protocol::schema::v1::ErrorCode::AuthRequired {
-        return false;
-    }
-    error
-        .data
-        .as_ref()
-        .and_then(|data| data.get("reason"))
-        .and_then(serde_json::Value::as_str)
-        != Some(crate::acp::CREDITS_EXHAUSTED_REASON)
+    error.code != agent_client_protocol::schema::v1::ErrorCode::AuthRequired
+        && !is_quota_exhausted(error)
+}
+
+/// A closed subscription window or a spent balance, as each adapter reports it:
+/// Goose-as-agent stamps `reason` (`acp/server.rs`), `codex-acp` stamps
+/// `codexErrorInfo`, `claude-agent-acp` stamps `errorKind`. Each is a
+/// `CreditsExhausted` rather than a `RateLimitExceeded` because the loops retry
+/// the latter in place with backoff, burning minutes on a window that resets in
+/// hours, while the former is the one class both loops surface structurally.
+fn is_quota_exhausted(error: &agent_client_protocol::Error) -> bool {
+    let field = |name: &str| {
+        error
+            .data
+            .as_ref()
+            .and_then(|data| data.get(name))
+            .and_then(serde_json::Value::as_str)
+    };
+    field("reason") == Some(crate::acp::CREDITS_EXHAUSTED_REASON)
+        || field("codexErrorInfo") == Some("usageLimitExceeded")
+        || matches!(field("errorKind"), Some("rate_limit" | "billing_error"))
 }
 
 fn provider_error_from_acp(error: agent_client_protocol::Error) -> ProviderError {
     if error.code == agent_client_protocol::schema::v1::ErrorCode::AuthRequired {
         ProviderError::Authentication(error.to_string())
+    } else if is_quota_exhausted(&error) {
+        ProviderError::CreditsExhausted {
+            details: error.to_string(),
+            top_up_url: None,
+        }
     } else {
         ProviderError::RequestFailed(error.to_string())
     }
@@ -2499,6 +2516,34 @@ mod tests {
         assert!(matches!(error, ProviderError::RequestFailed(_)));
     }
 
+    #[test]
+    fn prompt_quota_errors_map_to_credits_exhausted() {
+        let codex = serde_json::json!({
+            "message": "You've hit your usage limit. Upgrade to Pro or try again at 5:05 PM.",
+            "codexErrorInfo": "usageLimitExceeded"
+        });
+        let claude = serde_json::json!({ "errorKind": "rate_limit" });
+        let goose = serde_json::json!({ "reason": crate::acp::CREDITS_EXHAUSTED_REASON });
+
+        for data in [codex, claude, goose] {
+            let error = agent_client_protocol::Error::internal_error().data(data.clone());
+            assert!(!retry_without_memo_could_help(&error), "{data}");
+            let error = provider_error_from_acp(error);
+            assert!(
+                matches!(&error, ProviderError::CreditsExhausted { details, .. } if details.contains("Internal error")),
+                "{data}: {error:?}"
+            );
+        }
+
+        let refusal = agent_client_protocol::Error::internal_error()
+            .data(serde_json::json!({ "errorKind": "invalid_request" }));
+        assert!(retry_without_memo_could_help(&refusal));
+        assert!(matches!(
+            provider_error_from_acp(refusal),
+            ProviderError::RequestFailed(_)
+        ));
+    }
+
     fn test_provider() -> (AcpProvider, ModelConfig) {
         test_provider_with_tx(None)
     }
@@ -3313,7 +3358,7 @@ mod tests {
             .unwrap();
         assert!(matches!(
             results.as_slice(),
-            [Err(ProviderError::RequestFailed(_))]
+            [Err(ProviderError::CreditsExhausted { .. })]
         ));
         assert!(
             rx.try_recv().is_err(),

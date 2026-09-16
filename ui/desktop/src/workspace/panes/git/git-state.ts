@@ -1,7 +1,8 @@
 // What the Git pane derives without React (PRD step 7): which entries are staged, unstaged
 // or in conflict, whether the chat's tool-call rows say an agent turn is still writing files,
-// why Commit is disabled, and the pane's DESIGN.md state. The commit draft lives here too so
-// a promote or close keeps it (DESIGN.md Nothing Lost Rule).
+// why Commit or Push and open PR is disabled, which recovery a gh 503 names (task 66), and
+// the pane's DESIGN.md state. The commit draft lives here too so a promote or close keeps it
+// (DESIGN.md Nothing Lost Rule).
 
 import type { GitStatusEntry } from '../../../native/sidecar';
 import { getToolRequests, getToolResponses, type Message } from '../../../types/message';
@@ -84,6 +85,28 @@ export function commitBlocker(input: {
   if (input.lists.staged.length === 0) return 'nothingStaged';
   if (input.message.trim() === '') return 'noMessage';
   return null;
+}
+
+export type PrBlocker = 'running' | 'noBranch';
+
+// Push and open PR is a Running-row control like Commit (DESIGN.md §States amended row); a
+// detached HEAD (`HEAD (no branch)` in porcelain) has nothing gh could open a PR from.
+export function prBlocker(input: { running: boolean; branch: string | null }): PrBlocker | null {
+  if (input.running) return 'running';
+  if (input.branch === null || /^HEAD( |$)/.test(input.branch)) return 'noBranch';
+  return null;
+}
+
+export type GhRecovery = 'install' | 'signIn';
+
+// The sidecar's 503 carries `reason` in its body; a 503 without one reads as logged out,
+// the recovery the user can act on without leaving the window.
+export function ghRecovery(input: {
+  status: number;
+  details: Record<string, unknown>;
+}): GhRecovery | null {
+  if (input.status !== 503) return null;
+  return input.details.reason === 'missing' ? 'install' : 'signIn';
 }
 
 export function paneState(input: {

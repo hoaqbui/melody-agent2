@@ -127,6 +127,19 @@
      call to finish"); in a worktree session Commit lands on
      `wt/<slug>`, Merge lands the branch on the main checkout with
      `--no-ff`, and a conflict (`409`) lists the files and stops
+   - amended 2026-09-16 (task 66): "…write a message; Commit" reads
+     "…write a message; Commit; Push and open PR" — a PR section under
+     the commit box pushes the branch (`-u origin <branch>` when it has
+     no upstream) and opens a sheet prefilled from the commits (title
+     = the last subject, body = the subjects since the base, Draft
+     off); nothing reaches GitHub before its Create; then the section
+     reads the PR's number, state and checks (passed · failed ·
+     pending · skipped), refreshed on Refresh and every 60 s while the
+     pane is on screen; the Changes pane's worktree row offers Open
+     PR… beside Merge once the branch has an upstream; `gh` missing or
+     logged out is the Unavailable state — Install / Sign in — and the
+     sidecar shells to `gh` with `execFile`, the token never leaving
+     `gh`'s keyring (DESIGN.md §Vocabulary "PR", §Iconography)
 
 8. [Any pane] · P0
    - does: drag the pane's tab into the centre, or click "Open as pane"
@@ -237,6 +250,12 @@
 - Git: empty (not a repo) → pane disabled with "Not a git repository";
   loading → status spinner; partial → merge conflicts list files and
   disable Commit; error → git's stderr.
+  - amended 2026-09-16 (task 66): the PR section — empty → "Push and
+    open PR…"; loading → "Checking for a PR…"; unavailable → the
+    sidecar's "gh not available: …" line with Install (gh missing) or
+    Sign in (logged out; checks again); error → gh's stderr with
+    Retry; running → Push and open PR disabled with the reason, as
+    Commit.
 - Agents: empty → "No delegated work yet"; loading → row spinner;
   partial → a worker whose transcript is not yet stored shows its
   status only; error → row shows the worker's error and stays.
