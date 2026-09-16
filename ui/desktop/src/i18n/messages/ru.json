@@ -4675,5 +4675,59 @@
   },
   "settings.legacyAgentLoop.title": {
     "defaultMessage": "Use Legacy Agent Loop"
+  },
+  "workspaceShell.closePane": {
+    "defaultMessage": "Close pane"
+  },
+  "workspaceShell.direct": {
+    "defaultMessage": "Direct"
+  },
+  "workspaceShell.install": {
+    "defaultMessage": "Install"
+  },
+  "workspaceShell.mode": {
+    "defaultMessage": "Mode"
+  },
+  "workspaceShell.more": {
+    "defaultMessage": "More…"
+  },
+  "workspaceShell.noOrchestrator": {
+    "defaultMessage": "no orchestrator role in this project"
+  },
+  "workspaceShell.openAsPane": {
+    "defaultMessage": "Open as pane"
+  },
+  "workspaceShell.orchestrate": {
+    "defaultMessage": "Orchestrate"
+  },
+  "workspaceShell.paneDiff": {
+    "defaultMessage": "Diff"
+  },
+  "workspaceShell.paneEditor": {
+    "defaultMessage": "Editor"
+  },
+  "workspaceShell.paneFiles": {
+    "defaultMessage": "Files"
+  },
+  "workspaceShell.paneGit": {
+    "defaultMessage": "Git"
+  },
+  "workspaceShell.paneTerminal": {
+    "defaultMessage": "Terminal"
+  },
+  "workspaceShell.paneUnavailable": {
+    "defaultMessage": "Not available yet"
+  },
+  "workspaceShell.runtime": {
+    "defaultMessage": "Runtime"
+  },
+  "workspaceShell.runtimeDivider": {
+    "defaultMessage": "→ {runtime} from here"
+  },
+  "workspaceShell.startFailed": {
+    "defaultMessage": "Couldn't start session"
+  },
+  "workspaceShell.switchFailed": {
+    "defaultMessage": "Couldn't switch runtime"
   }
 }

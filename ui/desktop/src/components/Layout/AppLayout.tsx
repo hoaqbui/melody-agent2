@@ -1,17 +1,13 @@
 import React, { useCallback, useEffect, useRef, useState } from 'react';
 import { IpcRendererEvent } from 'electron';
-import { Outlet, useLocation } from 'react-router';
 import { motion } from 'framer-motion';
 import { PanelLeft } from 'lucide-react';
 import { defineMessages, useIntl } from '../../i18n';
 import { Button } from '../ui/button';
-import ChatSessionsContainer from '../ChatSessionsContainer';
-import { useChatContext } from '../../contexts/ChatContext';
 import { NavigationProvider, useNavigationContext } from './NavigationContext';
 import { Navigation } from './NavigationPanel';
 import { Z_INDEX } from './constants';
 import { cn } from '../../utils';
-import { UserInput } from '../../types/message';
 
 const i18n = defineMessages({
   openNavigation: {
@@ -24,20 +20,14 @@ const i18n = defineMessages({
   },
 });
 
-interface AppLayoutContentProps {
-  activeSessions: Array<{
-    sessionId: string;
-    initialMessage?: UserInput;
-    noAutoSubmit?: boolean;
-  }>;
+interface AppLayoutProps {
+  // The main column: the route outlet and the always-mounted chat, composed by App.tsx.
+  children: React.ReactNode;
 }
 
-const AppLayoutContent: React.FC<AppLayoutContentProps> = ({ activeSessions }) => {
+const AppLayoutContent: React.FC<AppLayoutProps> = ({ children }) => {
   const intl = useIntl();
-  const location = useLocation();
   const safeIsMacOS = (window?.electron?.platform || 'darwin') === 'darwin';
-  const chatContext = useChatContext();
-  const isOnPairRoute = location.pathname === '/pair';
 
   const [isFullScreen, setIsFullScreen] = useState(false);
 
@@ -90,12 +80,6 @@ const AppLayoutContent: React.FC<AppLayoutContentProps> = ({ activeSessions }) =
     };
   }, [setNavWidth]);
 
-  if (!chatContext) {
-    throw new Error('AppLayoutContent must be used within ChatProvider');
-  }
-
-  const { setChat } = chatContext;
-
   const needsTrafficLightInset = safeIsMacOS && !isFullScreen;
   const headerPadding = needsTrafficLightInset ? 'pl-[96px]' : 'pl-4';
   const headerTop = needsTrafficLightInset ? 'top-[14px]' : 'top-[11px]';
@@ -146,31 +130,16 @@ const AppLayoutContent: React.FC<AppLayoutContentProps> = ({ activeSessions }) =
         </motion.div>
 
         {/* Main content — no border / no card; just flows on the canvas. */}
-        <div className="flex-1 overflow-hidden min-h-0">
-          <Outlet />
-          {/* Always render ChatSessionsContainer to keep SSE connections alive.
-              When navigating away from /pair, hide it with CSS */}
-          <div className={isOnPairRoute ? 'contents' : 'hidden'}>
-            <ChatSessionsContainer setChat={setChat} activeSessions={activeSessions} />
-          </div>
-        </div>
+        <div className="flex-1 overflow-hidden min-h-0">{children}</div>
       </div>
     </div>
   );
 };
 
-interface AppLayoutProps {
-  activeSessions: Array<{
-    sessionId: string;
-    initialMessage?: UserInput;
-    noAutoSubmit?: boolean;
-  }>;
-}
-
-export const AppLayout: React.FC<AppLayoutProps> = ({ activeSessions }) => {
+export const AppLayout: React.FC<AppLayoutProps> = ({ children }) => {
   return (
     <NavigationProvider>
-      <AppLayoutContent activeSessions={activeSessions} />
+      <AppLayoutContent>{children}</AppLayoutContent>
     </NavigationProvider>
   );
 };

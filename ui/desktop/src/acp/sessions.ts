@@ -6,7 +6,11 @@ import {
   type NewSessionRequest,
   type SessionInfo,
 } from '@agentclientprotocol/sdk';
-import type { GooseExtension, SessionExportFormat, SessionImportSource } from '@aaif/goose-acp-client';
+import type {
+  GooseExtension,
+  SessionExportFormat,
+  SessionImportSource,
+} from '@aaif/goose-acp-client';
 import { getAcpClient } from './acpConnection';
 import type { ExtensionLoadResult } from '../types/extensions';
 import type { Session } from '../types/session';
@@ -233,6 +237,8 @@ export interface AcpRecipeOptions {
   recipeId?: string;
   recipeDeeplink?: string;
   recipeParameterScopeId?: string;
+  // Provider for the new session; a recipe's own `settings.goose_provider` wins over it.
+  provider?: string;
 }
 
 export async function acpNewSession(
@@ -252,6 +258,9 @@ export async function acpNewSession(
   }
   if (recipe?.recipeParameterScopeId) {
     meta.recipeParameterScopeId = recipe.recipeParameterScopeId;
+  }
+  if (recipe?.provider) {
+    meta.provider = recipe.provider;
   }
   const request: NewSessionRequest = { cwd, mcpServers: [], _meta: meta };
   const response = await client.connection.agent.request(methods.agent.session.new, request);

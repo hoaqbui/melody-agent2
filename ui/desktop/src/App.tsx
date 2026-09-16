@@ -1,6 +1,14 @@
 import { useEffect, useState, useRef, type RefObject } from 'react';
 import { IpcRendererEvent } from 'electron';
-import { HashRouter, Routes, Route, useNavigate, useLocation, useSearchParams } from 'react-router';
+import {
+  HashRouter,
+  Routes,
+  Route,
+  Outlet,
+  useNavigate,
+  useLocation,
+  useSearchParams,
+} from 'react-router';
 import { importNostrSessionFromDeepLink } from './sessionLinks';
 import { ErrorUI } from './components/ErrorBoundary';
 import { ExtensionInstallModal } from './components/ExtensionInstallModal';
@@ -27,6 +35,8 @@ import SessionsView from './components/sessions/SessionsView';
 import SchedulesView from './components/schedule/SchedulesView';
 import ProviderSettings from './components/settings/providers/ProviderSettingsPage';
 import { AppLayout } from './components/Layout/AppLayout';
+import ChatSessionsContainer from './components/ChatSessionsContainer';
+import { WorkspaceShell } from './workspace/WorkspaceShell';
 import { ChatProvider, DEFAULT_CHAT_TITLE } from './contexts/ChatContext';
 import LauncherView from './components/LauncherView';
 
@@ -642,7 +652,20 @@ export function AppInner() {
               element={
                 <OnboardingGuard>
                   <ChatProvider chat={chat} setChat={setChat} contextKey="hub">
-                    <AppLayout activeSessions={activeSessions} />
+                    <AppLayout>
+                      {/* The chat stays mounted across routes so its streams stay alive;
+                          the shell shows it on /pair and hides it elsewhere. */}
+                      <WorkspaceShell
+                        chat={
+                          <ChatSessionsContainer
+                            setChat={setChat}
+                            activeSessions={activeSessions}
+                          />
+                        }
+                      >
+                        <Outlet />
+                      </WorkspaceShell>
+                    </AppLayout>
                   </ChatProvider>
                 </OnboardingGuard>
               }
