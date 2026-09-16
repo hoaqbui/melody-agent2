@@ -146,16 +146,6 @@ Planned in `docs/2026-09-16-parity-plan-v1.md` (approved 2026-09-16, "approved a
     - the session's transcript is not part of the routine — instructions are the prompt, not the history; a "Save the reply as instructions" affordance is a later ask
   - confirm: `cd ui/desktop && pnpm vitest run src/workspace/routine && pnpm run typecheck && pnpm exec playwright test -g "routine"; echo exit=$?` → `exit=0` (untouched tree: no `routine` dir or spec; walk: open a session, Advanced → Save as routine → title prefilled, Manual, Save → Schedules lists it → Run now → Runs inbox shows the run)
 
-- 62. Fixed sidecar port and the phone URL in the app: the desktop starts the sidecar on port `7788` (setting `sidecar.port`, Settings › App), falling back to `0` only when the bind fails and saying so in the log; Settings › App gains a "Phone" card showing the tailnet URL with the key (task 61) as text with Copy and as a QR code (rendered inline as SVG — no new dependency: a small QR encoder under `src/utils/qr.ts` with a test, or `qrcode` only if one already exists in `ui/node_modules`), refreshed on every launch; the ⋯ rail menu gains "Open on phone…" which opens that card.
-  - status: doing · agent: subagent-t62 via claude-session-opus-2 (13:10, worktree) · worker: medium
-  - card: as the user, bookmark one URL on my phone and scan a code once, so that the phone build is a door I can find, not a port I read out of a log (user 2026-09-16, "approved all recommendations": fixed port + URL in the app)
-  - context:
-    - after 61 (the URL carries the key); `ui/desktop/src/main/sidecar.ts` `sidecarArgs` is where `--port 0` lives; `SidecarResult.urls` already holds both listeners
-    - `validSettingKeys` in `main.ts` must gain `sidecar.port`; the web shim needs nothing
-    - DESIGN.md §Vocabulary: "Phone" card row; §Iconography `Smartphone`, `QrCode`
-  - confirm: `cd ui/desktop && pnpm vitest run src/main/sidecar.test.ts src/utils/qr.test.ts && pnpm run typecheck; echo exit=$?` → `exit=0` (untouched tree: no `qr.test.ts`, vitest exits 1) and the desktop log's `sidecar listening at` line names port `7788`
-
-
 ## Handoff — Goose spine evaluation (2026-09-15, Codex)
 
 - **Resume here:** `docs/2026-09-15-goose-spine-research-v1.md` owns the evidence and options. User said “continue” after the recommendation to preserve Claude-first and repair ACP integration, then requested handoff. Direction carried forward; no implementation plan has been completed or approved.
@@ -198,6 +188,7 @@ Planned in `docs/2026-09-16-parity-plan-v1.md` (approved 2026-09-16, "approved a
 - task 61 hand checks — the key is in the desktop log line `sidecar listening at …` every launch until 62 shows it in the app; a phone whose stored key predates a desktop restart 401s until it reloads the new URL; `/config` stays open (working dir + version to the tailnet, unkeyed) — say if you want it gated; packaged `file://` build Files/Terminal not walked.
 - task 50 hand checks — the running gate needs a live tool call (Stage/Reject disable with the reason, `diff-blocked` in the header, list refetches when the call ends); edit a file on disk after the pane loaded then Reject → git's stderr as the Error row, list kept; a renamed/binary file's file-level Stage in the app.
 - task 49 hand checks — a window opened inside another worktree (this repo's `.claude/worktrees/agent-*`) gets 400 on Merge/Remove because the main checkout is outside the sidecar's cwd roots; Refresh does not clear a 409 (the next Merge does); an open Terminal keeps its pty in a removed worktree until reopened; the Worktree chip in Advanced was not screenshotted.
+- task 62 hand checks — scan the Phone card's QR with hoa-phone (the encoder matches python-qrcode module-for-module, no scanner here); a second desktop window in the same launch falls back to a random port and shows a different URL; Copy on the phone build needs a secure context (`http://` rejects silently).
 - task 14 hand check — "since session start" base: open a session in a git cwd, commit, open Changes → the selector offers it and lists the committed file; `git diff HEAD` omits untracked files (accepted gap, or queue).
 - `ARCHITECTURE.md` — sign-off deletes `## Bootstrap Status`; until then the map is a proposal and tasks 10–16 plan against a guess.
 - task 20 — the phone check is manual: open the URL on `hoa-phone`, walk PRD step 13, judge the terminal with the key bar.
