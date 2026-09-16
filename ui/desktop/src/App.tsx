@@ -61,6 +61,8 @@ import StandaloneAppView from './components/apps/StandaloneAppView';
 import { View, ViewOptions } from './utils/navigationUtils';
 
 import { useNavigation } from './hooks/useNavigation';
+import { useIntl } from './i18n';
+import { markSessionRead, startNotifications } from './notifications';
 import { errorMessage } from './utils/conversionUtils';
 import { getInitialWorkingDir } from './utils/workingDir';
 import { usePageViewTracking } from './hooks/useAnalytics';
@@ -178,6 +180,15 @@ export const PairRouteWrapper = ({
     setSearchParams,
     extensionsList,
   ]);
+
+  // Opening a session reads it; so does coming back to the window it is open in.
+  useEffect(() => {
+    if (!resumeSessionId) return;
+    const read = () => markSessionRead(resumeSessionId);
+    read();
+    window.addEventListener('focus', read);
+    return () => window.removeEventListener('focus', read);
+  }, [resumeSessionId]);
 
   // Add resumed session to active sessions if not already there
   useEffect(() => {
@@ -422,6 +433,15 @@ export function AppInner() {
     window.electron.on('system-resume', handleSystemResume);
     return () => window.electron.off('system-resume', handleSystemResume);
   }, []);
+
+  // `navigate` changes with the location; the sources subscribe once, so it goes via a ref.
+  const intl = useIntl();
+  const navigateRef = useRef(navigate);
+  navigateRef.current = navigate;
+  useEffect(
+    () => startNotifications({ intl, navigate: (route) => navigateRef.current(route) }),
+    [intl]
+  );
 
   useEffect(() => {
     acpListSessions()

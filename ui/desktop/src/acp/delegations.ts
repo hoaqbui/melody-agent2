@@ -39,6 +39,9 @@ const NO_DELEGATIONS: readonly Delegation[] = [];
 // Oldest first; a live event for a known child replaces its row in place.
 const delegationsByParent = new Map<string, readonly Delegation[]>();
 const listeners = new Set<() => void>();
+// Fed the raw event, not the rows: the notifications module (task 68) wants to know that a
+// child just ended, which the rows alone cannot tell from a seed.
+const updateListeners = new Set<(update: DelegationUpdate) => void>();
 
 function publish(parentSessionId: string, rows: readonly Delegation[]): void {
   delegationsByParent.set(parentSessionId, rows);
@@ -71,6 +74,16 @@ export function applyDelegationUpdate(update: DelegationUpdate): void {
       parentToolCallId: update.parentToolCallId ?? known?.parentToolCallId,
     })
   );
+  for (const listener of updateListeners) listener(update);
+}
+
+export function subscribeDelegationUpdates(
+  listener: (update: DelegationUpdate) => void
+): () => void {
+  updateListeners.add(listener);
+  return () => {
+    updateListeners.delete(listener);
+  };
 }
 
 // The children read carries no status, so a status a live event already

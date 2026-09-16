@@ -2991,6 +2991,14 @@ async function appMain() {
       // Remove any HTML tags for security
       const sanitizeText = (text: string) => text.replace(/<[^>]*>/g, '');
 
+      // Only an in-app hash route rides along; anything else is dropped, not navigated to.
+      const route =
+        typeof data.route === 'string' &&
+        data.route.startsWith('/') &&
+        data.route.length <= MAX_LENGTH
+          ? data.route
+          : undefined;
+
       const notification = new Notification({
         title: sanitizeText(data.title),
         body: sanitizeText(data.body),
@@ -3005,6 +3013,9 @@ async function appMain() {
           }
           window.show();
           window.focus();
+          if (route) {
+            window.webContents.send('notification-click', route);
+          }
         }
       });
 

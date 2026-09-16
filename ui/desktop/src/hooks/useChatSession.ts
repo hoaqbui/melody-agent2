@@ -1,5 +1,4 @@
 import { useCallback, useEffect, useMemo, useRef } from 'react';
-import { defineMessages, useIntl } from '../i18n';
 import { AppEvents } from '../constants/events';
 import { toastError } from '../toasts';
 import { ChatState } from '../types/chatState';
@@ -25,6 +24,7 @@ import {
 } from '../acp/chatSessionStore';
 import { acpSteerSession } from '../acp/prompt';
 import { isAcpRecovering } from '../acp/acpConnection';
+import { notifyTurnFinished } from '../notifications';
 
 const initialTokenState: TokenState = {
   inputTokens: 0,
@@ -43,23 +43,11 @@ function isSlashCommand(message: string): boolean {
   return message.trim().startsWith('/');
 }
 
-const i18n = defineMessages({
-  notificationTitle: {
-    id: 'chat.notification.taskComplete.title',
-    defaultMessage: 'Goose finished the task.',
-  },
-  notificationBody: {
-    id: 'chat.notification.taskComplete.body',
-    defaultMessage: 'Click here to bring Goose back into focus.',
-  },
-});
-
 export function useChatSession({
   sessionId,
   onStreamFinish,
   onSessionLoaded,
 }: UseChatSessionParams): UseChatSessionResult {
-  const intl = useIntl();
   const acpSnapshot = useAcpChatSessionSnapshot(sessionId);
   const messages = acpSnapshot?.messages ?? [];
   const session = acpSnapshot?.session;
@@ -108,29 +96,19 @@ export function useChatSession({
   }, [getCurrentSnapshot, sessionId]);
 
   const onFinish = useCallback(
-    async (error?: string): Promise<void> => {
+    (error?: string): void => {
       if (error) {
         toastError({ title: "Couldn't send message", msg: error });
       } else {
-        try {
-          const [notificationsEnabled, anyWindowFocused] = await Promise.all([
-            window.electron.getSetting('enableNotifications'),
-            window.electron.isAnyWindowFocused(),
-          ]);
-          if (notificationsEnabled === true && !anyWindowFocused) {
-            window.electron.showNotification({
-              title: intl.formatMessage(i18n.notificationTitle),
-              body: intl.formatMessage(i18n.notificationBody),
-            });
-          }
-        } catch (notifyError) {
-          console.warn('Failed to show task completion notification:', notifyError);
-        }
+        notifyTurnFinished({
+          sessionId,
+          workingDir: getCurrentSnapshot()?.session?.working_dir,
+        });
       }
 
       onStreamFinish();
     },
-    [intl, onStreamFinish]
+    [getCurrentSnapshot, onStreamFinish, sessionId]
   );
 
   const submitToAcpSession = useCallback(

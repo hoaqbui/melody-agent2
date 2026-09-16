@@ -1,3 +1,4 @@
+/* global Notification, NotificationPermission */
 import { useState, useEffect, useRef } from 'react';
 import { defineMessages, useIntl } from '../../../i18n';
 import { Switch } from '../../ui/switch';
@@ -99,6 +100,27 @@ const i18n = defineMessages({
     id: 'settings.phone.port.description',
     defaultMessage:
       'The address the phone bookmarks; 0 lets the system pick. Takes effect at the next launch',
+  },
+  phoneNotifications: {
+    id: 'settings.phone.notifications',
+    defaultMessage: 'Notifications on this phone',
+  },
+  phoneNotificationsDesc: {
+    id: 'settings.phone.notifications.description',
+    defaultMessage:
+      'Ask the browser once to show a notification when work finishes; until then a finished session only gets a dot',
+  },
+  phoneNotificationsAllow: {
+    id: 'settings.phone.notifications.allow',
+    defaultMessage: 'Allow notifications',
+  },
+  phoneNotificationsAllowed: {
+    id: 'settings.phone.notifications.allowed',
+    defaultMessage: 'Allowed',
+  },
+  phoneNotificationsBlocked: {
+    id: 'settings.phone.notifications.blocked',
+    defaultMessage: 'Blocked in the browser — allow them in its site settings',
   },
   languageTitle: { id: 'settings.language.title', defaultMessage: 'Language' },
   languageDesc: {
@@ -212,6 +234,13 @@ interface AppSettingsSectionProps {
   scrollToSection?: string;
 }
 
+// The phone's browser has to be asked for notifications; Electron never is (task 68).
+const IS_WEB_BUILD = !/\bElectron\//.test(window.navigator.userAgent);
+
+function browserNotificationPermission(): NotificationPermission {
+  return typeof Notification === 'undefined' ? 'denied' : Notification.permission;
+}
+
 // Black on white whatever the theme: a scanner wants dark modules on a light ground.
 function PhoneQr({ url, label }: { url: string; label: string }) {
   const { viewBox, path } = qrSvg(qr(url));
@@ -246,6 +275,9 @@ export default function AppSettingsSection({ scrollToSection }: AppSettingsSecti
   // undefined until read; null when the sidecar has no tailnet listener.
   const [phoneUrl, setPhoneUrl] = useState<string | null | undefined>();
   const [phoneCopied, setPhoneCopied] = useState(false);
+  const [phoneNotifications, setPhoneNotifications] = useState<NotificationPermission>(() =>
+    IS_WEB_BUILD ? browserNotificationPermission() : 'default'
+  );
   const [sidecarPort, setSidecarPort] = useState('');
   const [isDarkMode, setIsDarkMode] = useState(false);
   const updateSectionRef = useRef<HTMLDivElement>(null);
@@ -396,6 +428,11 @@ export default function AppSettingsSection({ scrollToSection }: AppSettingsSecti
     await navigator.clipboard.writeText(phoneUrl);
     setPhoneCopied(true);
     setTimeout(() => setPhoneCopied(false), 1500);
+  };
+
+  const handlePhoneNotifications = async () => {
+    await window.electron.requestNotificationPermission();
+    setPhoneNotifications(browserNotificationPermission());
   };
 
   // Anything but a port in range reverts, as the main process would on read.
@@ -629,6 +666,37 @@ export default function AppSettingsSection({ scrollToSection }: AppSettingsSecti
                     </Button>
                   </div>
                 </div>
+              </div>
+            )}
+            {IS_WEB_BUILD && (
+              <div className="flex items-center justify-between gap-4">
+                <div>
+                  <h3 className="text-text-primary text-xs">
+                    {intl.formatMessage(i18n.phoneNotifications)}
+                  </h3>
+                  <p className="text-xs text-text-secondary max-w-md mt-[2px]">
+                    {intl.formatMessage(
+                      phoneNotifications === 'denied'
+                        ? i18n.phoneNotificationsBlocked
+                        : i18n.phoneNotificationsDesc
+                    )}
+                  </p>
+                </div>
+                <Button
+                  variant="secondary"
+                  size="sm"
+                  className="flex items-center gap-2"
+                  onClick={handlePhoneNotifications}
+                  disabled={phoneNotifications !== 'default'}
+                  data-testid="settings-phone-notifications"
+                >
+                  {phoneNotifications === 'granted' && <Check />}
+                  {intl.formatMessage(
+                    phoneNotifications === 'granted'
+                      ? i18n.phoneNotificationsAllowed
+                      : i18n.phoneNotificationsAllow
+                  )}
+                </Button>
               </div>
             )}
             <div className="flex items-center justify-between gap-4">

@@ -42,6 +42,8 @@ function parseLocalStorageValue<K extends SettingKey>(
 interface NotificationData {
   title: string;
   body: string;
+  // A hash route the renderer opens when the notification is clicked (task 68).
+  route?: string;
 }
 
 interface MessageBoxOptions {
@@ -142,6 +144,8 @@ type ElectronAPI = {
   setSpellcheck: (enable: boolean) => Promise<boolean>;
   getSpellcheckState: () => Promise<boolean>;
   openNotificationsSettings: () => Promise<boolean>;
+  // Electron needs no permission; the web build asks the browser once, from Settings › App.
+  requestNotificationPermission: () => Promise<boolean>;
   isAnyWindowFocused: () => Promise<boolean>;
   getIsFullScreen: () => Promise<boolean>;
   onMouseBackButtonClicked: (callback: () => void) => void;
@@ -271,6 +275,7 @@ const electronAPI: ElectronAPI = {
   setSpellcheck: (enable: boolean) => ipcRenderer.invoke('set-spellcheck', enable),
   getSpellcheckState: () => ipcRenderer.invoke('get-spellcheck-state'),
   openNotificationsSettings: () => ipcRenderer.invoke('open-notifications-settings'),
+  requestNotificationPermission: () => Promise.resolve(true),
   isAnyWindowFocused: () => ipcRenderer.invoke('is-any-window-focused'),
   getIsFullScreen: () => ipcRenderer.invoke('get-is-fullscreen'),
   onMouseBackButtonClicked: (callback: () => void) => {

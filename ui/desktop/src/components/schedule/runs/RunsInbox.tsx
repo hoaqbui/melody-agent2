@@ -1,15 +1,15 @@
-// The Runs inbox (task 53): every scheduled run across schedules, newest first, polled every
-// 15 s while the Schedules route is open. Open lands in pair with Changes since session
-// start; Dismiss archives the session; Accept stages the paths the run's diff touches and
-// commits them through the sidecar, only in the checkout this window's sidecar serves. A run
-// that had its own worktree (task 54) commits there and Accept then merges its branch into
-// the main checkout; Dismiss removes the worktree first.
+// The Runs inbox (task 53): every scheduled run across schedules, newest first, from the
+// poll it shares with the finish notifications (`acp/runsPoll.ts`, task 68). Open lands in
+// pair with Changes since session start; Dismiss archives the session; Accept stages the
+// paths the run's diff touches and commits them through the sidecar, only in the checkout
+// this window's sidecar serves. A run that had its own worktree (task 54) commits there and
+// Accept then merges its branch into the main checkout; Dismiss removes the worktree first.
 
-import { useCallback, useEffect, useRef, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import type { ScheduledJobDto, ScheduleRunDto } from '@aaif/goose-acp-client';
 import { Inbox } from 'lucide-react';
 import { defineMessages, useIntl } from '../../../i18n';
-import { acpListScheduleRuns } from '../../../acp/schedules';
+import { refreshScheduleRuns, useScheduleRuns } from '../../../acp/runsPoll';
 import { acpArchiveSession } from '../../../acp/sessions';
 import { useConfig } from '../../ConfigContext';
 import { useNavigation } from '../../../hooks/useNavigation';
@@ -28,7 +28,6 @@ import {
   type SidecarConfig,
 } from '../../../native/sidecar';
 import { Button } from '../../ui/button';
-import { errorMessage } from '../../../utils/conversionUtils';
 import { toastSuccess } from '../../../toasts';
 import { RunRow } from './RunRow';
 import {
@@ -72,9 +71,6 @@ const i18n = defineMessages({
   },
 });
 
-const POLL_MS = 15_000;
-const LIMIT = 50;
-
 function localStorageOrNull(): SeenStorage | null {
   try {
     return window.localStorage;
@@ -91,8 +87,8 @@ export function RunsInbox({ schedules }: RunsInboxProps) {
   const intl = useIntl();
   const setView = useNavigation();
   const { config } = useConfig();
-  const [runs, setRuns] = useState<ScheduleRunDto[] | null>(null);
-  const [error, setError] = useState<string | null>(null);
+  const { runs: listed, error } = useScheduleRuns();
+  const runs = useMemo(() => (listed ? visibleRuns(listed) : null), [listed]);
   // undefined until /config answers; null when the sidecar is not reachable.
   const [sidecarCwd, setSidecarCwd] = useState<string | null | undefined>();
   const [acting, setActing] = useState<Set<string>>(new Set());
@@ -100,26 +96,19 @@ export function RunsInbox({ schedules }: RunsInboxProps) {
   const storage = useRef(localStorageOrNull());
   const [seen, setSeen] = useState<SeenMap>(() => loadSeen(storage.current));
 
-  const fetchRuns = useCallback(async () => {
-    try {
-      const listed = visibleRuns(await acpListScheduleRuns(LIMIT));
-      setRuns(listed);
-      setError(null);
-      setSeen((current) => {
-        const pruned = pruneSeen(current, listed);
-        if (pruned !== current) saveSeen(storage.current, pruned);
-        return pruned;
-      });
-    } catch (cause) {
-      setError(errorMessage(cause, 'Failed to list runs'));
-    }
+  // The shared poll runs for the app's life; opening the inbox should not wait for its tick.
+  useEffect(() => {
+    void refreshScheduleRuns();
   }, []);
 
   useEffect(() => {
-    fetchRuns();
-    const interval = setInterval(fetchRuns, POLL_MS);
-    return () => clearInterval(interval);
-  }, [fetchRuns]);
+    if (!runs) return;
+    setSeen((current) => {
+      const pruned = pruneSeen(current, runs);
+      if (pruned !== current) saveSeen(storage.current, pruned);
+      return pruned;
+    });
+  }, [runs]);
 
   useEffect(() => {
     let cancelled = false;
@@ -175,7 +164,7 @@ export function RunsInbox({ schedules }: RunsInboxProps) {
         await sidecarFetch('/git/worktree/remove', remove);
       }
       await acpArchiveSession(run.sessionId);
-      await fetchRuns();
+      await refreshScheduleRuns();
     });
 
   // The base is HEAD as the reflog had it when the run started, so a commit the run made
@@ -238,7 +227,12 @@ export function RunsInbox({ schedules }: RunsInboxProps) {
       {state === 'error' && (
         <div className="rounded-panel bg-background-danger p-4" role="alert">
           <p className="whitespace-pre-wrap font-mono text-xs text-text-danger">{error}</p>
-          <Button className="mt-2" variant="outline" size="xs" onClick={fetchRuns}>
+          <Button
+            className="mt-2"
+            variant="outline"
+            size="xs"
+            onClick={() => void refreshScheduleRuns()}
+          >
             {intl.formatMessage(i18n.retry)}
           </Button>
         </div>

@@ -2759,6 +2759,33 @@
   "navigationPanel.untitledSession": {
     "defaultMessage": "Sessione senza titolo"
   },
+  "notifications.burst.runs": {
+    "defaultMessage": "{count,plural,one{# routine run finished} other{# routine runs finished}}"
+  },
+  "notifications.burst.tasks": {
+    "defaultMessage": "{count,plural,one{# task finished} other{# tasks finished}}"
+  },
+  "notifications.burst.workers": {
+    "defaultMessage": "{count,plural,one{# worker finished} other{# workers finished}}"
+  },
+  "notifications.run.done": {
+    "defaultMessage": "Routine run finished"
+  },
+  "notifications.run.failed": {
+    "defaultMessage": "Routine run failed"
+  },
+  "notifications.run.killed": {
+    "defaultMessage": "Routine run was stopped"
+  },
+  "notifications.turn.worktreeBody": {
+    "defaultMessage": "Finished on {branch}. Click here to bring Goose back into focus."
+  },
+  "notifications.worker.done": {
+    "defaultMessage": "Worker finished"
+  },
+  "notifications.worker.failed": {
+    "defaultMessage": "Worker failed"
+  },
   "onboardingGuard.checkProviderErrorDescription": {
     "defaultMessage": "Il server potrebbe essere in fase di avvio o temporaneamente non disponibile."
   },
@@ -4597,6 +4624,21 @@
   },
   "settings.phone.noTailnet": {
     "defaultMessage": "No tailnet address — start Tailscale and relaunch goose"
+  },
+  "settings.phone.notifications": {
+    "defaultMessage": "Notifications on this phone"
+  },
+  "settings.phone.notifications.allow": {
+    "defaultMessage": "Allow notifications"
+  },
+  "settings.phone.notifications.allowed": {
+    "defaultMessage": "Allowed"
+  },
+  "settings.phone.notifications.blocked": {
+    "defaultMessage": "Blocked in the browser — allow them in its site settings"
+  },
+  "settings.phone.notifications.description": {
+    "defaultMessage": "Ask the browser once to show a notification when work finishes; until then a finished session only gets a dot"
   },
   "settings.phone.port": {
     "defaultMessage": "Port"
