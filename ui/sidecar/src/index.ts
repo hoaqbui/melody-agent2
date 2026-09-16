@@ -1,6 +1,6 @@
 import { randomUUID } from 'node:crypto';
 import { readFileSync } from 'node:fs';
-import { createServer, type IncomingMessage, type ServerResponse } from 'node:http';
+import { createServer } from 'node:http';
 import path from 'node:path';
 import { WebSocketServer } from 'ws';
 
@@ -9,7 +9,7 @@ import { parseArgs } from './args.js';
 import { isPrivateAddress, resolveBindAddress } from './bind.js';
 import { attachFsWatch, fsRoutes } from './fs.js';
 import { gitRoutes } from './git.js';
-import { HttpError, type JsonHandler, readJsonBody, sendJson, sendText } from './http.js';
+import { corsHeaders, type JsonHandler, jsonDispatcher, sendJson, sendText } from './http.js';
 import { attachPty, ensureSpawnHelperExecutable, killAllPty } from './pty.js';
 import { serveStatic } from './static.js';
 
@@ -41,40 +41,27 @@ const main = async (): Promise<void> => {
       ? { gooseUrl: args.gooseUrl, certFingerprint: args.gooseCertFingerprint, token }
       : null;
   const routes: Record<string, JsonHandler> = { ...fsRoutes(cwd), ...gitRoutes(cwd) };
-
-  const handleJson = async (
-    handler: JsonHandler,
-    request: IncomingMessage,
-    response: ServerResponse
-  ): Promise<void> => {
-    try {
-      sendJson(response, 200, await handler(await readJsonBody(request)));
-    } catch (error) {
-      const status = error instanceof HttpError ? error.status : 500;
-      sendJson(response, status, { error: error instanceof Error ? error.message : String(error) });
-    }
-  };
+  const dispatchJson = jsonDispatcher(routes, args.allowedOrigins);
 
   const server = createServer((request, response) => {
     const url = new URL(request.url ?? '/', 'http://sidecar');
+    const cors = corsHeaders(request, args.allowedOrigins);
     if (request.method === 'GET' && url.pathname === '/health') {
-      sendText(response, 200, 'ok');
+      sendText(response, 200, 'ok', cors);
       return;
     }
     if (request.method === 'GET' && url.pathname === '/config') {
-      sendJson(response, 200, { GOOSE_WORKING_DIR: cwd, GOOSE_VERSION: version });
+      sendJson(response, 200, { GOOSE_WORKING_DIR: cwd, GOOSE_VERSION: version }, cors);
       return;
     }
-    const handler = routes[`${request.method} ${url.pathname}`];
-    if (handler) {
-      void handleJson(handler, request, response);
+    if (dispatchJson(request, response)) {
       return;
     }
     if (args.staticDir && request.method === 'GET') {
       void serveStatic(args.staticDir, request, response);
       return;
     }
-    sendText(response, 404, 'not found');
+    sendText(response, 404, 'not found', cors);
   });
 
   const sockets = new WebSocketServer({ noServer: true });
