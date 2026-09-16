@@ -78,8 +78,22 @@ pub struct RecipeSettingsDto {
     pub temperature: Option<f32>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub max_turns: Option<usize>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub goose_mode: Option<RecipeGooseModeDto>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub working_dir: Option<String>,
     #[serde(default)]
     pub worktree: bool,
+}
+
+/// The goose mode a scheduled run of the recipe gets, spelled as the `session/set_mode` ids.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize, JsonSchema)]
+#[serde(rename_all = "snake_case")]
+pub enum RecipeGooseModeDto {
+    Auto,
+    Approve,
+    SmartApprove,
+    Chat,
 }
 
 #[derive(Debug, Default, Clone, Serialize, Deserialize, JsonSchema)]

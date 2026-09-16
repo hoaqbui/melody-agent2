@@ -5,6 +5,7 @@ import {
   ROUTINE_DESCRIPTION,
   TRIGGER_CRON,
   firstUserPrompt,
+  gooseMode,
   routineRecipe,
   routineScheduleId,
   triggerCron,
@@ -74,12 +75,15 @@ describe('routineRecipe', () => {
     extensionKey: 'developer',
   };
 
-  it('carries the title, the prompt as instructions and the provider · model', () => {
+  it('carries the title, the prompt as instructions and the settings a run honours', () => {
     const recipe = routineRecipe({
       title: ' Tidy ',
       instructions: 'Append a line\n',
       provider: 'claude-acp',
       model: 'claude-sonnet-4-5',
+      mode: 'smart_approve',
+      cwd: '/work/repo',
+      worktree: true,
       extensions: [extension],
     });
     expect(recipe).toEqual({
@@ -88,8 +92,21 @@ describe('routineRecipe', () => {
       description: ROUTINE_DESCRIPTION,
       instructions: 'Append a line',
       extensions: [{ type: 'builtin', name: 'developer' }],
-      settings: { goose_provider: 'claude-acp', goose_model: 'claude-sonnet-4-5' },
+      settings: {
+        goose_provider: 'claude-acp',
+        goose_model: 'claude-sonnet-4-5',
+        goose_mode: 'smart_approve',
+        working_dir: '/work/repo',
+        worktree: true,
+      },
     });
+  });
+
+  it('writes only the modes the scheduler knows', () => {
+    expect(gooseMode('approve')).toBe('approve');
+    expect(gooseMode('auto')).toBe('auto');
+    expect(gooseMode('Auto')).toBeUndefined();
+    expect(gooseMode(undefined)).toBeUndefined();
   });
 
   it("leaves the session's bridge out: its port and secret die with the process", () => {
@@ -103,18 +120,32 @@ describe('routineRecipe', () => {
     const recipe = routineRecipe({
       title: 'Tidy',
       instructions: 'x',
+      cwd: '/work/repo',
+      worktree: false,
       extensions: [bridge, extension],
     });
     expect(recipe.extensions).toEqual([{ type: 'builtin', name: 'developer' }]);
     expect(JSON.stringify(recipe)).not.toContain('secret');
     expect(
-      routineRecipe({ title: 'Tidy', instructions: 'x', extensions: [bridge] })
+      routineRecipe({
+        title: 'Tidy',
+        instructions: 'x',
+        cwd: '/work/repo',
+        worktree: false,
+        extensions: [bridge],
+      })
     ).not.toHaveProperty('extensions');
   });
 
-  it('leaves extensions and settings out when the session has none', () => {
-    const recipe = routineRecipe({ title: 'Tidy', instructions: 'x', extensions: [] });
+  it('leaves extensions out when the session has none; the folder always travels', () => {
+    const recipe = routineRecipe({
+      title: 'Tidy',
+      instructions: 'x',
+      cwd: '/work/repo',
+      worktree: false,
+      extensions: [],
+    });
     expect('extensions' in recipe).toBe(false);
-    expect('settings' in recipe).toBe(false);
+    expect(recipe.settings).toEqual({ working_dir: '/work/repo', worktree: false });
   });
 });

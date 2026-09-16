@@ -1,5 +1,5 @@
 import { execFileSync } from 'child_process';
-import { existsSync, mkdirSync, mkdtempSync, writeFileSync } from 'fs';
+import { existsSync, mkdirSync, mkdtempSync, readFileSync, writeFileSync } from 'fs';
 import { tmpdir } from 'os';
 import { join } from 'path';
 import { test, expect, setAdvancedControls } from './fixtures';
@@ -10,6 +10,10 @@ import { test, expect, setAdvancedControls } from './fixtures';
 // routine listed (paused); Run now runs it and the run lands in the Runs inbox; opening the
 // run shows the "Routine: <title>" chip, which links back to the schedule. The window opens
 // on a scratch repo (GOOSE_TEST_DIR) so the run's cwd is the sidecar's, as runs-inbox does.
+// Task 63: the recipe Save writes carries the runtime, mode and folder the sheet showed
+// (`settings.goose_provider` / `goose_model` / `goose_mode` / `working_dir`, `worktree`
+// unchecked), and the run's session (GOOSE_PATH_ROOT sessions.db) ran on that provider in
+// that folder.
 const stamp = Date.now();
 const routineTitle = `t59-routine-${stamp}`;
 const prompt =
@@ -78,6 +82,9 @@ test.describe('routine', () => {
       console.log(`runs with: ${await runsWith.textContent()}`);
       await goosePage.screenshot({ path: test.info().outputPath('routine-sheet.png') });
 
+      const worktree = sheet.locator('[data-testid="routine-worktree"]');
+      await expect(worktree).not.toBeChecked();
+
       // The title is the schedule id; a stamp keeps reruns from colliding.
       await title.fill(routineTitle);
       await sheet.locator('[data-testid="routine-save"]').click();
@@ -90,6 +97,20 @@ test.describe('routine', () => {
       await setAdvancedControls(goosePage, false);
       throw error;
     }
+
+    const pathRoot = process.env.GOOSE_PATH_ROOT;
+    expect(pathRoot, 'GOOSE_PATH_ROOT names the Goose root the walk runs under').toBeTruthy();
+    const yaml = readFileSync(
+      join(pathRoot as string, 'data/scheduled_recipes', `${routineTitle}.yaml`),
+      'utf8'
+    );
+    console.log(`saved settings:\n${yaml.slice(yaml.indexOf('settings:'))}`);
+    const setting = (key: string) => yaml.match(new RegExp(`^  ${key}: (.+)$`, 'm'))?.[1];
+    expect(setting('goose_provider')).toBeTruthy();
+    expect(setting('goose_model')).toBeTruthy();
+    expect(setting('goose_mode')).toBe('auto');
+    expect(setting('working_dir')).toBe(scratch);
+    expect(yaml).not.toContain('worktree');
 
     const card = goosePage.locator('h3', { hasText: routineTitle }).first();
     await expect(card).toBeVisible({ timeout: 30000 });
@@ -114,6 +135,17 @@ test.describe('routine', () => {
       path: test.info().outputPath('routine-run.png'),
       fullPage: true,
     });
+
+    // The run's session carries what the sheet showed and the YAML says.
+    const runSession = execFileSync('sqlite3', [
+      join(pathRoot as string, 'data/sessions/sessions.db'),
+      `select provider_name, working_dir, goose_mode from sessions where schedule_id = '${routineTitle}'`,
+    ])
+      .toString()
+      .trim();
+    console.log(`run session: ${runSession}`);
+    expect(runSession).toBe(`${setting('goose_provider')}|${scratch}|auto`);
+    expect(readFileSync(join(scratch, 'notes.md'), 'utf8')).toContain('t59 ran');
 
     // The run's session names its routine and links back to the schedule.
     await row.locator('[data-testid="runs-inbox-open"]').click();

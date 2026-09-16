@@ -1,7 +1,8 @@
 // "Save as routine…" (task 59): a sheet prefilled from the open session — title, the first
 // user prompt as instructions, the provider · model · mode · extensions · working directory
-// it ran with — and a trigger. Save writes the recipe to the library, then registers it with
-// the scheduler (paused when Manual, so Run now still has a job), and closes into Schedules.
+// it ran with — a trigger, and whether each run gets its own worktree (task 63). Save writes
+// the recipe to the library, then registers it with the scheduler (paused when Manual, so
+// Run now still has a job), and closes into Schedules.
 
 import { useEffect, useState, type FormEvent } from 'react';
 import { defineMessages, useIntl } from '../../i18n';
@@ -67,6 +68,7 @@ const i18n = defineMessages({
       'Saved paused, on the daily cron: Run now on Schedules runs it, Resume makes it daily.',
   },
   cronField: { id: 'routineSheet.cronField', defaultMessage: 'Cron expression' },
+  worktree: { id: 'routineSheet.worktree', defaultMessage: 'Run in its own worktree' },
   cronInvalid: { id: 'routineSheet.cronInvalid', defaultMessage: 'Six fields, seconds first' },
   titleRequired: { id: 'routineSheet.titleRequired', defaultMessage: 'Give the routine a title' },
   promptRequired: {
@@ -139,6 +141,7 @@ export function RoutineSheet({
   const [instructions, setInstructions] = useState(initialInstructions);
   const [trigger, setTrigger] = useState<Trigger>('manual');
   const [customCron, setCustomCron] = useState(TRIGGER_CRON.daily);
+  const [worktree, setWorktree] = useState(false);
   // undefined while the session's extensions are still being read.
   const [extensions, setExtensions] = useState<SessionExtension[] | undefined>();
   const [saving, setSaving] = useState(false);
@@ -152,6 +155,7 @@ export function RoutineSheet({
     setInstructions(initialInstructions);
     setTrigger('manual');
     setCustomCron(TRIGGER_CRON.daily);
+    setWorktree(false);
     setError(null);
     setRecipeId(null);
     setExtensions(undefined);
@@ -195,6 +199,9 @@ export function RoutineSheet({
         instructions,
         provider: selectedValue(options, 'provider'),
         model: selectedValue(options, 'model'),
+        mode: selectedValue(options, 'mode'),
+        cwd,
+        worktree,
         extensions,
       });
       const saved = await saveRecipe(recipe, recipeId);
@@ -298,7 +305,17 @@ export function RoutineSheet({
                 </span>
               </label>
             )}
-            {/* TODO(task 54): "Run in its own worktree" once recipe settings carry `worktree`. */}
+            <label className="flex items-center gap-2 text-sm">
+              <input
+                type="checkbox"
+                checked={worktree}
+                onChange={(event) => setWorktree(event.target.checked)}
+                disabled={saving}
+                className="accent-bgApp"
+                data-testid="routine-worktree"
+              />
+              {intl.formatMessage(i18n.worktree)}
+            </label>
 
             {error && (
               <p className="text-sm text-text-danger" role="alert" data-testid="routine-error">
