@@ -2,7 +2,7 @@
 name: advisor-security
 description: Advisor for plans that touch preload, the sidecar, provider spawn, permission modes, or anything that runs a worker's output; judges trust boundaries.
 runtimes:
-  - { provider: claude-acp, model: claude-fable-5-1,       weight: 1 }
+  - { provider: claude-code, model: claude-fable-5-1,      weight: 1 }
   - { provider: codex-acp,  model: gpt-5.6-sol,            weight: 1 }
   - { provider: cursor-acp, model: cursor-grok-4.6-xhigh,  weight: 1 }
 ---

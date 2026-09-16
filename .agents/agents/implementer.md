@@ -2,7 +2,7 @@
 name: implementer
 description: Executes an approved plan within scope and returns BLOCKED when its assumption fails.
 runtimes:
-  - { provider: claude-acp, model: claude-sonnet-5,       weight: 9 }
+  - { provider: claude-code, model: claude-sonnet-5,      weight: 9 }
   - { provider: agy,        model: gemini-3.8-flash-high, weight: 1 }
 ---
 

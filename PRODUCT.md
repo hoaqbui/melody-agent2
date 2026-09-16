@@ -68,7 +68,7 @@ User → Claude ─┬─ agy            research
 
 | Runtime | Subscription (2026-09-15) | Goose provider | Models used | Carries |
 |---|---|---|---|---|
-| Claude Code | Claude Max, $200/mo | `claude-acp` | `claude-opus-5`, `claude-sonnet-5`, `claude-fable-5-1` | orchestration, implementation, planner backup, one advisor seat |
+| Claude Code | Claude Max, $200/mo | `claude-code` (`claude-acp` kept for Direct sessions) | `claude-opus-5`, `claude-sonnet-5`, `claude-fable-5-1` | orchestration, implementation, planner backup, one advisor seat |
 | Codex | ChatGPT Plus, $20/mo | `codex-acp` | `gpt-6-astra`, `gpt-5.6-sol` | planning, review, one advisor seat |
 | Cursor Agent | Cursor Pro, $20/mo | `cursor-acp` (new) | `cursor-grok-4.6-{medium,high,xhigh}` | Grok: backup seat on research, review, orchestrator; one advisor seat |
 | Antigravity (agy) | Google AI Pro, $200/yr | `agy` (new) | `gemini-3.8-flash-high` | research, implementer backup |
@@ -85,12 +85,12 @@ User → Claude ─┬─ agy            research
 
 | Role | Primary (weight 9) | Backup (weight 1) |
 |---|---|---|
-| Orchestrator | Claude Opus 5 · `claude-acp` | Grok `cursor-grok-4.6-high` — fail-over only |
+| Orchestrator | Claude Opus 5 · `claude-code` | Grok `cursor-grok-4.6-high` — fail-over only |
 | Researcher | agy `gemini-3.8-flash-high` | Grok `cursor-grok-4.6-medium` |
-| Planner | Codex `gpt-6-astra` · `codex-acp` | Claude Opus 5 |
-| Implementer | Claude Sonnet 5 · `claude-acp` | agy `gemini-3.8-flash-high` |
+| Planner | Codex `gpt-6-astra` · `codex-acp` | Claude Opus 5 · `claude-code` |
+| Implementer | Claude Sonnet 5 · `claude-code` | agy `gemini-3.8-flash-high` |
 | Reviewer | Codex `gpt-5.6-sol` · `codex-acp` | Grok `cursor-grok-4.6-high` |
-| Advisor + specialists | ⅓ Claude Fable 5.1 · ⅓ Codex `gpt-5.6-sol` · ⅓ Grok `cursor-grok-4.6-xhigh`, minus the artifact's author | — |
+| Advisor + specialists | ⅓ Claude Fable 5.1 · `claude-code` · ⅓ Codex `gpt-5.6-sol` · ⅓ Grok `cursor-grok-4.6-xhigh`, minus the artifact's author | — |
 
 How the roll works — data, not prompt text:
 
@@ -365,7 +365,7 @@ Roles are Goose custom agents, read from the project's `.agents/agents/` (Goose 
 name: implementer
 description: Executes approved implementation plans
 runtimes:
-  - { provider: claude-acp, model: claude-sonnet-5,       weight: 9 }
+  - { provider: claude-code, model: claude-sonnet-5,      weight: 9 }
   - { provider: agy,        model: gemini-3.8-flash-high, weight: 1 }
 ---
 

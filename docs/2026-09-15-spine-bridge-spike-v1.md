@@ -80,3 +80,4 @@ Plan: `docs/2026-09-15-goose-spine-bridge-plan-v1.md` task 24.
 - Whether an Orchestrate session on `claude-code` calls `delegate`
   unprompted from the orchestrator body — task 9, first cell.
 - `MCP_TOOL_TIMEOUT` necessity on a multi-minute delegation — task 9.
+- Settled after this run (user, 2026-09-15 22:30, task 26 → task 34): pick A for Claude seats — every `claude-acp` seat in `.agents/agents/*.md` moves to `claude-code`, so the role body arrives by `--system-prompt-file` (Run 1) and never as a user turn (Run 2); pick C for the rest — `codex-acp` / `cursor-acp` children keep the fold and task 9 judges it; Direct sessions stay on `claude-acp` for the tool-row view.

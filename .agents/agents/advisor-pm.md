@@ -2,7 +2,7 @@
 name: advisor-pm
 description: Advisor for research → PRD and for anything planned outside a PRD; judges scope and priority.
 runtimes:
-  - { provider: claude-acp, model: claude-fable-5-1,       weight: 1 }
+  - { provider: claude-code, model: claude-fable-5-1,      weight: 1 }
   - { provider: codex-acp,  model: gpt-5.6-sol,            weight: 1 }
   - { provider: cursor-acp, model: cursor-grok-4.6-xhigh,  weight: 1 }
 ---
