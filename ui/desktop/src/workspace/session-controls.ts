@@ -68,6 +68,9 @@ export interface StopTriple {
   provider: string;
   // The stop's model is whichever the adapter lists that matches; ids are adapter data.
   modelMatch: RegExp;
+  // The claude CLI publishes no model list (its `initialize` returns `models: []`), so the
+  // stop takes whatever the adapter is set to when nothing matches, instead of reading Custom.
+  anyModel?: boolean;
   mode: Mode;
 }
 
@@ -75,16 +78,18 @@ export interface StopTriple {
 export const LEVER: Record<Stop, StopTriple> = {
   easy: { provider: 'claude-acp', modelMatch: /sonnet/i, mode: 'direct' },
   medium: { provider: 'claude-acp', modelMatch: /opus/i, mode: 'direct' },
-  hard: { provider: 'claude-code', modelMatch: /opus/i, mode: 'orchestrate' },
+  hard: { provider: 'claude-code', modelMatch: /opus/i, anyModel: true, mode: 'orchestrate' },
 };
 
 export function stopModel(
   stop: Stop,
   choices: readonly { value: string; name: string }[]
 ): string | undefined {
-  const { modelMatch } = LEVER[stop];
-  return choices.find((choice) => modelMatch.test(choice.value) || modelMatch.test(choice.name))
-    ?.value;
+  const { modelMatch, anyModel } = LEVER[stop];
+  const matched = choices.find(
+    (choice) => modelMatch.test(choice.value) || modelMatch.test(choice.name)
+  )?.value;
+  return matched ?? (anyModel ? choices[0]?.value : undefined);
 }
 
 // The stop whose triple the session matches; Custom when none does (Advanced left it
@@ -100,7 +105,7 @@ export function stopOfSession(
       return (
         triple.provider === session.provider_name &&
         triple.mode === mode &&
-        triple.modelMatch.test(model)
+        (triple.anyModel || triple.modelMatch.test(model))
       );
     }) ?? 'custom'
   );

@@ -74,8 +74,9 @@ test.describe('easy mode', () => {
         const models = await menu
           .locator('[data-testid^="workspace-config-model-"]')
           .evaluateAll((rows) => rows.map((row) => row.textContent ?? ''));
-        opusListed = models.some((model) => /opus/i.test(model));
-        // The adapter's list decides between Hard and Custom; the run says which it saw.
+        // Hard takes the adapter's sole model when none matches (the claude CLI lists no
+        // models), so any non-empty list lands on Hard; the run says what it saw.
+        opusListed = models.length > 0;
         console.log(`claude-code models: ${models.join(', ')} → ${opusListed ? 'hard' : 'custom'}`);
       }
       await expect(menu.locator('[data-testid="workspace-cwd"]')).toBeVisible();

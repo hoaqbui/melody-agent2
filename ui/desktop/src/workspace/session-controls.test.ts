@@ -99,7 +99,16 @@ describe('session controls', () => {
     expect(stopModel('easy', choices)).toBe('claude-sonnet-5');
     expect(stopModel('medium', choices)).toBe('opus[1m]');
     expect(stopModel('hard', choices)).toBe('opus[1m]');
-    expect(stopModel('hard', [{ value: 'default', name: 'Default' }])).toBeUndefined();
+    // The claude CLI lists no models: Hard takes the sole one rather than reading Custom.
+    expect(stopModel('hard', [{ value: 'default', name: 'Default' }])).toBe('default');
+    expect(stopModel('easy', [{ value: 'default', name: 'Default' }])).toBeUndefined();
+    expect(
+      stopOfSession({
+        provider_name: 'claude-code',
+        model_config: { model_name: 'default' },
+        recipe: { title: 'Orchestrator' },
+      } as never)
+    ).toBe('hard');
   });
 
   it('reads the stop off the session and Custom off anything else', () => {
