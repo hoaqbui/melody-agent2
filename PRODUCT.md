@@ -45,6 +45,10 @@ Read this before research or a PRD; a PRD or plan that contradicts it is a findi
 
 - The heaviest roles (Implementer, Researcher) sit on the largest subscription or the cheapest model; the $20-class tiers carry low-volume judgment roles and backup seats (§5, §9).
 
+### 3.6 Verification is a command, not a suite
+
+- Every task carries one `confirm:` command with an expected output; that is the check. Test *suites* are a tier a project opts into when its long-term sustainability is the point (§8 Verification tiers); the default, and the expectation right now, is light.
+
 ## 4. Modes
 
 - **Orchestrate** (default) — Claude owns the request and chooses when to delegate:
@@ -112,7 +116,7 @@ Each role: the question it answers, its responsibilities, its authority, the rul
 ### 7.1 Orchestrator
 
 - **Question:** what are we trying to accomplish, and what should happen next?
-- **Does:** understands intent; clarifies scope internally; sizes the task and picks the RPI tier (§8); chooses roles and delegates with bounded context; holds the current objective; reconciles conflicting results; decides when work returns to Research or Plan; accepts or rejects implementation; communicates the result.
+- **Does:** understands intent; clarifies scope internally; sizes the task and picks the RPI tier (§8); **for a big or complex project, plans the program itself** — decomposes it into tranches, sequences them, names the gate each must pass and which tranches need research first, and keeps that program plan as its own context; chooses roles and delegates with bounded context (one tranche at a time to the Planner); holds the current objective; reconciles conflicting results; decides when work returns to Research or Plan; accepts or rejects implementation; communicates the result.
 - **Retains:** goal, constraints, key architectural facts, research conclusions, current plan, worker results, review findings, task state. **Avoids:** repository crawling, large logs, doing mechanical implementation itself, duplicating worker effort.
 - **Authority:** `initiative: owner · can_delegate: yes · can_change_plan: yes · can_accept_work: yes`.
 - **Rules:** call `delegate(source: "<role>")` and never pass `provider:` unless overriding the role file; one advisor per gate, with `exclude_provider` set to the artifact's author (§6, §7.7); never roll itself.
@@ -151,8 +155,8 @@ Each role: the question it answers, its responsibilities, its authority, the rul
 ### 7.3 Planner / Architect
 
 - **Question:** given what we learned, exactly what should we do?
-- **Does:** interprets research; defines the solution and compares alternatives; names architectural boundaries, scope, sequencing; breaks work into implementable tasks with likely files; defines acceptance criteria and testing expectations; names migration concerns; states out-of-scope work; surfaces unresolved decisions.
-- **Rule:** does not modify code. The plan is detailed enough that the Implementer never re-invents the architecture.
+- **Does:** interprets research; defines the solution and compares alternatives; names architectural boundaries, scope, sequencing; breaks work into implementable tasks with likely files; defines acceptance criteria and, per the project's verification tier (§8), the `confirm:` command each task must pass; names migration concerns; states out-of-scope work; surfaces unresolved decisions.
+- **Rule:** does not modify code. Plans one change or one tranche; a plan that spans more than one tranche is a program plan and belongs to the Orchestrator (§7.1). The plan is detailed enough that the Implementer never re-invents the architecture.
 
 ```markdown
 # Implementation Plan
@@ -188,7 +192,7 @@ Changes:
 ### 7.4 Implementer / Builder
 
 - **Question:** how do I make the agreed change work?
-- **Does:** reads the plan and relevant research; makes the specified changes within scope, following project conventions; runs tests, build, lint, type checks; fixes implementation-level issues; reports deviations and blocking architecture problems; returns a concise summary.
+- **Does:** reads the plan and relevant research; makes the specified changes within scope, following project conventions; runs the task's `confirm:` command and the project's standing checks (typecheck, build, lint — test suites only at the full tier); fixes implementation-level issues; reports deviations and blocking architecture problems; returns a concise summary.
 - **Rule:** never redesigns silently. When the plan's assumption fails, stop and return `BLOCKED` with the conflict ("the plan assumes X owns initialization; Y does — recommend returning to Planning"); the Orchestrator decides.
 
 ```markdown
@@ -212,7 +216,7 @@ Changes:
 ### 7.5 Reviewer / Judge
 
 - **Question:** did we actually solve the right problem correctly?
-- **Does:** reviews the diff; validates acceptance criteria; compares implementation against plan; checks requirements coverage, regressions, edge cases, test coverage; detects scope expansion, architectural inconsistency, over-engineering; decides pass or return.
+- **Does:** reviews the diff; validates acceptance criteria; compares implementation against plan; checks requirements coverage, regressions, edge cases; at the light tier *Test Gaps* lists PRD steps or criteria with no `confirm:` exercising them, at the full tier it also covers changed-line coverage; detects scope expansion, architectural inconsistency, over-engineering; decides pass or return.
 - **Rule:** never the runtime that wrote the diff (Sonnet or agy implement; Codex or Grok review — independent in every case). Never fixes its own findings: `PASS` → Orchestrator; `FAIL` → Orchestrator routes a planning problem to the Planner, an implementation problem to the Implementer.
 
 ```markdown
@@ -297,8 +301,18 @@ Adaptive — the Orchestrator picks the tier:
 |---|---|---|
 | Tiny | rename this button | Implement |
 | Normal | add sorting to the media browser | Plan → Implement → Review |
-| Complex or unknown | make render jobs recover after restart | Research → Plan → Implement → Review |
+| Unknown | make render jobs recover after restart | Research → Plan → Implement → Review |
 | Pure research | how does media lineage work today? | Research → Orchestrator |
+| Big or complex project | fork Goose into a web workspace | Orchestrator plans the program — tranches, order, gates — with the Advisor (PM or architect) at that gate; then per tranche: Research (if unknown) → Plan → Implement → Review |
+
+Verification tiers — set per project (`testing: light | full` in the project's `PRODUCT.md` or `AGENTS.md`; default **light**), raised per tranche by the Orchestrator when the change warrants it:
+
+| Tier | What every task carries | What is not asked for |
+|---|---|---|
+| **light** (default) | one `confirm:` that exercises the change once — typecheck / build / lint plus a smoke: a CLI invocation, a Playwright walk of the PRD step (phone width when the surface is user-facing), or one unit test when the change is pure logic (a store, a roll, a parser) | a test per component, coverage targets, snapshot suites, e2e beyond the P0 walk |
+| **full** | light, plus unit tests beside changed logic, e2e for every P0 step, coverage on changed lines, and the Reviewer checking them | — |
+
+Full is for a codebase whose long-term sustainability is the point — shipped to other people, depended on by other code, maintained past the people who wrote it. Until a project says that about itself, it is light, and a tranche is raised only when the Orchestrator can name the sustainability reason (a spine patch filed upstream, for one). melody-agent2 is **light**; its spine patches carry one unit test each because they are candidate upstream PRs, not because the tier asks.
 
 Delegate only when one or more conditions are true:
 
@@ -309,7 +323,7 @@ Delegate only when one or more conditions are true:
 5. Parallel execution materially saves time.
 6. The task is sufficiently large that specialization improves quality.
 
-Avoid unnecessary delegation for trivial work: "rename a button → Research → Plan → Implement → Review" is the failure; "rename a button → implement directly" is the rule.
+Avoid unnecessary delegation for trivial work: "rename a button → Research → Plan → Implement → Review" is the failure; "rename a button → implement directly" is the rule. The opposite failure is delegating a whole project to one Planner call: a multi-tranche plan comes back as one unreviewable artifact, so the Orchestrator plans the program and delegates tranches.
 
 ## 9. Token and budget strategy
 

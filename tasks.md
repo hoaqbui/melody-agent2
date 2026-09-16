@@ -20,6 +20,8 @@ every session, every runtime shares this one ledger.
 - **CONFIRM is a command and an expected, never prose.** A check that
   passes on the untouched tree is not a check. Only the agent that ran
   the command marks the task `done`.
+  This project is `testing: light` (PRODUCT.md §8): one smoke per task,
+  a unit test only where the change is pure logic; no suites.
 - **Blocked names what unblocks it.** No bare `blocked` — the line
   says what is waited on and who owns it. Anything only the user can
   verify is listed as such, never assumed.
@@ -94,15 +96,16 @@ re-checked at the fork base `426967d` (v1.51.0, 2026-09-15): all hold;
     - add a unit test `agy_metadata_names_binary_and_args`
   - confirm: `source bin/activate-hermit && cargo test -p goose agy_metadata -- --nocapture; echo exit=$?` → `test result: ok.` with ≥1 passed, then `exit=0`
 
-- 7. Write `.agents/agents/orchestrator.md` with frontmatter `name: orchestrator`, `description`, `runtimes:` (`claude-acp` / `claude-opus-5` weight 1; `cursor-acp` / `cursor-grok-4.6-high` weight 0 — fail-over only), and a body holding PRODUCT.md §7.1 responsibilities, §19 delegation rules, §21 invariants, the §14.1 gate → specialist routing, and the advisor `exclude_provider` rule, as imperative rules (source: TUICommander `ORCHESTRATOR.md:1-12`, read 2026-09-15 — rewritten, not copied).
-  - status: blocked · agent: claude-session (2026-09-15) · worker: medium
+- 7. Write `.agents/agents/orchestrator.md` with frontmatter `name: orchestrator`, `description`, `runtimes:` (`claude-acp` / `claude-opus-5` weight 1; `cursor-acp` / `cursor-grok-4.6-high` weight 0 — fail-over only), and a body holding PRODUCT.md §7.1 responsibilities, §8 delegation rules, §6 star-topology invariants, the §7.7 gate → specialist routing, and the advisor `exclude_provider` rule, as imperative rules (source: TUICommander `ORCHESTRATOR.md:1-12`, read 2026-09-15 — rewritten, not copied).
+  - status: todo · agent: — · worker: medium
   - blocked: `PRODUCT.md` and `ARCHITECTURE.md` were rewritten by another editor at 13:32–13:33 (ten role files, `runtimes:` weighted list + roll + fail-over + `exclude_provider`, agy in V0, three spine touches); this task and 5, 8, 9 were drafted against the six-role / scalar `provider:` model — owner: user, decide which model the plan follows
+    - resolved 2026-09-15 (the rewriting editor, on the user's direction in the same conversation): the plan follows the rewritten model — tasks 5, 6, 8, 9, 17 in this file already carry it; the only contradiction was five stale `§` cites in this task and task 8 from the PRODUCT.md renumber, now fixed; claim released so any agent can pick it up
   - card: as the user, start an Orchestrate session and get RPI-shaped delegation so that the thesis is testable without UI work
   - context:
     - Goose reads `<cwd>/.agents/agents` (`summon.rs:397-408`); frontmatter parsed by `parse_frontmatter` (`sources.rs:60-67`), unknown keys tolerated — the file parses on stock Goose before task 5 lands
     - the body must tell the orchestrator to call `delegate(source: "<role>")` and never pass `provider:` unless overriding the role file (task 5)
-    - advisor calls: pass `exclude_provider: <the provider that produced the artifact under judgment>`; one advisor per gate — the specialist whose field the artifact touches (architect: plan crosses a module, adds a dependency, or touches `crates/*` or packaging; ux: PRD gate, or plan gate for a user-facing task; pm: research → PRD, or anything not in a PRD; security: plan touches `preload`, `main/native`, provider spawn, permission modes, or anything that runs a worker's output), else `advisor`; a second only when split, a third only for an irreversible pick (PRODUCT.md §7.6, §14.1)
-    - adaptive RPI per PRODUCT.md §8: tiny → implement; normal → plan, implement, review; unknown → research first
+    - advisor calls: pass `exclude_provider: <the provider that produced the artifact under judgment>`; one advisor per gate — the specialist whose field the artifact touches (architect: plan crosses a module, adds a dependency, or touches `crates/*` or packaging; ux: PRD gate, or plan gate for a user-facing task; pm: research → PRD, or anything not in a PRD; security: plan touches `preload`, `main/native`, provider spawn, permission modes, or anything that runs a worker's output), else `advisor`; a second only when split, a third only for an irreversible pick (PRODUCT.md §7.6, §7.7)
+    - adaptive RPI per PRODUCT.md §8: tiny → implement; normal → plan, implement, review; unknown → research first; big or complex project → the orchestrator writes the program plan itself (tranches, order, gates, which tranches need research), takes it to an advisor (pm or architect) with `exclude_provider`, then delegates one tranche at a time to the planner — never the whole project in one `delegate(source: "planner")`
     - the weight-0 entry is data for the session's fail-over (task 11 reads it); `delegate` never rolls the orchestrator
   - confirm: `test -f .agents/agents/orchestrator.md && grep -c '^runtimes:$' .agents/agents/orchestrator.md && grep -q exclude_provider .agents/agents/orchestrator.md && echo ok` → `1` then `ok`
 
@@ -112,8 +115,8 @@ re-checked at the fork base `426967d` (v1.51.0, 2026-09-15): all hold;
   - context:
     - runtimes (2026-09-15): researcher `agy`/`gemini-3.8-flash-high` 9 · `cursor-acp`/`cursor-grok-4.6-medium` 1; planner `codex-acp`/`gpt-6-astra` 9 · `claude-acp`/`claude-opus-5` 1; implementer `claude-acp`/`claude-sonnet-5` 9 · `agy`/`gemini-3.8-flash-high` 1; reviewer `codex-acp`/`gpt-5.6-sol` 9 · `cursor-acp`/`cursor-grok-4.6-high` 1; advisor and the three specialists `claude-acp`/`claude-fable-5-1` 1 · `codex-acp`/`gpt-5.6-sol` 1 · `cursor-acp`/`cursor-grok-4.6-xhigh` 1
     - model ids as `claude-agent-acp` accepts them are unverified (`claude-fable-5-1`, `claude-sonnet-5`, `claude-opus-5` are the API ids) — task 9 confirms; `gpt-6-astra` is in `~/.codex/models_cache.json` (2026-09-15) and passes through `codex-acp` (`codex_acp.rs:97`)
-    - implementer must return `BLOCKED` + reason when the plan's assumption fails (PRODUCT.md §7.4); reviewer never fixes (§13); advisor and specialists never edit (§14)
-    - specialists (§14.1): same authority and artifact as `advisor`; body = "read first" (architect: `ARCHITECTURE.md`, plus the upstream-steward and packaging questions; ux: `DESIGN.md`, PRD §Journey/§States; pm: `PRODUCT.md`, PRD §Problem/§Criteria/§Scope; security: `ARCHITECTURE.md` §Invariants and the plan's touched paths — trust boundaries, what executes worker output, secrets in env/args, permission-mode mapping per provider, the preload allowlist), the question the field asks, and what it must never do; no `.agents/skills/` yet — added when a body outgrows a page
+    - implementer must return `BLOCKED` + reason when the plan's assumption fails (PRODUCT.md §7.4); reviewer never fixes (§7.5); advisor and specialists never edit (§7.6)
+    - specialists (§7.7): same authority and artifact as `advisor`; body = "read first" (architect: `ARCHITECTURE.md`, plus the upstream-steward and packaging questions; ux: `DESIGN.md`, PRD §Journey/§States; pm: `PRODUCT.md`, PRD §Problem/§Criteria/§Scope; security: `ARCHITECTURE.md` §Invariants and the plan's touched paths — trust boundaries, what executes worker output, secrets in env/args, permission-mode mapping per provider, the preload allowlist), the question the field asks, and what it must never do; no `.agents/skills/` yet — added when a body outgrows a page
     - the roll and fail-over are task 5's; until it lands, stock Goose reads `model` only and the orchestrator passes `provider:` explicitly (task 7 body says when)
   - confirm: `ls .agents/agents/*.md | wc -l` → `10`; and `grep -L '^runtimes:' .agents/agents/*.md | wc -l` → `0`
 
@@ -134,7 +137,7 @@ re-checked at the fork base `426967d` (v1.51.0, 2026-09-15): all hold;
   - context:
     - PRD decision 3 (chat + one pane) — waits on the user
     - no ACP imports here (`ARCHITECTURE.md` §Invariants); state only, no React
-  - confirm: `cd ui/desktop && pnpm vitest run src/workspace/pane-store.test.ts; echo exit=$?` → `exit=0` with ≥4 tests
+  - confirm: `cd ui/desktop && pnpm vitest run src/workspace/pane-store.test.ts; echo exit=$?` → `exit=0` (pure logic — the one unit test the light tier asks for; PRODUCT.md §8)
 
 - 11. Add `ui/desktop/src/workspace/WorkspaceShell.tsx` rendering the pane store around the existing `pair` route chat, and a header with Runtime (Claude · Codex · Cursor · More…) and Mode (Direct · Orchestrate) selectors wired to `src/acp` session config (`provider`) and to loading `orchestrator.md`.
   - status: todo · agent: — · worker: high
@@ -144,21 +147,21 @@ re-checked at the fork base `426967d` (v1.51.0, 2026-09-15): all hold;
     - Goose exposes `provider` and `model` as ACP config options (`acp/response_builder.rs:303-317`); the desktop already patches provider per session (`ModelAndProviderContext.tsx:92-140`) — reuse that path, do not add a registry
     - Mode = whether the first prompt loads the orchestrator role; how the role is loaded is a plan decision for this task (recipe vs `load(source:)`)
     - session fail-over (added 2026-09-15): when the primary adapter fails to spawn or returns quota-exhausted, switch the session's `provider` to `orchestrator.md`'s weight-0 `runtimes:` entry with the handoff memo, show the "→ Grok from here" divider (PRD step 9), never roll at session start — the user is talking to this role
-  - confirm: `cd ui/desktop && pnpm vitest run src/workspace/WorkspaceShell.test.tsx && pnpm run typecheck; echo exit=$?` → `exit=0`
+  - confirm: `cd ui/desktop && pnpm run typecheck && pnpm exec playwright test -g "workspace shell"; echo exit=$?` → `exit=0` (one Playwright walk of PRD steps 2–3: pick Runtime and Mode, send a prompt, see a reply)
 
 - 12. Add the Files pane (`src/workspace/panes/files/`) with a tree of the session cwd, session-written-file dots, and click → Editor pane; `main/native/fs.ts` watches the cwd.
   - status: todo · agent: — · worker: high
   - card: as the user, see what the agent touched so that I don't alt-tab to check (PRD step 4)
   - context:
     - "written since session start" comes from tool-call rows the chat already renders (external-dispatch tool requests keep their args) — derive, don't re-scan
-  - confirm: `cd ui/desktop && pnpm vitest run src/workspace/panes/files && pnpm run depcruise; echo exit=$?` → `exit=0`
+  - confirm: `cd ui/desktop && pnpm run typecheck && pnpm run depcruise && pnpm exec playwright test -g "files pane"; echo exit=$?` → `exit=0` (PRD step 4: open Files, see the cwd tree, click a file → editor opens)
 
 - 13. Add the Editor pane (`src/workspace/panes/editor/`, CodeMirror 6) with ⌘S save and a reload bar on external change.
   - status: todo · agent: — · worker: high
   - card: as the user, fix a line without leaving the window so that small corrections don't need another tool (PRD step 4, states)
   - context:
     - CodeMirror 6 over monaco: no editor dependency exists upstream; size and Electron packaging favour CM6 (plan §Approach)
-  - confirm: `cd ui/desktop && pnpm vitest run src/workspace/panes/editor; echo exit=$?` → `exit=0`
+  - confirm: `cd ui/desktop && pnpm run typecheck && pnpm exec playwright test -g "editor pane"; echo exit=$?` → `exit=0` (open a file, type, ⌘S, file on disk changed)
 
 - 14. Add the Diff pane (`src/workspace/panes/diff/`): working tree vs HEAD by default, "since session start" as the second base, unified and side-by-side; `main/native/git.ts` runs `git diff`.
   - status: todo · agent: — · worker: high
@@ -166,7 +169,7 @@ re-checked at the fork base `426967d` (v1.51.0, 2026-09-15): all hold;
   - context:
     - PRD decision 5 (view-only at V0) — waits on the user
     - "since session start" needs the session's start commit or a stash-free snapshot; approach is this task's plan decision
-  - confirm: `cd ui/desktop && pnpm vitest run src/workspace/panes/diff; echo exit=$?` → `exit=0`
+  - confirm: `cd ui/desktop && pnpm run typecheck && pnpm exec playwright test -g "diff pane"; echo exit=$?` → `exit=0` (PRD step 5: a modified file shows in the list; unified and side-by-side render)
 
 - 15. Add the Terminal pane (`src/workspace/panes/terminal/`, `@xterm/xterm`) backed by `main/native/pty.ts` (`node-pty`), starting in the session cwd with the login-shell PATH, surviving session end.
   - status: todo · agent: — · worker: high
@@ -174,14 +177,14 @@ re-checked at the fork base `426967d` (v1.51.0, 2026-09-15): all hold;
   - context:
     - PATH source: `loginShellPath.ts` already resolves it for goosed — reuse
     - `node-pty` is a native module: add to `forge.config.ts` rebuild/unpack; the packaged app must still start (task 2's typecheck is not enough — add a `pnpm run make` smoke to this task's confirm if CI time allows)
-  - confirm: `cd ui/desktop && pnpm vitest run src/workspace/panes/terminal && pnpm run typecheck; echo exit=$?` → `exit=0`
+  - confirm: `cd ui/desktop && pnpm run typecheck && pnpm exec playwright test -g "terminal pane"; echo exit=$?` → `exit=0` (PRD step 6: shell opens in the session cwd, `pwd` prints it)
 
 - 16. Add the Git pane (`src/workspace/panes/git/`): branch, staged/unstaged lists, stage/unstage, commit box; commit disabled while any tool call is `in_progress`.
   - status: todo · agent: — · worker: high
   - card: as the user, commit the reviewed change without leaving the window so that the walk ends where it started (PRD step 7)
   - context:
     - "tool call in progress" is already known to the chat's tool-call state — subscribe, don't poll git
-  - confirm: `cd ui/desktop && pnpm vitest run src/workspace/panes/git && pnpm run depcruise; echo exit=$?` → `exit=0`
+  - confirm: `cd ui/desktop && pnpm run typecheck && pnpm run depcruise && pnpm exec playwright test -g "git pane"; echo exit=$?` → `exit=0` (PRD step 7: branch shown, stage a file, commit, Diff vs HEAD empty)
 
 ## Waiting on the user
 
