@@ -15,6 +15,7 @@ pub mod prompt_manager;
 pub mod reply_parts;
 pub mod retry;
 mod schedule_tool;
+pub mod session_bridge;
 pub mod state_machine;
 pub mod subagent_execution_tool;
 pub(crate) mod subagent_handler;
