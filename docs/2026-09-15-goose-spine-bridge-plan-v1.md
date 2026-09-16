@@ -56,8 +56,12 @@ plus the proof run > one PR.
   and the stored list lacks the bridge entry → append, persist,
   `agent.recreate_provider_for_session` once; native provider and the
   entry is present → remove, persist, recreate. First activation of
-  an adapter session spawns the adapter twice; every later activation
-  and every mid-session switch reads the stored list. Summon builds
+  an ACP-adapter session spawns the adapter twice (`session/new` runs
+  inside `from_env`); `claude-code` only rewrites its MCP config file,
+  its CLI process being a `OnceCell` spawned at first `stream()`
+  (`claude_code.rs:269`). Every later activation and every mid-session
+  switch reads the stored list — `add_mcp_servers` merges by name
+  (`server.rs:547-557`), so a client-sent list never drops the entry. Summon builds
   children's extension lists itself (`summon.rs`, `task_config.extensions`)
   and is not reconciled — a child never sees the bridge, so the
   star topology (`ARCHITECTURE.md` §Invariants) holds by construction.
@@ -132,8 +136,9 @@ plus the proof run > one PR.
     - JSON-RPC and MCP types from `rmcp::model` (already a dependency, `Cargo.toml:88`); no new crate, no new Cargo feature; responses are `application/json`, no SSE
     - `dispatch_tool_call` returns `ToolCallResult` (`extension_manager.rs:2407-2415`); map its content to `CallToolResult`, errors to `is_error: true`
     - a child session must never reach the bridge: registration is only called from task 23's two top-level paths; the module holds no summon-side hook
+    - no CORS layer: a browser cannot send `X-Secret-Key` without a preflight the listener never answers, so a page on the tailnet or elsewhere cannot reach the bridge even with the secret
     - listener lifetime is the process; `Weak<Agent>` so an evicted agent (`execution/manager.rs` LRU) yields 404, not a leak
-    - tests in-module: `session_bridge_rejects_unknown_session_and_bad_secret` (404 / 401 via a `reqwest` or `axum::body` call against the bound port) and `session_bridge_lists_delegate_for_registered_session` (register an `Agent::new()` as `crates/goose/tests/compaction.rs:260` does, `tools/list` names include `delegate`)
+    - tests in-module: `session_bridge_rejects_unknown_session_and_bad_secret` (404 / 401 via a `reqwest` or `axum::body` call against the bound port) and `session_bridge_lists_delegate_for_registered_session` (an `Agent::new()` as `crates/goose/tests/compaction.rs:260`, then `agent.add_extension(ExtensionConfig::Platform { name: "summon", .. }, &session_id)` as `crates/goose/tests/agent.rs:135` — a bare agent carries no platform extensions (`extension_manager.rs:1601-1622`); `tools/list` names include `delegate`)
     - upstream-shaped: file a Ready issue ("expose a session's platform tools to ACP/CLI providers as an MCP server"); do not wait on it
   - confirm: `source bin/activate-hermit && cargo test -p goose --lib session_bridge 2>&1 | grep -E 'test result: ok\. 2 passed'; echo exit=$?` → the `test result` line, then `exit=0` (untouched tree: no match, `exit=1`)
 
@@ -146,6 +151,7 @@ plus the proof run > one PR.
     - `recreate_provider_for_session` is public on `Agent` (`agent.rs:3652`); a `SubAgent` session never passes through either activation path (children are built in `subagent_handler.rs:139-152`) — add a debug assertion that `session.session_type` is not `SubAgent` in `reconcile`
     - the secret rides in the adapter's MCP config: for `claude-code` that is a file under `Paths::state_dir()` (`claude_code.rs:659`, `:607`) — same exposure as `GOOSE_SERVER__SECRET_KEY` in the desktop's `?token=` (`ui/desktop/src/gooseServe.ts:256-258`); note it in the Ready issue, no new mitigation here
     - `on_close_session` today: `server.rs:2629-2640` — unregister beside whatever it drops
+    - `goose run` and `goose session` share `build_session` (`cli.rs:2291`, `:2076`; `builder.rs:651`), so the CLI site covers task 24's `goose run`
     - test in `server.rs` tests (pattern `:3630-3660`, stub provider factory): `acp_session_on_own_context_provider_gets_bridge_extension` — factory returns a stub whose `manages_own_context` is true; after `session/new` the stored extensions contain a `StreamableHttp` named `goose` with `uri` starting `http://127.0.0.1:` and ending `/mcp/<session id>`; a second stub with `manages_own_context` false leaves the list without it
   - confirm: `source bin/activate-hermit && cargo test -p goose --lib acp_session_on_own_context_provider 2>&1 | grep -E 'test result: ok\. 1 passed'; echo exit=$?` → the `test result` line, then `exit=0` (untouched tree: no match, `exit=1`); and `bash scripts/check-spine.sh` → `spine clean`
 
@@ -168,8 +174,8 @@ plus the proof run > one PR.
   - confirm: `grep -c 'Every delegated worker runs `Auto`' PRODUCT.md` → `1` (untouched tree: `0`)
 
 Approval gate: tasks 21–25 wait on sign-off. Task 23 is the one that
-reverses a visible behaviour (an adapter session's first activation
-spawns the adapter twice). What only the user can verify: task 24's
+reverses a visible behaviour (an ACP-adapter session's first
+activation spawns the adapter twice; `claude-code` is not respawned). What only the user can verify: task 24's
 run draws on the Claude Max subscription and may prompt for
 permissions on the parent — the record says what was seen. On
 approval the list lands in `tasks.md` (tasks 5, 8, 9 get an
