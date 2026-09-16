@@ -186,6 +186,8 @@ function paneVisible(layout: PaneLayout, id: PaneId): boolean {
 }
 
 const WORKSPACE_ROUTES = new Set(['/', '/pair']);
+// iOS drops a background tab's sockets after tens of seconds, never within one glance.
+const FOREGROUND_REBUILD_AFTER_MS = 10_000;
 const NO_MESSAGES: readonly Message[] = [];
 
 function loadColumns(project: string): Partial<Columns> | null {
@@ -486,10 +488,19 @@ export function WorkspaceShell({ chat, children, panes, paneStore }: WorkspaceSh
   // iOS Safari suspends a background tab with its sockets; a return to the foreground
   // reattaches every shell by id and rebuilds the ACP connection, whose recovery reloads
   // each open session (ChatSessionsContainer) — the messages that arrived meanwhile with it.
+  // A quick app switch keeps the sockets, so the rebuild waits for a real absence — a
+  // teardown on every flip blanked the transcript each time the tab was glanced away from.
   useEffect(() => {
     if (!phone) return;
+    let hiddenAt: number | null = null;
     const onVisibility = () => {
-      if (document.visibilityState !== 'visible') return;
+      if (document.visibilityState !== 'visible') {
+        hiddenAt = Date.now();
+        return;
+      }
+      const away = hiddenAt === null ? 0 : Date.now() - hiddenAt;
+      hiddenAt = null;
+      if (away < FOREGROUND_REBUILD_AFTER_MS) return;
       reattachTerminals();
       reconnectAcpAfterSystemResume();
     };
