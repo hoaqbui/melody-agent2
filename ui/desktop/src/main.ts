@@ -1273,8 +1273,18 @@ const createChat = async (
       });
       log.info(`sidecar listening at ${sidecar.url}`);
       sidecarUrl = sidecar.url;
+      // The sidecar binds the tailnet address, which the renderer's connect-src does not
+      // list; the ws: lease also drops upgrade-insecure-requests, which would rewrite the
+      // plain-http sidecar to https.
+      const sidecarSocketUrl = new URL(sidecar.url);
+      sidecarSocketUrl.protocol = 'ws:';
+      const sidecarOriginLeases = [
+        leaseBackendOrigin(sidecar.url),
+        leaseBackendOrigin(sidecarSocketUrl.href),
+      ];
       const cleanupWithoutSidecar = gooseServeResult.cleanup;
       gooseServeResult.cleanup = async () => {
+        sidecarOriginLeases.forEach((lease) => lease.release());
         sidecar.cleanup();
         await cleanupWithoutSidecar();
       };

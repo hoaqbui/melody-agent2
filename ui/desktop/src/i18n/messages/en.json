@@ -4493,6 +4493,45 @@
   "telemetrySettings.updateError": {
     "defaultMessage": "Failed to update telemetry settings."
   },
+  "terminalPane.ctrl": {
+    "defaultMessage": "Ctrl"
+  },
+  "terminalPane.down": {
+    "defaultMessage": "Down"
+  },
+  "terminalPane.esc": {
+    "defaultMessage": "Esc"
+  },
+  "terminalPane.exited": {
+    "defaultMessage": "[exited {code}]"
+  },
+  "terminalPane.keyBar": {
+    "defaultMessage": "Terminal keys"
+  },
+  "terminalPane.left": {
+    "defaultMessage": "Left"
+  },
+  "terminalPane.paste": {
+    "defaultMessage": "Paste"
+  },
+  "terminalPane.reconnect": {
+    "defaultMessage": "Reconnect"
+  },
+  "terminalPane.restart": {
+    "defaultMessage": "Restart"
+  },
+  "terminalPane.right": {
+    "defaultMessage": "Right"
+  },
+  "terminalPane.starting": {
+    "defaultMessage": "Starting shell…"
+  },
+  "terminalPane.tab": {
+    "defaultMessage": "Tab"
+  },
+  "terminalPane.up": {
+    "defaultMessage": "Up"
+  },
   "themeSelector.aura": {
     "defaultMessage": "Aura"
   },
