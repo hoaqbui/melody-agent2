@@ -40,25 +40,6 @@ re-checked at the fork base `426967d` (v1.51.0, 2026-09-15): all hold;
 
 ### docs/2026-09-15-goose-fork-plan-v1.md
 
-- 5. Add `runtimes: Vec<{provider, model, weight}>` to `AgentMetadata` in `crates/goose/src/agents/platform_extensions/summon.rs`, roll one entry per `delegate` call, and add an optional `exclude_provider` parameter to `delegate`.
-  - status: doing · agent: subagent-t5 via claude-session-opus-2 (21:25, worktree) · worker: high
-  - blocked: necessary but not sufficient — after this lands an Orchestrate session on `claude-acp` still has no `delegate` (ACP drops Goose tools, `acp/provider.rs:820-825`; research v1 addendum, evening). Unblocks: the user picks the orchestrator path (§Waiting on the user); if repair (ii) is chosen, this task and the bridge land together — owner: user
-  - unblocks (2026-09-15 20:40, plan spine-bridge v1 approved): after task 24 records `reached child: yes`; the bridge (tasks 22–23) is what gives `claude-code` `delegate`
-  - unblocked 2026-09-15 21:20: task 24 recorded `reached child: yes` (`docs/2026-09-15-spine-bridge-spike-v1.md` §Run 1)
-  - card: as the orchestrator, have each role file name its runtimes and their weights so that role→runtime, the tenth-call backup seat, and fail-over are data, not prompt text (PRODUCT.md §6)
-  - context:
-    - `AgentMetadata` is `name / description / model` only (`summon.rs:208-214`); `parse_agent_content` copies `model` into `properties` (`:236-239`)
-    - `build_recipe_from_agent` sets `goose_provider: params.provider.clone()` only when `model` is present (`:1620-1631`); provider precedence is env > `params.provider` > recipe settings > config > session (`:1809-1838`)
-    - precedence to keep: an explicit `delegate(provider:)` still wins over the roll; the roll wins over the parent session's provider
-    - the set is trimmed before the roll: the `exclude_provider` entry goes; any entry whose binary does not resolve goes (`SearchPaths`, as `codex_acp.rs:75-77`); if the picked entry fails to spawn or returns quota-exhausted, it goes and the rest is re-rolled — the list is the fail-over order (decided 2026-09-15)
-    - `weight: 0` is legal: listed for fail-over only, never rolled; when the trimmed set's weights sum to 0, take the weight-0 entries in file order (this is what `agent_frontmatter_runtimes_fall_through` asserts)
-    - each entry's `model` passes through as the ACP `model` config option (`codex_acp.rs:97`); the picked `{provider, model}` rides in the task's `tasks_update` payload so the Agents pane can name it
-    - correction 2026-09-15 21:30: `tasks_update` has no production constructor call (spine research §Activity contract gap; `notification_events.rs:28`) — the payload piece is task 27's, out of this task's scope; this task delivers the roll, the trim, `exclude_provider`, the re-roll on provider-creation failure, and the three tests. Quota-exhausted classification is task 32's — re-roll here only when `providers::create_with_working_dir` fails
-    - roll seedable via env `GOOSE_RUNTIME_ROLL_SEED` for tests
-    - tests beside `test_agent_frontmatter_parsing` (`:2387`): `agent_frontmatter_runtimes_roll_by_weight`, `agent_frontmatter_runtimes_exclude_provider`, `agent_frontmatter_runtimes_fall_through`
-    - candidate upstream Ready issue; file it, do not wait on it
-  - confirm: `source bin/activate-hermit && cargo test -p goose agent_frontmatter_runtimes -- --nocapture; echo exit=$?` → `test result: ok. 3 passed` then `exit=0`
-
 - 6. Add `crates/goose/src/providers/cursor_acp.rs` (provider `cursor-acp`, binary `cursor-agent`, args `["acp"]`) mirroring `claude_acp.rs`, register it in `providers/mod.rs`, `providers/init.rs`, and `inventory/registrations.rs`.
   - status: doing · agent: claude-session-opus (20:01, worker via claude -p haiku) · worker: high
   - card: as every role's backup seat and one advisor seat, run Grok under Goose's permission modes so that the tenth call is gated like the other nine (PRODUCT.md §5: Grok is a Cursor model; `cursor_agent.rs:277-282` runs `--print --force` ungated)
@@ -205,18 +186,10 @@ re-checked at the fork base `426967d` (v1.51.0, 2026-09-15): all hold;
 
 Planned 2026-09-15 21:25 from PRD steps 10–12 and the spine research §Activity contract gap; tasks 28–30 wait on 27's pick before any source edit.
 
-- 27. Research how a bridge-dispatched `delegate` can surface in the parent session as agent activity, in `docs/2026-09-16-agent-activity-research-v1.md`: today `session_bridge.rs` `tools/call` drops the child's `notification_stream` (`subagent_tool_request` events, `subagent_handler.rs:119,317`) while the Goose loop forwards it as tool-call `_meta` on `session/update` (`state_machine/ops_toolcalling.rs:919` → `acp/server/tool_notifications.rs:92`) and the desktop reads it (`components/ToolCallWithResponse.tsx:133`); the parent's own `delegate` call is an external tool call the adapter renders, with no Goose tool-call id to hang `_meta` on.
-  - status: doing · agent: subagent-t27 via claude-session-opus-2 (21:25, worktree, read-only) · worker: medium
-  - card: as the user in an Orchestrate session, see each delegated worker as a row that appears when the `delegate` call starts so that the Agents tree (PRD step 10) has an event source that is true, not inferred (PRODUCT.md §11; spine research §Activity contract gap)
-  - context:
-    - options to weigh, at least: (a) the bridge emits its own `session/update` notifications to the parent's ACP client (needs the bridge to reach the `ConnectionTo<Client>` — the ACP server holds it, the CLI has none); (b) a `_goose/*` custom method the renderer polls for a session's child sessions (`sessions.parent_session_id` already links them — spike doc §Run 1); (c) the parent's adapter tool-call row for `delegate` is matched to the child session by the result payload (child session id rides in the compact result, `summon.rs:1433`)
-    - `tasks_update` has no production constructor call (`notification_events.rs:28`; spine research) — do not assume it
-    - the CLI path (task 9) has no ACP client; whatever is picked must degrade to "child sessions exist in the DB"
-  - confirm: `test -f docs/2026-09-16-agent-activity-research-v1.md && grep -c '^## Options' docs/2026-09-16-agent-activity-research-v1.md` → `1`
-
 - 28. Add the Agents pane (`ui/desktop/src/workspace/panes/agents/`): a tree of delegated work under the orchestrator — runtime · role · task title · status (waiting / running / done / failed) — rows appearing when the `delegate` call starts; click a row → a read-only worker transcript pane over the child session (`_goose/*` session load through `src/acp`).
   - status: blocked · agent: — · worker: high
   - blocked: waits on task 27's pick for the event source — owner: this ledger
+  - unblocked 2026-09-15 22:05: task 27 picked (a) — the bridge publishes a per-session broadcast, the ACP server forwards it as `GooseSessionUpdate::DelegationUpdate`, with a `_goose/unstable/session/children` read for reload/CLI (`docs/2026-09-16-agent-activity-research-v1.md` §Options → pick); the tree is keyed by `subagent_session_id`, not by a parent tool-call row — on `claude-code` the parent has none (`claude_code.rs:1011`); `status: waiting` has no producer, rows start at `running`. Needs its own spine task (the publish side) before this pane; plan it from the research's §Scope skeleton
   - card: as the user, see who is working on what and open a worker's transcript so that orchestration stops being invisible (PRD step 10; PRODUCT.md §3.4, §11)
   - context:
     - states per PRD §States "Agents": empty → "No delegated work yet"; partial → status-only row while the transcript is not stored; error → the worker's error stays on the row
@@ -227,6 +200,7 @@ Planned 2026-09-15 21:25 from PRD steps 10–12 and the spine research §Activit
 - 29. Add the RPI strip above the chat (`ui/desktop/src/workspace/rpi-strip/`): phases Research · Plan · Implement · Review lit when a worker with that role starts (from the same event source as task 28), a phase with an artifact clickable, a re-run phase showing a counter.
   - status: blocked · agent: — · worker: medium
   - blocked: waits on task 27's pick, and on task 28's row model to map role → phase — owner: this ledger
+  - 2026-09-15 22:05: 27 picked; still waits on 28's row model (session-keyed, see 28)
   - card: as the user, see which RPI phase the orchestrator is in so that a long task reads as progress, not a blank chat (PRD step 11)
   - context:
     - role → phase from the role file name (`researcher` → Research, `planner` → Plan, `implementer` → Implement, `reviewer` → Review; advisors light the phase they gate)
@@ -250,16 +224,6 @@ Planned 2026-09-15 21:25 from PRD steps 10–12 and the spine research §Activit
     - depends on task 11 (shell) and task 12 (Files selection); on the web build (task 19) an iframe to `localhost` from the phone will not resolve — show the PRD "not reachable" line, do not proxy
     - markdown rendering shares task 30's choice
   - confirm: `cd ui/desktop && pnpm vitest run src/workspace/panes/browser src/workspace/panes/markdown && pnpm run depcruise; echo exit=$?` → `exit=0`
-
-- 32. Research server-side runtime fail-over in `docs/2026-09-16-failover-research-v1.md`: how a session on an adapter that fails to spawn or returns quota-exhausted moves to the role file's weight-0 runtime with the handoff memo, owned by `goose serve`, not the shell.
-  - status: doing · agent: subagent-t32 via claude-session-opus-2 (21:25, worktree, read-only) · worker: medium
-  - card: as the user, have a task move to the backup seat when a subscription window closes so that the task continues instead of stalling on me (PRODUCT.md §6, §17; PRD step 9 divider)
-  - context:
-    - the gaps the spine research names (§Fail-over ownership gap): error classification (ACP errors collapse to Authentication / RequestFailed, `acp/provider.rs:182`), partial edits after one file was written, cancellation, and context transfer (`acp/handoff.rs:54` is a transfer primitive, not a policy)
-    - `update_provider` is explicit switching today (`acp/server.rs:2555`); task 11's shell-side switch is the manual form and must stay
-    - the orchestrator never rolls; only its weight-0 entry is a fail-over target (`ARCHITECTURE.md` §Invariants)
-    - output: options with the trade-offs, a pick, and the task list for the plan — no source edits
-  - confirm: `test -f docs/2026-09-16-failover-research-v1.md && grep -c '^## Options' docs/2026-09-16-failover-research-v1.md` → `1`
 
 ## Handoff — Goose spine evaluation (2026-09-15, Codex)
 
