@@ -1,5 +1,5 @@
 import { execFileSync } from 'child_process';
-import { test, expect, emptyDock, openPane } from './fixtures';
+import { test, expect, emptyDock, openPane, provisionRoleRepo } from './fixtures';
 
 // Task 30: an Orchestrate session (lever Hard) delegates once to the `spike-echo` role in
 // GOOSE_TEST_DIR's `.agents/agents/` (its body: "Begin every reply with the token
@@ -8,6 +8,12 @@ import { test, expect, emptyDock, openPane } from './fixtures';
 // the clipboard and Open transcript navigates the chat to the child session. Needs the
 // orchestrator role in the cwd and the claude runtimes installed, as easy-mode does.
 test.describe('artifact pane', () => {
+  let restoreRoles: () => void = () => {};
+  test.beforeAll(() => {
+    restoreRoles = provisionRoleRepo();
+  });
+  test.afterAll(() => restoreRoles());
+
   test.setTimeout(300_000);
 
   test('lists the delegated child, shows its handoff, copies it, opens its transcript', async ({

@@ -1,4 +1,4 @@
-import { test, expect, emptyDock, setAdvancedControls } from './fixtures';
+import { test, expect, emptyDock, setAdvancedControls, provisionRoleRepo } from './fixtures';
 
 // Task 29 (PRD step 11): no strip before any delegation; the lever's Hard starts an
 // Orchestrate session, a prompt that delegates once to the `researcher` role lights Research
@@ -7,6 +7,12 @@ import { test, expect, emptyDock, setAdvancedControls } from './fixtures';
 // Cursor), so the walk needs those installed beside the orchestrator role in GOOSE_TEST_DIR,
 // as agents-pane and artifact-pane need claude-code.
 test.describe('rpi strip', () => {
+  let restoreRoles: () => void = () => {};
+  test.beforeAll(() => {
+    restoreRoles = provisionRoleRepo();
+  });
+  test.afterAll(() => restoreRoles());
+
   test.setTimeout(300_000);
 
   test('lights Research active then done, and opens the Artifact pane on its child', async ({

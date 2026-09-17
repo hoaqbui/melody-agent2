@@ -1,5 +1,7 @@
 import { test as base, expect, Page, Browser, chromium } from '@playwright/test';
-import { exec, spawn, ChildProcess } from 'child_process';
+import { exec, execFileSync, spawn, ChildProcess } from 'child_process';
+import { cpSync, mkdirSync, mkdtempSync, realpathSync, rmSync, writeFileSync } from 'fs';
+import { tmpdir } from 'os';
 import { join } from 'path';
 import { promisify } from 'util';
 
@@ -41,7 +43,7 @@ export const test = base.extend<GooseTestFixtures>({
       // walks at once would attach to each other's app on the same port, so the base can be
       // moved per checkout.
       const basePort = Number(process.env.PLAYWRIGHT_DEBUG_PORT_BASE ?? 9222);
-      const debugPort = basePort + (testInfo.parallelIndex * 10);
+      const debugPort = basePort + testInfo.parallelIndex * 10;
       console.log(`Using debug port ${debugPort} for parallel test execution`);
 
       // Start the electron-forge process with Playwright remote debugging enabled
@@ -62,7 +64,7 @@ export const test = base.extend<GooseTestFixtures>({
           ENABLE_PLAYWRIGHT: 'true',
           PLAYWRIGHT_DEBUG_PORT: debugPort.toString(), // Unique port per test for parallel execution
           RUST_LOG: 'info', // Enable info-level logging for goosed backend
-        }
+        },
       });
 
       // Log process output for debugging
@@ -86,15 +88,19 @@ export const test = base.extend<GooseTestFixtures>({
       for (let attempt = 1; attempt <= maxRetries; attempt++) {
         try {
           browser = await chromium.connectOverCDP(`http://127.0.0.1:${debugPort}`);
-          console.log(`Connected to Electron app on attempt ${attempt} (~${(attempt * retryDelay) / 1000}s)`);
+          console.log(
+            `Connected to Electron app on attempt ${attempt} (~${(attempt * retryDelay) / 1000}s)`
+          );
           break;
         } catch (error) {
           const errorMessage = error instanceof Error ? error.message : String(error);
           if (attempt === maxRetries) {
-            throw new Error(`Failed to connect to Electron app after ${maxRetries} attempts (${(maxRetries * retryDelay) / 1000}s). Last error: ${errorMessage}`);
+            throw new Error(
+              `Failed to connect to Electron app after ${maxRetries} attempts (${(maxRetries * retryDelay) / 1000}s). Last error: ${errorMessage}`
+            );
           }
           // Wait before next retry
-          await new Promise(resolve => setTimeout(resolve, retryDelay));
+          await new Promise((resolve) => setTimeout(resolve, retryDelay));
         }
       }
 
@@ -128,16 +134,18 @@ export const test = base.extend<GooseTestFixtures>({
       }
 
       // Wait for React app to be ready
-      await page.waitForFunction(() => {
-        const root = document.getElementById('root');
-        return root && root.children.length > 0;
-      }, { timeout: 30000 });
+      await page.waitForFunction(
+        () => {
+          const root = document.getElementById('root');
+          return root && root.children.length > 0;
+        },
+        { timeout: 30000 }
+      );
 
       console.log('App ready, starting test...');
 
       // Provide the page to the test
       await providePage(page);
-
     } finally {
       console.log('Cleaning up Electron app for this test...');
 
@@ -157,7 +165,7 @@ export const test = base.extend<GooseTestFixtures>({
             try {
               // First try SIGTERM for graceful shutdown
               process.kill(-appProcess.pid, 'SIGTERM');
-              await new Promise(resolve => setTimeout(resolve, 2000));
+              await new Promise((resolve) => setTimeout(resolve, 2000));
             } catch {
               // Process might already be dead
             }
@@ -222,4 +230,36 @@ export async function setAdvancedControls(page: Page, on: boolean): Promise<void
   await page.locator('[data-testid="workspace-advanced-controls"]').click();
   await expect(shell).toHaveAttribute('data-ui', want);
   await expect(page.locator('[data-testid="workspace-pane-more-menu"]')).toHaveCount(0);
+}
+
+// A scratch repo carrying this repo's `.agents/agents/` roles plus a `spike-echo` role whose
+// reply starts with a known token, so a delegation walk needs no particular window directory.
+// Call from `beforeAll`; returns the restore function for `afterAll`.
+export function provisionRoleRepo(): () => void {
+  const previous = process.env.GOOSE_TEST_DIR;
+  const scratch = realpathSync(mkdtempSync(join(tmpdir(), 'goose-roles-')));
+  const repoRoot = join(__dirname, '..', '..', '..', '..');
+  mkdirSync(join(scratch, '.agents'), { recursive: true });
+  cpSync(join(repoRoot, '.agents', 'agents'), join(scratch, '.agents', 'agents'), {
+    recursive: true,
+  });
+  writeFileSync(
+    join(scratch, '.agents', 'agents', 'spike-echo.md'),
+    '---\nname: spike-echo\ndescription: Echo role for the delegation walks.\n---\n\n' +
+      'Begin every reply with the token spike-ok-30. Then answer the task in one sentence.\n'
+  );
+  writeFileSync(join(scratch, 'notes.md'), 'one\ntwo\nthree\n');
+  writeFileSync(join(scratch, '.gitignore'), '.worktrees/\n');
+  const git = (args: string[]) => execFileSync('git', args, { cwd: scratch, stdio: 'pipe' });
+  git(['init', '-q', '-b', 'main']);
+  git(['config', 'user.name', 'roles']);
+  git(['config', 'user.email', 'roles@test']);
+  git(['add', '.']);
+  git(['commit', '-q', '-m', 'base']);
+  process.env.GOOSE_TEST_DIR = scratch;
+  return () => {
+    if (previous === undefined) delete process.env.GOOSE_TEST_DIR;
+    else process.env.GOOSE_TEST_DIR = previous;
+    rmSync(scratch, { recursive: true, force: true });
+  };
 }

@@ -1,4 +1,11 @@
-import { test, expect, emptyDock, openPane, setAdvancedControls } from './fixtures';
+import {
+  test,
+  expect,
+  emptyDock,
+  openPane,
+  setAdvancedControls,
+  provisionRoleRepo,
+} from './fixtures';
 
 // Task 28 (PRD step 10): the Agents pane under ⋯ is empty before any delegation; the lever's
 // Hard starts an Orchestrate session on claude-code (when the fixture's cwd has the role and
@@ -8,6 +15,12 @@ import { test, expect, emptyDock, openPane, setAdvancedControls } from './fixtur
 // read-only, and Back returns to the tree. The delegate needs `GOOSE_TEST_DIR` to carry
 // `.agents/agents/spike-echo.md` beside the orchestrator role.
 test.describe('agents pane', () => {
+  let restoreRoles: () => void = () => {};
+  test.beforeAll(() => {
+    restoreRoles = provisionRoleRepo();
+  });
+  test.afterAll(() => restoreRoles());
+
   test('shows a delegated worker running then done, and opens its transcript', async ({
     goosePage,
   }) => {
@@ -29,7 +42,7 @@ test.describe('agents pane', () => {
       'No delegated work yet'
     );
     await expect(
-      goosePage.locator('[data-testid="workspace-side-tab-agents"]')
+      goosePage.locator('[data-testid="workspace-pane-button-agents"]')
     ).toHaveAccessibleName(/Agents/);
 
     const lever = goosePage.locator('[data-testid="workspace-lever"]');
