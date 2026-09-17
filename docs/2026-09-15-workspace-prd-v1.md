@@ -248,6 +248,23 @@
     - → [Board]; click a card → [the session on `/pair`]; click a
       worker → [its own transcript, step 10]
 
+15. [Session in a worktree, the branch committed] · P0 (added 2026-09-16, task 70)
+    - does: click Review branch… in the Changes pane's worktree row
+      (or in the Git pane's PR section)
+    - rule: a review session starts on the Reviewer role — its
+      `runtimes:` rolled as for any seat, the first prompt "review the
+      diff of <branch> against <base> in <cwd> … return the Return
+      shape" — as a normal session titled "Review: <branch> vs <base>"
+      (in Sessions, the Board, notifications); the Review pane opens on
+      it and parses the reply by the role's Return shape: the verdict
+      as a chip, each section a collapsible list, every `file:line` a
+      link; the reviewer never fixes, so the pane offers no Apply
+    - → [Review pane: branch · base · runtime · model; Verdict PASS ·
+      PASS WITH ISSUES · FAIL; the sections]; click a `file:line` →
+      [Editor at that line, step 4]; Re-review → the same prompt to
+      the same session; Open transcript → [the review session on
+      `/pair`]; a reply that does not parse → shown as markdown
+
 ## States
 
 - Hub: empty → no recent directories, chooser only; loading → session
@@ -300,6 +317,10 @@
 - RPI strip: empty → all phases dim; loading → active phase pulses;
   partial → a phase without an artifact is lit but not clickable;
   error → the failing phase turns red and stays clickable.
+- Review (2026-09-16, task 70): empty → "No review yet — Review
+  branch… in Changes"; loading → "Reviewing…" over what has streamed
+  so far; partial → a reply with no verdict shows as markdown under a
+  bar saying so; error → the session's error with Re-review.
 
 ## Criteria
 

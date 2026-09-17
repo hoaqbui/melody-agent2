@@ -103,7 +103,7 @@ function useDocs() {
 
 export function EditorPane() {
   const intl = useIntl();
-  const { file } = usePaneContext();
+  const { file, line } = usePaneContext();
   const { resolvedTheme } = useTheme();
   const dark = resolvedTheme === 'dark';
   const docs = useDocs();
@@ -230,6 +230,28 @@ export function EditorPane() {
     appliedRevision.current = doc.revision;
     view.dispatch({ changes: { from: 0, to: view.state.doc.length, insert: doc.text } });
   }, [doc]);
+
+  // A review's `file:line` (task 70): once the buffer holds the file, the cursor lands on
+  // that line and the view centres it; a line past the end lands on the last one. The jump
+  // is made once per ask — a later reload of the same file (its revision bumps) leaves the
+  // cursor where the user has it.
+  const loadedRevision = doc?.load.status === 'loaded' ? doc.revision : null;
+  const jumped = useRef<string | null>(null);
+  useEffect(() => {
+    const view = viewRef.current;
+    if (line === null) {
+      jumped.current = null;
+      return;
+    }
+    const ask = `${file}:${line}`;
+    if (!view || loadedRevision === null || jumped.current === ask) return;
+    jumped.current = ask;
+    const target = view.state.doc.line(Math.min(Math.max(line, 1), view.state.doc.lines));
+    view.dispatch({
+      selection: { anchor: target.from },
+      effects: EditorView.scrollIntoView(target.from, { y: 'center' }),
+    });
+  }, [file, line, loadedRevision, showSource]);
 
   const onKeyDown = (event: KeyboardEvent) => {
     if ((event.metaKey || event.ctrlKey) && event.key.toLowerCase() === 's') {

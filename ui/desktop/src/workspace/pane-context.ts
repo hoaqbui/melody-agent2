@@ -1,6 +1,7 @@
 // What the shell hands every pane body: the session it sits beside, the cross-pane actions
-// (a file picked in Files opens in the Editor; a worker's row opens its artifact) and the way
-// to say something arrived (task 69). Panes keep their own contents.
+// (a file picked in Files opens in the Editor; a worker's row opens its artifact; a review's
+// finding opens the Editor at its line) and the way to say something arrived (task 69).
+// Panes keep their own contents.
 
 import { createContext, useContext } from 'react';
 import type { Message } from '../types/message';
@@ -15,13 +16,19 @@ export interface PaneContextValue {
   messages: readonly Message[];
   // The path the Editor shows; null until a file is picked.
   file: string | null;
-  openFile(path: string): void;
+  // The line the Editor scrolls to (task 70's `file:line` links); null when the file was
+  // picked without one.
+  line: number | null;
+  openFile(path: string, line?: number): void;
   // The pane has something new to look at; a no-op while it is on screen, a dot on the
   // rail until it is opened otherwise.
   markUnseen(id: PaneId): void;
   // The child session whose artifact the Artifact pane shows; null until one is picked.
   artifact: string | null;
   openArtifact(childSessionId: string): void;
+  // The review session the Review pane shows (task 70); null until a review is started.
+  review: string | null;
+  openReview(sessionId: string): void;
 }
 
 export const PaneContext = createContext<PaneContextValue | null>(null);

@@ -4,7 +4,8 @@
 // chunk and applied by git, never CodeMirror's own accept/reject, which only edit the
 // in-memory doc. The pane reaches git only through src/native/sidecar and diffs the
 // session's cwd (task 49); when that cwd is a worktree, a row under the header names its
-// branch and offers Merge into the main checkout's branch and Remove worktree.
+// branch and offers Merge into the main checkout's branch, Review branch… (task 70) and
+// Remove worktree.
 
 import { useCallback, useEffect, useRef, useState, useSyncExternalStore } from 'react';
 import { useLocation, useSearchParams } from 'react-router';
@@ -50,6 +51,7 @@ import {
 import { worktreePlace, type WorktreePlace } from '../../worktree';
 import { hasToolCallInProgress } from '../git/git-state';
 import { PrSheet } from '../git/PrSheet';
+import { useStartReview } from '../review/review-session';
 import {
   createDiffStore,
   undoRequest,
@@ -104,6 +106,8 @@ const i18n = defineMessages({
   },
   openPr: { id: 'diffPane.openPr', defaultMessage: 'Open PR…' },
   prOpened: { id: 'diffPane.prOpened', defaultMessage: 'Opened PR #{number} · {url}' },
+  reviewBranch: { id: 'diffPane.reviewBranch', defaultMessage: 'Review branch…' },
+  reviewStarting: { id: 'diffPane.reviewStarting', defaultMessage: 'Starting review…' },
 });
 
 const KIND_LETTERS = { added: 'A', deleted: 'D', modified: 'M', renamed: 'R' } as const;
@@ -376,6 +380,8 @@ export function DiffPane() {
   const [merging, setMerging] = useState(false);
   const [removing, setRemoving] = useState(false);
   const [prSheetOpen, setPrSheetOpen] = useState(false);
+  const [reviewing, setReviewing] = useState(false);
+  const startReview = useStartReview();
   // The last worktree action's outcome: a merge sha, a removal, or a 409's conflict list.
   const [notice, setNotice] = useState<string | null>(null);
   const [mergeFailure, setMergeFailure] = useState<MergeFailure | null>(null);
@@ -552,6 +558,13 @@ export function DiffPane() {
     setNotice(intl.formatMessage(i18n.prOpened, { number: pr.number, url: pr.url }));
   };
 
+  // Task 70: the branch against the main checkout's, in a review session of its own.
+  const reviewBranch = () => {
+    if (!place || reviewing) return;
+    setReviewing(true);
+    startReview(place.branch, place.main.branch ?? 'HEAD').finally(() => setReviewing(false));
+  };
+
   return (
     <div
       className="flex flex-col h-full min-h-0 text-sm"
@@ -649,6 +662,15 @@ export function DiffPane() {
             {merging
               ? intl.formatMessage(i18n.merging)
               : intl.formatMessage(i18n.merge, { branch: place.main.branch ?? 'HEAD' })}
+          </Button>
+          <Button
+            variant="outline"
+            size="xs"
+            disabled={reviewing}
+            data-testid="diff-review"
+            onClick={reviewBranch}
+          >
+            {intl.formatMessage(reviewing ? i18n.reviewStarting : i18n.reviewBranch)}
           </Button>
           {hasUpstream && (
             <Button

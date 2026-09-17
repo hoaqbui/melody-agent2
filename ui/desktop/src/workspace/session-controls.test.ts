@@ -5,6 +5,11 @@ import {
   moreRuntimes,
   needsInstall,
   orchestratorRecipe,
+  parseReviewTitle,
+  reviewPrompt,
+  reviewTitle,
+  reviewerRecipe,
+  roleRuntimes,
   runtimeDividerMessage,
   runtimeLabel,
   stopModel,
@@ -135,5 +140,51 @@ describe('session controls', () => {
     expect(message.content).toEqual([
       { type: 'systemNotification', notificationType: 'inlineMessage', msg: '→ Codex from here' },
     ]);
+  });
+
+  it("reads a role's runtimes from its source properties, a missing weight as 0", () => {
+    expect(roleRuntimes({})).toEqual([]);
+    expect(roleRuntimes({ properties: { runtimes: 'x' } })).toEqual([]);
+    expect(
+      roleRuntimes({
+        properties: {
+          runtimes: [
+            { provider: 'codex-acp', model: 'gpt-5.6-sol', weight: 9 },
+            { provider: 'cursor-acp', model: 'cursor-grok-4.6-high' },
+            { provider: 3 },
+          ],
+        },
+      })
+    ).toEqual([
+      { provider: 'codex-acp', model: 'gpt-5.6-sol', weight: 9 },
+      { provider: 'cursor-acp', model: 'cursor-grok-4.6-high', weight: 0 },
+    ]);
+  });
+
+  it('tags the review session in its title and reads the tag back', () => {
+    expect(reviewTitle('wt/wt-20260916-ab12', 'main')).toBe('Review: wt/wt-20260916-ab12 vs main');
+    expect(parseReviewTitle('Review: wt/wt-20260916-ab12 vs main')).toEqual({
+      branch: 'wt/wt-20260916-ab12',
+      base: 'main',
+    });
+    expect(parseReviewTitle('Review: a vs b vs c')).toEqual({ branch: 'a vs b', base: 'c' });
+    expect(parseReviewTitle('Reviewer')).toBeNull();
+    expect(parseReviewTitle('Review: nothing')).toBeNull();
+    expect(parseReviewTitle('Review:  vs main')).toBeNull();
+  });
+
+  it('builds the reviewer recipe on the rolled seat, and the first prompt apart from it', () => {
+    const role = { description: 'Judges a diff', content: '# Reviewer' };
+    const seat = { provider: 'codex-acp', model: 'gpt-5.6-sol' };
+    expect(reviewerRecipe(role, seat)).toEqual({
+      title: 'Reviewer',
+      description: 'Judges a diff',
+      instructions: '# Reviewer',
+      settings: { goose_provider: 'codex-acp', goose_model: 'gpt-5.6-sol' },
+    });
+    expect(reviewPrompt('wt/x', 'main', '/repo')).toBe(
+      'Review the diff of `wt/x` against `main` in `/repo`: run `git diff main...HEAD`, ' +
+        'judge it against `docs/` plans and `tasks.md`, return the Return shape.'
+    );
   });
 });

@@ -2,7 +2,8 @@
 // Unstage per row, a commit box that is disabled — and says why — while a tool call is
 // still running, and under it the PR section (task 66): Push and open PR… until the branch
 // has one, then its number, state and checks, refreshed on Refresh and every minute while
-// the pane is on screen. Reaches git and gh only through src/native/sidecar, in the
+// the pane is on screen, and Review branch… (task 70) against the remote's default branch,
+// or the main checkout's from a worktree. Reaches git and gh only through src/native/sidecar, in the
 // session's cwd (task 49); the "in progress" signal is the chat's own tool-call rows,
 // never a poll.
 
@@ -16,6 +17,8 @@ import {
   type GitCommitRequest,
   type GitCommitResponse,
   type GitCwdRequest,
+  type GitLogRequest,
+  type GitLogResponse,
   type GitPathsRequest,
   type GitPrCheck,
   type GitPrCreateResponse,
@@ -24,7 +27,9 @@ import {
   type GitPushRequest,
   type GitStatusEntry,
   type GitStatusResponse,
+  type GitWorktreeListResponse,
 } from '../../../native/sidecar';
+import { toastError } from '../../../toasts';
 import { cn } from '../../../utils';
 import { usePaneContext } from '../../pane-context';
 import {
@@ -42,6 +47,7 @@ import {
   type PrBlocker,
 } from './git-state';
 import { PrSheet } from './PrSheet';
+import { useStartReview } from '../review/review-session';
 
 const i18n = defineMessages({
   branch: { id: 'gitPane.branch', defaultMessage: 'Branch' },
@@ -107,6 +113,13 @@ const i18n = defineMessages({
   prSignInHint: {
     id: 'gitPane.prSignInHint',
     defaultMessage: 'Run gh auth login in the Terminal, then Sign in checks again',
+  },
+  reviewBranch: { id: 'gitPane.reviewBranch', defaultMessage: 'Review branch…' },
+  reviewStarting: { id: 'gitPane.reviewStarting', defaultMessage: 'Starting review…' },
+  reviewFailed: { id: 'gitPane.reviewFailed', defaultMessage: "Couldn't start review" },
+  reviewNoBase: {
+    id: 'gitPane.reviewNoBase',
+    defaultMessage: 'No base branch — the branch is the default one and has no worktree',
   },
 });
 
@@ -270,6 +283,8 @@ export function GitPane() {
   const [pushing, setPushing] = useState(false);
   const [sheetOpen, setSheetOpen] = useState(false);
   const [created, setCreated] = useState<GitPrCreateResponse | null>(null);
+  const [reviewing, setReviewing] = useState(false);
+  const startReview = useStartReview();
   const root = useRef<HTMLDivElement>(null);
 
   // The last lists stay on screen while the next status loads (DESIGN.md §States, Loading).
@@ -406,6 +421,39 @@ export function GitPane() {
   const onCreated = (pr: GitPrCreateResponse) => {
     setCreated(pr);
     recheckPr();
+  };
+
+  // Task 70: the base is what a PR would target — the remote's default branch — or, with
+  // no remote, the main checkout's branch when this cwd is a worktree of it.
+  const reviewBranch = async () => {
+    const branch = status?.branch;
+    if (!branch || reviewing) return;
+    setReviewing(true);
+    try {
+      const log = await sidecarFetch<GitLogResponse>('/git/log', { cwd } satisfies GitLogRequest);
+      const worktrees = log.base
+        ? null
+        : await sidecarFetch<GitWorktreeListResponse>('/git/worktree/list', {
+            cwd,
+          } satisfies GitCwdRequest);
+      const main = worktrees?.worktrees[0]?.branch;
+      const base = log.base ?? (main && main !== branch ? main : null);
+      if (!base) {
+        toastError({
+          title: intl.formatMessage(i18n.reviewFailed),
+          msg: intl.formatMessage(i18n.reviewNoBase),
+        });
+        return;
+      }
+      await startReview(branch, base);
+    } catch (cause) {
+      toastError({
+        title: intl.formatMessage(i18n.reviewFailed),
+        msg: cause instanceof Error ? cause.message : String(cause),
+      });
+    } finally {
+      setReviewing(false);
+    }
   };
 
   const pr = prStatus?.pr ?? null;
@@ -621,6 +669,18 @@ export function GitPane() {
                   )}
                 </>
               ) : null}
+              {status.branch && (
+                <Button
+                  className="ml-auto"
+                  size="xs"
+                  variant="outline"
+                  disabled={reviewing}
+                  data-testid="git-review"
+                  onClick={reviewBranch}
+                >
+                  {intl.formatMessage(reviewing ? i18n.reviewStarting : i18n.reviewBranch)}
+                </Button>
+              )}
             </div>
 
             {prFailure && (

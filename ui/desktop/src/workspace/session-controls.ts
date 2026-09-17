@@ -60,6 +60,73 @@ export function orchestratorRecipe(role: { description: string; content: string 
   };
 }
 
+export const REVIEWER_ROLE = 'reviewer';
+export const REVIEWER_RECIPE_TITLE = 'Reviewer';
+const REVIEW_TITLE_PREFIX = 'Review: ';
+
+// One seat of a role's `runtimes:` (`summon.rs` AgentRuntime), as the source entry's
+// `properties.runtimes` carries it.
+export interface RoleRuntime {
+  provider: string;
+  model: string;
+  weight: number;
+}
+
+export function roleRuntimes(role: { properties?: Record<string, unknown> }): RoleRuntime[] {
+  const listed = role.properties?.runtimes;
+  if (!Array.isArray(listed)) return [];
+  return listed.flatMap((entry): RoleRuntime[] => {
+    if (typeof entry !== 'object' || entry === null) return [];
+    const { provider, model, weight } = entry as Partial<RoleRuntime>;
+    if (typeof provider !== 'string' || typeof model !== 'string') return [];
+    return [{ provider, model, weight: typeof weight === 'number' ? weight : 0 }];
+  });
+}
+
+// Task 70: the review session's tag lives in its title — the ACP client writes no
+// `extension_data`, and `session/rename` marks the name user-set so goose's own naming
+// leaves it alone (`new_session.rs` client_title, `session_manager.rs` user_set_name).
+export function reviewTitle(branch: string, base: string): string {
+  return `${REVIEW_TITLE_PREFIX}${branch} vs ${base}`;
+}
+
+export function parseReviewTitle(title: string): { branch: string; base: string } | null {
+  if (!title.startsWith(REVIEW_TITLE_PREFIX)) return null;
+  const rest = title.slice(REVIEW_TITLE_PREFIX.length);
+  const at = rest.lastIndexOf(' vs ');
+  if (at <= 0) return null;
+  const branch = rest.slice(0, at);
+  const base = rest.slice(at + ' vs '.length);
+  return base ? { branch, base } : null;
+}
+
+// The first prompt, as tasks.md entry 70 words it; Re-review sends the same one.
+export function reviewPrompt(branch: string, base: string, cwd: string): string {
+  return (
+    `Review the diff of \`${branch}\` against \`${base}\` in \`${cwd}\`: ` +
+    `run \`git diff ${base}...HEAD\`, judge it against \`docs/\` plans and \`tasks.md\`, ` +
+    'return the Return shape.'
+  );
+}
+
+// The Reviewer role as a recipe, the rolled seat pinned in its settings as summon pins a
+// child's (`summon.rs` build_task_config): session/new reads `goose_provider` and
+// `goose_model` before any `provider` meta (`new_session.rs` resolve_provider_and_model).
+// The prompt is not in it: upstream's trust dialog keys on the recipe's hash
+// (`utils/recipeHash.ts`), so a recipe that changed per branch would ask on every
+// transcript opened; per seat it asks once.
+export function reviewerRecipe(
+  role: { description: string; content: string },
+  seat: Pick<RoleRuntime, 'provider' | 'model'>
+) {
+  return {
+    title: REVIEWER_RECIPE_TITLE,
+    description: role.description,
+    instructions: role.content,
+    settings: { goose_provider: seat.provider, goose_model: seat.model },
+  };
+}
+
 export type Stop = 'easy' | 'medium' | 'hard';
 
 export const STOPS: readonly Stop[] = ['easy', 'medium', 'hard'];

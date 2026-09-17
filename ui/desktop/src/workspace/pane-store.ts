@@ -2,7 +2,16 @@
 // no React, no ACP: the shell subscribes and renders; the panes keep their own contents.
 
 export type PaneId =
-  'files' | 'editor' | 'diff' | 'terminal' | 'git' | 'browser' | 'markdown' | 'agents' | 'artifact';
+  | 'files'
+  | 'editor'
+  | 'diff'
+  | 'terminal'
+  | 'git'
+  | 'browser'
+  | 'markdown'
+  | 'agents'
+  | 'artifact'
+  | 'review';
 
 export const PANE_IDS: readonly PaneId[] = [
   'files',
@@ -14,6 +23,7 @@ export const PANE_IDS: readonly PaneId[] = [
   'markdown',
   'agents',
   'artifact',
+  'review',
 ];
 
 export type LayoutMode = 'desktop' | 'phone';

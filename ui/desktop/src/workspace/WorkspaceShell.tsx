@@ -23,6 +23,7 @@ import {
 import { useLocation, useSearchParams } from 'react-router';
 import {
   BookOpen,
+  ClipboardCheck,
   Ellipsis,
   FileCode,
   FileText,
@@ -139,6 +140,7 @@ const i18n = defineMessages({
   paneMarkdown: { id: 'workspaceShell.paneMarkdown', defaultMessage: 'Markdown' },
   paneAgents: { id: 'workspaceShell.paneAgents', defaultMessage: 'Agents' },
   paneArtifact: { id: 'workspaceShell.paneArtifact', defaultMessage: 'Artifact' },
+  paneReview: { id: 'workspaceShell.paneReview', defaultMessage: 'Review' },
   panes: { id: 'workspaceShell.panes', defaultMessage: 'Panes' },
   sessionMenu: { id: 'rail.menu', defaultMessage: 'Session menu' },
   columnSessions: { id: 'workspaceShell.columnSessions', defaultMessage: 'Sessions' },
@@ -157,6 +159,7 @@ const PANE_TITLES = {
   markdown: i18n.paneMarkdown,
   agents: i18n.paneAgents,
   artifact: i18n.paneArtifact,
+  review: i18n.paneReview,
 } as const;
 
 // DESIGN.md §Iconography: one set, lucide, at upstream's control size.
@@ -170,6 +173,7 @@ const PANE_ICONS: Record<PaneId, ComponentType<{ className?: string }>> = {
   markdown: BookOpen,
   agents: Users,
   artifact: FileText,
+  review: ClipboardCheck,
 };
 
 // The code-editor standard (task 40): three panes first on the bar, and the ones that stay
@@ -462,9 +466,12 @@ export function WorkspaceShell({ chat, children, panes, paneStore }: WorkspaceSh
   // The persisted face (task 58), unknown until read so the wrong one never flashes;
   // Settings › App and the ⋯ menu both write it and announce the change.
   const [workspaceUi, setWorkspaceUi] = useState<WorkspaceUi | undefined>();
-  // The file the Editor shows, picked in Files (PRD step 4).
+  // The file the Editor shows, picked in Files (PRD step 4), and the line a review's
+  // finding asks for (task 70).
   const [file, setFile] = useState<string | null>(null);
+  const [line, setLine] = useState<number | null>(null);
   const [artifact, setArtifact] = useState<string | null>(null);
+  const [review, setReview] = useState<string | null>(null);
   // The sheet's prefill, taken when "Save as routine…" is pressed so edits stay put
   // while the transcript streams on; null is the sheet closed (task 59).
   const [routine, setRoutine] = useState<{ title: string; instructions: string } | null>(null);
@@ -788,8 +795,9 @@ export function WorkspaceShell({ chat, children, panes, paneStore }: WorkspaceSh
   // A pick opens the Editor beside Files — the bottom half under a full Files (PRD step 4) —
   // or brings it back where the user left it.
   const openFile = useCallback(
-    (path: string) => {
+    (path: string, at?: number) => {
       setFile(path);
+      setLine(at ?? null);
       store.openPane('editor');
     },
     [store]
@@ -802,6 +810,14 @@ export function WorkspaceShell({ chat, children, panes, paneStore }: WorkspaceSh
     },
     [store]
   );
+  // Task 70: Review branch… lands on its session in the Review pane.
+  const openReview = useCallback(
+    (reviewSessionId: string) => {
+      setReview(reviewSessionId);
+      store.openPane('review');
+    },
+    [store]
+  );
   // The ⋯ menu's pane rows (task 40); the modifier meant tear-off until task 71.
   const openPane = useCallback((id: PaneId) => store.openPane(id), [store]);
   const paneContext = useMemo<PaneContextValue>(
@@ -811,12 +827,28 @@ export function WorkspaceShell({ chat, children, panes, paneStore }: WorkspaceSh
       sessionId,
       messages: snapshot?.messages ?? NO_MESSAGES,
       file,
+      line,
       openFile,
       markUnseen: store.markUnseen,
       artifact,
       openArtifact,
+      review,
+      openReview,
     }),
-    [artifact, cwd, file, layout.mode, openArtifact, openFile, sessionId, snapshot?.messages, store]
+    [
+      artifact,
+      cwd,
+      file,
+      layout.mode,
+      line,
+      openArtifact,
+      openFile,
+      openReview,
+      review,
+      sessionId,
+      snapshot?.messages,
+      store,
+    ]
   );
 
   // The transcript is read at the click, not closed over: it streams, the chips do not.

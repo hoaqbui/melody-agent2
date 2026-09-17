@@ -46,6 +46,7 @@ import { FilesPane } from './workspace/panes/files/FilesPane';
 import { GitPane } from './workspace/panes/git/GitPane';
 import { MarkdownPane } from './workspace/panes/markdown/MarkdownPane';
 import { AgentsPane } from './workspace/panes/agents/AgentsPane';
+import { ReviewPane } from './workspace/panes/review/ReviewPane';
 import { ChatProvider, DEFAULT_CHAT_TITLE } from './contexts/ChatContext';
 import LauncherView from './components/LauncherView';
 
@@ -700,6 +701,7 @@ export function AppInner() {
                           markdown: <MarkdownPane />,
                           agents: <AgentsPane />,
                           artifact: <ArtifactPane />,
+                          review: <ReviewPane />,
                         }}
                       >
                         <Outlet />

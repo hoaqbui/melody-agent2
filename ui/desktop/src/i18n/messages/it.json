@@ -1160,6 +1160,12 @@
   "diffPane.retry": {
     "defaultMessage": "Retry"
   },
+  "diffPane.reviewBranch": {
+    "defaultMessage": "Review branch…"
+  },
+  "diffPane.reviewStarting": {
+    "defaultMessage": "Starting review…"
+  },
   "diffPane.scope": {
     "defaultMessage": "Scope"
   },
@@ -1741,6 +1747,18 @@
   },
   "gitPane.retry": {
     "defaultMessage": "Retry"
+  },
+  "gitPane.reviewBranch": {
+    "defaultMessage": "Review branch…"
+  },
+  "gitPane.reviewFailed": {
+    "defaultMessage": "Couldn't start review"
+  },
+  "gitPane.reviewNoBase": {
+    "defaultMessage": "No base branch — the branch is the default one and has no worktree"
+  },
+  "gitPane.reviewStarting": {
+    "defaultMessage": "Starting review…"
   },
   "gitPane.stage": {
     "defaultMessage": "Stage"
@@ -3809,6 +3827,78 @@
   "responseStyle.detailedLabel": {
     "defaultMessage": "Dettagliato"
   },
+  "reviewPane.architecture": {
+    "defaultMessage": "Architecture concerns"
+  },
+  "reviewPane.correctness": {
+    "defaultMessage": "Correctness issues"
+  },
+  "reviewPane.empty": {
+    "defaultMessage": "No review yet — Review branch… in Changes"
+  },
+  "reviewPane.fail": {
+    "defaultMessage": "FAIL"
+  },
+  "reviewPane.fixes": {
+    "defaultMessage": "Recommended fixes"
+  },
+  "reviewPane.list": {
+    "defaultMessage": "Reviews"
+  },
+  "reviewPane.loading": {
+    "defaultMessage": "Loading…"
+  },
+  "reviewPane.noReply": {
+    "defaultMessage": "No verdict yet — the reviewer has not replied"
+  },
+  "reviewPane.noRole": {
+    "defaultMessage": "No reviewer role in this project"
+  },
+  "reviewPane.noRuntime": {
+    "defaultMessage": "None of the reviewer role's runtimes is installed"
+  },
+  "reviewPane.nothing": {
+    "defaultMessage": "Nothing listed"
+  },
+  "reviewPane.openAt": {
+    "defaultMessage": "Open {path} at line {line}"
+  },
+  "reviewPane.openTranscript": {
+    "defaultMessage": "Open transcript"
+  },
+  "reviewPane.pass": {
+    "defaultMessage": "PASS"
+  },
+  "reviewPane.passWithIssues": {
+    "defaultMessage": "PASS WITH ISSUES"
+  },
+  "reviewPane.plan": {
+    "defaultMessage": "Plan adherence"
+  },
+  "reviewPane.requirements": {
+    "defaultMessage": "Requirements coverage"
+  },
+  "reviewPane.rerun": {
+    "defaultMessage": "Re-review"
+  },
+  "reviewPane.retry": {
+    "defaultMessage": "Retry"
+  },
+  "reviewPane.reviewing": {
+    "defaultMessage": "Reviewing…"
+  },
+  "reviewPane.startFailed": {
+    "defaultMessage": "Couldn't start review"
+  },
+  "reviewPane.testGaps": {
+    "defaultMessage": "Test gaps"
+  },
+  "reviewPane.unparsed": {
+    "defaultMessage": "No verdict in this reply — shown as the reviewer wrote it"
+  },
+  "reviewPane.verdict": {
+    "defaultMessage": "Verdict"
+  },
   "routineSheet.cancel": {
     "defaultMessage": "Cancel"
   },
@@ -5632,6 +5722,9 @@
   },
   "workspaceShell.paneMarkdown": {
     "defaultMessage": "Markdown"
+  },
+  "workspaceShell.paneReview": {
+    "defaultMessage": "Review"
   },
   "workspaceShell.paneTerminal": {
     "defaultMessage": "Terminal"
