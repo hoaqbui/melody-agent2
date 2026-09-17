@@ -4,7 +4,8 @@ import { test, expect, emptyDock, openPane } from './fixtures';
 // Task 60: three columns — Sessions · Chat · Work — and no top bar. The Work seam drags the
 // Work column wider and the width survives a reload (remembered per project); ⌘1 · ⌘2 · ⌘3
 // focus the columns; the frame clamps to the viewport at 600 and 1200 px, where the old
-// header note and side tabs used to push the page sideways. No session is needed.
+// header note and side tabs used to push the page sideways. Task 71: the Work column is
+// there with nothing open, its tab bar the launchers. No session is needed.
 async function fits(page: Page) {
   return page.evaluate(() => {
     const shell = document.querySelector('[data-testid="workspace-shell"]');
@@ -29,17 +30,16 @@ test.describe('three columns', () => {
     const work = goosePage.locator('[data-testid="workspace-column-work"]');
     await expect(goosePage.locator('[data-testid="workspace-header"]')).toHaveCount(0);
     await expect(chat).toBeVisible();
-    // Work with nothing open is the floating rail, at the right edge.
-    await expect(work).toHaveCount(0);
-    const rail = goosePage.locator('[data-testid="workspace-pane-menu"]');
-    await expect(rail).toHaveAttribute('data-docked', 'false');
-    const railBox = await rail.boundingBox();
+    // Work with nothing open is the tab bar over an empty column, at the right edge.
+    await expect(work).toBeVisible();
+    const bar = goosePage.locator('[data-testid="workspace-pane-menu"]');
+    await expect(bar).toBeVisible();
+    const barBox = await bar.boundingBox();
     const shellBox = await shell.boundingBox();
-    expect(railBox && shellBox && railBox.x + railBox.width > shellBox.width - 40).toBe(true);
+    expect(barBox && shellBox && barBox.x + barBox.width > shellBox.width - 40).toBe(true);
 
     await openPane(goosePage, 'terminal');
     await expect(work).toBeVisible();
-    await expect(rail).toHaveAttribute('data-docked', 'true');
     const before = await work.boundingBox();
     if (!before) throw new Error('the Work column is not on screen');
 
@@ -91,22 +91,23 @@ test.describe('three columns', () => {
     await goosePage.screenshot({ path: test.info().outputPath('three-columns-600.png') });
     await goosePage.setViewportSize({ width: 1200, height: 800 });
 
-    // The width is remembered per project across a reload; the dock comes back too.
+    // The width is remembered per project across a reload; the open pane comes back too.
     await goosePage.reload();
     await expect(shell).toBeVisible({ timeout: 30000 });
     await expect(work).toBeVisible();
+    await expect(goosePage.locator('[data-testid="workspace-pane-terminal"]')).toBeVisible();
     await expect(seam).toHaveAttribute('aria-valuenow', String(widened));
     const reloaded = await work.boundingBox();
     expect(Math.round(reloaded?.width ?? 0)).toBe(widened);
 
-    // Leave the project's layout as it was found: the default width, an empty dock.
+    // Leave the project's layout as it was found: the default width, nothing open.
     await goosePage.mouse.move(x - 100, y);
     await goosePage.mouse.down();
     await goosePage.mouse.move(x, y, { steps: 10 });
     await goosePage.mouse.up();
     await expect(seam).toHaveAttribute('aria-valuenow', String(Math.round(before.width)));
     await emptyDock(goosePage);
-    await expect(work).toHaveCount(0);
-    await expect(rail).toHaveAttribute('data-docked', 'false');
+    await expect(work).toBeVisible();
+    await expect(goosePage.locator('[data-dock-tab]')).toHaveCount(0);
   });
 });

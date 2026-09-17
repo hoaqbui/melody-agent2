@@ -1,115 +1,140 @@
+import { join } from 'path';
 import type { Locator, Page } from '@playwright/test';
 import { test, expect, emptyDock, openPane } from './fixtures';
 
-// Task 42: the right dock. Open Terminal and Changes → one panel with two tabs; drag
-// Changes' tab below → two panels; drag the lower panel above the upper → the order swaps;
-// close Changes → one panel again. Then the same tear-off and move from the panel's ⋯ menu,
-// the keyboard's route. No session is needed: the Hub has the shell.
+// Task 71: the Work column's tab bar and three dock positions. Open Terminal → it is Full;
+// open Changes → Terminal Top, Changes Bottom; set Changes Full from its header → Terminal
+// stays an open tab, parked; drag the Terminal tab onto the column's top half → both halves
+// again; the seam between them resizes from the keyboard; the tab's right-click menu offers
+// the same positions and Close. No session is needed: the Hub has the shell.
 // `hover` settles on the source's centre once it is stable; the ghost's text says what the
-// press picked up (a tab's title, or every tab of a dragged panel) before the drop.
-async function dragTo(
-  page: Page,
-  source: Locator,
-  lifts: string,
-  target: Locator,
-  atHeight: number
-) {
+// press picked up before the drop, and the drop zone under the pointer lights.
+async function dragTo(page: Page, source: Locator, lifts: string, half: 'top' | 'bottom') {
   await source.hover();
   await page.mouse.down();
-  const to = await target.boundingBox();
-  if (!to) throw new Error('drag: the target is not on screen');
-  await page.mouse.move(to.x + to.width / 2, to.y + to.height * atHeight, { steps: 12 });
+  const to = await page.locator('[data-testid="workspace-side-panel"]').boundingBox();
+  if (!to) throw new Error('drag: the slots are not on screen');
+  const y = to.y + to.height * (half === 'top' ? 0.25 : 0.75);
+  await page.mouse.move(to.x + to.width / 2, y, { steps: 12 });
   await expect(page.locator('[data-testid="workspace-dock-ghost"]')).toHaveText(lifts);
+  await expect(page.locator(`[data-testid="workspace-dock-drop-${half}"]`)).toHaveAttribute(
+    'data-over',
+    'true'
+  );
   await page.mouse.up();
   await expect(page.locator('[data-testid="workspace-dock-ghost"]')).toHaveCount(0);
 }
 
-const tabsOf = (panel: Locator) => panel.locator('[data-dock-tab]');
-
 test.describe('dock', () => {
-  test('tears a tab off, reorders panels, and closes back into one', async ({ goosePage }) => {
+  test('docks panes full, top and bottom from the bar, the header and a drag', async ({
+    goosePage,
+  }) => {
     await expect(goosePage.locator('[data-testid="workspace-shell"]')).toBeVisible({
       timeout: 30000,
     });
     await emptyDock(goosePage);
-    const panels = goosePage.locator('[data-testid="workspace-panel"]');
-    await expect(panels).toHaveCount(0);
+    const openTabs = goosePage.locator('[data-dock-tab]');
+    await expect(openTabs).toHaveCount(0);
+    // The bar is there with nothing open: every launcher a tab, the session menu at its end.
+    const bar = goosePage.locator('[data-testid="workspace-pane-menu"]');
+    await expect(bar).toBeVisible();
+    await expect(goosePage.locator('[data-testid="workspace-column-work"]')).toBeVisible();
+    await expect(bar.locator('[data-testid="workspace-pane-more"]')).toBeVisible();
 
-    await openPane(goosePage, 'terminal');
-    await openPane(goosePage, 'diff');
-    await expect(panels).toHaveCount(1);
-    await expect(tabsOf(panels.first())).toHaveCount(2);
-    await expect(tabsOf(panels.first()).nth(0)).toHaveAttribute('data-dock-tab', 'terminal');
-    await expect(tabsOf(panels.first()).nth(1)).toHaveAttribute('data-dock-tab', 'diff');
-    const diffPane = goosePage.locator('[data-testid="workspace-pane-diff"]');
+    const terminalTab = goosePage.locator('[data-testid="workspace-pane-button-terminal"]');
+    const diffTab = goosePage.locator('[data-testid="workspace-pane-button-diff"]');
     const terminalPane = goosePage.locator('[data-testid="workspace-pane-terminal"]');
-    await expect(diffPane).toBeVisible();
-    await expect(terminalPane).toBeHidden();
+    const diffPane = goosePage.locator('[data-testid="workspace-pane-diff"]');
 
-    // A plain click on a tab is a switch, not a drag.
-    await goosePage.locator('[data-testid="workspace-side-tab-terminal"]').click();
+    // Terminal alone is Full.
+    await openPane(goosePage, 'terminal');
+    await expect(openTabs).toHaveCount(1);
     await expect(terminalPane).toBeVisible();
-    await expect(diffPane).toBeHidden();
-    await goosePage.locator('[data-testid="workspace-side-tab-diff"]').click();
-    await expect(diffPane).toBeVisible();
+    await expect(terminalPane).toHaveAttribute('data-position', 'full');
+    await expect(terminalTab).toHaveAttribute('aria-pressed', 'true');
+    await expect(
+      terminalPane.locator('[data-testid="workspace-dock-position-full"]')
+    ).toHaveAttribute('aria-pressed', 'true');
+    await goosePage.screenshot({ path: test.info().outputPath('dock-full.png'), fullPage: true });
+    if (process.env.T71_SHOTS) {
+      await goosePage.screenshot({ path: join(process.env.T71_SHOTS, 'bar-full.png') });
+    }
 
-    // Changes' tab into the lower half of the panel: it tears off into a panel below.
-    await dragTo(
-      goosePage,
-      goosePage.locator('[data-testid="workspace-side-tab-diff"]'),
-      'Changes',
-      diffPane,
-      0.9
-    );
-    await expect(panels).toHaveCount(2);
-    await expect(tabsOf(panels.nth(0))).toHaveAttribute('data-dock-tab', 'terminal');
-    await expect(tabsOf(panels.nth(1))).toHaveAttribute('data-dock-tab', 'diff');
+    // A second pane takes the bottom half; the full one moves up.
+    await openPane(goosePage, 'diff');
+    await expect(openTabs).toHaveCount(2);
+    await expect(terminalPane).toHaveAttribute('data-position', 'top');
+    await expect(diffPane).toHaveAttribute('data-position', 'bottom');
     await expect(terminalPane).toBeVisible();
     await expect(diffPane).toBeVisible();
-
-    // The lower panel's header onto the upper half of the top panel: the order swaps.
-    const grip = panels.nth(1).locator('svg').first();
-    await dragTo(goosePage, grip, 'Changes', terminalPane, 0.1);
-    await expect(tabsOf(panels.nth(0))).toHaveAttribute('data-dock-tab', 'diff');
-    await expect(tabsOf(panels.nth(1))).toHaveAttribute('data-dock-tab', 'terminal');
+    await expect(diffTab).toHaveAttribute('aria-pressed', 'true');
     // The seam between them resizes from the keyboard too (DESIGN.md §Accessibility).
-    const seam = goosePage.locator('[data-testid="workspace-dock-seam-1"]');
+    const seam = goosePage.locator('[data-testid="workspace-dock-seam"]');
     await expect(seam).toHaveAttribute('aria-valuenow', '50');
     await seam.focus();
     await goosePage.keyboard.press('ArrowDown');
     await expect(seam).toHaveAttribute('aria-valuenow', '55');
     await goosePage.keyboard.press('ArrowUp');
     await expect(seam).toHaveAttribute('aria-valuenow', '50');
+    await goosePage.screenshot({
+      path: test.info().outputPath('dock-top-bottom.png'),
+      fullPage: true,
+    });
+    if (process.env.T71_SHOTS) {
+      await goosePage.screenshot({ path: join(process.env.T71_SHOTS, 'bar-top-bottom.png') });
+    }
 
-    await goosePage.locator('[data-testid="workspace-pane-close-diff"]').click();
-    await expect(panels).toHaveCount(1);
-    await expect(tabsOf(panels.first())).toHaveAttribute('data-dock-tab', 'terminal');
-    await expect(diffPane).toHaveCount(0);
-    await expect(goosePage.locator('[data-testid="workspace-pane-button-diff"]')).toHaveAttribute(
-      'aria-pressed',
-      'false'
+    // Changes Full from its header: Terminal is parked — still open, its tab not pressed.
+    await diffPane.locator('[data-testid="workspace-dock-position-full"]').click();
+    await expect(diffPane).toHaveAttribute('data-position', 'full');
+    await expect(terminalPane).toBeHidden();
+    await expect(openTabs).toHaveCount(2);
+    await expect(terminalTab).toHaveAttribute('aria-pressed', 'false');
+    await expect(terminalTab).toHaveAttribute('data-open', 'true');
+    await expect(seam).toHaveCount(0);
+
+    // A plain click on a parked tab brings it back into the half it last showed in.
+    await terminalTab.click();
+    await expect(terminalPane).toHaveAttribute('data-position', 'top');
+    await expect(diffPane).toHaveAttribute('data-position', 'bottom');
+
+    // Park it again, then drag its tab onto the column's top half: both halves again.
+    await diffPane.locator('[data-testid="workspace-dock-position-full"]').click();
+    await expect(terminalPane).toBeHidden();
+    await dragTo(goosePage, terminalTab, 'Terminal', 'top');
+    await expect(terminalPane).toHaveAttribute('data-position', 'top');
+    await expect(diffPane).toHaveAttribute('data-position', 'bottom');
+    await expect(terminalPane).toBeVisible();
+    await expect(diffPane).toBeVisible();
+
+    // The tab's right-click menu: the same three positions and Close.
+    await diffTab.click({ button: 'right' });
+    const menu = goosePage.locator('[data-testid="workspace-tab-menu"]');
+    await expect(menu).toBeVisible();
+    await expect(menu.locator('[data-testid="workspace-dock-position-bottom"]')).toHaveAttribute(
+      'aria-current',
+      'true'
     );
-
-    // The ⋯ menu does the same without a pointer: Tear off, then Move up.
-    await openPane(goosePage, 'diff');
-    await expect(tabsOf(panels.first())).toHaveCount(2);
-    const menu = goosePage.locator('[data-testid="workspace-panel-menu-content"]');
-    await panels.first().locator('[data-testid="workspace-panel-menu"]').click();
-    await goosePage.locator('[data-testid="workspace-panel-tear-off"]').click();
-    await expect(panels).toHaveCount(2);
-    await expect(tabsOf(panels.nth(1))).toHaveAttribute('data-dock-tab', 'diff');
-    // The closed menu animates out; the next one opens once it has gone.
+    await menu.locator('[data-testid="workspace-dock-position-top"]').click();
     await expect(menu).toHaveCount(0);
-    await panels.nth(1).locator('[data-testid="workspace-panel-menu"]').click();
-    await goosePage.locator('[data-testid="workspace-panel-move-up"]').click();
-    await expect(tabsOf(panels.nth(0))).toHaveAttribute('data-dock-tab', 'diff');
+    await expect(diffPane).toHaveAttribute('data-position', 'top');
+    await expect(terminalPane).toHaveAttribute('data-position', 'bottom');
+    await diffTab.click({ button: 'right' });
+    await menu.locator('[data-testid="workspace-tab-close"]').click();
     await expect(menu).toHaveCount(0);
+    await expect(diffPane).toHaveCount(0);
+    await expect(openTabs).toHaveCount(1);
+    // The closed tab is a launcher again; the one left takes the column.
+    await expect(diffTab).toHaveAttribute('aria-pressed', 'false');
+    await expect(diffTab).toHaveAttribute('data-open', 'false');
+    await expect(terminalPane).toHaveAttribute('data-position', 'full');
 
     await goosePage.screenshot({
       path: test.info().outputPath('dock.png'),
       fullPage: true,
     });
     await emptyDock(goosePage);
-    await expect(panels).toHaveCount(0);
+    await expect(openTabs).toHaveCount(0);
+    await expect(bar).toBeVisible();
   });
 });

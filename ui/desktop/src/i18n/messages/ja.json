@@ -1229,27 +1229,6 @@
   "dirSwitcher.recentDirectories": {
     "defaultMessage": "最近のディレクトリ"
   },
-  "dock.close": {
-    "defaultMessage": "Close"
-  },
-  "dock.closePane": {
-    "defaultMessage": "Close {pane}"
-  },
-  "dock.moveDown": {
-    "defaultMessage": "Move down"
-  },
-  "dock.moveUp": {
-    "defaultMessage": "Move up"
-  },
-  "dock.panelMenu": {
-    "defaultMessage": "Panel"
-  },
-  "dock.resize": {
-    "defaultMessage": "Resize"
-  },
-  "dock.tearOff": {
-    "defaultMessage": "Tear off"
-  },
   "editorPane.changedOnDisk": {
     "defaultMessage": "Changed on disk"
   },
@@ -3461,9 +3440,6 @@
   "rail.menu": {
     "defaultMessage": "Session menu"
   },
-  "rail.unseen": {
-    "defaultMessage": "{pane} — new since you looked"
-  },
   "recipeActivityEditor.activitiesDescription": {
     "defaultMessage": "レシピチャットウィンドウに表示される冒頭プロンプトとアクティビティボタンです。"
   },
@@ -5554,6 +5530,36 @@
   },
   "settings.legacyAgentLoop.title": {
     "defaultMessage": "Use Legacy Agent Loop"
+  },
+  "workColumn.bar": {
+    "defaultMessage": "Panes"
+  },
+  "workColumn.bottom": {
+    "defaultMessage": "Bottom half"
+  },
+  "workColumn.close": {
+    "defaultMessage": "Close"
+  },
+  "workColumn.closePane": {
+    "defaultMessage": "Close {pane}"
+  },
+  "workColumn.full": {
+    "defaultMessage": "Full"
+  },
+  "workColumn.more": {
+    "defaultMessage": "More panes"
+  },
+  "workColumn.position": {
+    "defaultMessage": "Dock position"
+  },
+  "workColumn.resize": {
+    "defaultMessage": "Resize"
+  },
+  "workColumn.top": {
+    "defaultMessage": "Top half"
+  },
+  "workColumn.unseen": {
+    "defaultMessage": "{pane} — new since you looked"
   },
   "workspaceShell.advancedControls": {
     "defaultMessage": "Advanced controls"

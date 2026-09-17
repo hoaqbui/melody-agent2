@@ -166,6 +166,27 @@
        one pane at a time, chat first
      - → [Right dock: N panels, resizable]; close → [tab returns into
        its launcher (DESIGN.md §Principles, Into Rule)]
+   - amended 2026-09-16 (user: "have a permanent navbar at the top that
+     creates the tabs … you can dock the entire right panel, half the
+     top or half the bottom"; task 71, supersedes the 2026-09-15
+     amendment's N-panel dock and task 60's floating rail): the Work
+     column is always there, a tab bar pinned to its top — every pane
+     launcher as a tab, the ⋯ session menu at its right end — over at
+     most two panes
+     - does: click a launcher → its pane opens as an open tab: full when
+       nothing shows, else the bottom half (the full pane moves up);
+       set a pane's dock position — Full · Top half · Bottom half — from
+       the three-icon control on its header or the tab's right-click
+       menu, or drag a tab onto the column's top or bottom half; drag
+       or arrow the seam between the halves to resize
+     - rule: at most two panes show at once and a Full pane takes the
+       whole column; a half whose partner empties takes the column; a
+       tab whose pane left its slot stays open with its state kept and
+       one click brings it back into the position it last showed in
+       (Nothing Lost); the tab bar shows in Easy and Advanced alike; at
+       phone width the column folds away and the tab rail is unchanged
+     - → [Work column: bar, one pane full or top + bottom, resizable];
+       close → [the tab is a launcher again (Into Rule)]
 
 9. [Session on Claude, mid-conversation] · P0
    - does: change the runtime selector to Codex

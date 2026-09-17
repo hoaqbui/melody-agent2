@@ -39,7 +39,7 @@ import {
 } from '../components/ui/dropdown-menu';
 import type { SessionActions } from '../hooks/useSessionActions';
 import { toastError, toastSuccess } from '../toasts';
-import type { PaneChrome } from './Panel';
+import type { PaneChrome } from './WorkColumn';
 import { paneVisible, type PaneId, type PaneLayout } from './pane-store';
 
 const i18n = defineMessages({
