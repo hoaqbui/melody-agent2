@@ -3905,6 +3905,42 @@
   "routineSheet.worktree": {
     "defaultMessage": "Run in its own worktree"
   },
+  "rpiStrip.implement": {
+    "defaultMessage": "Implement"
+  },
+  "rpiStrip.label": {
+    "defaultMessage": "RPI phases"
+  },
+  "rpiStrip.openArtifact": {
+    "defaultMessage": "Open the artifact"
+  },
+  "rpiStrip.opensWhenDone": {
+    "defaultMessage": "Opens once the worker is done"
+  },
+  "rpiStrip.plan": {
+    "defaultMessage": "Plan"
+  },
+  "rpiStrip.research": {
+    "defaultMessage": "Research"
+  },
+  "rpiStrip.review": {
+    "defaultMessage": "Review"
+  },
+  "rpiStrip.runs": {
+    "defaultMessage": "×{count}"
+  },
+  "rpiStrip.statusActive": {
+    "defaultMessage": "Running"
+  },
+  "rpiStrip.statusDim": {
+    "defaultMessage": "Not started"
+  },
+  "rpiStrip.statusDone": {
+    "defaultMessage": "Done"
+  },
+  "rpiStrip.statusFailed": {
+    "defaultMessage": "Failed"
+  },
   "runsInbox.accept": {
     "defaultMessage": "Accept"
   },

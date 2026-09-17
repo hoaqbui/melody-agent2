@@ -107,6 +107,7 @@ import {
 } from './SessionChips';
 import { SessionControls } from './SessionControls';
 import { RoutineSheet } from './routine/RoutineSheet';
+import { RpiStrip } from './rpi-strip/RpiStrip';
 import { firstUserPrompt } from './routine/routine';
 import { Lever, STOP_MESSAGES } from './Lever';
 import { TerminalPane } from './panes/terminal/TerminalPane';
@@ -1185,12 +1186,18 @@ export function WorkspaceShell({ chat, children, panes, paneStore }: WorkspaceSh
     workspaceUi,
   ]);
 
+  // Task 29: the RPI strip sits above the chat in both faces, and only once a phase is lit.
   const chatBody = (
     <SessionChipsSlot.Provider value={chipsFor}>
       <NextChat.Provider value={nextChat}>
-        <div className="relative min-h-0 min-w-0 flex-1">
-          {children}
-          <div className={isOnPairRoute ? 'contents' : 'hidden'}>{chat}</div>
+        <div className="flex min-h-0 min-w-0 flex-1 flex-col">
+          {isWorkspaceRoute && sessionId && (
+            <RpiStrip sessionId={sessionId} openArtifact={openArtifact} />
+          )}
+          <div className="relative min-h-0 min-w-0 flex-1">
+            {children}
+            <div className={isOnPairRoute ? 'contents' : 'hidden'}>{chat}</div>
+          </div>
         </div>
       </NextChat.Provider>
     </SessionChipsSlot.Provider>
