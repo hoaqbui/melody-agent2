@@ -2,15 +2,17 @@ import { test, expect, emptyDock, openPane } from './fixtures';
 
 const escapeRegExp = (text: string) => text.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
 
-// PRD step 4: open Files, see the cwd tree, click a file → the Editor pane opens in its own
-// panel under Files (task 42) with that file. The tree is the window's working directory, so
-// the walk reads the root the pane shows and picks the first rows instead of naming any.
+// PRD step 4: open Files, see the cwd tree, click a file → the Editor pane opens in the
+// bottom half under Files (task 71) with that file. The tree is the window's working
+// directory, so the walk reads the root the pane shows and picks the first rows instead of
+// naming any.
 test.describe('files pane', () => {
   test('shows the cwd tree and opens a file in the editor', async ({ goosePage }) => {
     const shell = goosePage.locator('[data-testid="workspace-shell"]');
     await expect(shell).toBeVisible({ timeout: 30000 });
 
-    // Files sits under ⋯ in the header's pane menu (task 40); the dock is emptied first.
+    // Files folds under the bar's chevron at the default width and sits under ⋯ too (task
+    // 40); the column is emptied first.
     await emptyDock(goosePage);
     await openPane(goosePage, 'files');
     const pane = goosePage.locator('[data-testid="files-pane"]');
@@ -42,10 +44,12 @@ test.describe('files pane', () => {
     const editor = goosePage.locator('[data-testid="workspace-pane-editor"]');
     await expect(editor).toBeVisible();
     await expect(editor.locator('[data-testid="workspace-editor-file"]')).toContainText(filePath);
-    await expect(goosePage.locator('[data-testid="workspace-side-tab-editor"]')).toHaveAttribute(
-      'aria-pressed',
-      'true'
-    );
+    await expect(editor).toHaveAttribute('data-position', 'bottom');
+    await expect(
+      goosePage.locator(
+        '[data-testid="workspace-side-tab-editor"] [data-testid="workspace-pane-button-editor"]'
+      )
+    ).toHaveAttribute('aria-pressed', 'true');
     await expect(pane).toBeVisible();
 
     await goosePage.screenshot({

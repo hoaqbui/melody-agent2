@@ -42,7 +42,7 @@ import { useSessionActions, type SessionActions } from '../hooks/useSessionActio
 import { DropdownMenu, DropdownMenuTrigger } from './ui/dropdown-menu';
 import { RailMenu } from '../workspace/RailMenu';
 import { initialLayout, PANE_IDS, type PaneId } from '../workspace/pane-store';
-import type { PaneChrome } from '../workspace/Panel';
+import type { PaneChrome } from '../workspace/WorkColumn';
 import SessionActionsHeader from './SessionActionsHeader';
 
 const session = {

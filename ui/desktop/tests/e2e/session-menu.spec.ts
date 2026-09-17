@@ -57,11 +57,19 @@ test.describe('session menu', () => {
     const firstUrl = goosePage.url();
     const reply = goosePage.locator('[data-testid="message-container"].assistant').last();
     await expect(reply).toContainText(/done/i, { timeout: 120_000 });
+    // The turn ends after the text lands, and upstream's chat then takes focus back (BaseChat,
+    // 100 ms after Idle) — an open submenu would close on it, so the menu waits for Idle.
+    await expect(goosePage.locator('[data-testid="loading-indicator"]')).toHaveCount(0, {
+      timeout: 30000,
+    });
 
     const more = goosePage.locator('[data-testid="workspace-pane-more"]');
     const menu = goosePage.locator('[data-testid="workspace-pane-more-menu"]');
     const openMenu = async () => {
-      await more.click();
+      // Upstream's toasts land top-right, over the bar's ⋯ (task 71), and Fork's arrives after
+      // the navigation: the keyboard opens the menu whatever is over the button.
+      await more.focus();
+      await goosePage.keyboard.press('Enter');
       await expect(menu).toBeVisible();
     };
 

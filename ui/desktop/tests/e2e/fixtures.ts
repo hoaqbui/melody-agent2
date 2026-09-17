@@ -185,8 +185,9 @@ export const test = base.extend<GooseTestFixtures>({
 
 export { expect } from '@playwright/test';
 
-// The pane menu (task 40) on the rail (task 60): Terminal, Changes and Browser are buttons,
-// the rest sit under ⋯. A click opens the pane into the dock's top panel (task 42).
+// The Work column's tab bar (task 71): every pane is a tab, Terminal, Changes and Browser
+// first; a narrow bar folds the rest under a chevron, and the ⋯ session menu lists them too.
+// A click opens the pane into the column: full alone, the bottom half beside one.
 export async function openPane(page: Page, id: string): Promise<void> {
   const button = page.locator(`[data-testid="workspace-pane-button-${id}"]`);
   if ((await button.count()) > 0) {
@@ -197,8 +198,8 @@ export async function openPane(page: Page, id: string): Promise<void> {
   await page.locator(`[data-testid="workspace-pane-item-${id}"]`).click();
 }
 
-// The dock is remembered per project in the app's own storage, so a walk that counts
-// panels first closes whatever an earlier run, or the user, left open.
+// The column is remembered per project in the app's own storage, so a walk that counts
+// open tabs first closes whatever an earlier run, or the user, left open.
 export async function emptyDock(page: Page): Promise<void> {
   const tabs = page.locator('[data-dock-tab]');
   for (;;) {

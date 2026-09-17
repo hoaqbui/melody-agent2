@@ -1,12 +1,11 @@
-// The workspace around the chat (PRD steps 2-3, 8, 9; task 60): three columns — Sessions
-// (upstream's sidebar), Chat (the chat, the Hub, or any other page) and Work (the dock) —
-// with a seam between each pair, the pane launchers on a floating rail that slides into the
-// dock's top strip, and the session controls handed to the chat input's bottom row: the lever
-// in Easy, the Runtime · Mode chips and the Session controls popover in Advanced (task 58),
-// the Worktree toggle in both (task 49). The rail's ⋯ is the session's menu (task 69,
-// RailMenu) and its icons carry a dot for what arrived while a pane was hidden. Below the
-// phone breakpoint (task 20) one thing is on screen behind a tab rail, and the foreground
-// reattaches what the background dropped.
+// The workspace around the chat (PRD steps 2-3, 8, 9; tasks 60, 71): three columns —
+// Sessions (upstream's sidebar), Chat (the chat, the Hub, or any other page) and Work (the
+// tab bar over the slots, WorkColumn) — with a seam between each pair, and the session
+// controls handed to the chat input's bottom row: the lever in Easy, the Runtime · Mode
+// chips and the Session controls popover in Advanced (task 58), the Worktree toggle in both
+// (task 49). The bar's ⋯ is the session's menu (task 69, RailMenu) and its tabs carry a dot
+// for what arrived while a pane was hidden. Below the phone breakpoint (task 20) one thing
+// is on screen behind a tab rail, and the foreground reattaches what the background dropped.
 // Composes exported components only and reaches ACP through src/acp.
 
 import {
@@ -16,15 +15,12 @@ import {
   useRef,
   useState,
   useSyncExternalStore,
-  type ComponentProps,
   type ComponentType,
   type KeyboardEvent as ReactKeyboardEvent,
-  type MouseEvent,
   type PointerEvent as ReactPointerEvent,
   type ReactNode,
 } from 'react';
 import { useLocation, useSearchParams } from 'react-router';
-import { motion } from 'framer-motion';
 import {
   BookOpen,
   Ellipsis,
@@ -88,12 +84,10 @@ import {
   PHONE_MAX_WIDTH_PX,
   type Columns,
   type PaneId,
-  type PaneLayout,
   type PaneStore,
 } from './pane-store';
-import { Dock, loadDock, saveDock } from './Dock';
-import type { PaneChrome } from './Panel';
-import { RailMenu, type TranscriptView } from './RailMenu';
+import { WorkColumn, loadDock, saveDock, type PaneChrome } from './WorkColumn';
+import { RailMenu, type RailMenuProps, type TranscriptView } from './RailMenu';
 import { CHANGES_POLL_MS, presetDiffBase, statusFingerprint } from './panes/diff/diff-store';
 import { loadProjectEntry, saveProjectEntry } from './project-storage';
 import {
@@ -142,7 +136,6 @@ const i18n = defineMessages({
   paneMarkdown: { id: 'workspaceShell.paneMarkdown', defaultMessage: 'Markdown' },
   panes: { id: 'workspaceShell.panes', defaultMessage: 'Panes' },
   sessionMenu: { id: 'rail.menu', defaultMessage: 'Session menu' },
-  unseen: { id: 'rail.unseen', defaultMessage: '{pane} — new since you looked' },
   columnSessions: { id: 'workspaceShell.columnSessions', defaultMessage: 'Sessions' },
   columnChat: { id: 'workspaceShell.columnChat', defaultMessage: 'Chat' },
   columnWork: { id: 'workspaceShell.columnWork', defaultMessage: 'Work' },
@@ -170,7 +163,8 @@ const PANE_ICONS: Record<PaneId, ComponentType<{ className?: string }>> = {
   markdown: BookOpen,
 };
 
-// The code-editor standard (task 40): three panes one click away, the rest under ⋯.
+// The code-editor standard (task 40): three panes first on the bar, and the ones that stay
+// there however narrow it gets (task 71); the rest are listed under ⋯ too.
 const PRIMARY_PANES: readonly PaneId[] = ['terminal', 'diff', 'browser'];
 const MORE_PANES: readonly PaneId[] = PANE_IDS.filter((id) => !PRIMARY_PANES.includes(id));
 
@@ -211,119 +205,45 @@ function usePaneLayout(store: PaneStore) {
   return useSyncExternalStore(store.subscribe, store.getState, store.getState);
 }
 
-interface RailProps {
-  layout: PaneLayout;
-  onOpen(id: PaneId, tear: boolean): void;
-  // In the dock's top strip while a panel is open, floating at the right edge otherwise.
-  docked: boolean;
-  chrome: Record<PaneId, PaneChrome>;
-  // Everything the ⋯ menu shows and does, RailMenu's own props minus the geometry.
-  menu: Omit<
-    ComponentProps<typeof RailMenu>,
-    'layout' | 'panes' | 'chrome' | 'onOpenPane' | 'side' | 'align' | 'onClose'
-  >;
-}
+// Everything the ⋯ menu shows and does: RailMenu's own props minus the geometry.
+type SessionMenuProps = Omit<RailMenuProps, 'panes' | 'side' | 'align' | 'onClose'>;
 
-// The pane launchers, Terminal · Changes · Browser · ⋯; pressed = the pane is showing, a dot
-// = something arrived while it was not (task 69). One layoutId per element, so the rail
-// slides into the strip and back out (Into Rule).
-function Rail({ layout, onOpen, docked, chrome, menu }: RailProps) {
+// The session's ⋯ (task 69), at the tab bar's right end (task 71).
+function SessionMenuButton(menu: SessionMenuProps) {
   const intl = useIntl();
   const [menuOpen, setMenuOpen] = useState(false);
-  const open = (id: PaneId) => (event: MouseEvent) => onOpen(id, event.shiftKey);
-  const tooltipSide = docked ? 'bottom' : 'left';
-  const button = cn(
-    floating,
-    'workspace-rail-button relative w-8 px-0 aria-pressed:bg-background-secondary'
-  );
   return (
-    <motion.div
-      layoutId="workspace-rail"
-      className={cn(
-        'workspace-rail flex items-center gap-1',
-        docked ? 'ml-1 flex-row' : 'flex-col rounded-control p-1'
-      )}
-      role="toolbar"
-      aria-label={intl.formatMessage(i18n.panes)}
-      aria-orientation={docked ? 'horizontal' : 'vertical'}
-      data-testid="workspace-pane-menu"
-      data-docked={docked}
-    >
-      {PRIMARY_PANES.map((id) => {
-        const { Icon, title } = chrome[id];
-        const unseen = layout.unseen.has(id);
-        return (
-          <motion.div key={id} layoutId={`workspace-rail-${id}`}>
-            <Tooltip>
-              <TooltipTrigger asChild>
-                <Button
-                  variant="outline"
-                  size="sm"
-                  className={button}
-                  aria-label={title}
-                  aria-pressed={paneVisible(layout, id)}
-                  data-testid={`workspace-pane-button-${id}`}
-                  data-unseen={unseen}
-                  onClick={open(id)}
-                >
-                  <Icon />
-                  {/* DESIGN.md: `info` marks what changed; the dot is paired with the tooltip's
-                      words, never alone (§Accessibility). */}
-                  {unseen && (
-                    <span
-                      aria-hidden
-                      className="absolute top-1 right-1 size-1.5 rounded-full bg-text-info"
-                      data-testid={`workspace-pane-dot-${id}`}
-                    />
-                  )}
-                </Button>
-              </TooltipTrigger>
-              <TooltipContent side={tooltipSide}>
-                {unseen ? intl.formatMessage(i18n.unseen, { pane: title }) : title}
-              </TooltipContent>
-            </Tooltip>
-          </motion.div>
-        );
-      })}
-      <motion.div layoutId="workspace-rail-more">
-        <DropdownMenu open={menuOpen} onOpenChange={setMenuOpen}>
-          <Tooltip>
-            <TooltipTrigger asChild>
-              <DropdownMenuTrigger asChild>
-                <Button
-                  variant="outline"
-                  size="sm"
-                  className={button}
-                  aria-label={intl.formatMessage(i18n.sessionMenu)}
-                  data-pane="more"
-                  data-testid="workspace-pane-more"
-                  // The menu hands focus back to ⋯ when it closes, and a focus-opened tooltip
-                  // would linger there; hover still opens it, the aria-label names it.
-                  onFocus={(event) => event.preventDefault()}
-                >
-                  <Ellipsis />
-                </Button>
-              </DropdownMenuTrigger>
-            </TooltipTrigger>
-            <TooltipContent side={tooltipSide}>
-              {intl.formatMessage(i18n.sessionMenu)}
-            </TooltipContent>
-          </Tooltip>
-          {/* Into Rule: upstream's content scales from its trigger anchor, so the menu grows
-              out of ⋯ and closes back into it. */}
-          <RailMenu
-            {...menu}
-            layout={layout}
-            panes={MORE_PANES}
-            chrome={chrome}
-            onOpenPane={onOpen}
-            side={docked ? 'bottom' : 'left'}
-            align={docked ? 'end' : 'center'}
-            onClose={() => setMenuOpen(false)}
-          />
-        </DropdownMenu>
-      </motion.div>
-    </motion.div>
+    <DropdownMenu open={menuOpen} onOpenChange={setMenuOpen}>
+      <Tooltip>
+        <TooltipTrigger asChild>
+          <DropdownMenuTrigger asChild>
+            <Button
+              variant="ghost"
+              size="xs"
+              className="w-6 shrink-0 px-0"
+              aria-label={intl.formatMessage(i18n.sessionMenu)}
+              data-pane="more"
+              data-testid="workspace-pane-more"
+              // The menu hands focus back to ⋯ when it closes, and a focus-opened tooltip
+              // would linger there; hover still opens it, the aria-label names it.
+              onFocus={(event) => event.preventDefault()}
+            >
+              <Ellipsis />
+            </Button>
+          </DropdownMenuTrigger>
+        </TooltipTrigger>
+        <TooltipContent side="bottom">{intl.formatMessage(i18n.sessionMenu)}</TooltipContent>
+      </Tooltip>
+      {/* Into Rule: upstream's content scales from its trigger anchor, so the menu grows
+          out of ⋯ and closes back into it. */}
+      <RailMenu
+        {...menu}
+        panes={MORE_PANES}
+        side="bottom"
+        align="end"
+        onClose={() => setMenuOpen(false)}
+      />
+    </DropdownMenu>
   );
 }
 
@@ -467,14 +387,14 @@ export function WorkspaceShell({ chat, children, panes, paneStore }: WorkspaceSh
   const rootRef = useRef<HTMLDivElement>(null);
   const [draggingSeam, setDraggingSeam] = useState(false);
   // Where focus goes once the next render has put the target on screen.
-  const pendingFocus = useRef<Column | 'more' | null>(null);
+  const pendingFocus = useRef<Column | null>(null);
 
   useEffect(() => {
     if (paneStore) return;
     return store.subscribe(() => {
-      const { dock, columns } = store.getState();
-      saveDock(project, dock);
-      saveProjectEntry(COLUMNS_STORAGE_KEY, project, columns);
+      const state = store.getState();
+      saveDock(project, state);
+      saveProjectEntry(COLUMNS_STORAGE_KEY, project, state.columns);
     });
   }, [paneStore, project, store]);
 
@@ -855,31 +775,17 @@ export function WorkspaceShell({ chat, children, panes, paneStore }: WorkspaceSh
     [ptyId, store]
   );
 
-  // A first pick tears the Editor off into its own panel so Files stays in view (PRD step 4);
-  // once it is in the dock, a pick just brings it to the front where the user left it.
+  // A pick opens the Editor beside Files — the bottom half under a full Files (PRD step 4) —
+  // or brings it back where the user left it.
   const openFile = useCallback(
     (path: string) => {
       setFile(path);
-      const inDock = store.getState().dock.some((panel) => panel.tabs.includes('editor'));
-      if (inDock) store.openPane('editor');
-      else store.tearOff('editor');
+      store.openPane('editor');
     },
     [store]
   );
-  // Task 40's menu: a click opens the pane in the top panel; shift-click tears it off.
-  const openPane = useCallback(
-    (id: PaneId, tear: boolean) => {
-      if (tear) store.tearOff(id);
-      else store.openPane(id);
-    },
-    [store]
-  );
-  // A pane that closed alone in its panel leaves focus nowhere in the dock, so it lands on
-  // the rail's ⋯ — the one pane button whose tooltip does not open on focus (task 40). The
-  // rail re-renders out of the strip first, so the focus waits for that render.
-  const paneClosed = useCallback(() => {
-    pendingFocus.current = 'more';
-  }, []);
+  // The ⋯ menu's pane rows (task 40); the modifier meant tear-off until task 71.
+  const openPane = useCallback((id: PaneId) => store.openPane(id), [store]);
   const paneContext = useMemo<PaneContextValue>(
     () => ({
       cwd,
@@ -1023,10 +929,8 @@ export function WorkspaceShell({ chat, children, panes, paneStore }: WorkspaceSh
     [chips, sessionId]
   );
 
-  const workOpen = isWorkspaceRoute && layout.dock.length > 0;
-
-  // ⌘1 · ⌘2 · ⌘3 focus Sessions · Chat · Work; Work with nothing open is the rail. ⇧⌘F
-  // opens Files (the ⋯ menu's shortcut, task 69).
+  // ⌘1 · ⌘2 · ⌘3 focus Sessions · Chat · Work; Work with nothing open is the bar's first
+  // tab. ⇧⌘F opens Files (the ⋯ menu's shortcut, task 69).
   useEffect(() => {
     const onKey = (event: KeyboardEvent) => {
       if (!(event.metaKey || event.ctrlKey) || event.altKey) return;
@@ -1049,18 +953,11 @@ export function WorkspaceShell({ chat, children, panes, paneStore }: WorkspaceSh
       const target = pendingFocus.current;
       const root = rootRef.current;
       if (!target || !root) return;
-      const scope =
-        target === 'more' || (target === 'work' && !workOpen)
-          ? root.querySelector<HTMLElement>('[data-testid="workspace-pane-menu"]')
-          : root.querySelector<HTMLElement>(`[data-testid="workspace-column-${target}"]`);
+      const scope = root.querySelector<HTMLElement>(`[data-testid="workspace-column-${target}"]`);
       if (!scope) return;
       pendingFocus.current = null;
       const preferred =
-        target === 'more'
-          ? scope.querySelector<HTMLElement>('[data-pane="more"]')
-          : target === 'chat'
-            ? scope.querySelector<HTMLElement>('[data-testid="chat-input"]')
-            : null;
+        target === 'chat' ? scope.querySelector<HTMLElement>('[data-testid="chat-input"]') : null;
       const first = scope.querySelector<HTMLElement>(
         'a[href], button:not([disabled]), input, textarea, [tabindex]:not([tabindex="-1"])'
       );
@@ -1100,8 +997,7 @@ export function WorkspaceShell({ chat, children, panes, paneStore }: WorkspaceSh
           : i18n.columnWork
     );
   // A seam drag moves the Sessions column with the pointer; otherwise its width eases — the
-  // collapse into the titlebar toggle (Into). Work appears at its width: its motion is the
-  // rail sliding into the strip, which a width transition would chase.
+  // collapse into the titlebar toggle (Into).
   const sessionsMotion = cn(
     'flex shrink min-w-0 overflow-hidden',
     draggingSeam ? 'transition-none' : 'transition-[width] duration-200 ease-[var(--ease-g2)]'
@@ -1115,29 +1011,26 @@ export function WorkspaceShell({ chat, children, panes, paneStore }: WorkspaceSh
       onDragChange={setDraggingSeam}
     />
   );
-  const rail = isWorkspaceRoute && (
-    <Rail
+  const sessionMenu = (
+    <SessionMenuButton
       layout={layout}
-      onOpen={openPane}
-      docked={workOpen}
       chrome={chrome}
-      menu={{
-        actions: session ? sessionActions : undefined,
-        cwd,
-        webShim: WEB_SHIM,
-        transcriptView,
-        onTranscriptView: pickTranscriptView,
-        keepAwake: awake.has(sessionId),
-        onKeepAwake: keepAwake,
-        advanced: workspaceUi === 'advanced',
-        onToggleAdvanced: toggleAdvanced,
-        onOpenPhone: () => setView('settings', { section: 'phone' }),
-        // SettingsView maps `styles` to the Chat tab, where the Response styles live.
-        onOpenResponseStyles: () => setView('settings', { section: 'styles' }),
-        // The Board (task 67) once it lands; the Runs inbox on Schedules until then.
-        onBackgroundTasks: () => setView('schedules'),
-        onSaveRoutine: saveRoutine,
-      }}
+      onOpenPane={openPane}
+      actions={session ? sessionActions : undefined}
+      cwd={cwd}
+      webShim={WEB_SHIM}
+      transcriptView={transcriptView}
+      onTranscriptView={pickTranscriptView}
+      keepAwake={awake.has(sessionId)}
+      onKeepAwake={keepAwake}
+      advanced={workspaceUi === 'advanced'}
+      onToggleAdvanced={toggleAdvanced}
+      onOpenPhone={() => setView('settings', { section: 'phone' })}
+      // SettingsView maps `styles` to the Chat tab, where the Response styles live.
+      onOpenResponseStyles={() => setView('settings', { section: 'styles' })}
+      // The Board (task 67) once it lands; the Runs inbox on Schedules until then.
+      onBackgroundTasks={() => setView('schedules')}
+      onSaveRoutine={saveRoutine}
     />
   );
 
@@ -1196,12 +1089,10 @@ export function WorkspaceShell({ chat, children, panes, paneStore }: WorkspaceSh
   // Phone: one thing on screen — the Sessions column whole when the titlebar toggle opens
   // it, else the chat or a pane behind the tab rail. The bodies stack in one place and hide
   // by visibility, so a scrolled transcript or tree is where it was when it comes back; the
-  // dock's panes stay mounted for the same reason (DESIGN.md Nothing Lost Rule).
+  // open tabs stay mounted for the same reason (DESIGN.md Nothing Lost Rule).
   if (phone) {
     const shown = isWorkspaceRoute ? layout.visible : 'chat';
-    const mounted = PANE_IDS.filter(
-      (id) => id === shown || layout.dock.some((panel) => panel.tabs.includes(id))
-    );
+    const mounted = PANE_IDS.filter((id) => id === shown || layout.tabs.includes(id));
     const body = (id: 'chat' | PaneId) =>
       cn(
         'absolute inset-0 min-h-0 min-w-0',
@@ -1263,7 +1154,9 @@ export function WorkspaceShell({ chat, children, panes, paneStore }: WorkspaceSh
         {chatBody}
       </section>
 
-      {workOpen && (
+      {/* The Work column and its bar are there with nothing open: the bar is the one place
+          pane controls live, in Easy and Advanced alike (task 71). */}
+      {isWorkspaceRoute && (
         <>
           {seam('work')}
           <section
@@ -1274,24 +1167,16 @@ export function WorkspaceShell({ chat, children, panes, paneStore }: WorkspaceSh
             aria-label={columnLabel('work')}
             data-testid="workspace-column-work"
           >
-            <Dock
+            <WorkColumn
               layout={layout}
               store={store}
               chrome={chrome}
+              primary={PRIMARY_PANES}
               renderPane={renderPane}
-              onClosed={paneClosed}
-              launchers={rail}
+              trailing={sessionMenu}
             />
           </section>
         </>
-      )}
-
-      {/* The rail, pinned to the window's right edge and centred, until a panel opens and
-          it slides into the dock's strip (the Work column is that rail, unfolded). */}
-      {isWorkspaceRoute && !workOpen && (
-        <div className="pointer-events-none absolute inset-y-0 right-4 z-40 flex items-center">
-          <div className="pointer-events-auto">{rail}</div>
-        </div>
       )}
 
       <SessionActionDialogs actions={sessionActions} />

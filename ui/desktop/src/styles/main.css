@@ -1020,12 +1020,12 @@ pre:has(> code.bg-inline-code) {
    A surface is glass only when something scrolls or shows behind
    it — its translucent token background stays and a backdrop blur
    lets the macOS vibrancy through. .workspace-column (the three
-   columns, task 60) and .workspace-rail-button (the floating pane
-   launchers) are the shell's class names; the rest are hooks on
-   the components this theme may touch.
+   columns, task 60) is the shell's class name (the floating rail's
+   .workspace-rail-button left with task 71: the tab bar has nothing
+   behind it); the rest are hooks on the components this theme may
+   touch.
    ═══════════════════════════════════════════════════════════ */
 [data-theme='dark'] .workspace-column,
-[data-theme='dark'] .workspace-rail-button,
 [data-theme='dark'] .chat-input-card,
 [data-theme='dark'] [data-slot='dropdown-menu-content'],
 [data-theme='dark'] [data-slot='dropdown-menu-sub-content'] {
