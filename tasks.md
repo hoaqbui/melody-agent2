@@ -62,16 +62,6 @@ re-checked at the fork base `426967d` (v1.51.0, 2026-09-15): all hold;
 
 Planned 2026-09-15 21:25 from PRD steps 10–12 and the spine research §Activity contract gap; tasks 28–30 wait on 27's pick before any source edit.
 
-- 29. Add the RPI strip above the chat (`ui/desktop/src/workspace/rpi-strip/`): phases Research · Plan · Implement · Review lit when a worker with that role starts (from the same event source as task 28), a phase with an artifact clickable, a re-run phase showing a counter.
-  - status: doing · agent: subagent-t29 via claude-session-opus-2 (20:30, worktree) · worker: medium
-  - unblocked 2026-09-16: 28 landed (`panes/agents/agents-state.ts` rows: `source` = role → phase) and 30 landed (`openArtifact(childSessionId)` on pane-context opens the Artifact pane)
-  - 2026-09-15 22:05: 27 picked; still waits on 28's row model (session-keyed, see 28)
-  - card: as the user, see which RPI phase the orchestrator is in so that a long task reads as progress, not a blank chat (PRD step 11)
-  - context:
-    - role → phase from the role file name (`researcher` → Research, `planner` → Plan, `implementer` → Implement, `reviewer` → Review; advisors light the phase they gate)
-    - states: all dim / active pulses / lit-not-clickable without artifact / red on failure, still clickable (PRD §States "RPI strip")
-  - confirm: `cd ui/desktop && pnpm vitest run src/workspace/rpi-strip; echo exit=$?` → `exit=0` with ≥3 tests
-
 ### Parity with Codex desktop and Claude Cowork — plan v1 (approved 2026-09-16)
 
 Planned in `docs/2026-09-16-parity-plan-v1.md` (approved 2026-09-16, "approved all recommendations"). Order: wave 1 = 47 ∥ 48 ∥ 51 (disjoint files); then 49 ∥ 50 (after 48) ∥ 52 (after 51) → 53 → 54 → 59 (after 53 and 58) → 55. 61 and 62 (below) run in wave 1 too — sidecar-only.
@@ -156,6 +146,7 @@ Planned 2026-09-16 from the parity read (user: "plan it out all in tasks.md", th
 - task 30 hand checks — after Open transcript the pane lists the child's (empty) artifacts, by spec; multi-child ordering and the running→done re-read are unit-level only.
 - task 67 hand checks — the Running column with a live streaming session; a delegated child nested under its parent's card and its click landing on the child; project/runtime filters on a real multi-project board; card shadows use Tailwind's `shadow-sm` (a no-op on buttons under `main.css:25`) — cosmetic.
 - task 68 hand checks — a real macOS banner while the window is blurred, its click landing on `/pair?resumeSessionId=…` or `/schedules`; three workers finishing together → one "3 workers finished"; the Sessions-column dot for a session that finished while blurred; phone: Settings › App › Allow notifications, then a finish shows a browser notification.
+- task 29 hand checks — after an app restart the strip stays hidden until a live delegation event (reload-seeded rows carry no role — `DelegatedChild` has no `source`; a small follow-up on `session/children` would fix it); the strip pushes the chat down ~52 px when it first appears; phone width mounts it too (unwalked).
 - task 14 hand check — "since session start" base: open a session in a git cwd, commit, open Changes → the selector offers it and lists the committed file; `git diff HEAD` omits untracked files (accepted gap, or queue).
 - `ARCHITECTURE.md` — sign-off deletes `## Bootstrap Status`; until then the map is a proposal and tasks 10–16 plan against a guess.
 - task 20 hand checks — on `hoa-phone`: scan the Phone card's QR, walk PRD step 13 (chat first, tab rail, Files → Editor, Terminal with the key bar above the iOS keyboard), background the tab for a few minutes and return → terminal scrollback replayed, chat replayed, draft kept; every foreground forces a terminal reset+replay and an ACP teardown (a quick app switch blinks the terminal); `/fs/watch` (the Files dot) is not reattached on foreground (queue candidate); goose's ACP has no "messages since id" pull — whole replay for now (future spine task).
