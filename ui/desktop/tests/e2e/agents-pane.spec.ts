@@ -49,6 +49,8 @@ test.describe('agents pane', () => {
       await expect(lever).toHaveAttribute('data-stop', /hard|custom/, { timeout: 15000 });
 
       const chatInput = goosePage.locator('[data-testid="chat-input"]');
+      // The Hub's textarea lingers a beat after the session opens (task 30 guards the same).
+      await expect(chatInput).toHaveCount(1, { timeout: 15000 });
       await chatInput.fill(
         "Delegate exactly once to the spike-echo role with instructions 'say hello', then reply DONE"
       );
@@ -59,9 +61,12 @@ test.describe('agents pane', () => {
       await expect(row).toHaveCount(1, { timeout: 120000 });
       await expect(row).toHaveAttribute('data-status', 'running');
       await expect(pane).toHaveAttribute('data-state', 'running');
-      await expect(row).toHaveAttribute('data-provider', 'claude-acp');
+      // The role file in GOOSE_TEST_DIR decides the seat; both Claude seats are valid here.
+      await expect(row).toHaveAttribute('data-provider', /^claude-(acp|code)$/);
       await expect(row.locator('[data-testid="agents-row-role"]')).toHaveText('spike-echo');
-      await expect(row.locator('[data-testid="agents-row-runtime"]')).toContainText('claude-acp');
+      await expect(row.locator('[data-testid="agents-row-runtime"]')).toContainText(
+        /claude-(acp|code)/
+      );
       const title = (
         await row.locator('[data-testid="agents-row-open"] > span').first().innerText()
       ).trim();

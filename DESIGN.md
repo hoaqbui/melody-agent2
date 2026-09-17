@@ -28,7 +28,7 @@ Application window — three columns, no top bar (2026-09-16, task 60; user: "pl
 │              collapses into the titlebar toggle (upstream's `NavigationContext`, also under 700 px); width 280 px by default (`pane-store.ts` DEFAULT_COLUMNS)
 ├── seam — drag or arrow to resize the column beside it (`WorkspaceShell.tsx` Seam); widths are remembered per project (`goose.workspace.columns`)
 ├── Chat — `components`: the chat (transcript, tool rows, input with ⌘Enter), the Hub, or any other page; never a pane; takes what the others leave, never under 240 px
-│   ├── RPI strip — `workspace`, above the chat · later (PRD :127-134)
+│   ├── RPI strip — `workspace`, above the chat (task 29, landed 2026-09-16; PRD :127-134)
 │   └── chips — `workspace` in the chat card's bottom row, left of the model and directory chips (`ChatInput.tsx` SessionChipsSlot):
 │                Easy (default, task 58): the lever alone — Easy · Medium · Hard, the knob's label under it (`Lever.tsx`)
 │                Advanced: Runtime ▾ · Mode ▾, each a popover with Install / "no orchestrator role" kept (`SessionChips.tsx`), then Session controls ▾ —
