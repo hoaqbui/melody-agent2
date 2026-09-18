@@ -73,6 +73,7 @@ import { AppEvents } from '../constants/events';
 import type { ViewOptions } from '../utils/navigationUtils';
 import { getEffectiveWorkingDir, getInitialWorkingDir } from '../utils/workingDir';
 import type { Message } from '../types/message';
+import { ChatState } from '../types/chatState';
 import type { ProviderDetails } from '../types/providers';
 import type { WorkspaceUi } from '../utils/settings';
 import { PaneContext, type PaneContextValue } from './pane-context';
@@ -93,7 +94,7 @@ import {
 import { WorkColumn, loadDock, saveDock, type PaneChrome } from './WorkColumn';
 import { RailMenu, type RailMenuProps, type TranscriptView } from './RailMenu';
 import { CHANGES_POLL_MS, presetDiffBase, statusFingerprint } from './panes/diff/diff-store';
-import { loadProjectEntry, saveProjectEntry, loadTurnSnapshots } from './project-storage';
+import { loadProjectEntry, saveProjectEntry, loadTurnSnapshots, saveTurnSnapshot } from './project-storage';
 import {
   MODE_MESSAGES,
   RoutineChip,
@@ -451,6 +452,11 @@ export function WorkspaceShell({ chat, children, panes, paneStore }: WorkspaceSh
   const snapshot = useAcpChatSessionSnapshot(sessionId);
   const session = sessionId ? snapshot?.session : undefined;
 
+  // Track turn snapshots: capture T0 on send (new user message), T1 on streaming→idle
+  const [prevMessageCount, setPrevMessageCount] = useState(0);
+  const [currentTurnId, setCurrentTurnId] = useState<string | null>(null);
+  const [prevChatState, setPrevChatState] = useState(snapshot?.chatState);
+
   const [providers, setProviders] = useState<ProviderDetails[]>([]);
   // undefined until the cwd has been searched; null when it has no project role.
   const [orchestratorRole, setOrchestratorRole] = useState<SourceEntry | null | undefined>();
@@ -788,6 +794,59 @@ export function WorkspaceShell({ chat, children, panes, paneStore }: WorkspaceSh
       window.clearInterval(timer);
     };
   }, [cwd, isWorkspaceRoute, diffHidden, store]);
+
+  // Capture T0 snapshot when a new user message is sent (task 88)
+  useEffect(() => {
+    if (!sessionId || !snapshot?.messages) return;
+
+    const currentMessageCount = snapshot.messages.length;
+    if (currentMessageCount > prevMessageCount) {
+      const lastMessage = snapshot.messages[currentMessageCount - 1];
+      if (lastMessage?.role === 'user' && lastMessage.id) {
+        setCurrentTurnId(lastMessage.id);
+        sidecarFetch('http://localhost:61234/git/snapshot', {
+          method: 'POST',
+          body: JSON.stringify({ cwd }),
+        })
+          .then((res) => (res as Response).json() as Promise<{ tree: string }>)
+          .then(({ tree }) => {
+            // Store T0; T1 will be captured when streaming ends
+            const snapshots = loadTurnSnapshots(cwd);
+            snapshots[lastMessage.id!] = { start: tree, end: '' };
+            saveTurnSnapshot(cwd, lastMessage.id!, { start: tree, end: '' });
+          })
+          .catch(() => {});
+      }
+      setPrevMessageCount(currentMessageCount);
+    }
+  }, [sessionId, snapshot?.messages, cwd, prevMessageCount]);
+
+  // Capture T1 snapshot when streaming ends (streaming→idle transition)
+  useEffect(() => {
+    if (!sessionId || !snapshot?.chatState || !currentTurnId) return;
+
+    const wasStreaming = prevChatState === ChatState.Streaming || prevChatState === ChatState.Thinking;
+    const isNowIdle = snapshot.chatState === ChatState.Idle;
+
+    if (wasStreaming && isNowIdle) {
+      sidecarFetch('http://localhost:61234/git/snapshot', {
+        method: 'POST',
+        body: JSON.stringify({ cwd }),
+      })
+        .then((res) => (res as Response).json() as Promise<{ tree: string }>)
+        .then(({ tree }) => {
+          const snapshots = loadTurnSnapshots(cwd);
+          if (snapshots[currentTurnId]) {
+            snapshots[currentTurnId].end = tree;
+            saveTurnSnapshot(cwd, currentTurnId, snapshots[currentTurnId]);
+          }
+          setCurrentTurnId(null);
+        })
+        .catch(() => {});
+    }
+
+    setPrevChatState(snapshot.chatState);
+  }, [sessionId, snapshot?.chatState, currentTurnId, cwd, prevChatState]);
 
   // The Terminal dot: the session's shell wrote something while its pane was not showing.
   const ptyId = sessionId || 'hub';
