@@ -40,7 +40,9 @@ export interface PtyAttachOptions {
 }
 
 type ClientMessage =
-  { type: 'input'; data: string } | { type: 'resize'; cols: number; rows: number };
+  | { type: 'input'; data: string }
+  | { type: 'resize'; cols: number; rows: number }
+  | { type: 'kill' };
 
 // Sessions outlive their clients: a phone that backgrounds Safari reattaches
 // by id and replays the scrollback instead of losing the shell.
@@ -87,7 +89,8 @@ export const attachPty = (socket: WebSocket, options: PtyAttachOptions): void =>
   const existing = sessions.get(options.id);
   const session = existing ?? createSession(options.id, options);
   session.clients.add(socket);
-  socket.send(JSON.stringify({ type: 'attached', id: options.id, pid: session.term.pid }));
+  const shell = process.env.SHELL || '/bin/zsh';
+  socket.send(JSON.stringify({ type: 'attached', id: options.id, pid: session.term.pid, shell: path.basename(shell) }));
   if (existing) {
     session.term.resize(options.cols, options.rows);
     socket.send(JSON.stringify({ type: 'output', data: session.scrollback }));
@@ -103,6 +106,12 @@ export const attachPty = (socket: WebSocket, options: PtyAttachOptions): void =>
       session.term.write(message.data);
     } else if (message.type === 'resize') {
       session.term.resize(message.cols, message.rows);
+    } else if (message.type === 'kill') {
+      session.term.kill();
+      for (const client of session.clients) {
+        client.close(1000, 'shell killed');
+      }
+      sessions.delete(options.id);
     }
   });
   socket.on('close', () => {

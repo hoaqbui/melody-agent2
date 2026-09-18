@@ -206,10 +206,12 @@ export interface SidecarConfig {
 }
 
 export type PtyClientMessage =
-  { type: 'input'; data: string } | { type: 'resize'; cols: number; rows: number };
+  | { type: 'input'; data: string }
+  | { type: 'resize'; cols: number; rows: number }
+  | { type: 'kill' };
 
 export type PtyServerMessage =
-  | { type: 'attached'; id: string; pid: number }
+  | { type: 'attached'; id: string; pid: number; shell: string }
   | { type: 'output'; data: string }
   | { type: 'exit'; code: number; signal?: number };
 
