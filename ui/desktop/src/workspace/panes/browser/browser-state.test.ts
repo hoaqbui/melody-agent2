@@ -3,6 +3,7 @@ import { resolve } from 'node:path';
 import { describe, expect, it, vi } from 'vitest';
 import {
   BROWSER_PANE_STATES,
+  CONSOLE_CAP,
   HISTORY_CAP,
   SHARE_TEXT_CAP,
   SUGGESTION_LIMIT,
@@ -30,6 +31,10 @@ import {
   unreachableFromHere,
   visited,
   writeHistory,
+  consoleCleared,
+  consoleLogged,
+  consoleText,
+  type ConsoleLine,
 } from './browser-state';
 
 const INVALID = 'Only http and https URLs open here';
@@ -248,5 +253,59 @@ describe('browser store', () => {
   it('starts from the history it is given', () => {
     const entries = [{ url: HEALTH, title: '', lastVisited: 1 }];
     expect(createBrowserStore('', entries).getState().history).toBe(entries);
+  });
+});
+
+describe('console buffer', () => {
+  it('logs messages in a FIFO ring buffer, capped at CONSOLE_CAP', () => {
+    let lines: ConsoleLine[] = [];
+    for (let i = 0; i < CONSOLE_CAP + 5; i++) {
+      lines = consoleLogged(lines, {
+        level: 'info',
+        message: `msg ${i}`,
+        timestamp: i,
+      });
+    }
+    expect(lines).toHaveLength(CONSOLE_CAP);
+    expect(lines[0].message).toBe(`msg ${CONSOLE_CAP + 4}`);
+    expect(lines[CONSOLE_CAP - 1].message).toBe('msg 5');
+  });
+
+  it('formats console text with errors first, then rest in chronological order', () => {
+    let lines: ConsoleLine[] = [];
+    lines = consoleLogged(lines, {
+      level: 'info',
+      message: 'info1',
+      timestamp: 1,
+    });
+    lines = consoleLogged(lines, {
+      level: 'error',
+      message: 'error1',
+      timestamp: 2,
+    });
+    lines = consoleLogged(lines, {
+      level: 'info',
+      message: 'info2',
+      timestamp: 3,
+    });
+    lines = consoleLogged(lines, {
+      level: 'error',
+      message: 'error2',
+      timestamp: 4,
+    });
+    const text = consoleText(lines);
+    const lines_ = text.split('\n');
+    expect(lines_[0]).toBe('error2');
+    expect(lines_[1]).toBe('error1');
+    expect(lines_[2]).toBe('info1');
+    expect(lines_[3]).toBe('info2');
+  });
+
+  it('clears the console buffer', () => {
+    let lines: ConsoleLine[] = [
+      { level: 'error', message: 'error', timestamp: 1 },
+    ];
+    lines = consoleCleared();
+    expect(lines).toEqual([]);
   });
 });

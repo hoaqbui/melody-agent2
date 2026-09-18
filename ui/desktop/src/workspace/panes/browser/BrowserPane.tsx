@@ -15,8 +15,16 @@ import {
 import { ArrowLeft, ArrowRight, RotateCw, Share, Square } from 'lucide-react';
 import { defineMessages, useIntl } from '../../../i18n';
 import { Button } from '../../../components/ui/button';
+import {
+  DropdownMenu,
+  DropdownMenuTrigger,
+  DropdownMenuContent,
+  DropdownMenuItem,
+} from '../../../components/ui/dropdown-menu';
 import { AppEvents } from '../../../constants/events';
 import { usePaneContext } from '../../pane-context';
+import { toastError } from '../../../toasts';
+import { loadProjectEntry, saveProjectEntry } from '../../project-storage';
 import {
   createBrowserStore,
   frameLoaded,
@@ -37,7 +45,12 @@ import {
   typed,
   visited,
   writeHistory,
+  consoleCleared,
+  consoleLogged,
+  consoleText,
   type BrowserStore,
+  type WebviewElement,
+  type ConsoleLine,
 } from './browser-state';
 
 const i18n = defineMessages({
@@ -48,14 +61,20 @@ const i18n = defineMessages({
   address: { id: 'browserPane.address', defaultMessage: 'Address' },
   suggestions: { id: 'browserPane.suggestions', defaultMessage: 'Recently opened' },
   share: { id: 'browserPane.share', defaultMessage: 'Share with agent' },
+  sharePage: { id: 'browserPane.sharePage', defaultMessage: 'Page' },
+  shareScreenshot: { id: 'browserPane.shareScreenshot', defaultMessage: 'Screenshot' },
+  shareConsole: { id: 'browserPane.shareConsole', defaultMessage: 'Console' },
+  desktopOnly: { id: 'browserPane.desktopOnly', defaultMessage: 'Desktop only' },
   shareUrlOnly: {
     id: 'browserPane.shareUrlOnly',
     defaultMessage: 'Share sends the address only from here',
   },
   noDevServer: {
     id: 'browserPane.noDevServer',
-    defaultMessage: 'No dev server listed — enter a URL',
+    defaultMessage: 'Enter a URL, or set one as home',
   },
+  setHome: { id: 'browserPane.setHome', defaultMessage: 'Set as home' },
+  captureFailed: { id: 'browserPane.captureFailed', defaultMessage: 'Failed to capture page' },
   loading: { id: 'browserPane.loading', defaultMessage: 'Loading…' },
   invalidUrl: {
     id: 'browserPane.invalidUrl',
@@ -72,10 +91,6 @@ const i18n = defineMessages({
   frame: { id: 'browserPane.frame', defaultMessage: 'Browser' },
 });
 
-// No per-project config on the desktop names a dev server yet (the only `.goose` reader is
-// recipes, src/recipe/recipe_management.ts), so the default is empty.
-const DEFAULT_URL = '';
-
 // The web shim's window.electron answers every key with a stub, so the shape cannot tell the
 // builds apart; the user agent can.
 const HAS_WEBVIEW = /\bElectron\//.test(window.navigator.userAgent);
@@ -86,29 +101,18 @@ const ERR_ABORTED = -3;
 // Cookies outlive a restart but never mix with the app's own `persist:goose` session.
 const PARTITION = 'persist:workspace-browser';
 
-// The part of Electron's WebviewTag the pane calls; src/workspace cannot import 'electron'
-// (.dependency-cruiser.cjs renderer-runs-in-a-browser).
-interface WebviewElement extends HTMLElement {
-  getURL(): string;
-  getTitle(): string;
-  loadURL(url: string): Promise<void>;
-  reload(): void;
-  stop(): void;
-  goBack(): void;
-  goForward(): void;
-  canGoBack(): boolean;
-  canGoForward(): boolean;
-  executeJavaScript(code: string): Promise<unknown>;
-}
-
 // One address and history per cwd, kept across promote and close (DESIGN.md Nothing Lost
 // Rule); the history also lands in localStorage so it survives a restart.
 const stores = new Map<string, BrowserStore>();
 
+// Console buffer per-cwd, cleared on main-frame navigation (devtools default).
+const consoleBuffers = new Map<string, ConsoleLine[]>();
+
 function storeFor(cwd: string): BrowserStore {
   let store = stores.get(cwd);
   if (!store) {
-    const created = createBrowserStore(DEFAULT_URL, readHistory(window.localStorage, cwd));
+    const homeUrl = (loadProjectEntry('goose.browser.home', cwd) ?? '') as string;
+    const created = createBrowserStore(homeUrl, readHistory(window.localStorage, cwd));
     let written = created.getState().history;
     created.subscribe(() => {
       const { history } = created.getState();
@@ -121,6 +125,15 @@ function storeFor(cwd: string): BrowserStore {
     store = created;
   }
   return store;
+}
+
+function consoleBufferFor(cwd: string): ConsoleLine[] {
+  let buffer = consoleBuffers.get(cwd);
+  if (!buffer) {
+    buffer = [];
+    consoleBuffers.set(cwd, buffer);
+  }
+  return buffer;
 }
 
 function useBrowser(store: BrowserStore) {
@@ -138,7 +151,7 @@ function iframeTitle(frame: HTMLIFrameElement | null): string {
 
 export function BrowserPane() {
   const intl = useIntl();
-  const { cwd, markUnseen } = usePaneContext();
+  const { cwd, markUnseen, insertIntoChat } = usePaneContext();
   const store = storeFor(cwd);
   const browser = useBrowser(store);
   const pageHost = window.location.hostname;
@@ -179,7 +192,10 @@ export function BrowserPane() {
       markUnseen('browser');
     };
     const onNavigate = (event: Event) => {
-      const { url } = event as Event & { url: string };
+      const { url, isMainFrame } = event as Event & { url: string; isMainFrame: boolean };
+      if (isMainFrame) {
+        consoleBuffers.set(cwd, consoleCleared());
+      }
       store.apply((current) => navigated(current, url, false));
       syncFlags();
       record(url);
@@ -205,6 +221,22 @@ export function BrowserPane() {
       const cause = intl.formatMessage(i18n.loadFailed, { cause: errorDescription });
       store.apply((current) => loadFailed(current, cause));
     };
+    const onConsoleMessage = (event: Event) => {
+      const { message, level } = event as Event & { message: string; level: number };
+      const levelMap: Record<number, ConsoleLine['level']> = {
+        0: 'verbose',
+        1: 'info',
+        2: 'warning',
+        3: 'error',
+      };
+      const entry: ConsoleLine = {
+        level: levelMap[level] ?? 'verbose',
+        message,
+        timestamp: Date.now(),
+      };
+      const buffer = consoleBufferFor(cwd);
+      consoleBuffers.set(cwd, consoleLogged(buffer, entry));
+    };
     element.addEventListener('dom-ready', onDomReady);
     element.addEventListener('did-start-loading', onStart);
     element.addEventListener('did-stop-loading', onStop);
@@ -212,6 +244,7 @@ export function BrowserPane() {
     element.addEventListener('did-navigate-in-page', onNavigateInPage);
     element.addEventListener('page-title-updated', onTitle);
     element.addEventListener('did-fail-load', onFail);
+    element.addEventListener('console-message', onConsoleMessage);
     // The guest is created when `src` is first parsed, with the partition read then; binding
     // `src` in JSX would reload the page on every navigation the bar follows. `allowpopups`
     // lets a `window.open` reach main.ts, which denies the window and loads the URL here.
@@ -227,8 +260,9 @@ export function BrowserPane() {
       element.removeEventListener('did-navigate-in-page', onNavigateInPage);
       element.removeEventListener('page-title-updated', onTitle);
       element.removeEventListener('did-fail-load', onFail);
+      element.removeEventListener('console-message', onConsoleMessage);
     };
-  }, [intl, markUnseen, showFrame, store]);
+  }, [intl, markUnseen, showFrame, store, cwd]);
 
   // The bar asked for an address the guest is not on: a submit or a suggestion.
   useEffect(() => {
@@ -275,9 +309,7 @@ export function BrowserPane() {
     }
   };
 
-  // Push, never pull: the page reaches the chat only through this click, and the text is in
-  // the input for the user to read before ⌘Enter (AGENTS.md: sources are data).
-  const onShare = async () => {
+  const onSharePage = async () => {
     const element = guest();
     const title = element ? element.getTitle() : iframeTitle(iframeRef.current);
     let text: string | null = null;
@@ -293,6 +325,38 @@ export function BrowserPane() {
         detail: sharedPage(title, browser.url, text),
       })
     );
+  };
+
+  const onShareScreenshot = async () => {
+    const element = guest();
+    if (!element) return;
+    try {
+      const image = await element.capturePage();
+      const dataUrl = image.toDataURL();
+      const base64 = dataUrl.replace(/^data:image\/png;base64,/, '');
+      insertIntoChat({ kind: 'image', data: base64, mimeType: 'image/png' });
+    } catch (error) {
+      toastError({
+        title: intl.formatMessage(i18n.captureFailed),
+        msg: error instanceof Error ? error.message : 'Unknown error',
+      });
+    }
+  };
+
+  const onShareConsole = () => {
+    const buffer = consoleBufferFor(cwd);
+    const text = consoleText(buffer);
+    if (!text) return;
+    insertIntoChat({
+      kind: 'text',
+      text,
+      source: { path: 'console' },
+    });
+  };
+
+  const onSetHome = () => {
+    if (browser.url === '') return;
+    saveProjectEntry('goose.browser.home', cwd, browser.url);
   };
 
   const stopping = HAS_WEBVIEW && showFrame && !browser.loaded;
@@ -410,14 +474,56 @@ export function BrowserPane() {
           type="button"
           variant="outline"
           size="xs"
-          disabled={!showFrame}
-          title={intl.formatMessage(HAS_WEBVIEW ? i18n.share : i18n.shareUrlOnly)}
-          data-testid="browser-share"
-          onClick={() => void onShare()}
+          disabled={browser.url === ''}
+          title={intl.formatMessage(i18n.setHome)}
+          data-testid="browser-set-home"
+          onClick={onSetHome}
         >
-          <Share className="size-3.5" />
-          <span className="sr-only">{intl.formatMessage(i18n.share)}</span>
+          <span className="text-xs">{intl.formatMessage(i18n.setHome)}</span>
         </Button>
+        <DropdownMenu>
+          <DropdownMenuTrigger asChild>
+            <Button
+              type="button"
+              variant="outline"
+              size="xs"
+              disabled={!showFrame}
+              title={intl.formatMessage(HAS_WEBVIEW ? i18n.share : i18n.shareUrlOnly)}
+              data-testid="browser-share"
+            >
+              <Share className="size-3.5" />
+              <span className="sr-only">{intl.formatMessage(i18n.share)}</span>
+            </Button>
+          </DropdownMenuTrigger>
+          <DropdownMenuContent align="end">
+            <DropdownMenuItem onClick={() => void onSharePage()}>
+              {intl.formatMessage(i18n.sharePage)}
+            </DropdownMenuItem>
+            <DropdownMenuItem
+              disabled={!HAS_WEBVIEW}
+              onClick={() => void onShareScreenshot()}
+              data-testid="browser-share-screenshot"
+            >
+              {intl.formatMessage(i18n.shareScreenshot)}
+              {!HAS_WEBVIEW && (
+                <span className="text-xs text-text-secondary ml-2">
+                  {intl.formatMessage(i18n.desktopOnly)}
+                </span>
+              )}
+            </DropdownMenuItem>
+            <DropdownMenuItem
+              disabled={!HAS_WEBVIEW}
+              onClick={onShareConsole}
+            >
+              {intl.formatMessage(i18n.shareConsole)}
+              {!HAS_WEBVIEW && (
+                <span className="text-xs text-text-secondary ml-2">
+                  {intl.formatMessage(i18n.desktopOnly)}
+                </span>
+              )}
+            </DropdownMenuItem>
+          </DropdownMenuContent>
+        </DropdownMenu>
         {!HAS_WEBVIEW && (
           // Visible only to assistive tech: inline, the note starved the address bar at pane widths under ~400 px.
           <span className="sr-only" data-testid="browser-share-note">
