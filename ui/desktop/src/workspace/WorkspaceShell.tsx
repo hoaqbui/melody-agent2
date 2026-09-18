@@ -479,6 +479,8 @@ export function WorkspaceShell({ chat, children, panes, paneStore }: WorkspaceSh
   const [awake, setAwake] = useState<ReadonlySet<string>>(() => new Set());
   // Full or Compact, per session, in localStorage (task 69).
   const [transcriptView, setTranscriptView] = useState<TranscriptView>('full');
+  // The last git status from the workspace-wide poll (task 74).
+  const [gitStatus, setGitStatus] = useState<GitStatusResponse | null>(null);
 
   const cwd = session?.working_dir ?? getInitialWorkingDir();
   const sessionActions = useSessionActions(session);
@@ -754,13 +756,12 @@ export function WorkspaceShell({ chat, children, panes, paneStore }: WorkspaceSh
     [intl, pickRuntime, sessionId]
   );
 
-  // The Changes dot (task 69): while the pane is hidden, the working tree is polled every 30 s
-  // and a state the pane has not shown earns the dot; the first poll after the pane goes
-  // hidden is the baseline (what it showed), so only what appears afterwards counts. The
-  // pane refreshes itself while it is on screen.
+  // Git status poll (task 74): on any workspace route, poll every 30 s and hold the
+  // last response in state. The Changes dot (task 69) still only marks unseen while the
+  // diff pane is hidden, using the first hidden poll as the baseline.
   const diffHidden = isWorkspaceRoute && !paneVisible(layout, 'diff');
   useEffect(() => {
-    if (!diffHidden) return;
+    if (!isWorkspaceRoute) return;
     let cancelled = false;
     let baseline: string | null = null;
     const poll = () => {
@@ -768,9 +769,12 @@ export function WorkspaceShell({ chat, children, panes, paneStore }: WorkspaceSh
       sidecarFetch<GitStatusResponse>('/git/status', request)
         .then((status) => {
           if (cancelled) return;
+          setGitStatus(status);
           const fingerprint = statusFingerprint(status.entries);
-          if (baseline === null) baseline = fingerprint;
-          else if (fingerprint !== baseline && fingerprint !== '') store.markUnseen('diff');
+          if (diffHidden) {
+            if (baseline === null) baseline = fingerprint;
+            else if (fingerprint !== baseline && fingerprint !== '') store.markUnseen('diff');
+          }
         })
         .catch(() => {});
     };
@@ -780,7 +784,7 @@ export function WorkspaceShell({ chat, children, panes, paneStore }: WorkspaceSh
       cancelled = true;
       window.clearInterval(timer);
     };
-  }, [cwd, diffHidden, store]);
+  }, [cwd, isWorkspaceRoute, diffHidden, store]);
 
   // The Terminal dot: the session's shell wrote something while its pane was not showing.
   const ptyId = sessionId || 'hub';
@@ -834,11 +838,13 @@ export function WorkspaceShell({ chat, children, panes, paneStore }: WorkspaceSh
       openArtifact,
       review,
       openReview,
+      gitStatus,
     }),
     [
       artifact,
       cwd,
       file,
+      gitStatus,
       layout.mode,
       line,
       openArtifact,

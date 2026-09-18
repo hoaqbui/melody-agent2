@@ -4,6 +4,7 @@
 // Panes keep their own contents.
 
 import { createContext, useContext } from 'react';
+import type { GitStatusResponse } from '../native/sidecar';
 import type { Message } from '../types/message';
 import type { LayoutMode, PaneId } from './pane-store';
 
@@ -29,6 +30,9 @@ export interface PaneContextValue {
   // The review session the Review pane shows (task 70); null until a review is started.
   review: string | null;
   openReview(sessionId: string): void;
+  // The last git status from the workspace-wide poll; null until the first poll completes.
+  // All panes read one value instead of polling their own (task 74).
+  gitStatus: GitStatusResponse | null;
 }
 
 export const PaneContext = createContext<PaneContextValue | null>(null);
