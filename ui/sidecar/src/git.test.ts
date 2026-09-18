@@ -293,6 +293,25 @@ describe('gitRoutes', () => {
     });
   });
 
+  describe('diff with numstat and untracked files', () => {
+    it('returns numstat with untracked files appended', async () => {
+      await writeFile(path.join(repo, 'numstat-edited.txt'), 'line 1\nline 2\nline 3\n');
+      await writeFile(path.join(repo, 'a.txt'), 'modified content\n');
+      await writeFile(path.join(repo, 'numstat-untracked.txt'), 'untracked\nline 2\n');
+
+      const result = (await routes['POST /git/diff']({ numstat: true })) as { diff: string };
+      const lines = result.diff.trim().split('\n');
+
+      expect(result.diff).toContain('a.txt');
+      expect(result.diff).toContain('numstat-untracked.txt');
+      expect(lines.some((line) => line.includes('numstat-untracked.txt'))).toBe(true);
+
+      await rm(path.join(repo, 'numstat-edited.txt'));
+      await rm(path.join(repo, 'numstat-untracked.txt'));
+      await sh(repo, ['checkout', '--', 'a.txt']);
+    });
+  });
+
   describe('push, log and pr', () => {
     let pushRepo: string;
     let origin: string;
@@ -514,6 +533,61 @@ describe('gitRoutes', () => {
       const snapshot1 = (await routes['POST /git/snapshot']({})) as { tree: string };
       const snapshot2 = (await routes['POST /git/snapshot']({})) as { tree: string };
       expect(snapshot1.tree).toBe(snapshot2.tree);
+    });
+  });
+
+  describe('discard and undo', () => {
+    it('discards changes with stash push and returns stash message', async () => {
+      // Create a dirty working tree
+      await writeFile(path.join(repo, 'discard-test.txt'), 'test content\n');
+      await writeFile(path.join(repo, 'a.txt'), 'modified\n');
+
+      // Discard changes
+      const discardResult = (await routes['POST /git/discard']({})) as { stash: string };
+      expect(discardResult.stash).toMatch(/^goose discard \d+$/);
+
+      // Verify tree is clean
+      const status = (await sh(repo, ['status', '--porcelain'])).trim();
+      expect(status).toBe('');
+
+      // Verify the files are in the stash
+      const stashList = await sh(repo, ['stash', 'list']);
+      expect(stashList).toContain('goose discard');
+
+      // Clean up stash
+      await sh(repo, ['stash', 'drop']);
+    });
+
+    it('undoes a discard by applying and dropping the stash', async () => {
+      // Create a dirty working tree
+      await writeFile(path.join(repo, 'undo-test.txt'), 'test content\n');
+      await writeFile(path.join(repo, 'a.txt'), 'undo modified\n');
+
+      // Discard changes
+      const discardResult = (await routes['POST /git/discard']({})) as { stash: string };
+      const stashMessage = discardResult.stash;
+
+      // Verify tree is clean
+      let status = (await sh(repo, ['status', '--porcelain'])).trim();
+      expect(status).toBe('');
+
+      await routes['POST /git/discard-undo']({ stash: stashMessage });
+
+      // Verify the files are back
+      status = (await sh(repo, ['status', '--porcelain'])).trim();
+      expect(status).toContain('undo-test.txt');
+      expect(status).toContain('a.txt');
+      expect(await readFile(path.join(repo, 'undo-test.txt'), 'utf8')).toBe('test content\n');
+
+      // Clean up
+      await rm(path.join(repo, 'undo-test.txt'));
+      await sh(repo, ['checkout', '--', 'a.txt']);
+    });
+
+    it('fails to undo with invalid stash message', async () => {
+      const error = await failure(routes['POST /git/discard-undo']({ stash: 'invalid stash message' }));
+      expect(error.status).toBe(404);
+      expect(error.message).toContain('stash entry not found');
     });
   });
 });

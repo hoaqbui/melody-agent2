@@ -27,6 +27,7 @@ import { ContextWindowIndicator } from './bottom_menu/ContextWindowIndicator';
 import { DroppedFile, useFileDrop } from '../hooks/useFileDrop';
 import { Recipe } from '../recipe';
 import { MessageQueue, QueuedMessage } from './MessageQueue';
+import { ChangesBarSlot } from '../workspace/ChangesBar';
 import { detectInterruption } from '../utils/interruptionDetector';
 import { DiagnosticsModal } from './ui/Diagnostics';
 import type { Message } from '../types/message';
@@ -1593,6 +1594,9 @@ export default function ChatInput({
         style={{ display: 'none' }}
         accept="*/*"
       />
+      {/* Changes Bar */}
+      <ChangesBarSlot />
+
       {/* Message Queue Display */}
       {queuedMessages.length > 0 && (
         <MessageQueue

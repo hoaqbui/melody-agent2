@@ -885,6 +885,13 @@ export function WorkspaceShell({ chat, children, panes, paneStore }: WorkspaceSh
   );
   // The ⋯ menu's pane rows (task 40); the modifier meant tear-off until task 71.
   const openPane = useCallback((id: PaneId) => store.openPane(id), [store]);
+  // Focus the Git pane's commit textarea (task 84's Accept all in Changes bar).
+  const focusCommit = useCallback(() => {
+    const textarea = document.querySelector('[data-testid="git-message"]') as HTMLTextAreaElement;
+    if (textarea) {
+      textarea.focus();
+    }
+  }, []);
   const insertIntoChat = useCallback((input: InsertChatInput) => {
     if (input.kind === 'text') {
       window.dispatchEvent(
@@ -913,17 +920,21 @@ export function WorkspaceShell({ chat, children, panes, paneStore }: WorkspaceSh
       openReview,
       insertIntoChat,
       gitStatus,
+      openPane,
+      focusCommit,
     }),
     [
       artifact,
       cwd,
       file,
+      focusCommit,
       insertIntoChat,
       gitStatus,
       layout.mode,
       line,
       openArtifact,
       openFile,
+      openPane,
       openReview,
       review,
       sessionId,

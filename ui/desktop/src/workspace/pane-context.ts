@@ -36,6 +36,10 @@ export interface PaneContextValue {
   // The last git status from the workspace-wide poll; null until the first poll completes.
   // All panes read one value instead of polling their own (task 74).
   gitStatus: GitStatusResponse | null;
+  // Open a pane by its ID (e.g., 'diff', 'git', 'files').
+  openPane(id: PaneId): void;
+  // Focus the Git pane's commit textarea (used by Accept all in the Changes bar).
+  focusCommit(): void;
 }
 
 export const PaneContext = createContext<PaneContextValue | null>(null);
