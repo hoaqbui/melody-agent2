@@ -52,11 +52,18 @@ export function modeOfSession(session: Pick<Session, 'recipe'> | undefined): Mod
   return session?.recipe?.title === ORCHESTRATOR_RECIPE_TITLE ? 'orchestrate' : 'direct';
 }
 
-export function orchestratorRecipe(role: { description: string; content: string }) {
+export function orchestratorRecipe(
+  role: { description: string; content: string },
+  options?: { planGate?: boolean }
+) {
+  let instructions = role.content;
+  if (options?.planGate) {
+    instructions += '\n\nPlan gate: end your turn after the Planner returns; implement only after the user\'s Accept.';
+  }
   return {
     title: ORCHESTRATOR_RECIPE_TITLE,
     description: role.description,
-    instructions: role.content,
+    instructions,
   };
 }
 

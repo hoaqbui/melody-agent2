@@ -2071,6 +2071,7 @@ const validSettingKeys: Set<string> = new Set([
   'recentModels',
   'useLegacyAgentLoop',
   'workspace.ui',
+  'workspace.planGate',
   'sidecar.port',
 ]);
 

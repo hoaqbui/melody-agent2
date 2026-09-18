@@ -89,6 +89,21 @@ describe('session controls', () => {
     });
   });
 
+  describe('plan gate', () => {
+    it('appends the plan gate rule when planGate is true', () => {
+      const recipe = orchestratorRecipe({ description: 'owns the objective', content: '# Body' }, { planGate: true });
+      expect(recipe.instructions).toContain('end your turn after the Planner');
+      expect(recipe.instructions).toContain("only after the user's Accept");
+    });
+
+    it('does not append the plan gate rule when planGate is false or undefined', () => {
+      const recipeNoGate = orchestratorRecipe({ description: 'owns the objective', content: '# Body' }, { planGate: false });
+      expect(recipeNoGate.instructions).toBe('# Body');
+      const recipeUndefined = orchestratorRecipe({ description: 'owns the objective', content: '# Body' });
+      expect(recipeUndefined.instructions).toBe('# Body');
+    });
+  });
+
   it('maps the three stops to their triples', () => {
     expect(STOPS).toEqual(['easy', 'medium', 'hard']);
     expect(STOPS.map((stop) => [LEVER[stop].provider, LEVER[stop].mode])).toEqual([
