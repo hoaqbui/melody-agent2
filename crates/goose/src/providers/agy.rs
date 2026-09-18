@@ -616,23 +616,16 @@ printf '%s\n' '{"event":"result","result":{"conversation_id":"d4645554-a3be-4dd8
     #[tokio::test]
     async fn update_mode_refuses_non_auto() {
         let provider = make_provider();
-
-        let result = provider.update_mode("session-1", GooseMode::Auto).await;
-        assert!(result.is_ok());
-
-        let result = provider.update_mode("session-1", GooseMode::Approve).await;
-        assert!(result.is_err());
-        assert_eq!(
-            result.unwrap_err().to_string(),
-            "agy runs `--dangerously-skip-permissions`; it cannot ask"
-        );
-
-        let result = provider
-            .update_mode("session-1", GooseMode::SmartApprove)
-            .await;
-        assert!(result.is_err());
-
-        let result = provider.update_mode("session-1", GooseMode::Chat).await;
-        assert!(result.is_err());
+        assert!(provider
+            .update_mode("session-1", GooseMode::Auto)
+            .await
+            .is_ok());
+        for mode in [GooseMode::Approve, GooseMode::SmartApprove, GooseMode::Chat] {
+            let result = provider.update_mode("session-1", mode).await;
+            assert!(
+                matches!(result, Err(ProviderError::RequestFailed(ref msg)) if msg.contains("it cannot ask")),
+                "{result:?}"
+            );
+        }
     }
 }

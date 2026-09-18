@@ -27,7 +27,7 @@ use crate::config::permission::PermissionManager;
 use crate::config::{Config, GooseMode};
 use crate::conversation::message::{
     ActionRequiredData, Message, MessageContent, SystemNotificationContent, SystemNotificationType,
-    ToolConfirmationRequest, ToolRequest, ToolResponse,
+    ToolConfirmationDiff, ToolConfirmationRequest, ToolRequest, ToolResponse,
 };
 use crate::conversation::Conversation;
 use crate::execution::manager::{AgentManager, AgentManagerGetResult, RuntimeContext};
@@ -770,6 +770,7 @@ struct PendingToolPermission {
     tool_name: String,
     arguments: serde_json::Map<String, serde_json::Value>,
     prompt: Option<String>,
+    diff: Option<ToolConfirmationDiff>,
 }
 
 fn update_output_token_limit_reached(output_token_limit_reached: &mut bool, message: &Message) {
@@ -1513,6 +1514,7 @@ impl GooseAcpAgent {
                             tool_name: tool_name.clone(),
                             arguments: arguments.clone(),
                             prompt: prompt.clone(),
+                            diff: action_required.diff.clone(),
                         },
                         target.clone(),
                     )?;
@@ -1671,6 +1673,7 @@ impl GooseAcpAgent {
             &request.tool_name,
             request.arguments,
             request.prompt,
+            request.diff,
         );
 
         fn option(kind: PermissionOptionKind) -> PermissionOption {

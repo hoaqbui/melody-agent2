@@ -1,9 +1,11 @@
 use crate::acp::tools::AcpAwareToolMeta;
 use crate::agents::extension_manager::TRUSTED_TOOL_UPDATE_META_KEY;
-use crate::conversation::message::{Message, ToolNameParts, ToolRequest, ToolResponse};
+use crate::conversation::message::{
+    Message, ToolConfirmationDiff, ToolNameParts, ToolRequest, ToolResponse,
+};
 use crate::mcp_utils::ToolResult;
 use agent_client_protocol::schema::v1::{
-    BlobResourceContents, Content, ContentBlock, EmbeddedResource, EmbeddedResourceResource,
+    BlobResourceContents, Content, ContentBlock, Diff, EmbeddedResource, EmbeddedResourceResource,
     ImageContent, Meta, TextContent, TextResourceContents, ToolCall, ToolCallContent, ToolCallId,
     ToolCallLocation, ToolCallStatus, ToolCallUpdate, ToolCallUpdateFields, ToolKind,
 };
@@ -142,6 +144,7 @@ pub(crate) fn build_permission_tool_call_update(
     tool_name: &str,
     arguments: serde_json::Map<String, serde_json::Value>,
     prompt: Option<String>,
+    diff: Option<ToolConfirmationDiff>,
 ) -> ToolCallUpdate {
     let arguments = serde_json::Value::Object(arguments);
     let mut fields = ToolCallUpdateFields::new()
@@ -150,24 +153,28 @@ pub(crate) fn build_permission_tool_call_update(
         .status(ToolCallStatus::Pending)
         .raw_input(arguments);
 
+    let mut content = Vec::new();
     if let Some(prompt) = prompt {
-        fields = fields.content(vec![ToolCallContent::Content(Content::new(
-            ContentBlock::Text(TextContent::new(prompt)),
-        ))]);
+        content.push(ToolCallContent::Content(Content::new(ContentBlock::Text(
+            TextContent::new(prompt),
+        ))));
     }
-
-    let mut tool_call_meta = serde_json::Map::new();
-    tool_call_meta.insert(
-        "toolName".to_string(),
-        serde_json::Value::String(tool_name.to_string()),
-    );
+    if let Some(diff) = diff {
+        let block = Diff::new(&diff.path, &diff.new_text);
+        content.push(ToolCallContent::Diff(match diff.old_text {
+            Some(old) => block.old_text(old),
+            None => block,
+        }));
+    }
+    if !content.is_empty() {
+        fields = fields.content(content);
+    }
 
     let mut goose_meta = serde_json::Map::new();
     goose_meta.insert(
         "toolCall".to_string(),
-        serde_json::Value::Object(tool_call_meta),
+        serde_json::json!({ "toolName": tool_name }),
     );
-
     let mut meta = serde_json::Map::new();
     meta.insert("goose".to_string(), serde_json::Value::Object(goose_meta));
 
@@ -582,6 +589,7 @@ mod tests {
                 "developer__shell",
                 arguments,
                 Some("Allow this command?".to_string()),
+                None,
             );
 
             assert_eq!(
@@ -600,19 +608,37 @@ mod tests {
         fn action_required_carries_adapter_tool_name() {
             let adapter_tool_name = "Write probe-write.txt";
             let arguments = json_object(vec![("file_path", serde_json::json!("probe.txt"))]);
+            let diff = ToolConfirmationDiff {
+                path: "probe.txt".to_string(),
+                old_text: Some("a\n".to_string()),
+                new_text: "b\n".to_string(),
+            };
 
-            let permission =
-                build_permission_tool_call_update("req-1", adapter_tool_name, arguments, None);
+            let permission = build_permission_tool_call_update(
+                "req-1",
+                adapter_tool_name,
+                arguments,
+                Some("Allow this write?".to_string()),
+                Some(diff),
+            );
 
-            let meta = permission.meta.as_ref().expect("meta should be set");
-            let goose = meta.get("goose").expect("goose key should exist");
-            let tool_call = goose.get("toolCall").expect("toolCall key should exist");
-            let tool_name = tool_call
-                .get("toolName")
-                .and_then(|v| v.as_str())
-                .expect("toolName should be a string");
-
-            assert_eq!(tool_name, adapter_tool_name);
+            let meta = permission.meta.as_ref().expect("meta");
+            assert_eq!(
+                meta["goose"]["toolCall"]["toolName"].as_str(),
+                Some(adapter_tool_name)
+            );
+            let content = permission.fields.content.as_ref().expect("content");
+            let diffs: Vec<_> = content
+                .iter()
+                .filter_map(|block| match block {
+                    ToolCallContent::Diff(diff) => Some(diff),
+                    _ => None,
+                })
+                .collect();
+            assert_eq!(diffs.len(), 1);
+            assert_eq!(diffs[0].path.display().to_string(), "probe.txt");
+            assert_eq!(diffs[0].old_text.as_deref(), Some("a\n"));
+            assert_eq!(diffs[0].new_text, "b\n");
         }
     }
 
