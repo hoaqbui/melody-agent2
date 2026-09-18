@@ -1,14 +1,16 @@
 // The Terminal pane (PRD step 6, step 13): the session's shell over the sidecar pty, a key
 // bar at phone width, and the shell's state as one line under it (DESIGN.md §States).
 
-import { useEffect, useRef, useSyncExternalStore, type PointerEvent } from 'react';
+import { useEffect, useRef, useSyncExternalStore, type PointerEvent, useState } from 'react';
 import { defineMessages, useIntl } from '../../../i18n';
 import { useTheme } from '../../../contexts/ThemeContext';
 import { Button } from '../../../components/ui/button';
 import { cn } from '../../../utils';
+import { usePaneContext } from '../../pane-context';
 import { PHONE_MAX_WIDTH_PX } from '../../pane-store';
 import { BAR_KEYS, keySequence, type BarKey } from './terminal-keys';
 import { terminalSession } from './terminal-session';
+import { getTabs, getActiveTabId, openTab, closeTab, renameTab, setActiveTab, ptyId } from './terminal-tabs';
 
 const i18n = defineMessages({
   starting: { id: 'terminalPane.starting', defaultMessage: 'Starting shell…' },
@@ -58,12 +60,24 @@ interface TerminalPaneProps {
   cwd: string;
 }
 
-export function TerminalPane({ ptyId, cwd }: TerminalPaneProps) {
+export function TerminalPane({ ptyId: baseId, cwd }: TerminalPaneProps) {
   const intl = useIntl();
   const { resolvedTheme } = useTheme();
+  const { insertIntoChat, openFile } = usePaneContext();
   const phone = usePhoneWidth();
   const hostRef = useRef<HTMLDivElement>(null);
-  const session = terminalSession(ptyId, cwd);
+  const searchInputRef = useRef<HTMLInputElement>(null);
+  const sessionRef = useRef<ReturnType<typeof terminalSession> | null>(null);
+  const [activeId, setActiveId] = useState(getActiveTabId(baseId));
+  const [, setTabState] = useState(0);
+  const [searchOpen, setSearchOpen] = useState(false);
+  const [searchText, setSearchText] = useState('');
+  const [hasSelection, setHasSelection] = useState(false);
+
+  const currentPtyId = ptyId(baseId, parseInt(activeId));
+  const session = terminalSession(currentPtyId, cwd);
+  sessionRef.current = session;
+
   const { status, ctrl } = useSyncExternalStore(
     session.subscribe,
     session.getState,
@@ -74,17 +88,49 @@ export function TerminalPane({ ptyId, cwd }: TerminalPaneProps) {
     const host = hostRef.current!;
     session.mount(host);
     session.connect();
+    session.setLinkHandlers({
+      openFile: (path, line) => openFile(path, line),
+      openUrl: (url) => window.electron?.openExternal(url),
+    });
+    const unsubscribe = session.onSelectionChange(() => {
+      setHasSelection(session.hasSelection());
+    });
     const observer = new ResizeObserver(() => session.fit());
     observer.observe(host);
     return () => {
       observer.disconnect();
       session.unmount();
+      unsubscribe();
     };
-  }, [session]);
+  }, [session, openFile]);
 
   useEffect(() => {
     session.syncTheme(resolvedTheme);
   }, [session, resolvedTheme]);
+
+  useEffect(() => {
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if ((e.metaKey || e.ctrlKey) && e.key === 'f') {
+        e.preventDefault();
+        setSearchOpen(true);
+        setTimeout(() => searchInputRef.current?.focus(), 0);
+      }
+    };
+    window.addEventListener('keydown', handleKeyDown);
+    return () => window.removeEventListener('keydown', handleKeyDown);
+  }, []);
+
+  useEffect(() => {
+    if (searchOpen && session.search && searchText) {
+      session.search.findNext(searchText, {
+        decorations: {
+          matchBackground: 'rgba(255, 200, 0, 0.3)',
+          matchOverviewRuler: '',
+          activeMatchColorOverviewRuler: '',
+        },
+      });
+    }
+  }, [searchOpen, searchText, session.search]);
 
   const keepTerminalFocus = (event: PointerEvent) => event.preventDefault();
 
@@ -99,9 +145,151 @@ export function TerminalPane({ ptyId, cwd }: TerminalPaneProps) {
     session.focus();
   };
 
+  const handleTabClick = (id: string) => {
+    setActiveTab(baseId, id);
+    setActiveId(id);
+    setTimeout(() => session.focus(), 0);
+  };
+
+  const handleNewTab = () => {
+    const newId = openTab(baseId, 'zsh');
+    setActiveId(newId);
+    setTabState((s) => s + 1);
+  };
+
+  const handleCloseTab = (id: string) => {
+    const pId = ptyId(baseId, parseInt(id));
+    const s = terminalSession(pId, cwd);
+    s.dispose();
+    closeTab(baseId, id);
+    setActiveId(getActiveTabId(baseId));
+    setTabState((s) => s + 1);
+  };
+
+  const handleRenameTab = (id: string) => {
+    const tab = getTabs(baseId).find((t) => t.id === id);
+    if (!tab) return;
+    // eslint-disable-next-line no-undef
+    const newName = prompt('Rename tab:', tab.name);
+    if (newName !== null && newName !== '') {
+      renameTab(baseId, id, newName);
+      setTabState((s) => s + 1);
+    }
+  };
+
+  const handleSendToChat = () => {
+    const text = session.getSelection();
+    if (text) {
+      insertIntoChat({ kind: 'text', text, source: { path: 'terminal' } });
+    }
+  };
+
+  const tabs = getTabs(baseId);
+
   return (
     <div className="flex h-full flex-col bg-background-primary" data-testid="terminal-pane">
+      <div className="flex items-center border-b border-border-primary px-2 py-1" role="tablist" data-testid="terminal-tabs">
+        {tabs.map((tab) => (
+          <div
+            key={tab.id}
+            role="tab"
+            aria-pressed={tab.id === activeId}
+            data-testid={`terminal-tab-${tab.id}`}
+            className={cn(
+              'group flex items-center gap-1 px-3 py-1 text-sm cursor-pointer rounded',
+              tab.id === activeId
+                ? 'bg-background-secondary text-text-primary'
+                : 'text-text-secondary hover:text-text-primary'
+            )}
+            onClick={() => handleTabClick(tab.id)}
+            onDoubleClick={() => handleRenameTab(tab.id)}
+          >
+            <span>{tab.name}</span>
+            <Button
+              variant="ghost"
+              size="xs"
+              className="ml-1 opacity-0 group-hover:opacity-100 text-xs h-auto p-0"
+              onClick={(e) => {
+                e.stopPropagation();
+                handleCloseTab(tab.id);
+              }}
+            >
+              ×
+            </Button>
+          </div>
+        ))}
+        <Button
+          variant="outline"
+          size="xs"
+          className={cn(floating, 'ml-auto')}
+          data-testid="terminal-tab-new"
+          onClick={handleNewTab}
+        >
+          +
+        </Button>
+      </div>
+
       <div ref={hostRef} className="min-h-0 flex-1 overflow-hidden px-2 pt-2" />
+
+      {searchOpen && (
+        <div className="flex items-center gap-2 border-t border-border-primary px-3 py-2">
+          <input
+            ref={searchInputRef}
+            type="text"
+            value={searchText}
+            onChange={(e) => setSearchText(e.target.value)}
+            onKeyDown={(e) => {
+              if (e.key === 'Enter') {
+                if (e.shiftKey && session.search) {
+                  session.search.findPrevious(searchText, {
+                    decorations: {
+                      matchBackground: 'rgba(255, 200, 0, 0.3)',
+                      matchOverviewRuler: '',
+                      activeMatchColorOverviewRuler: '',
+                    },
+                  });
+                } else if (session.search) {
+                  session.search.findNext(searchText, {
+                    decorations: {
+                      matchBackground: 'rgba(255, 200, 0, 0.3)',
+                      matchOverviewRuler: '',
+                      activeMatchColorOverviewRuler: '',
+                    },
+                  });
+                }
+              } else if (e.key === 'Escape') {
+                setSearchOpen(false);
+                session.focus();
+              }
+            }}
+            placeholder="Find…"
+            data-testid="terminal-search"
+            className="flex-1 min-w-0 rounded border border-border-primary bg-background-primary px-2 py-1 text-sm"
+          />
+          <span className="text-xs text-text-secondary whitespace-nowrap" data-testid="terminal-search-count">
+            —
+          </span>
+          <Button variant="outline" size="xs" onClick={() => { setSearchOpen(false); session.focus(); }}>
+            ✕
+          </Button>
+        </div>
+      )}
+
+      {hasSelection && (
+        <div className="flex items-center gap-2 border-t border-border-primary px-3 py-1 text-xs">
+          <Button
+            variant="outline"
+            size="xs"
+            className={floating}
+            data-testid="terminal-send"
+            onClick={handleSendToChat}
+            onPointerDown={keepTerminalFocus}
+          >
+            Send to chat
+          </Button>
+        </div>
+      )}
+
       {status.kind !== 'running' && (
         <div
           className="flex items-center gap-2 border-t border-border-primary px-3 py-1 text-xs text-text-secondary"

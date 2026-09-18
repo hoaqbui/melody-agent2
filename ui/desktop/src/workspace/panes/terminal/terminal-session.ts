@@ -5,7 +5,8 @@
 // and the armed Ctrl live here and the component only mounts the element.
 
 import { FitAddon } from '@xterm/addon-fit';
-import { Terminal, type ITheme } from '@xterm/xterm';
+import { SearchAddon } from '@xterm/addon-search';
+import { Terminal, type ITheme, type ILink, type ILinkProvider } from '@xterm/xterm';
 import '@xterm/xterm/css/xterm.css';
 import {
   sidecarSocket,
@@ -13,6 +14,7 @@ import {
   type PtyServerMessage,
 } from '../../../native/sidecar';
 import type { ThemeVariant } from '../../../theme/theme-tokens';
+import { FILE_LINE, linkPathCandidates } from '../../file-links';
 import { withCtrl } from './terminal-keys';
 
 export type TerminalStatus =
@@ -24,6 +26,11 @@ export type TerminalStatus =
 export interface TerminalState {
   status: TerminalStatus;
   ctrl: boolean;
+}
+
+export interface LinkHandlers {
+  openFile(path: string, line: number): void;
+  openUrl(url: string): void;
 }
 
 export interface TerminalSession {
@@ -43,6 +50,12 @@ export interface TerminalSession {
   setCtrl(armed: boolean): void;
   focus(): void;
   syncTheme(variant: ThemeVariant): void;
+  dispose(): void;
+  setLinkHandlers(handlers: LinkHandlers): void;
+  getSelection(): string;
+  hasSelection(): boolean;
+  onSelectionChange(listener: () => void): () => void;
+  search: SearchAddon;
 }
 
 const SCROLLBACK_LINES = 5000;
@@ -108,7 +121,9 @@ function createTerminalSession(id: string, cwd: string): TerminalSession {
     fontSize: FONT_SIZE_PX,
   });
   const fitAddon = new FitAddon();
+  const searchAddon = new SearchAddon();
   term.loadAddon(fitAddon);
+  term.loadAddon(searchAddon);
 
   let state: TerminalState = { status: { kind: 'starting' }, ctrl: false };
   const listeners = new Set<() => void>();
@@ -121,6 +136,8 @@ function createTerminalSession(id: string, cwd: string): TerminalSession {
   let socket: WebSocket | null = null;
   let connecting = false;
   let attachedBefore = false;
+  let linkHandlers: LinkHandlers | null = null;
+  const selectionListeners = new Set<() => void>();
 
   const post = (message: PtyClientMessage) => {
     if (socket && socket.readyState === socket.OPEN) {
@@ -134,6 +151,69 @@ function createTerminalSession(id: string, cwd: string): TerminalSession {
     post({ type: 'input', data: payload });
   });
   term.onResize(({ cols, rows }) => post({ type: 'resize', cols, rows }));
+  term.onSelectionChange(() => {
+    selectionListeners.forEach((listener) => listener());
+  });
+
+  const registerLinkProviders = () => {
+    if (!linkHandlers) return;
+
+    const urlProvider: ILinkProvider = {
+      provideLinks: (bufferLineNumber, callback) => {
+        const line = term.buffer.active.getLine(bufferLineNumber);
+        if (!line) {
+          callback([]);
+          return;
+        }
+        const lineStr = line.translateToString();
+        const links: ILink[] = [];
+        const urlRegex = /https?:\/\/[^\s]+/g;
+        for (const match of lineStr.matchAll(urlRegex)) {
+          const url = match[0];
+          links.push({
+            range: {
+              start: { x: match.index! + 1, y: bufferLineNumber + 1 },
+              end: { x: match.index! + url.length + 1, y: bufferLineNumber + 1 },
+            },
+            text: url,
+            activate: () => linkHandlers!.openUrl(url),
+          });
+        }
+        callback(links);
+      },
+    };
+
+    const fileProvider: ILinkProvider = {
+      provideLinks: (bufferLineNumber, callback) => {
+        const line = term.buffer.active.getLine(bufferLineNumber);
+        if (!line) {
+          callback([]);
+          return;
+        }
+        const lineStr = line.translateToString();
+        const links: ILink[] = [];
+        for (const match of lineStr.matchAll(FILE_LINE)) {
+          const path = match[1]!;
+          const lineNum = Number(match[2]!);
+          // Try the cwd first, then repo root; a path printed after cd may miss (decision 10).
+          const candidates = linkPathCandidates(path, cwd, cwd);
+          const text = match[0];
+          links.push({
+            range: {
+              start: { x: match.index! + 1, y: bufferLineNumber + 1 },
+              end: { x: match.index! + text.length + 1, y: bufferLineNumber + 1 },
+            },
+            text,
+            activate: () => linkHandlers!.openFile(candidates[0]!, lineNum),
+          });
+        }
+        callback(links);
+      },
+    };
+
+    term.registerLinkProvider(urlProvider);
+    term.registerLinkProvider(fileProvider);
+  };
 
   const fit = () => {
     if (!element.isConnected || element.clientWidth === 0 || element.clientHeight === 0) return;
@@ -241,5 +321,21 @@ function createTerminalSession(id: string, cwd: string): TerminalSession {
             };
       term.options.fontFamily = token('--font-mono') || 'monospace';
     },
+    dispose: () => {
+      socket?.close();
+      sessions.delete(id);
+      term.dispose();
+    },
+    setLinkHandlers: (handlers) => {
+      linkHandlers = handlers;
+      registerLinkProviders();
+    },
+    getSelection: () => term.getSelection(),
+    hasSelection: () => term.hasSelection(),
+    onSelectionChange: (listener) => {
+      selectionListeners.add(listener);
+      return () => selectionListeners.delete(listener);
+    },
+    search: searchAddon,
   };
 }
