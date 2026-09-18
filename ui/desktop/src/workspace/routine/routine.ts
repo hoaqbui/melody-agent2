@@ -70,6 +70,11 @@ export function isSessionBridge(extension: SessionExtension): boolean {
   return extension.type === 'streamable_http' && extension.name === 'goose';
 }
 
+// Strip the plan gate instruction to prevent routines from stalling on unattended runs.
+function stripPlanGate(instructions: string): string {
+  return instructions.replace(/\n\nPlan gate: end your turn after the Planner.*/, '');
+}
+
 // The session's extensions travel whole (the server needs each one's type and command),
 // minus its bridge; none at all is left out, which the server reads as its defaults
 // rather than as "no extensions". The stdio path carries env key names only, never values.
@@ -84,7 +89,7 @@ export function routineRecipe(source: RoutineSource): Recipe {
     version: '1.0.0',
     title: source.title.trim(),
     description: ROUTINE_DESCRIPTION,
-    instructions: source.instructions.trim(),
+    instructions: stripPlanGate(source.instructions).trim(),
     ...(extensions.length > 0 && { extensions }),
     settings: {
       ...(source.provider && { goose_provider: source.provider }),

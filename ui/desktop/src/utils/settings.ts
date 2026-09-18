@@ -60,6 +60,7 @@ export interface Settings {
   recentModels: RecentModel[];
   useLegacyAgentLoop: boolean;
   'workspace.ui': WorkspaceUi;
+  'workspace.planGate': boolean;
   // The sidecar's fixed port (task 62): what the phone bookmarks; 0 lets the OS pick.
   'sidecar.port': number;
 }
@@ -105,6 +106,7 @@ export const defaultSettings: Settings = {
   recentModels: [],
   useLegacyAgentLoop: false,
   'workspace.ui': 'easy',
+  'workspace.planGate': true,
   'sidecar.port': 7788,
 };
 
