@@ -313,8 +313,7 @@ export interface ConsoleLine {
 export const CONSOLE_CAP = 200;
 
 export function consoleLogged(lines: ConsoleLine[], entry: ConsoleLine): ConsoleLine[] {
-  const result = [entry, ...lines].slice(0, CONSOLE_CAP);
-  return result;
+  return [entry, ...lines].slice(0, CONSOLE_CAP);
 }
 
 export function consoleText(lines: ConsoleLine[]): string {

@@ -99,7 +99,9 @@ test.describe('browser pane', () => {
 
     // Test Screenshot share - should add an image to the input
     await chatInput.clear();
-    await shareButton.click();
+    // A second open right after an item ran: Radix takes the keyboard reliably, the pointer not always.
+    await shareButton.focus();
+    await shareButton.press('Enter');
     const screenshotOption = goosePage.locator('[data-testid="browser-share-screenshot"]');
     await expect(screenshotOption).toBeVisible();
     await screenshotOption.click();
@@ -111,7 +113,9 @@ test.describe('browser pane', () => {
     // Test Console share - first log a console error
     await guestEval("console.error('t87-boom')");
     await chatInput.clear();
-    await shareButton.click();
+    // A second open right after an item ran: Radix takes the keyboard reliably, the pointer not always.
+    await shareButton.focus();
+    await shareButton.press('Enter');
     const consoleOption = goosePage.locator('text=Console');
     await expect(consoleOption).toBeVisible();
     await consoleOption.click();

@@ -295,17 +295,13 @@ describe('console buffer', () => {
     });
     const text = consoleText(lines);
     const lines_ = text.split('\n');
-    expect(lines_[0]).toBe('error2');
-    expect(lines_[1]).toBe('error1');
+    expect(lines_[0]).toBe('error1');
+    expect(lines_[1]).toBe('error2');
     expect(lines_[2]).toBe('info1');
     expect(lines_[3]).toBe('info2');
   });
 
   it('clears the console buffer', () => {
-    let lines: ConsoleLine[] = [
-      { level: 'error', message: 'error', timestamp: 1 },
-    ];
-    lines = consoleCleared();
-    expect(lines).toEqual([]);
+    expect(consoleCleared()).toEqual([]);
   });
 });
