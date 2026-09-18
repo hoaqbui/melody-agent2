@@ -474,7 +474,7 @@ right-aligned bubble; false positives on prose that looks like `word:12`.
 | Option | Owns | Trades away |
 |---|---|---|
 | **A. card built from the call's own arguments — `edit` → `before` vs `after`, `write` → the content as an added file — rendered by an extracted `ChangeView`** | no sidecar, no spine, no snapshot: it lands alone; exact for `edit`, which is the common case; the diff on screen is what the model asked for, not what the disk now holds | `write` has no old side (a rewrite of an existing file shows as all-new); a `shell` edit (`sed`, `>`) shows nothing |
-| B. card built from item 11's snapshot: `/git/diff base=<T0> path=<p> context=FULL` | true old/new for **every** writer, shell included; one source for the card and for undo; no route change (`git.ts:311-326` already passes `base` through) | waits on item 11's snapshot route; a card is empty for a file outside the repo; the diff is "since turn start", so two edits to one file in a turn collapse into one card |
+| B. card built from item 11's snapshot pair: `/git/diff base=<T0>..<T1> path=<p> context=FULL` | true old/new for **every** writer, shell included; one source for the card and for undo; no route change (`git.ts:311-326` already passes `base` through) | waits on item 11's snapshot route and on both edges firing; a card is empty for a file outside the repo or under `.gitignore`; the diff is "over the whole turn", so two edits to one file collapse into one card |
 | C. repair the spine so `ToolCallContent::Diff` survives | the protocol's own answer; helps ACP adapters too | three files across `crates/`, one of them the ACP provider; upstream-issue shaped (AGENTS.md §Contribution Workflow); still silent for `shell` edits |
 
 **Pick: A now, B as the upgrade the same component absorbs.** One
@@ -673,7 +673,7 @@ turn) confuses.
 
 | Option | Owns | Trades away |
 |---|---|---|
-| **A. `POST /git/snapshot` per turn (temp-index `write-tree`), undo = `/git/diff base=T0 → /git/apply reverse`** | one new route, everything else reused; covers shell writes, created files and renames alike; refuses instead of clobbering when a later turn touched the file; Redo for free (the same patch forward) | a whole-tree `add -A` per turn (rehashing cost — mitigable by seeding the temp index from `.git/index`); nothing outside the repo is covered; a turn that only created files outside git's reach is invisible |
+| **A. two snapshots per turn (`POST /git/snapshot`, temp-index `write-tree`), undo = `/git/diff base=T0..T1 → /git/apply reverse`** | one new route, everything else reused; covers shell writes, created files and renames alike; the patch is **frozen at turn end**, so a later change makes it refuse instead of clobbering; Redo for free (the same patch forward) | two `add -A` passes per turn (rehashing cost — mitigable by seeding the temp index from `.git/index`); nothing outside the repo or inside `.gitignore` is covered; a turn whose end edge is missed has no `T1` and no undo |
 | B. per-file `git restore --source=<T0> --worktree -- <paths>` from the message's tool arguments | no patch synthesis | clobbers a later turn's work silently; cannot delete a created file (probe above); blind to `shell` writes |
 | C. remember the pre-text per `write`/`edit` call in the renderer, undo via `/fs/write` | no sidecar change at all | last-writer-wins over a concurrent agent write (`fs.ts:34-38`) — the race becomes a silent clobber; nothing for `shell`; lost on reload |
 
@@ -685,13 +685,37 @@ turn) confuses.
   same containment `/git/apply` uses, `git.ts:455-456`), and `400` outside the
   cwd roots exactly as every `/git/*` route does today
   (`ARCHITECTURE.md:81`).
-- The renderer keeps `{turnId → tree}` per session in the workspace's project
-  storage (`src/workspace/project-storage.ts`) so an app restart keeps undo for
-  the current session's turns; a tree object survives in `.git` until gc.
-- Undo = `/git/diff {base: tree, context: FULL_CONTEXT}` → the turn's patch →
-  `/git/apply {patch, reverse:true}`; the pane keeps that patch and offers
-  **Redo** in place (`undoRequest`'s flip), no confirm — task 50's pattern,
-  `DESIGN.md` §Accessibility "Destructive".
+- **Two snapshots, not one**: `T0` on the send/streaming edge and `T1` on the
+  streaming→idle edge. A single tree is not enough — verified this session,
+  `git diff <T0>` against the working tree neither sees a file created during
+  the turn nor keeps the ones untracked in the real index:
+  ```
+  $ git status --porcelain
+   M t.txt
+  ?? n.txt
+  ?? u.txt
+  ?? v.txt
+  $ git diff --no-color bb4dd449 --stat      # T0 vs the working tree
+   t.txt | 4 ++--
+   u.txt | 1 -
+   v.txt | 1 -
+   3 files changed, 2 insertions(+), 4 deletions(-)
+  ```
+  `n.txt` (created by the turn) is absent, and `u.txt`/`v.txt` read as
+  deletions. Re-taking `T1` at undo time is worse still: the patch would
+  absorb whatever the user changed since and reverse-apply cleanly — the
+  silent clobber options B and C were rejected for. The patch must be frozen
+  at turn end, which is what `T0..T1` gives.
+- The renderer keeps `{turnId → {start, end}}` per session in the workspace's
+  project storage (`src/workspace/project-storage.ts`) so an app restart keeps
+  undo for the current session's turns; both tree objects survive in `.git`
+  until gc.
+- Undo = `/git/diff {base: "<T0>..<T1>", context: FULL_CONTEXT}` → the turn's
+  patch → `/git/apply {patch, reverse:true}`. The `A..B` form passes straight
+  through `body.base` (`git.ts:311-326`) and was verified above, so the route
+  is unchanged. The bubble keeps that patch and offers **Redo** in place
+  (`undoRequest`'s flip), no confirm — task 50's pattern, `DESIGN.md`
+  §Accessibility "Destructive".
 - Failure is the Error row: git's stderr verbatim ("t.txt: patch does not
   apply") plus the recovery in place — "A later change touched these files.
   Open Changes to review." The button stays; nothing is hidden.
@@ -765,13 +789,21 @@ long-running turn's snapshot is taken before the first write and not after.
 ### Unknowns
 
 - Snapshot cost on a large repo: `add -A` into a fresh temp index rehashes
-  everything; seeding the temp index by copying `.git/index` first makes it
-  incremental. Cheap to measure? yes (one `time` run on this repo);
-  reversible? yes.
+  everything, twice per turn; seeding the temp index by copying `.git/index`
+  first makes it incremental. Cheap to measure? yes (one `time` run on this
+  repo); reversible? yes.
 - When exactly to snapshot: the idle→streaming edge in `WorkspaceShell` can
   fire after the model's first tool call on a fast runtime. Cheap to test?
-  yes; reversible? yes. Probably needs the snapshot on send, not on the first
-  update.
+  yes; reversible? yes. Probably needs `T0` on send, not on the first update.
+- `add -A` honours `.gitignore`, so a turn that writes into an ignored path
+  (build output, `.env`, a generated lockfile) is outside the snapshot and
+  outside undo. Cheap to test? yes; reversible? yes — but the fix (`-f`) would
+  pull the whole ignored tree into every snapshot, so probably it stays a
+  stated limit.
+- The sidecar's `git()` helper takes args and stdin only
+  (`ui/sidecar/src/git.ts:12`); `GIT_INDEX_FILE` needs an `env` parameter it
+  does not have today — the snapshot task's first edit, and the only change to
+  a shared helper in this cluster. Cheap? yes; reversible? yes.
 - Whether older turns should offer Undo at all (they mostly refuse). Cheap?
   yes; reversible? yes. **User's call.**
 - Tree objects are unreferenced and a `git gc` can prune them mid-session,
@@ -831,22 +863,23 @@ against the untouched tree; its output is pasted.
    untouched). `worker: medium`. Waits on: nothing.
    `confirm: grep -c "git/snapshot" ui/sidecar/src/git.ts` → `1` *(untouched tree: `0`)*
    and `cd ui/sidecar && pnpm vitest run` green.
-8. **"Undo this turn" on the user bubble** (the snapshot on the turn edge in
-   `WorkspaceShell`, the per-session map in `project-storage.ts`, the pure
+8. **"Undo this turn" on the user bubble** (both snapshots — `T0` on the
+   send/streaming edge, `T1` on streaming→idle — in `WorkspaceShell`, the
+   `{turnId → {start,end}}` map in `project-storage.ts`, the pure
    `turn-undo.ts` + test, the slot in `UserMessage.tsx`'s action row, the Error
    and Redo states). `worker: high`. Waits on: task 7.
-   `confirm: cd ui/desktop && grep -rn "turn-undo" src | wc -l` → `≥ 3` *(untouched tree: `       0`)*
+   `confirm: cd ui/desktop && grep -q "turn-undo" src/components/UserMessage.tsx && echo ok` → `ok` *(untouched tree: nothing printed, exit 1)*
    plus `just walk "turn undo"` green.
 9. **Upgrade the diff card to the snapshot source (option B)** — the card takes
-   `/git/diff base=<T0>` when a snapshot exists for the turn, so `shell` and
-   whole-file writes show real old text. `worker: medium`. Waits on: tasks 6
-   and 8.
-   `confirm: cd ui/desktop && grep -c "snapshot" src/workspace/transcript/turn-diff.ts` → `≥ 1` *(untouched tree: `ugrep: warning: …/turn-diff.ts: No such file or directory`, exit 2)*
+   `/git/diff base=<T0>..<T1>` when the turn has a snapshot pair, so `shell`
+   and whole-file writes show real old text. `worker: medium`. Waits on: tasks
+   6 and 8.
+   `confirm: cd ui/desktop && grep -q "snapshot" src/workspace/transcript/turn-diff.ts && echo ok` → `ok` *(untouched tree: the file does not exist, nothing printed, exit 2)*
 10. **DESIGN.md amendments** — §Vocabulary rows for **Add to chat**, the
     **diff card**, **Undo this turn** / **Redo this turn**; §Accessibility
     "Destructive" amended for turn undo (no confirm, Redo in place, task 50's
     pattern). `worker: low`. Waits on: tasks 4, 6, 8.
-    `confirm: grep -c "Add to chat" DESIGN.md` → `≥ 1` *(untouched tree: `0`)*
+    `confirm: grep -q "Add to chat" DESIGN.md && echo ok` → `ok` *(untouched tree: nothing printed, exit 1)*
 
 **Cross-cluster waits**: none known. The 2026-09-18 UX-parity list is not in
 the tree — `grep -rn "parity" tasks.md docs/` returns only
