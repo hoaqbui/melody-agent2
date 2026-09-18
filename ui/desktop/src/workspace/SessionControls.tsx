@@ -14,6 +14,7 @@ import {
   DropdownMenuRadioItem,
   DropdownMenuSeparator,
 } from '../components/ui/dropdown-menu';
+import { Switch } from '../components/ui/switch';
 import { configChoices, type SessionConfigOption } from '../acp/sessionConfig';
 import { Chip } from './SessionChips';
 
@@ -28,6 +29,10 @@ const i18n = defineMessages({
   },
   saveRoutine: { id: 'workspaceShell.saveRoutine', defaultMessage: 'Save as routine…' },
   noSession: { id: 'workspaceShell.routineNoSession', defaultMessage: 'Open a session first' },
+  planGate: {
+    id: 'workspaceShell.planGate',
+    defaultMessage: 'Wait for plan acceptance',
+  },
 });
 
 export interface SessionControlsProps {
@@ -42,6 +47,8 @@ export interface SessionControlsProps {
   onOpenExtensions(): void;
   // Undefined before a session: there is nothing to save yet (task 59).
   onSaveRoutine?: () => void;
+  planGate: boolean;
+  onPlanGateChange(value: boolean): void;
 }
 
 const heading = 'text-xs text-text-secondary';
@@ -56,6 +63,8 @@ export function SessionControls({
   onOpenFiles,
   onOpenExtensions,
   onSaveRoutine,
+  planGate,
+  onPlanGateChange,
 }: SessionControlsProps) {
   const intl = useIntl();
   return (
@@ -123,6 +132,17 @@ export function SessionControls({
           </>
         )}
 
+        <DropdownMenuSeparator />
+        <div className="flex items-center justify-between px-2 py-1" data-testid="workspace-config-plan-gate">
+          <DropdownMenuLabel className={heading}>
+            {intl.formatMessage(i18n.planGate)}
+          </DropdownMenuLabel>
+          <Switch
+            checked={planGate}
+            onCheckedChange={onPlanGateChange}
+            data-testid="workspace-plan-gate-switch"
+          />
+        </div>
         <DropdownMenuSeparator />
         <DropdownMenuItem data-testid="workspace-extensions" onClick={onOpenExtensions}>
           {intl.formatMessage(i18n.extensions, { count: extensionsEnabled })}
