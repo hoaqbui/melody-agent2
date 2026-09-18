@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useRef, memo, useMemo, useCallback } from 'react';
+import React, { useState, useEffect, useRef, memo, useMemo, useCallback, useContext } from 'react';
 import ReactMarkdown from 'react-markdown';
 import remarkGfm from 'remark-gfm';
 import remarkBreaks from 'remark-breaks';
@@ -31,6 +31,9 @@ import { wrapHTMLInCodeBlock } from '../utils/htmlSecurity';
 import { BLOCKED_PROTOCOLS } from '../utils/urlSecurity';
 import { getTextDirection } from '../utils/textDirection';
 import { defineMessages, useIntl } from '../i18n';
+import { FileLinkSlot } from './ChatInput';
+import { rehypeFileLinks } from '../workspace/file-links';
+import { PaneContext } from '../workspace/pane-context';
 
 const i18n = defineMessages({
   copyCode: {
@@ -272,6 +275,9 @@ const MarkdownContent = memo(function MarkdownContent({
   className = '',
 }: MarkdownContentProps) {
   const intl = useIntl();
+  const fileLinkContext = useContext(FileLinkSlot);
+  const paneContext = useContext(PaneContext);
+
   const processedContent = useMemo(() => {
     try {
       return wrapHTMLInCodeBlock(content);
@@ -298,6 +304,33 @@ const MarkdownContent = memo(function MarkdownContent({
     [intl]
   );
 
+  const handleFileLink = useCallback(
+    (href: string) => {
+      if (!paneContext) return;
+      const match = /^goose-file:(.+):(\d+)$/.exec(href);
+      if (!match) return;
+      const [, path, lineStr] = match;
+      paneContext.openFile(path, Number(lineStr));
+    },
+    [paneContext]
+  );
+
+  const rehypePlugins: Array<[typeof rehypeKatex] | typeof rehypePerBlockDirection | [typeof rehypeFileLinks, Record<string, unknown>]> = [
+    [
+      rehypeKatex,
+      {
+        throwOnError: false,
+        errorColor: '#cc0000',
+        strict: false,
+      },
+    ],
+    rehypePerBlockDirection,
+  ];
+
+  if (fileLinkContext) {
+    rehypePlugins.push([rehypeFileLinks, fileLinkContext]);
+  }
+
   return (
     <div
       className={`w-full overflow-x-hidden prose prose-sm text-start text-text-primary dark:prose-invert max-w-full word-break font-sans
@@ -320,17 +353,7 @@ const MarkdownContent = memo(function MarkdownContent({
       <ReactMarkdown
         urlTransform={customUrlTransform}
         remarkPlugins={[remarkGfm, remarkBreaks, [remarkMath, { singleDollarTextMath: false }]]}
-        rehypePlugins={[
-          [
-            rehypeKatex,
-            {
-              throwOnError: false,
-              errorColor: '#cc0000',
-              strict: false,
-            },
-          ],
-          rehypePerBlockDirection,
-        ]}
+        rehypePlugins={rehypePlugins as Parameters<typeof ReactMarkdown>[0]['rehypePlugins']}
         components={{
           a: (props) => {
             return (
@@ -343,7 +366,11 @@ const MarkdownContent = memo(function MarkdownContent({
                   e.stopPropagation();
                   if (!props.href) return;
 
-                  void handleOpenExternal(props.href);
+                  if (props.href.startsWith('goose-file:')) {
+                    handleFileLink(props.href);
+                  } else {
+                    void handleOpenExternal(props.href);
+                  }
                 }}
               />
             );

@@ -1,5 +1,5 @@
 // File link parsing and resolution for use across the workspace: the Review pane,
-// the MarkdownContent renderer (task 71), and anywhere `file:line` in transcript or
+// the MarkdownContent renderer (task 71, 82), and anywhere `file:line` in transcript or
 // panes needs to navigate to the Editor. Pure, no React, no ACP.
 
 export interface FileLink {
@@ -13,6 +13,15 @@ export interface FileLinkSpan {
   text: string;
   start: number;
   end: number;
+}
+
+// Minimal hast node shape for the rehypeFileLinks plugin.
+export interface HastNode {
+  type?: string;
+  tagName?: string;
+  value?: string;
+  properties?: Record<string, unknown> | null;
+  children?: HastNode[];
 }
 
 // A path is something with a slash or an extension, then `:line`, optionally `:col` or
@@ -74,4 +83,88 @@ export function linkPathCandidates(path: string, cwd: string, gitToplevel: strin
   const first = resolveLinkPath(path, cwd);
   const second = resolveLinkPath(path, gitToplevel);
   return second === first ? [first] : [first, second];
+}
+
+// Rehype plugin that transforms `file:line` patterns into clickable links (task 82).
+// The plugin walks the HAST tree, finds text nodes with file:line patterns, and
+// replaces them with <a> elements. The link uses the goose-file: protocol so
+// MarkdownContent's a handler can intercept and call openFile().
+export function rehypeFileLinks(
+  options: { cwd: string; gitToplevel: string }
+): (tree: HastNode) => void {
+  return (tree) => {
+    transformTree(tree, options);
+  };
+}
+
+function transformTree(node: HastNode | undefined, options: { cwd: string; gitToplevel: string }): void {
+  if (!node || !node.children) return;
+
+  let i = 0;
+  while (i < node.children.length) {
+    const child = node.children[i];
+    if (!child) {
+      i++;
+      continue;
+    }
+
+    if (child.type === 'text' && child.value) {
+      const text = child.value;
+      const spans = fileLinks(text);
+
+      if (spans.length > 0) {
+        const newChildren: HastNode[] = [];
+        let lastEnd = 0;
+
+        for (const span of spans) {
+          if (span.start > lastEnd) {
+            newChildren.push({
+              type: 'text',
+              value: text.slice(lastEnd, span.start),
+            });
+          }
+
+          const candidates = linkPathCandidates(
+            span.link.path,
+            options.cwd,
+            options.gitToplevel
+          );
+
+          newChildren.push({
+            type: 'element',
+            tagName: 'a',
+            properties: {
+              href: `goose-file:${candidates[0]}:${span.link.line}`,
+              'data-testid': 'chat-file-link',
+              'data-path': span.link.path,
+              'data-line': String(span.link.line),
+              title: candidates[0],
+            },
+            children: [
+              {
+                type: 'text',
+                value: span.text,
+              },
+            ],
+          });
+
+          lastEnd = span.end;
+        }
+
+        if (lastEnd < text.length) {
+          newChildren.push({
+            type: 'text',
+            value: text.slice(lastEnd),
+          });
+        }
+
+        node.children.splice(i, 1, ...newChildren);
+        i += newChildren.length;
+        continue;
+      }
+    }
+
+    transformTree(child, options);
+    i++;
+  }
 }

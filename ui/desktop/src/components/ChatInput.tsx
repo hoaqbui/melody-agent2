@@ -49,6 +49,12 @@ export const SessionChipsSlot = React.createContext<
   ((sessionId: string | null) => React.ReactNode) | null
 >(null);
 
+// The file link handler context (task 82): passed to MarkdownContent so it can resolve
+// file:line links against the session's cwd and git toplevel.
+export const FileLinkSlot = React.createContext<
+  { cwd: string; gitToplevel: string } | null
+>(null);
+
 const turndown = new TurndownService({
   headingStyle: 'atx',
   bulletListMarker: '-',
