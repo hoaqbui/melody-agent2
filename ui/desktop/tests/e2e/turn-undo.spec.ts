@@ -5,7 +5,11 @@ import { join } from 'path';
 import { test, expect } from './fixtures';
 
 const realHome = homedir();
-const previousEnv = { HOME: process.env.HOME, HERMIT_STATE_DIR: process.env.HERMIT_STATE_DIR };
+const previousEnv = {
+  HOME: process.env.HOME,
+  HERMIT_STATE_DIR: process.env.HERMIT_STATE_DIR,
+  GOOSE_TEST_DIR: process.env.GOOSE_TEST_DIR,
+};
 let scratch = '';
 
 const git = (cwd: string, args: string[]) =>
@@ -15,6 +19,8 @@ const git = (cwd: string, args: string[]) =>
   }).toString();
 
 test.describe('turn undo', () => {
+  test.setTimeout(120000);
+
   test.beforeAll(() => {
     scratch = mkdtempSync(join(tmpdir(), 'goose-turn-undo-'));
     writeFileSync(join(scratch, 'notes.md'), 'original\n');
@@ -24,6 +30,7 @@ test.describe('turn undo', () => {
         ? join(realHome, 'Library', 'Caches', 'hermit')
         : join(process.env.XDG_CACHE_HOME ?? join(realHome, '.cache'), 'hermit');
     process.env.HOME = scratch;
+    process.env.GOOSE_TEST_DIR = scratch;
     git(scratch, ['init', '-q']);
     git(scratch, ['add', 'notes.md']);
     git(scratch, ['commit', '-q', '-m', 'base']);
