@@ -8,7 +8,9 @@ import { test, expect } from './fixtures';
 test.describe('command palette', () => {
   test.setTimeout(120_000);
 
-  test('opens with ⌘K, shows groups, filters by typing, closes on selection', async ({ goosePage }) => {
+  test('opens with ⌘K, shows groups, filters by typing, closes on selection', async ({
+    goosePage,
+  }) => {
     const shell = goosePage.locator('[data-testid="workspace-shell"]');
     await expect(shell).toBeVisible({ timeout: 30000 });
     await expect(shell).not.toHaveAttribute('data-orchestrator-role', 'loading', {
@@ -17,7 +19,7 @@ test.describe('command palette', () => {
     await goosePage.setViewportSize({ width: 1200, height: 800 });
 
     // Start a session so session actions are available
-    const input = goosePage.locator('[data-testid="chat-input"]');
+    const input = goosePage.locator('[data-testid="chat-input"]').first();
     await input.fill('reply with "test complete"');
     await input.press('Enter');
     await expect(goosePage).toHaveURL(/resumeSessionId=/, { timeout: 30000 });
@@ -25,7 +27,7 @@ test.describe('command palette', () => {
     await expect(reply).toContainText(/test complete/i, { timeout: 60_000 });
 
     // ⌘K opens the palette
-    await goosePage.press('Meta+k');
+    await goosePage.keyboard.press('Meta+k');
     const palette = goosePage.locator('[data-testid="command-palette"]');
     await expect(palette).toBeVisible({ timeout: 5000 });
 
@@ -65,7 +67,7 @@ test.describe('command palette', () => {
     await goosePage.setViewportSize({ width: 1200, height: 800 });
 
     // Start a session
-    const input = goosePage.locator('[data-testid="chat-input"]');
+    const input = goosePage.locator('[data-testid="chat-input"]').first();
     await input.fill('test');
     await input.press('Enter');
     await expect(goosePage).toHaveURL(/resumeSessionId=/, { timeout: 30000 });
@@ -74,7 +76,7 @@ test.describe('command palette', () => {
     await input.focus();
 
     // Open and close palette with Esc
-    await goosePage.press('Meta+k');
+    await goosePage.keyboard.press('Meta+k');
     const palette = goosePage.locator('[data-testid="command-palette"]');
     await expect(palette).toBeVisible({ timeout: 5000 });
 
@@ -94,7 +96,7 @@ test.describe('command palette', () => {
     await goosePage.setViewportSize({ width: 1200, height: 800 });
 
     // Start a session
-    const input = goosePage.locator('[data-testid="chat-input"]');
+    const input = goosePage.locator('[data-testid="chat-input"]').first();
     await input.fill('test');
     await input.press('Enter');
     await expect(goosePage).toHaveURL(/resumeSessionId=/, { timeout: 30000 });
@@ -126,13 +128,13 @@ test.describe('command palette', () => {
     await goosePage.setViewportSize({ width: 1200, height: 800 });
 
     // Start a session
-    const input = goosePage.locator('[data-testid="chat-input"]');
+    const input = goosePage.locator('[data-testid="chat-input"]').first();
     await input.fill('test');
     await input.press('Enter');
     await expect(goosePage).toHaveURL(/resumeSessionId=/, { timeout: 30000 });
 
     // Open palette
-    await goosePage.press('Meta+k');
+    await goosePage.keyboard.press('Meta+k');
     const palette = goosePage.locator('[data-testid="command-palette"]');
     await expect(palette).toBeVisible({ timeout: 5000 });
 
@@ -162,7 +164,7 @@ test.describe('command palette', () => {
     await goosePage.setViewportSize({ width: 1200, height: 800 });
 
     // Open palette
-    await goosePage.press('Meta+k');
+    await goosePage.keyboard.press('Meta+k');
     const palette = goosePage.locator('[data-testid="command-palette"]');
     await expect(palette).toBeVisible({ timeout: 5000 });
 
@@ -185,13 +187,13 @@ test.describe('command palette', () => {
     await goosePage.setViewportSize({ width: 1200, height: 800 });
 
     // Start a session
-    const input = goosePage.locator('[data-testid="chat-input"]');
+    const input = goosePage.locator('[data-testid="chat-input"]').first();
     await input.fill('test');
     await input.press('Enter');
     await expect(goosePage).toHaveURL(/resumeSessionId=/, { timeout: 30000 });
 
     // Open Terminal
-    await goosePage.press('Meta+k');
+    await goosePage.keyboard.press('Meta+k');
     const paletteInput = goosePage.locator('[data-testid="palette-input"]');
     await paletteInput.fill('term');
     await paletteInput.press('Enter');
@@ -203,7 +205,7 @@ test.describe('command palette', () => {
     await goosePage.waitForTimeout(500);
 
     // ⌘K from terminal should still open palette
-    await goosePage.press('Meta+k');
+    await goosePage.keyboard.press('Meta+k');
     const palette = goosePage.locator('[data-testid="command-palette"]');
     await expect(palette).toBeVisible({ timeout: 5000 });
     const paletteInput2 = goosePage.locator('[data-testid="palette-input"]');
@@ -219,7 +221,7 @@ test.describe('command palette', () => {
     await goosePage.setViewportSize({ width: 390, height: 844 });
 
     // Start a session
-    const input = goosePage.locator('[data-testid="chat-input"]');
+    const input = goosePage.locator('[data-testid="chat-input"]').first();
     await input.fill('test');
     await input.press('Enter');
     await expect(goosePage).toHaveURL(/resumeSessionId=/, { timeout: 30000 });

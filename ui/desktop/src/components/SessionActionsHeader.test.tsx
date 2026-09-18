@@ -228,6 +228,7 @@ describe('RailMenu', () => {
       'workspace-pane-item-editor',
       'workspace-pane-item-git',
       'workspace-pane-item-markdown',
+      'workspace-command-palette',
       'workspace-background-tasks',
       'workspace-open-in',
       'workspace-rename',
