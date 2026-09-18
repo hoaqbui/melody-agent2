@@ -516,4 +516,60 @@ describe('gitRoutes', () => {
       expect(snapshot1.tree).toBe(snapshot2.tree);
     });
   });
+
+  describe('discard and undo', () => {
+    it('discards changes with stash push and returns stash message', async () => {
+      // Create a dirty working tree
+      await writeFile(path.join(repo, 'discard-test.txt'), 'test content\n');
+      await writeFile(path.join(repo, 'a.txt'), 'modified\n');
+
+      // Discard changes
+      const discardResult = (await routes['POST /git/discard']({})) as { stash: string };
+      expect(discardResult.stash).toMatch(/^goose discard \d+$/);
+
+      // Verify tree is clean
+      const status = (await sh(repo, ['status', '--porcelain'])).trim();
+      expect(status).toBe('');
+
+      // Verify the files are in the stash
+      const stashList = await sh(repo, ['stash', 'list']);
+      expect(stashList).toContain('goose discard');
+
+      // Clean up stash
+      await sh(repo, ['stash', 'drop']);
+    });
+
+    it('undoes a discard by applying and dropping the stash', async () => {
+      // Create a dirty working tree
+      await writeFile(path.join(repo, 'undo-test.txt'), 'test content\n');
+      await writeFile(path.join(repo, 'a.txt'), 'undo modified\n');
+
+      // Discard changes
+      const discardResult = (await routes['POST /git/discard']({})) as { stash: string };
+      const stashMessage = discardResult.stash;
+
+      // Verify tree is clean
+      let status = (await sh(repo, ['status', '--porcelain'])).trim();
+      expect(status).toBe('');
+
+      // Undo the discard
+      await routes['POST /git/discard/undo']({ stash: stashMessage });
+
+      // Verify the files are back
+      status = (await sh(repo, ['status', '--porcelain'])).trim();
+      expect(status).toContain('undo-test.txt');
+      expect(status).toContain('a.txt');
+      expect(await readFile(path.join(repo, 'undo-test.txt'), 'utf8')).toBe('test content\n');
+
+      // Clean up
+      await rm(path.join(repo, 'undo-test.txt'));
+      await sh(repo, ['checkout', '--', 'a.txt']);
+    });
+
+    it('fails to undo with invalid stash message', async () => {
+      const error = await failure(routes['POST /git/discard/undo']({ stash: 'invalid stash message' }));
+      expect(error.status).toBe(404);
+      expect(error.message).toContain('stash entry not found');
+    });
+  });
 });
