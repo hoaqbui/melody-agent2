@@ -19,6 +19,7 @@ import {
   upgradeHasKey,
 } from './http.js';
 import { attachPty, ensureSpawnHelperExecutable, killAllPty } from './pty.js';
+import { runtimesRoutes } from './runtimes.js';
 import { serveStatic } from './static.js';
 
 const errorMessage = (error: unknown): string =>
@@ -75,7 +76,7 @@ const main = async (): Promise<void> => {
     args.gooseUrl && token
       ? { gooseUrl: args.gooseUrl, certFingerprint: args.gooseCertFingerprint, token }
       : null;
-  const routes: Record<string, JsonHandler> = { ...fsRoutes(cwd), ...gitRoutes(cwd) };
+  const routes: Record<string, JsonHandler> = { ...fsRoutes(cwd), ...gitRoutes(cwd), ...runtimesRoutes() };
   const dispatchJson = jsonDispatcher(routes, args.allowedOrigins, secret);
 
   const handleRequest = (request: IncomingMessage, response: ServerResponse) => {
