@@ -787,13 +787,18 @@ export function WorkspaceShell({ chat, children, panes, paneStore }: WorkspaceSh
     let cancelled = false;
     const load = async () => {
       try {
-        const [sessionsPage, schedules] = await Promise.all([
+        const [sessionsPage, scheduledJobs] = await Promise.all([
           acpListSessions(null, { includeAcp: false }),
           acpListSchedules(),
         ]);
         if (!cancelled) {
           setPaletteSessions(sessionsPage.sessions);
-          setPaletteSchedules(schedules);
+          setPaletteSchedules(
+            scheduledJobs.map((job) => ({
+              id: job.id,
+              name: job.id,
+            }))
+          );
         }
       } catch (error) {
         console.error('Failed to load palette data', error);

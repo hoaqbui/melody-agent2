@@ -1,13 +1,9 @@
-// Command palette ⌘K (task 92): composed from dialog.tsx + input.tsx, groups Panes ·
-// Session · Sessions · Routines · Lever · Go to, filters by query with fuzzy match.
-// Mounted at WorkspaceShell when ⌘K is pressed or the ⋯ menu's row is clicked;
-// phone width opens from the search tab on the rail, full-screen.
-
 import { useEffect, useRef, useState, useMemo, useCallback, type KeyboardEvent } from 'react';
 import { Search } from 'lucide-react';
 import { defineMessages, useIntl } from '../../i18n';
 import { Dialog, DialogContent } from '../../components/ui/dialog';
 import { Input } from '../../components/ui/input';
+import { Button } from '../../components/ui/button';
 import { cn } from '../../utils';
 import { buildCommands, filterCommands, type Command, type PaletteContext, type PaletteState } from './palette-state';
 
@@ -21,7 +17,6 @@ interface CommandPaletteProps {
   open: boolean;
   onOpenChange: (open: boolean) => void;
   context: PaletteContext;
-  // Focus returns here when the palette closes.
   onFocusReturn?: () => void;
 }
 
@@ -57,7 +52,6 @@ function CommandPaletteContent({
   const inputRef = useRef<HTMLInputElement>(null);
   const listRef = useRef<HTMLDivElement>(null);
 
-  // Group and sort commands by group order.
   const grouped = useMemo(() => {
     const groups = new Map<GroupName, Command[]>();
     for (const group of GROUP_ORDER) {
@@ -69,21 +63,18 @@ function CommandPaletteContent({
     return Array.from(groups.entries()).filter(([_, cmds]) => cmds.length > 0);
   }, [commands]);
 
-  // Flatten for selection.
   const flat = useMemo(
     () =>
       grouped.flatMap(([, cmds]) => cmds),
     [grouped]
   );
 
-  // Clamp selection.
   useEffect(() => {
     if (selectedIndex >= flat.length) {
       onSelectedIndexChange(Math.max(0, flat.length - 1));
     }
   }, [flat.length, selectedIndex, onSelectedIndexChange]);
 
-  // Scroll selected item into view.
   useEffect(() => {
     if (listRef.current && selectedIndex >= 0 && selectedIndex < flat.length) {
       const item = listRef.current.querySelector(`[data-index="${selectedIndex}"]`) as HTMLElement;
@@ -165,16 +156,17 @@ function CommandPaletteContent({
             {groupCommands.map((cmd) => {
               const flatIdx = flat.indexOf(cmd);
               return (
-                <button
+                <Button
                   key={cmd.id}
+                  variant="ghost"
+                  className={cn(
+                    'w-full justify-start px-4 py-2 text-left text-sm flex items-center gap-2',
+                    flatIdx === selectedIndex && 'bg-background-secondary'
+                  )}
                   data-testid={`palette-item-${cmd.id}`}
                   data-index={flatIdx}
                   role="option"
                   aria-selected={flatIdx === selectedIndex}
-                  className={cn(
-                    'w-full px-4 py-2 text-left text-sm flex items-center gap-2 hover:bg-background-secondary focus:outline-none',
-                    flatIdx === selectedIndex && 'bg-background-secondary'
-                  )}
                   onClick={() => {
                     onSelectedIndexChange(flatIdx);
                     onExecute(cmd);
@@ -183,7 +175,7 @@ function CommandPaletteContent({
                 >
                   <span className="flex-1 truncate">{cmd.label}</span>
                   {cmd.hint && <span className="text-xs text-text-secondary truncate">{cmd.hint}</span>}
-                </button>
+                </Button>
               );
             })}
           </div>
