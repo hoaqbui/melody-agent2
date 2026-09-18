@@ -242,7 +242,7 @@ describe('RailMenu', () => {
       'workspace-archive',
       'workspace-delete',
     ]);
-    expect(menu.querySelectorAll('[data-slot="dropdown-menu-separator"]')).toHaveLength(4);
+    expect(menu.querySelectorAll('[data-slot="dropdown-menu-separator"]')).toHaveLength(7);
     const shortcuts = Array.from(menu.querySelectorAll('[data-slot="dropdown-menu-shortcut"]')).map(
       (span) => span.textContent
     );

@@ -1,9 +1,9 @@
 import chokidar from 'chokidar';
-import { mkdir, readdir, readFile, realpath, writeFile, rename, rm, appendFile } from 'node:fs/promises';
+import { mkdir, readdir, readFile, realpath, writeFile, rename, appendFile } from 'node:fs/promises';
 import path from 'node:path';
 import type { WebSocket } from 'ws';
 
-import { isInside, toplevelOf, git } from './git.js';
+import { isInside, toplevelOf } from './git.js';
 import { HttpError, type JsonHandler, requireString } from './http.js';
 
 type EntryType = 'file' | 'dir' | 'symlink' | 'other';
