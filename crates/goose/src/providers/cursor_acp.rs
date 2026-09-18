@@ -71,12 +71,13 @@ impl ProviderDef for CursorAcpProvider {
 
             // cursor-agent acp advertises modes `agent` / `plan` / `ask` at
             // session/new (checked 2026-09-15). `agent` is full tool access;
-            // its permission requests arrive over ACP requestPermission, which
-            // AcpProvider forwards, so Approve and SmartApprove both map there.
-            // `ask` is Q&A with no edits or commands, matching Chat.
+            // `plan` is read-only with no writes or commands — it cannot edit
+            // without telling me, so Approve maps there (decision 2 of
+            // docs/2026-09-18-ux-parity-plan-v1.md). `ask` is Q&A with no
+            // edits or commands, matching Chat.
             let mode_mapping = HashMap::from([
                 (GooseMode::Auto, vec!["agent".to_string()]),
-                (GooseMode::Approve, vec!["agent".to_string()]),
+                (GooseMode::Approve, vec!["plan".to_string()]),
                 (GooseMode::SmartApprove, vec!["agent".to_string()]),
                 (GooseMode::Chat, vec!["ask".to_string()]),
             ]);

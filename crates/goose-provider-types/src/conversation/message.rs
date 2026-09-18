@@ -226,6 +226,17 @@ fn default_elicitation_action() -> ElicitationAction {
 #[serde(rename_all = "camelCase")]
 pub struct ActionRequired {
     pub data: ActionRequiredData,
+    // An adapter's edit beside a tool confirmation, so the card shows the change, not raw arguments.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub diff: Option<ToolConfirmationDiff>,
+}
+
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct ToolConfirmationDiff {
+    pub path: String,
+    pub old_text: Option<String>,
+    pub new_text: String,
 }
 
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
@@ -548,6 +559,7 @@ impl MessageContentBlock {
         tool_name: String,
         arguments: JsonObject,
         prompt: Option<String>,
+        diff: Option<ToolConfirmationDiff>,
     ) -> Self {
         MessageContentBlock::ActionRequired(ActionRequired {
             data: ActionRequiredData::ToolConfirmation {
@@ -556,6 +568,7 @@ impl MessageContentBlock {
                 arguments,
                 prompt,
             },
+            diff,
         })
     }
 
@@ -570,6 +583,7 @@ impl MessageContentBlock {
                 message,
                 requested_schema,
             },
+            diff: None,
         })
     }
 
@@ -582,6 +596,7 @@ impl MessageContentBlock {
                 id: id.into(),
                 permission,
             },
+            diff: None,
         })
     }
 
@@ -596,6 +611,7 @@ impl MessageContentBlock {
                 user_data,
                 action,
             },
+            diff: None,
         })
     }
 
@@ -1147,7 +1163,20 @@ impl Message {
         prompt: Option<String>,
     ) -> Self {
         self.with_content(MessageContentBlock::action_required(
-            id, tool_name, arguments, prompt,
+            id, tool_name, arguments, prompt, None,
+        ))
+    }
+
+    pub fn with_action_required_diff<S: Into<String>>(
+        self,
+        id: S,
+        tool_name: String,
+        arguments: JsonObject,
+        prompt: Option<String>,
+        diff: Option<ToolConfirmationDiff>,
+    ) -> Self {
+        self.with_content(MessageContentBlock::action_required(
+            id, tool_name, arguments, prompt, diff,
         ))
     }
 

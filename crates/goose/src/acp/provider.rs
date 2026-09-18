@@ -35,7 +35,9 @@ use tokio_util::compat::{TokioAsyncReadCompatExt as _, TokioAsyncWriteCompatExt 
 use crate::acp::handoff::{build_handoff_context_memo, memo_token_budget, prompt_token_cost};
 use crate::acp::{map_permission_response, PermissionDecision};
 use crate::config::{Config, ExtensionConfig, GooseMode};
-use crate::conversation::message::{Message, MessageContent, TOOL_META_EXTERNAL_DISPATCH_KEY};
+use crate::conversation::message::{
+    Message, MessageContent, ToolConfirmationDiff, TOOL_META_EXTERNAL_DISPATCH_KEY,
+};
 use crate::permission::permission_confirmation::PrincipalType;
 use crate::permission::{Permission, PermissionConfirmation};
 use crate::providers::base::{MessageStream, PermissionRouting, Provider};
@@ -2135,13 +2137,30 @@ fn build_action_required_message(request: &RequestPermissionRequest) -> Option<M
             })
         });
 
+    let diff = request
+        .tool_call
+        .fields
+        .content
+        .as_ref()
+        .and_then(|content| {
+            content.iter().find_map(|c| match c {
+                ToolCallContent::Diff(diff) => Some(ToolConfirmationDiff {
+                    path: diff.path.display().to_string(),
+                    old_text: diff.old_text.clone(),
+                    new_text: diff.new_text.clone(),
+                }),
+                _ => None,
+            })
+        });
+
     Some(
         Message::assistant()
-            .with_action_required(
+            .with_action_required_diff(
                 request.tool_call.tool_call_id.0.to_string(),
                 tool_title,
                 arguments,
                 prompt,
+                diff,
             )
             .user_only(),
     )
