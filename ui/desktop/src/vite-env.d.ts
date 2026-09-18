@@ -59,6 +59,7 @@ declare global {
       sessionId: string;
     }>;
     'insert-input-text': CustomEvent<string>;
+    'insert-input-image': CustomEvent<{ data: string; mimeType: string }>;
     responseStyleChanged: CustomEvent;
     'session-created': CustomEvent<{ session?: import('./types/session').Session }>;
     'session-deleted': CustomEvent<{ sessionId: string }>;
