@@ -195,6 +195,7 @@ function createTerminalSession(id: string, cwd: string): TerminalSession {
         for (const match of lineStr.matchAll(FILE_LINE)) {
           const path = match[1]!;
           const lineNum = Number(match[2]!);
+          // Try the cwd first, then repo root; a path printed after cd may miss (decision 10).
           const candidates = linkPathCandidates(path, cwd, cwd);
           const text = match[0];
           links.push({
@@ -203,12 +204,7 @@ function createTerminalSession(id: string, cwd: string): TerminalSession {
               end: { x: match.index! + text.length + 1, y: bufferLineNumber + 1 },
             },
             text,
-            activate: () => {
-              for (const candidate of candidates) {
-                linkHandlers!.openFile(candidate, lineNum);
-                return;
-              }
-            },
+            activate: () => linkHandlers!.openFile(candidates[0]!, lineNum),
           });
         }
         callback(links);

@@ -205,15 +205,17 @@ export function TerminalPane({ ptyId: baseId, cwd }: TerminalPaneProps) {
             onDoubleClick={() => handleRenameTab(tab.id)}
           >
             <span>{tab.name}</span>
-            <button
-              className="ml-1 opacity-0 group-hover:opacity-100 text-xs hover:text-danger"
+            <Button
+              variant="ghost"
+              size="xs"
+              className="ml-1 opacity-0 group-hover:opacity-100 text-xs h-auto p-0"
               onClick={(e) => {
                 e.stopPropagation();
                 handleCloseTab(tab.id);
               }}
             >
               ×
-            </button>
+            </Button>
           </div>
         ))}
         <Button
