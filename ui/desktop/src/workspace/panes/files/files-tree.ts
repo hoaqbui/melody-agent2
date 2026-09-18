@@ -202,6 +202,30 @@ export function isWritten(written: ReadonlySet<string>, row: TreeRow): boolean {
   return false;
 }
 
+export function filterRows(rows: readonly TreeRow[], text: string): TreeRow[] {
+  if (!text) return [...rows];
+  const lower = text.toLowerCase();
+  return rows.filter((row) => row.path.toLowerCase().includes(lower));
+}
+
+export function gitTint(
+  status: { entries: readonly { path: string; index: string; worktree: string }[] } | null,
+  toplevel: string | null,
+  rowPath: string
+): 'M' | 'A' | '?' | 'D' | undefined {
+  if (!status || !toplevel || rowPath === toplevel) return undefined;
+  const relative = rowPath.startsWith(toplevel + '/') ? rowPath.slice(toplevel.length + 1) : rowPath;
+  for (const entry of status.entries) {
+    if (entry.path === relative) {
+      if (entry.index === 'D' || entry.worktree === 'D') return 'D';
+      if (entry.index === 'A' || entry.worktree === 'A') return 'A';
+      if (entry.worktree === '?') return '?';
+      if (entry.index === 'M' || entry.worktree === 'M') return 'M';
+    }
+  }
+  return undefined;
+}
+
 export interface FilesTreeStore {
   getState(): TreeState;
   subscribe(listener: () => void): () => void;
