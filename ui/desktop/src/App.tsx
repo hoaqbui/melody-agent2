@@ -716,7 +716,7 @@ export function AppInner() {
               }
             >
               <Route index element={<HubRouteWrapper draftRef={hubDraftRef} />} />
-              <Route path="runtimes" element={<RuntimesGate />} />
+              <Route key="runtimes-gate" path="runtimes" element={<RuntimesGate />} />
               <Route
                 path="pair"
                 element={

@@ -7,6 +7,8 @@ import { probeRuntimes } from '../../native/runtimes.js';
 import { seatState, overallGateState, SEAT_STATE_TO_DOM, type SeatStates, type RuntimesGateState } from './seat-state';
 import { cn } from '../../utils';
 
+export const RUNTIMES_GATE_TESTID = 'runtimes-gate';
+
 const i18n = defineMessages({
   title: { id: 'runtimesGate.title', defaultMessage: 'Set up seats' },
   description: {
@@ -77,7 +79,7 @@ export default function RuntimesGate() {
   };
 
   return (
-    <div className="h-screen w-full bg-background-default flex items-center justify-center" data-testid="runtimes-gate" data-state={state}>
+    <div className="h-screen w-full bg-background-default flex items-center justify-center" data-testid={RUNTIMES_GATE_TESTID} data-state={state}>
       <div className="max-w-2xl w-full mx-auto px-4">
         <div className="mb-8">
           <h1 className="text-3xl font-light mb-2">{intl.formatMessage(i18n.title)}</h1>

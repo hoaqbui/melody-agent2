@@ -58,7 +58,7 @@ export function Lever({ stop, providers, canOrchestrate, busy, model, onPick, se
   const blocked = (candidate: Stop) => {
     const providerId = LEVER[candidate].provider;
     const seat = seats && seatOfProvider(providerId);
-    return (seat && seats[seat].state !== 'ready') ||
+    return (seat && seats[seat].state === 'install') ||
            install(candidate) ||
            (LEVER[candidate].mode === 'orchestrate' && !canOrchestrate);
   };
