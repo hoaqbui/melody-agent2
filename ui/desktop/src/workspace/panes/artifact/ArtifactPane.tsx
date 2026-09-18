@@ -12,10 +12,15 @@ import { useConfig } from '../../../components/ConfigContext';
 import { Button } from '../../../components/ui/button';
 import type { ProviderDetails } from '../../../types/providers';
 import { useSessionDelegations, type Delegation } from '../../../acp/delegations';
+import { useAcpChatSessionSnapshot } from '../../../acp/chatSessionStore';
 import { acpExportSession } from '../../../acp/sessions';
 import { MarkdownView } from '../../MarkdownView';
 import { usePaneContext } from '../../pane-context';
 import { runtimeLabel } from '../../session-controls';
+import { gateState, phaseViews } from '../../rpi-strip/rpi-strip-state';
+import { prompt } from '../../prompt';
+import { ChatState } from '../../../types/chatState';
+import { AppEvents } from '../../../constants/events';
 import { artifactFromExport, firstLine, paneState, type ArtifactLoad } from './artifact-state';
 
 const i18n = defineMessages({
@@ -33,6 +38,8 @@ const i18n = defineMessages({
   copy: { id: 'artifactPane.copy', defaultMessage: 'Copy' },
   copied: { id: 'artifactPane.copied', defaultMessage: 'Copied' },
   openTranscript: { id: 'artifactPane.openTranscript', defaultMessage: 'Open transcript' },
+  gateAccept: { id: 'artifactPane.gateAccept', defaultMessage: 'Accept' },
+  gateRevise: { id: 'artifactPane.gateRevise', defaultMessage: 'Revise…' },
 });
 
 type Loads = Readonly<Record<string, ArtifactLoad>>;
@@ -47,7 +54,7 @@ export function ArtifactPane() {
   const intl = useIntl();
   const setView = useNavigation();
   const { getProviders } = useConfig();
-  const { sessionId, artifact } = usePaneContext();
+  const { sessionId, artifact, cwd } = usePaneContext();
   // DESIGN.md §Vocabulary: the header names the runtime as the user says it, so a provider
   // outside the fixed four (claude-code, say) reads by its display name, never its id.
   const [providers, setProviders] = useState<ProviderDetails[]>([]);
@@ -56,9 +63,19 @@ export function ArtifactPane() {
   const [picked, setPicked] = useState<string | null>(null);
   const [loads, setLoads] = useState<Loads>({});
   const [copied, setCopied] = useState(false);
+  const [planGate, setPlanGate] = useState(true);
   // The status each child's artifact was read at: a child that finishes after its first
   // read (running → done) is read again for the handoff it wrote meanwhile.
   const readAt = useRef(new Map<string, Delegation['status']>());
+
+  const snapshot = useAcpChatSessionSnapshot(sessionId);
+  const chatIdle = snapshot?.chatState === ChatState.Idle;
+  const views = phaseViews(delegations);
+  const awaiting = gateState(views, chatIdle, planGate);
+
+  useEffect(() => {
+    window.electron.getSetting('workspace.planGate').then(setPlanGate).catch(console.error);
+  }, []);
 
   const load = useCallback((childSessionId: string) => {
     setLoads((current) => ({ ...current, [childSessionId]: { status: 'loading' } }));
@@ -111,6 +128,23 @@ export function ArtifactPane() {
     await navigator.clipboard.writeText(text);
     setCopied(true);
     window.setTimeout(() => setCopied(false), 1500);
+  };
+
+  const isPlan = selected?.source === 'planner';
+  const shouldShowGateActions = isPlan && awaiting;
+
+  const handleAccept = () => {
+    prompt(sessionId, 'Plan accepted — implement it.', cwd).catch(console.error);
+  };
+
+  const handleRevise = () => {
+    window.dispatchEvent(
+      new CustomEvent(AppEvents.INSERT_INPUT_TEXT, {
+        detail: 'Revise the plan: ',
+      })
+    );
+    const input = document.querySelector('[data-testid="chat-input-field"]') as HTMLTextAreaElement;
+    input?.focus();
   };
 
   return (
@@ -166,6 +200,26 @@ export function ArtifactPane() {
             >
               {header}
             </span>
+            {shouldShowGateActions && (
+              <>
+                <Button
+                  variant="ghost"
+                  size="xs"
+                  data-testid="artifact-accept"
+                  onClick={handleAccept}
+                >
+                  {intl.formatMessage(i18n.gateAccept)}
+                </Button>
+                <Button
+                  variant="ghost"
+                  size="xs"
+                  data-testid="artifact-revise"
+                  onClick={handleRevise}
+                >
+                  {intl.formatMessage(i18n.gateRevise)}
+                </Button>
+              </>
+            )}
             <Button
               variant="ghost"
               size="xs"

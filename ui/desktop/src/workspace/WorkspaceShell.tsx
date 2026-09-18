@@ -75,6 +75,7 @@ import { getEffectiveWorkingDir, getInitialWorkingDir } from '../utils/workingDi
 import type { Message } from '../types/message';
 import type { ProviderDetails } from '../types/providers';
 import type { WorkspaceUi } from '../utils/settings';
+import { ChatState } from '../types/chatState';
 import { PaneContext, type PaneContextValue } from './pane-context';
 import { type InsertChatInput, quoteForChat } from './chat-insert';
 import {
@@ -565,6 +566,11 @@ export function WorkspaceShell({ chat, children, panes, paneStore }: WorkspaceSh
     window.electron.setSetting('workspace.ui', next).catch(console.error);
   }, [workspaceUi]);
 
+  const handlePlanGateChange = useCallback((value: boolean) => {
+    setPlanGate(value);
+    window.electron.setSetting('workspace.planGate', value).catch(console.error);
+  }, []);
+
   useEffect(() => {
     if (!isWorkspaceRoute) return;
     acpListProviderDetails().then(setProviders).catch(console.error);
@@ -964,6 +970,8 @@ export function WorkspaceShell({ chat, children, panes, paneStore }: WorkspaceSh
             onOpenFiles={() => store.openPane('files')}
             onOpenExtensions={() => setView('extensions')}
             onSaveRoutine={saveRoutine}
+            planGate={planGate}
+            onPlanGateChange={handlePlanGateChange}
           />
           <RoutineChip session={session} onOpen={openSchedule} />
         </>
@@ -1141,13 +1149,21 @@ export function WorkspaceShell({ chat, children, panes, paneStore }: WorkspaceSh
     () => ({ cwd, gitToplevel: gitStatus?.toplevel ?? cwd }),
     [cwd, gitStatus?.toplevel]
   );
+  const chatIdle = snapshot?.chatState === ChatState.Idle;
+
   const chatBody = (
     <SessionChipsSlot.Provider value={chipsFor}>
       <FileLinkSlot.Provider value={fileLinkContext}>
         <NextChat.Provider value={nextChat}>
           <div className="flex min-h-0 min-w-0 flex-1 flex-col">
             {isWorkspaceRoute && sessionId && (
-              <RpiStrip sessionId={sessionId} openArtifact={openArtifact} />
+              <RpiStrip
+                sessionId={sessionId}
+                openArtifact={openArtifact}
+                chatIdle={chatIdle}
+                gateOn={planGate}
+                cwd={cwd}
+              />
             )}
             <div className="relative min-h-0 min-w-0 flex-1">
               {children}
