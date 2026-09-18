@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { fileLinks, linkPathCandidates, resolveLinkPath } from './file-links';
+import { fileLinks, linkPathCandidates, resolveLinkPath, rehypeFileLinks, type HastNode } from './file-links';
 
 describe('file links', () => {
   it('finds file:line links, with a column or a range, and skips URLs and times', () => {
@@ -42,5 +42,62 @@ describe('file links', () => {
     ]);
     expect(linkPathCandidates('src/add.ts', '/repo', '/repo')).toEqual(['/repo/src/add.ts']);
     expect(linkPathCandidates('/abs/x.rs', '/repo/sub', '/repo')).toEqual(['/abs/x.rs']);
+  });
+
+  it('rehypeFileLinks transforms text nodes with file:line patterns into links', () => {
+    const plugin = rehypeFileLinks({ cwd: '/repo', gitToplevel: '/repo' });
+    const tree: HastNode = {
+      type: 'root',
+      children: [
+        {
+          type: 'element',
+          tagName: 'p',
+          children: [
+            {
+              type: 'text',
+              value: 'See src/add.ts:3 and tasks.md:12 here.',
+            },
+          ],
+        },
+      ],
+    };
+
+    plugin(tree);
+
+    const p = tree.children?.[0];
+    expect(p?.type).toBe('element');
+    expect(p?.tagName).toBe('p');
+    expect(p?.children?.length).toBe(5); // text, link, text, link, text
+    expect(p?.children?.[1]?.tagName).toBe('a');
+    expect(p?.children?.[1]?.properties?.href).toBe('goose-file:/repo/src/add.ts:3');
+    expect(p?.children?.[1]?.properties?.['data-testid']).toBe('chat-file-link');
+    expect(p?.children?.[1]?.properties?.['data-path']).toBe('src/add.ts');
+    expect(p?.children?.[1]?.properties?.['data-line']).toBe('3');
+  });
+
+  it('rehypeFileLinks skips URLs and times', () => {
+    const plugin = rehypeFileLinks({ cwd: '/repo', gitToplevel: '/repo' });
+    const tree: HastNode = {
+      type: 'root',
+      children: [
+        {
+          type: 'element',
+          tagName: 'p',
+          children: [
+            {
+              type: 'text',
+              value: 'Check https://example.com/a.ts:12 and 12:30 time.',
+            },
+          ],
+        },
+      ],
+    };
+
+    plugin(tree);
+
+    const p = tree.children?.[0];
+    // Should have only one text node (no links)
+    expect(p?.children?.length).toBe(1);
+    expect(p?.children?.[0]?.type).toBe('text');
   });
 });

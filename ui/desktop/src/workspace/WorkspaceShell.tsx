@@ -42,7 +42,7 @@ import { useConfig } from '../components/ConfigContext';
 import { useModelAndProvider } from '../components/ModelAndProviderContext';
 import { useNavigationContextSafe } from '../components/Layout/NavigationContext';
 import { Navigation } from '../components/Layout/NavigationPanel';
-import { SessionChipsSlot } from '../components/ChatInput';
+import { SessionChipsSlot, FileLinkSlot } from '../components/ChatInput';
 import { NextChat, type NextChatDraft } from '../components/Hub';
 import { Button } from '../components/ui/button';
 import { DropdownMenu, DropdownMenuTrigger } from '../components/ui/dropdown-menu';
@@ -1137,19 +1137,29 @@ export function WorkspaceShell({ chat, children, panes, paneStore }: WorkspaceSh
   ]);
 
   // Task 29: the RPI strip sits above the chat in both faces, and only once a phase is lit.
+  // Task 82: provide FileLinkSlot so file:line links in messages can resolve to the Editor.
+  const fileLinkContext = useMemo(
+    () => ({
+      cwd,
+      gitToplevel: cwd, // Placeholder: in a worktree, the cwd is subdirectory-relative
+    }),
+    [cwd]
+  );
   const chatBody = (
     <SessionChipsSlot.Provider value={chipsFor}>
-      <NextChat.Provider value={nextChat}>
-        <div className="flex min-h-0 min-w-0 flex-1 flex-col">
-          {isWorkspaceRoute && sessionId && (
-            <RpiStrip sessionId={sessionId} openArtifact={openArtifact} />
-          )}
-          <div className="relative min-h-0 min-w-0 flex-1">
-            {children}
-            <div className={isOnPairRoute ? 'contents' : 'hidden'}>{chat}</div>
+      <FileLinkSlot.Provider value={fileLinkContext}>
+        <NextChat.Provider value={nextChat}>
+          <div className="flex min-h-0 min-w-0 flex-1 flex-col">
+            {isWorkspaceRoute && sessionId && (
+              <RpiStrip sessionId={sessionId} openArtifact={openArtifact} />
+            )}
+            <div className="relative min-h-0 min-w-0 flex-1">
+              {children}
+              <div className={isOnPairRoute ? 'contents' : 'hidden'}>{chat}</div>
+            </div>
           </div>
-        </div>
-      </NextChat.Provider>
+        </NextChat.Provider>
+      </FileLinkSlot.Provider>
     </SessionChipsSlot.Provider>
   );
   const shellAttributes = {
