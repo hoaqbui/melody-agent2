@@ -41,10 +41,10 @@ test.describe('changes bar', () => {
   test('shows changes bar with stats, Review, Accept all, and Discard, then Undo', async ({
     goosePage,
   }) => {
-    // Step 1: No bar initially (clean tree)
     await expect(goosePage.locator('[data-testid="workspace-shell"]')).toBeVisible({
       timeout: 30000,
     });
+
     const changesBarInitial = goosePage.locator('[data-testid="changes-bar-stats"]');
     await expect(changesBarInitial).toHaveCount(0);
 
