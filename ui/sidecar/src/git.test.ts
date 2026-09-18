@@ -457,4 +457,63 @@ describe('gitRoutes', () => {
       }
     });
   });
+
+  describe('snapshot', () => {
+    it('creates a tree snapshot without touching the real index', async () => {
+      await writeFile(path.join(repo, 'snapshot-test.txt'), 'test\n');
+      await writeFile(path.join(repo, 'a.txt'), 'modified\n');
+      const statusBefore = (await sh(repo, ['status', '--porcelain'])).trim();
+
+      const snapshot = (await routes['POST /git/snapshot']({})) as { tree: string };
+      expect(snapshot.tree).toMatch(/^[0-9a-f]{40}$/);
+
+      const statusAfter = (await sh(repo, ['status', '--porcelain'])).trim();
+      expect(statusBefore).toBe(statusAfter);
+      expect(await readFile(path.join(repo, 'snapshot-test.txt'), 'utf8')).toBe('test\n');
+      expect(await readFile(path.join(repo, 'a.txt'), 'utf8')).toBe('modified\n');
+
+      await rm(path.join(repo, 'snapshot-test.txt'));
+      await sh(repo, ['checkout', '--', 'a.txt']);
+    });
+
+    it('captures created, edited, and deleted files in diff between snapshots', async () => {
+      const snapshot0 = (await routes['POST /git/snapshot']({})) as { tree: string };
+      const tree0 = snapshot0.tree;
+
+      await writeFile(path.join(repo, 'created.txt'), 'new file\n');
+      await writeFile(path.join(repo, 'a.txt'), 'one\nTWO\nthree\n');
+      await rm(path.join(repo, 'sub', 'b.txt'));
+
+      const snapshot1 = (await routes['POST /git/snapshot']({})) as { tree: string };
+      const tree1 = snapshot1.tree;
+
+      const diff = await sh(repo, ['diff', '--no-color', '--name-only', `${tree0}..${tree1}`]);
+      const names = diff.trim().split('\n').sort();
+      expect(names).toContain('created.txt');
+      expect(names).toContain('a.txt');
+      expect(names).toContain('sub/b.txt');
+
+      const diffContent = await sh(repo, [
+        'diff',
+        '--no-color',
+        '--src-prefix=a/',
+        '--dst-prefix=b/',
+        `${tree0}..${tree1}`,
+      ]);
+      expect(diffContent).toContain('new file mode');
+      expect(diffContent).toContain('deleted file mode');
+      expect(diffContent).toContain('-two');
+      expect(diffContent).toContain('+TWO');
+
+      await rm(path.join(repo, 'created.txt'));
+      await sh(repo, ['checkout', '--', 'a.txt']);
+      await sh(repo, ['checkout', '--', 'sub/b.txt']);
+    });
+
+    it('returns consistent tree hash for identical working tree state', async () => {
+      const snapshot1 = (await routes['POST /git/snapshot']({})) as { tree: string };
+      const snapshot2 = (await routes['POST /git/snapshot']({})) as { tree: string };
+      expect(snapshot1.tree).toBe(snapshot2.tree);
+    });
+  });
 });

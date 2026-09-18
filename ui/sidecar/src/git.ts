@@ -1,5 +1,6 @@
 import { execFile } from 'node:child_process';
-import { realpath } from 'node:fs/promises';
+import { copyFile, realpath, rm } from 'node:fs/promises';
+import os from 'node:os';
 import path from 'node:path';
 
 import { HttpError, type JsonHandler, requireString, requireStringArray } from './http.js';
@@ -10,12 +11,17 @@ const WORKTREES_DIR = '.worktrees';
 // lets a tailnet peer walk out of the directory.
 const SLUG = /^[a-z0-9][a-z0-9-]{0,63}$/;
 
-export const git = (cwd: string, args: string[], stdin?: string): Promise<string> =>
+export const git = (
+  cwd: string,
+  args: string[],
+  stdin?: string,
+  env?: Record<string, string>
+): Promise<string> =>
   new Promise((resolve, reject) => {
     const child = execFile(
       'git',
       args,
-      { cwd, maxBuffer: MAX_OUTPUT_BYTES },
+      { cwd, maxBuffer: MAX_OUTPUT_BYTES, env: env ? { ...process.env, ...env } : undefined },
       (error, stdout, stderr) => {
         if (error) {
           reject(new HttpError(500, stderr.trim() || error.message));
@@ -460,5 +466,17 @@ export const gitRoutes = (spawnCwd: string): Record<string, JsonHandler> => ({
     args.push('-');
     await git(toplevel, args, patch);
     return {};
+  },
+  'POST /git/snapshot': async (body) => {
+    const toplevel = await toplevelOf(await requestCwd(spawnCwd, body));
+    const tempIndexPath = path.join(os.tmpdir(), `git-index-${Date.now()}-${Math.random().toString(36).slice(2)}`);
+    try {
+      await copyFile(path.join(toplevel, '.git', 'index'), tempIndexPath);
+      await git(toplevel, ['add', '-A'], undefined, { GIT_INDEX_FILE: tempIndexPath });
+      const tree = (await git(toplevel, ['write-tree'], undefined, { GIT_INDEX_FILE: tempIndexPath })).trim();
+      return { tree };
+    } finally {
+      await rm(tempIndexPath, { force: true });
+    }
   },
 });
