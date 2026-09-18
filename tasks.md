@@ -96,12 +96,6 @@ Approved 2026-09-18 on the user's delegation; all 17 gate decisions as recommend
   - context: headless — no UX plan; the Changes dot must behave exactly as before (`session menu` walk stays green)
   - confirm: `grep -c "gitStatus" ui/desktop/src/workspace/pane-context.ts` → `≥ 1` (untouched: `0`); `just walk "session menu"` → 1 passed
 
-- 75. `file-links.ts`: move `FILE_LINE`, `fileLinks`, `resolveLinkPath` out of `panes/review/review-parse.ts` into `ui/desktop/src/workspace/file-links.ts` (+ test); `review-parse.ts` re-exports; a second try against the git toplevel when a repo-root-relative path misses under a subdirectory cwd.
-  - status: doing · agent: session-wave1 [Fable, worktree worker per AGENTS.md chain] · worker: low
-  - card: as the transcript and the panes, share one `file:line` linker so that a path reads the same everywhere (chat-panes research §2)
-  - context: headless — no UX plan; `review branch` walk unchanged
-  - confirm: `test -f ui/desktop/src/workspace/file-links.ts && grep -c "from '../../file-links'" ui/desktop/src/workspace/panes/review/review-parse.ts` → `1` (untouched: `test -f` exits 1)
-
 - 76. `chat-insert.ts` + `INSERT_INPUT_IMAGE`: the one insertion path — a pure `quoteForChat({kind, text, source: {path, lines?}})` producing a fenced block with a `path:line` header (+ test); `AppEvents.INSERT_INPUT_IMAGE` (`src/constants/events.ts`) handled in `ChatInput.tsx` as an attachment beside the existing image paste path (`vite-env.d.ts` row); `insertIntoChat(...)` on `PaneContext`.
   - status: doing · agent: session-wave1 [Fable, worktree worker per AGENTS.md chain] · worker: medium
   - card: as any pane, hand the chat a quote or a picture through one door, so that "Add to chat" means the same thing everywhere (chat-panes research §1)

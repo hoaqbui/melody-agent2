@@ -62,21 +62,16 @@ export function fileLinks(item: string): FileLinkSpan[] {
   return found.sort((a, b) => a.start - b.start);
 }
 
-export function resolveLinkPath(path: string, cwd: string, gitToplevel?: string): string {
+export function resolveLinkPath(path: string, cwd: string): string {
   if (path.startsWith('/')) return path;
-  const resolved = `${cwd.replace(/\/$/, '')}/${path.replace(/^\.\//, '')}`;
+  return `${cwd.replace(/\/$/, '')}/${path.replace(/^\.\//, '')}`;
+}
 
-  // If gitToplevel is provided and the path is relative (not starting with /),
-  // try a second path relative to the git toplevel (for when cwd is a subdirectory).
-  if (gitToplevel && !path.startsWith('/')) {
-    const toplevelResolved = `${gitToplevel.replace(/\/$/, '')}/${path.replace(/^\.\//, '')}`;
-    // Return the toplevel-relative path if it differs from cwd-relative (i.e., simulates fallback).
-    // In practice, the caller would check if one path exists; here we prefer the toplevel
-    // resolution when the cwd path looks redundant (e.g., cwd=/repo/src/subdir, path=src/add.ts).
-    if (toplevelResolved !== resolved) {
-      return toplevelResolved;
-    }
-  }
-
-  return resolved;
+// The places a relative link may live, in the order to try them: under the cwd first,
+// then under the git toplevel — a model cites repo-root-relative paths even when the
+// session runs in a subdirectory. Whether the first misses is the opener's to find out.
+export function linkPathCandidates(path: string, cwd: string, gitToplevel: string): string[] {
+  const first = resolveLinkPath(path, cwd);
+  const second = resolveLinkPath(path, gitToplevel);
+  return second === first ? [first] : [first, second];
 }

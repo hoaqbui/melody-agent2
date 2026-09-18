@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { fileLinks, resolveLinkPath } from './file-links';
+import { fileLinks, linkPathCandidates, resolveLinkPath } from './file-links';
 
 describe('file links', () => {
   it('finds file:line links, with a column or a range, and skips URLs and times', () => {
@@ -35,9 +35,12 @@ describe('file links', () => {
     expect(resolveLinkPath('/abs/x.rs', '/repo')).toBe('/abs/x.rs');
   });
 
-  it('tries the git toplevel when provided and cwd is a subdirectory', () => {
-    expect(resolveLinkPath('src/add.ts', '/repo/src/subdir', '/repo')).toBe('/repo/src/add.ts');
-    expect(resolveLinkPath('src/add.ts', '/repo', '/repo')).toBe('/repo/src/add.ts');
-    expect(resolveLinkPath('/abs/x.rs', '/repo/src/subdir', '/repo')).toBe('/abs/x.rs');
+  it('offers the git toplevel as the second candidate under a subdirectory cwd', () => {
+    expect(linkPathCandidates('src/add.ts', '/repo/src/subdir', '/repo')).toEqual([
+      '/repo/src/subdir/src/add.ts',
+      '/repo/src/add.ts',
+    ]);
+    expect(linkPathCandidates('src/add.ts', '/repo', '/repo')).toEqual(['/repo/src/add.ts']);
+    expect(linkPathCandidates('/abs/x.rs', '/repo/sub', '/repo')).toEqual(['/abs/x.rs']);
   });
 });
