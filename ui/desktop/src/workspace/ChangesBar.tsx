@@ -2,11 +2,23 @@ import { useEffect, useState } from 'react';
 import { usePaneContext } from './pane-context';
 import { parseNumstat, aggregateStats, type ChangesBarContext } from './changes-bar';
 import { sidecarFetch } from '../native/sidecar';
+import { Button } from '../components/ui/button';
+import { defineMessages, useIntl } from '../i18n';
 
-// The Changes summary bar rendered above the chat input: file count, line counts,
-// and actions (Review, Accept all, Discard/Undo).
+const i18n = defineMessages({
+  review: { id: 'changesBar.review', defaultMessage: 'Review' },
+  acceptAll: { id: 'changesBar.acceptAll', defaultMessage: 'Accept all' },
+  discard: { id: 'changesBar.discard', defaultMessage: 'Discard' },
+  undo: { id: 'changesBar.undo', defaultMessage: 'Undo' },
+  discarded: { id: 'changesBar.discarded', defaultMessage: 'Discarded' },
+  retry: { id: 'changesBar.retry', defaultMessage: 'Retry' },
+  files: { id: 'changesBar.files', defaultMessage: '{count, plural, one {file} other {files}}' },
+  binary: { id: 'changesBar.binary', defaultMessage: '{count, plural, one {binary file} other {binary files}}' },
+});
+
 export function ChangesBar() {
   const paneContext = usePaneContext();
+  const intl = useIntl();
   const [context, setContext] = useState<ChangesBarContext>({
     state: 'empty',
     stats: null,
@@ -14,7 +26,6 @@ export function ChangesBar() {
     lastDiscard: null,
   });
 
-  // Fetch numstat when gitStatus changes and tree is not clean.
   useEffect(() => {
     if (!paneContext.gitStatus || paneContext.gitStatus.entries.length === 0) {
       setContext((prev) => ({
@@ -22,6 +33,7 @@ export function ChangesBar() {
         state: 'empty',
         stats: null,
         error: null,
+        lastDiscard: null,
       }));
       return;
     }
@@ -35,6 +47,7 @@ export function ChangesBar() {
 
       try {
         const response = await sidecarFetch<{ diff: string }>('/git/diff', {
+          cwd: paneContext.cwd,
           numstat: true,
         });
         const diff = response.diff;
@@ -67,7 +80,7 @@ export function ChangesBar() {
     return () => {
       isMounted = false;
     };
-  }, [paneContext.gitStatus]);
+  }, [paneContext.gitStatus, paneContext.cwd]);
 
   const handleReview = () => {
     paneContext.openPane('diff');
@@ -78,7 +91,7 @@ export function ChangesBar() {
 
     try {
       const paths = context.stats.entries.map((e) => e.path);
-      await sidecarFetch('/git/stage', { paths });
+      await sidecarFetch('/git/stage', { cwd: paneContext.cwd, paths });
 
       paneContext.openPane('git');
       paneContext.focusCommit();
@@ -97,7 +110,9 @@ export function ChangesBar() {
       if (context.state === 'discarding') return;
       setContext((prev) => ({ ...prev, state: 'discarding', error: null }));
 
-      const response = await sidecarFetch<{ stash: string }>('/git/discard', {});
+      const response = await sidecarFetch<{ stash: string }>('/git/discard', {
+        cwd: paneContext.cwd,
+      });
       const stash = response.stash;
 
       setContext((prev) => ({
@@ -107,17 +122,6 @@ export function ChangesBar() {
         error: null,
         lastDiscard: stash,
       }));
-
-      // Show the discarded state for 5 seconds, then clear if tree is still clean
-      setTimeout(() => {
-        if (paneContext.gitStatus?.entries.length === 0) {
-          setContext((prev) => ({
-            ...prev,
-            state: 'empty',
-            lastDiscard: null,
-          }));
-        }
-      }, 5000);
     } catch (error) {
       const message = error instanceof Error ? error.message : 'Failed to discard changes';
       setContext((prev) => ({
@@ -134,11 +138,11 @@ export function ChangesBar() {
     try {
       setContext((prev) => ({ ...prev, state: 'loading', error: null }));
 
-      await sidecarFetch('/git/discard/undo', {
+      await sidecarFetch('/git/discard-undo', {
+        cwd: paneContext.cwd,
         stash: context.lastDiscard,
       });
 
-      // Undo successful; let the next git status poll update the bar
       setContext((prev) => ({
         ...prev,
         state: 'loading',
@@ -155,7 +159,6 @@ export function ChangesBar() {
   };
 
   const handleRetry = () => {
-    // Reset state and let the gitStatus effect trigger a new fetch
     setContext((prev) => ({
       ...prev,
       state: 'empty',
@@ -169,85 +172,79 @@ export function ChangesBar() {
 
   return (
     <div className="flex flex-col gap-2 border-b border-border-primary bg-background-primary px-4 py-3">
-      {/* Stats and action buttons */}
       <div className="flex flex-wrap items-center gap-3">
         {context.state === 'loading' && !context.stats && <span className="text-sm text-text-secondary">…</span>}
 
         {context.stats && (
           <>
             <span className="text-sm text-text-primary" data-testid="changes-bar-stats">
-              {context.stats.fileCount} file{context.stats.fileCount !== 1 ? 's' : ''} · +{context.stats.totalAdded} −
-              {context.stats.totalDeleted}
+              {context.stats.fileCount} {intl.formatMessage(i18n.files, { count: context.stats.fileCount })} · +
+              {context.stats.totalAdded} −{context.stats.totalDeleted}
             </span>
 
-            <button
-              onClick={handleReview}
-              className="rounded-control bg-background-secondary px-3 py-1 text-sm hover:bg-background-tertiary"
-            >
-              Review
-            </button>
+            <Button size="xs" variant="secondary" onClick={handleReview}>
+              {intl.formatMessage(i18n.review)}
+            </Button>
 
-            <button
+            <Button
+              size="xs"
+              variant="secondary"
               onClick={handleAcceptAll}
-              className="rounded-control bg-background-secondary px-3 py-1 text-sm hover:bg-background-tertiary"
               data-testid="changes-bar-accept"
             >
-              Accept all
-            </button>
+              {intl.formatMessage(i18n.acceptAll)}
+            </Button>
 
-            <button
+            <Button
+              size="xs"
+              variant="secondary"
               onClick={handleDiscard}
               disabled={context.state === 'discarding'}
-              className="rounded-control bg-background-secondary px-3 py-1 text-sm hover:bg-background-tertiary disabled:opacity-50"
               data-testid="changes-bar-discard"
             >
-              Discard
-            </button>
+              {intl.formatMessage(i18n.discard)}
+            </Button>
           </>
         )}
 
         {context.state === 'discarded' && (
           <>
-            <span className="text-sm text-text-secondary">Discarded · </span>
-            <button
+            <span className="text-sm text-text-secondary">{intl.formatMessage(i18n.discarded)} · </span>
+            <Button
+              size="xs"
+              variant="secondary"
               onClick={handleUndo}
-              className="rounded-control bg-background-secondary px-3 py-1 text-sm hover:bg-background-tertiary"
               data-testid="changes-bar-undo"
             >
-              Undo
-            </button>
+              {intl.formatMessage(i18n.undo)}
+            </Button>
           </>
         )}
 
         {context.state === 'error' && (
           <>
             <span className="text-sm text-color-text-danger">{context.error}</span>
-            <button
-              onClick={handleRetry}
-              className="rounded-control bg-background-secondary px-3 py-1 text-sm hover:bg-background-tertiary"
-            >
-              Retry
-            </button>
+            <Button size="xs" variant="secondary" onClick={handleRetry}>
+              {intl.formatMessage(i18n.retry)}
+            </Button>
           </>
         )}
       </div>
 
-      {/* Binary file note */}
       {context.stats && context.stats.entries.some((e) => e.added === null) && (
         <div className="text-xs text-text-tertiary">
-          {context.stats.entries.filter((e) => e.added === null).length} binary file
-          {context.stats.entries.filter((e) => e.added === null).length !== 1 ? 's' : ''}
+          {intl.formatMessage(i18n.binary, {
+            count: context.stats.entries.filter((e) => e.added === null).length,
+          })}
         </div>
       )}
     </div>
   );
 }
 
-// Slot to render the ChangesBar where MessageQueue is in ChatInput.
 export function ChangesBarSlot() {
   const paneContext = usePaneContext();
 
-  // Only show if tree is dirty
   if (!paneContext.gitStatus || paneContext.gitStatus.entries.length === 0) {
     return null;
   }

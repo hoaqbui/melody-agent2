@@ -293,6 +293,25 @@ describe('gitRoutes', () => {
     });
   });
 
+  describe('diff with numstat and untracked files', () => {
+    it('returns numstat with untracked files appended', async () => {
+      await writeFile(path.join(repo, 'numstat-edited.txt'), 'line 1\nline 2\nline 3\n');
+      await writeFile(path.join(repo, 'a.txt'), 'modified content\n');
+      await writeFile(path.join(repo, 'numstat-untracked.txt'), 'untracked\nline 2\n');
+
+      const result = (await routes['POST /git/diff']({ numstat: true })) as { diff: string };
+      const lines = result.diff.trim().split('\n');
+
+      expect(result.diff).toContain('a.txt');
+      expect(result.diff).toContain('numstat-untracked.txt');
+      expect(lines.some((line) => line.includes('numstat-untracked.txt'))).toBe(true);
+
+      await rm(path.join(repo, 'numstat-edited.txt'));
+      await rm(path.join(repo, 'numstat-untracked.txt'));
+      await sh(repo, ['checkout', '--', 'a.txt']);
+    });
+  });
+
   describe('push, log and pr', () => {
     let pushRepo: string;
     let origin: string;
@@ -552,8 +571,7 @@ describe('gitRoutes', () => {
       let status = (await sh(repo, ['status', '--porcelain'])).trim();
       expect(status).toBe('');
 
-      // Undo the discard
-      await routes['POST /git/discard/undo']({ stash: stashMessage });
+      await routes['POST /git/discard-undo']({ stash: stashMessage });
 
       // Verify the files are back
       status = (await sh(repo, ['status', '--porcelain'])).trim();
@@ -567,7 +585,7 @@ describe('gitRoutes', () => {
     });
 
     it('fails to undo with invalid stash message', async () => {
-      const error = await failure(routes['POST /git/discard/undo']({ stash: 'invalid stash message' }));
+      const error = await failure(routes['POST /git/discard-undo']({ stash: 'invalid stash message' }));
       expect(error.status).toBe(404);
       expect(error.message).toContain('stash entry not found');
     });

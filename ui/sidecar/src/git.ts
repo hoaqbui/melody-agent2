@@ -1,4 +1,5 @@
 import { execFile } from 'node:child_process';
+import { readFileSync } from 'node:fs';
 import { copyFile, realpath, rm } from 'node:fs/promises';
 import os from 'node:os';
 import path from 'node:path';
@@ -315,6 +316,7 @@ export const gitRoutes = (spawnCwd: string): Record<string, JsonHandler> => ({
   // Fixed prefixes, raw paths and no external driver: the renderer parses this output,
   // so a user's diff.noprefix, core.quotePath or diff.external must not reshape it.
   'POST /git/diff': async (body) => {
+    const cwd = await requestCwd(spawnCwd, body);
     const args = [
       '-c',
       'core.quotePath=false',
@@ -329,7 +331,27 @@ export const gitRoutes = (spawnCwd: string): Record<string, JsonHandler> => ({
     if (typeof body.context === 'number') args.push(`--unified=${Math.trunc(body.context)}`);
     if (typeof body.base === 'string') args.push(body.base);
     if (typeof body.path === 'string') args.push('--', body.path);
-    return { diff: await git(await requestCwd(spawnCwd, body), args) };
+    let diff = await git(cwd, args);
+
+    if (body.numstat === true && body.staged !== true) {
+      const status = (await git(cwd, ['-c', 'core.quotePath=false', 'status', '--porcelain'])).trim();
+      const lines = status.split('\n').filter((line) => line.length > 0);
+      for (const line of lines) {
+        if (line.startsWith('?? ')) {
+          const filePath = line.slice(3);
+          try {
+            const fullPath = path.join(cwd, filePath);
+            const content = readFileSync(fullPath, 'utf8');
+            const lineCount = content.split('\n').length - (content.endsWith('\n') ? 1 : 0);
+            diff += `${lineCount}\t0\t${filePath}\n`;
+          } catch {
+            diff += `-\t-\t${filePath}\n`;
+          }
+        }
+      }
+    }
+
+    return { diff };
   },
   'POST /git/rev-parse': async (body) => ({
     sha: (
@@ -364,7 +386,7 @@ export const gitRoutes = (spawnCwd: string): Record<string, JsonHandler> => ({
     await git(cwd, ['stash', 'push', '-u', '-m', message]);
     return { stash: message };
   },
-  'POST /git/discard/undo': async (body) => {
+  'POST /git/discard-undo': async (body) => {
     const cwd = await requestCwd(spawnCwd, body);
     const stash = requireString(body, 'stash');
     const stashList = (await git(cwd, ['stash', 'list'])).split('\n').filter((line) => line.length > 0);
