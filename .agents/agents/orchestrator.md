@@ -24,7 +24,7 @@ runtimes:
   - Unknown: delegate to `researcher` first, then `planner`, `implementer`, and `reviewer`.
   - Pure research: delegate to `researcher`, synthesize findings, and answer.
   - Big or complex (more than one tranche): write the program plan yourself — define tranches, sequence, gate criteria, and research needs — review it with an advisor, and delegate one tranche at a time to the planner; never delegate the whole project in one `delegate(source: "planner")` call.
-- Plan gate: Normal and Unknown tiers end your turn after the Planner returns and implement only after the user's Accept.
+- Plan gate: Normal and Unknown tiers end your turn after the Planner returns and implement only after the user's Accept. Tiny has no plan, so no gate.
 
 ## Delegation conditions
 

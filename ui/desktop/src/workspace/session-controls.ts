@@ -52,14 +52,16 @@ export function modeOfSession(session: Pick<Session, 'recipe'> | undefined): Mod
   return session?.recipe?.title === ORCHESTRATOR_RECIPE_TITLE ? 'orchestrate' : 'direct';
 }
 
+// The plan gate (task 79): the orchestrator ends its turn after the Planner and implements
+// only after the user's Accept. Appended to the recipe at session/new; routines strip it.
+export const PLAN_GATE_LINE =
+  "Plan gate: end your turn after the Planner returns; implement only after the user's Accept.";
+
 export function orchestratorRecipe(
   role: { description: string; content: string },
-  options?: { planGate?: boolean }
+  planGate: boolean
 ) {
-  let instructions = role.content;
-  if (options?.planGate) {
-    instructions += '\n\nPlan gate: end your turn after the Planner returns; implement only after the user\'s Accept.';
-  }
+  const instructions = planGate ? `${role.content}\n\n${PLAN_GATE_LINE}` : role.content;
   return {
     title: ORCHESTRATOR_RECIPE_TITLE,
     description: role.description,

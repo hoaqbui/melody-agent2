@@ -489,8 +489,10 @@ export function WorkspaceShell({ chat, children, panes, paneStore }: WorkspaceSh
   const currentStop: Stop | 'custom' = session ? stopOfSession(session) : draftStop;
   const configOptions = useSessionConfigOptions(sessionId);
 
+  const [planGate, setPlanGate] = useState(true);
   useEffect(() => {
     window.electron.getSetting('workspace.ui').then(setWorkspaceUi).catch(console.error);
+    window.electron.getSetting('workspace.planGate').then(setPlanGate).catch(console.error);
     const onChange = (event: Event) => setWorkspaceUi((event as CustomEvent<WorkspaceUi>).detail);
     window.addEventListener(AppEvents.WORKSPACE_UI_CHANGED, onChange);
     return () => window.removeEventListener(AppEvents.WORKSPACE_UI_CHANGED, onChange);
@@ -626,7 +628,7 @@ export function WorkspaceShell({ chat, children, panes, paneStore }: WorkspaceSh
       try {
         const recipeDeeplink =
           mode === 'orchestrate' && orchestratorRole
-            ? await encodeRecipe(orchestratorRecipe(orchestratorRole))
+            ? await encodeRecipe(orchestratorRecipe(orchestratorRole, planGate))
             : undefined;
         const newSession = await createSession(await getEffectiveWorkingDir(), {
           provider: providerId,
@@ -646,7 +648,7 @@ export function WorkspaceShell({ chat, children, panes, paneStore }: WorkspaceSh
         setBusy(false);
       }
     },
-    [applyStopModel, draftWorktree, extensionsList, intl, orchestratorRole, setView]
+    [applyStopModel, draftWorktree, extensionsList, intl, orchestratorRole, planGate, setView]
   );
 
   // Mid-session the switch is the ACP `provider` option; the store snapshot is the
@@ -1112,11 +1114,14 @@ export function WorkspaceShell({ chat, children, panes, paneStore }: WorkspaceSh
     return {
       worktree: draftWorktree,
       provider,
-      recipeDeeplink: orchestrate ? () => encodeRecipe(orchestratorRecipe(orchestrate)) : undefined,
+      recipeDeeplink: orchestrate
+        ? () => encodeRecipe(orchestratorRecipe(orchestrate, planGate))
+        : undefined,
       onCreated: easy ? (id) => applyStopModel(id, draftStop) : undefined,
     };
   }, [
     applyStopModel,
+    planGate,
     draftMode,
     draftRuntime,
     draftStop,

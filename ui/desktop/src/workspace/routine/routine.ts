@@ -5,6 +5,7 @@
 import type { Recipe, RecipeSettings } from '../../recipe';
 import type { SessionExtension } from '../../acp/session-extensions';
 import { getTextAndImageContent, type Message } from '../../types/message';
+import { PLAN_GATE_LINE } from '../session-controls';
 
 export const TRIGGERS = ['manual', 'hourly', 'daily', 'weekly', 'custom'] as const;
 export type Trigger = (typeof TRIGGERS)[number];
@@ -70,10 +71,9 @@ export function isSessionBridge(extension: SessionExtension): boolean {
   return extension.type === 'streamable_http' && extension.name === 'goose';
 }
 
-// Strip the plan gate instruction to prevent routines from stalling on unattended runs.
-function stripPlanGate(instructions: string): string {
-  return instructions.replace(/\n\nPlan gate: end your turn after the Planner.*/, '');
-}
+// A routine runs unattended: the plan gate would stall it (decision 3).
+const stripPlanGate = (instructions: string): string =>
+  instructions.replace(`\n\n${PLAN_GATE_LINE}`, '');
 
 // The session's extensions travel whole (the server needs each one's type and command),
 // minus its bridge; none at all is left out, which the server reads as its defaults

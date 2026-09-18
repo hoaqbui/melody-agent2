@@ -5,6 +5,7 @@ import {
   moreRuntimes,
   needsInstall,
   orchestratorRecipe,
+  PLAN_GATE_LINE,
   parseReviewTitle,
   reviewPrompt,
   reviewTitle,
@@ -82,7 +83,9 @@ describe('session controls', () => {
   });
 
   it('turns the role body into recipe instructions', () => {
-    expect(orchestratorRecipe({ description: 'owns the objective', content: '# Body' })).toEqual({
+    expect(
+      orchestratorRecipe({ description: 'owns the objective', content: '# Body' }, false)
+    ).toEqual({
       title: 'Orchestrator',
       description: 'owns the objective',
       instructions: '# Body',
@@ -90,17 +93,21 @@ describe('session controls', () => {
   });
 
   describe('plan gate', () => {
-    it('appends the plan gate rule when planGate is true', () => {
-      const recipe = orchestratorRecipe({ description: 'owns the objective', content: '# Body' }, { planGate: true });
-      expect(recipe.instructions).toContain('end your turn after the Planner');
-      expect(recipe.instructions).toContain("only after the user's Accept");
+    it('appends the gate line to the orchestrator recipe when on', () => {
+      const recipe = orchestratorRecipe(
+        { description: 'owns the objective', content: '# Body' },
+        true
+      );
+      expect(recipe.instructions).toBe(`# Body\n\n${PLAN_GATE_LINE}`);
+      expect(PLAN_GATE_LINE).toContain('end your turn after the Planner');
     });
 
-    it('does not append the plan gate rule when planGate is false or undefined', () => {
-      const recipeNoGate = orchestratorRecipe({ description: 'owns the objective', content: '# Body' }, { planGate: false });
-      expect(recipeNoGate.instructions).toBe('# Body');
-      const recipeUndefined = orchestratorRecipe({ description: 'owns the objective', content: '# Body' });
-      expect(recipeUndefined.instructions).toBe('# Body');
+    it('leaves the recipe alone when off', () => {
+      const recipe = orchestratorRecipe(
+        { description: 'owns the objective', content: '# Body' },
+        false
+      );
+      expect(recipe.instructions).toBe('# Body');
     });
   });
 
