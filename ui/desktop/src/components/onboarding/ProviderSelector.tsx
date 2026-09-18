@@ -12,6 +12,7 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle } from '../ui/dialog';
 import { HardDrive, Key, Plus } from 'lucide-react';
 import { defineMessages, useIntl } from '../../i18n';
 import { useFeatures } from '../../contexts/FeaturesContext';
+import { fuzzyMatch } from '../../utils/fuzzy';
 
 const i18n = defineMessages({
   useLocalModel: {
@@ -98,10 +99,9 @@ export default function ProviderSelector({
   }, [providerList]);
 
   const fuzzyFilterOption = (option: { label: string; value: string }, inputValue: string) => {
-    const normalize = (s: string) => s.toLowerCase().replace(/[\s_-]/g, '');
     return (
-      normalize(option.label).includes(normalize(inputValue)) ||
-      normalize(option.value).includes(normalize(inputValue))
+      fuzzyMatch(option.label, inputValue) ||
+      fuzzyMatch(option.value, inputValue)
     );
   };
 
