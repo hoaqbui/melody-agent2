@@ -75,8 +75,8 @@ import { getEffectiveWorkingDir, getInitialWorkingDir } from '../utils/workingDi
 import type { Message } from '../types/message';
 import type { ProviderDetails } from '../types/providers';
 import type { WorkspaceUi } from '../utils/settings';
-import { PaneContext, type PaneContextValue, type InsertChatInput } from './pane-context';
-import { quoteForChat } from './chat-insert';
+import { PaneContext, type PaneContextValue } from './pane-context';
+import { type InsertChatInput, quoteForChat } from './chat-insert';
 import {
   createPaneStore,
   initialLayout,
@@ -822,18 +822,14 @@ export function WorkspaceShell({ chat, children, panes, paneStore }: WorkspaceSh
   // The ⋯ menu's pane rows (task 40); the modifier meant tear-off until task 71.
   const openPane = useCallback((id: PaneId) => store.openPane(id), [store]);
   const insertIntoChat = useCallback((input: InsertChatInput) => {
-    const quoted = quoteForChat(input);
     if (input.kind === 'text') {
       window.dispatchEvent(
-        new CustomEvent(AppEvents.INSERT_INPUT_TEXT, {
-          detail: quoted,
-        })
+        new CustomEvent(AppEvents.INSERT_INPUT_TEXT, { detail: quoteForChat(input) })
       );
     } else {
+      const { data, mimeType } = input;
       window.dispatchEvent(
-        new CustomEvent(AppEvents.INSERT_INPUT_IMAGE, {
-          detail: { data: quoted, mimeType: 'text/plain' },
-        })
+        new CustomEvent(AppEvents.INSERT_INPUT_IMAGE, { detail: { data, mimeType } })
       );
     }
   }, []);

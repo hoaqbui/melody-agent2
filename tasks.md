@@ -96,12 +96,6 @@ Approved 2026-09-18 on the user's delegation; all 17 gate decisions as recommend
   - context: headless — no UX plan; the Changes dot must behave exactly as before (`session menu` walk stays green)
   - confirm: `grep -c "gitStatus" ui/desktop/src/workspace/pane-context.ts` → `≥ 1` (untouched: `0`); `just walk "session menu"` → 1 passed
 
-- 76. `chat-insert.ts` + `INSERT_INPUT_IMAGE`: the one insertion path — a pure `quoteForChat({kind, text, source: {path, lines?}})` producing a fenced block with a `path:line` header (+ test); `AppEvents.INSERT_INPUT_IMAGE` (`src/constants/events.ts`) handled in `ChatInput.tsx` as an attachment beside the existing image paste path (`vite-env.d.ts` row); `insertIntoChat(...)` on `PaneContext`.
-  - status: doing · agent: session-wave1 [Fable, worktree worker per AGENTS.md chain] · worker: medium
-  - card: as any pane, hand the chat a quote or a picture through one door, so that "Add to chat" means the same thing everywhere (chat-panes research §1)
-  - context: headless — no UX plan (the panes' buttons are task 83); a screenshot while 10 images are attached hits the existing error tile (decision 4)
-  - confirm: `cd ui/desktop && grep -c "INSERT_INPUT_IMAGE" src/constants/events.ts src/components/ChatInput.tsx` → `1` and `1` (untouched: `0`, `0`); `pnpm vitest run src/workspace/chat-insert` → ≥ 4 passed (untouched: no file)
-
 - 77. Approve mode truth-up, spine half: `AgyProvider::update_mode` returns `ProviderError::RequestFailed` for Approve/SmartApprove/Chat ("agy runs `--dangerously-skip-permissions`; it cannot ask"); `cursor_acp.rs:70-103` maps Approve → `plan` and its comment says what the capture showed (decision 2); the permission update carries `_meta.goose.toolCall.toolName` and a forwarded `diff` content block instead of dropping it (`acp/provider.rs:2107-2147`, `acp/server/tool_calls/conversion.rs:136-156`), and `default_tool_title` stops re-titling a title that is already one; tests `update_mode_refuses_non_auto`, `action_required_carries_adapter_tool_name`. `scratchpad`'s `probe3.py` lands as `scripts/probe-approve.py` — the re-runnable matrix.
   - status: doing · agent: session-wave1 [Fable, worktree worker per AGENTS.md chain] · worker: medium
   - card: as the user, have Approve mean what the seat can do — ask, ask-outside-the-workspace, plan-only, or unavailable — instead of a label that writes files (approve-mode research §The surprise)

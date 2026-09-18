@@ -5,13 +5,8 @@
 
 import { createContext, useContext } from 'react';
 import type { Message } from '../types/message';
+import type { InsertChatInput } from './chat-insert';
 import type { LayoutMode, PaneId } from './pane-store';
-
-export interface InsertChatInput {
-  kind: 'text' | 'image';
-  text?: string;
-  source: { path: string; lines?: [number, number] };
-}
 
 export interface PaneContextValue {
   cwd: string;

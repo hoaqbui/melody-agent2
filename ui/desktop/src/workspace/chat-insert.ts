@@ -1,26 +1,20 @@
-export interface QuoteSource {
-  path: string;
-  lines?: [number, number];
+// The one door from a pane into the chat input (task 76): a quote is text under a
+// `path:line-range` header the model can locate; an image is the bytes the input attaches.
+export interface ChatQuote {
+  text: string;
+  source: { path: string; lines?: [number, number] };
 }
 
-export interface QuoteForChatInput {
-  kind: 'text' | 'image';
-  text?: string;
-  source: QuoteSource;
+export interface ChatImage {
+  data: string;
+  mimeType: string;
 }
 
-export function quoteForChat(input: QuoteForChatInput): string {
-  const { kind, text, source } = input;
+export type InsertChatInput = ({ kind: 'text' } & ChatQuote) | ({ kind: 'image' } & ChatImage);
 
-  const header =
-    source.lines && source.lines.length === 2
-      ? `\`\`\`${source.path}:${source.lines[0]}-${source.lines[1]}`
-      : `\`\`\`${source.path}`;
-
-  if (kind === 'image') {
-    return `${header}\n[image]\n\`\`\``;
-  }
-
-  const content = text || '';
-  return `${header}\n${content}\n\`\`\``;
+export function quoteForChat({ text, source }: ChatQuote): string {
+  const header = source.lines
+    ? `${source.path}:${source.lines[0]}-${source.lines[1]}`
+    : source.path;
+  return `\`\`\`${header}\n${text}\n\`\`\``;
 }
