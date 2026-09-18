@@ -15,7 +15,6 @@ export interface FileLinkSpan {
   end: number;
 }
 
-// Minimal hast node shape for the rehypeFileLinks plugin.
 export interface HastNode {
   type?: string;
   tagName?: string;
@@ -85,19 +84,22 @@ export function linkPathCandidates(path: string, cwd: string, gitToplevel: strin
   return second === first ? [first] : [first, second];
 }
 
-// Rehype plugin that transforms `file:line` patterns into clickable links (task 82).
-// The plugin walks the HAST tree, finds text nodes with file:line patterns, and
-// replaces them with <a> elements. The link uses the goose-file: protocol so
-// MarkdownContent's a handler can intercept and call openFile().
-export function rehypeFileLinks(
-  options: { cwd: string; gitToplevel: string }
-): (tree: HastNode) => void {
+// The transcript's file links (task 82): every `path:line` in a text node becomes an <a> on
+// the `goose-file:` scheme, which MarkdownContent's link handler routes to openFile instead
+// of the browser.
+export function rehypeFileLinks(options: {
+  cwd: string;
+  gitToplevel: string;
+}): (tree: HastNode) => void {
   return (tree) => {
     transformTree(tree, options);
   };
 }
 
-function transformTree(node: HastNode | undefined, options: { cwd: string; gitToplevel: string }): void {
+function transformTree(
+  node: HastNode | undefined,
+  options: { cwd: string; gitToplevel: string }
+): void {
   if (!node || !node.children) return;
 
   let i = 0;
@@ -124,11 +126,7 @@ function transformTree(node: HastNode | undefined, options: { cwd: string; gitTo
             });
           }
 
-          const candidates = linkPathCandidates(
-            span.link.path,
-            options.cwd,
-            options.gitToplevel
-          );
+          const candidates = linkPathCandidates(span.link.path, options.cwd, options.gitToplevel);
 
           newChildren.push({
             type: 'element',

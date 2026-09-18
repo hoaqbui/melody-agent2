@@ -49,11 +49,8 @@ export const SessionChipsSlot = React.createContext<
   ((sessionId: string | null) => React.ReactNode) | null
 >(null);
 
-// The file link handler context (task 82): passed to MarkdownContent so it can resolve
-// file:line links against the session's cwd and git toplevel.
-export const FileLinkSlot = React.createContext<
-  { cwd: string; gitToplevel: string } | null
->(null);
+// Where a message's file:line links resolve (task 82): the session's cwd, then its git toplevel.
+export const FileLinkSlot = React.createContext<{ cwd: string; gitToplevel: string } | null>(null);
 
 const turndown = new TurndownService({
   headingStyle: 'atx',
@@ -824,9 +821,7 @@ export default function ChatInput({
         return;
       }
 
-      const { data, mimeType } = (
-        event as CustomEvent<{ data: string; mimeType: string }>
-      ).detail;
+      const { data, mimeType } = (event as CustomEvent<{ data: string; mimeType: string }>).detail;
       const imageId = `quoted-${Date.now()}-${Math.random().toString(36).substring(2, 9)}`;
       const dataUrl = `data:${mimeType};base64,${data}`;
 

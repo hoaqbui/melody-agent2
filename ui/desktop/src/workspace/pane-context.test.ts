@@ -38,6 +38,7 @@ describe('pane-context types', () => {
       openReview: () => {},
       insertIntoChat: () => {},
       gitStatus: {
+        toplevel: '/repo',
         branch: 'main',
         upstream: 'origin/main',
         ahead: 1,

@@ -55,6 +55,8 @@ export interface GitStatusEntry {
 // `upstream` is null for a branch never pushed (or whose remote ref is gone); `ahead` counts
 // the commits a push would send.
 export interface GitStatusResponse {
+  // The repository root the status was read in — what a repo-root-relative path resolves against.
+  toplevel: string;
   branch: string | null;
   upstream: string | null;
   ahead: number;

@@ -310,8 +310,13 @@ const hasMergeHead = async (toplevel: string): Promise<boolean> => {
 };
 
 export const gitRoutes = (spawnCwd: string): Record<string, JsonHandler> => ({
-  'POST /git/status': async (body) =>
-    parseStatus(await git(await requestCwd(spawnCwd, body), ['status', '--porcelain=v1', '-b'])),
+  'POST /git/status': async (body) => {
+    const cwd = await requestCwd(spawnCwd, body);
+    return {
+      ...parseStatus(await git(cwd, ['status', '--porcelain=v1', '-b'])),
+      toplevel: await toplevelOf(cwd),
+    };
+  },
   // Fixed prefixes, raw paths and no external driver: the renderer parses this output,
   // so a user's diff.noprefix, core.quotePath or diff.external must not reshape it.
   'POST /git/diff': async (body) => {
@@ -469,11 +474,16 @@ export const gitRoutes = (spawnCwd: string): Record<string, JsonHandler> => ({
   },
   'POST /git/snapshot': async (body) => {
     const toplevel = await toplevelOf(await requestCwd(spawnCwd, body));
-    const tempIndexPath = path.join(os.tmpdir(), `git-index-${Date.now()}-${Math.random().toString(36).slice(2)}`);
+    const tempIndexPath = path.join(
+      os.tmpdir(),
+      `git-index-${Date.now()}-${Math.random().toString(36).slice(2)}`
+    );
     try {
       await copyFile(path.join(toplevel, '.git', 'index'), tempIndexPath);
       await git(toplevel, ['add', '-A'], undefined, { GIT_INDEX_FILE: tempIndexPath });
-      const tree = (await git(toplevel, ['write-tree'], undefined, { GIT_INDEX_FILE: tempIndexPath })).trim();
+      const tree = (
+        await git(toplevel, ['write-tree'], undefined, { GIT_INDEX_FILE: tempIndexPath })
+      ).trim();
       return { tree };
     } finally {
       await rm(tempIndexPath, { force: true });

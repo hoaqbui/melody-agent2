@@ -1137,13 +1137,9 @@ export function WorkspaceShell({ chat, children, panes, paneStore }: WorkspaceSh
   ]);
 
   // Task 29: the RPI strip sits above the chat in both faces, and only once a phase is lit.
-  // Task 82: provide FileLinkSlot so file:line links in messages can resolve to the Editor.
   const fileLinkContext = useMemo(
-    () => ({
-      cwd,
-      gitToplevel: cwd, // Placeholder: in a worktree, the cwd is subdirectory-relative
-    }),
-    [cwd]
+    () => ({ cwd, gitToplevel: gitStatus?.toplevel ?? cwd }),
+    [cwd, gitStatus?.toplevel]
   );
   const chatBody = (
     <SessionChipsSlot.Provider value={chipsFor}>

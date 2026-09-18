@@ -1,5 +1,6 @@
 import React, { useState, useEffect, useRef, memo, useMemo, useCallback, useContext } from 'react';
 import ReactMarkdown from 'react-markdown';
+import type { PluggableList } from 'unified';
 import remarkGfm from 'remark-gfm';
 import remarkBreaks from 'remark-breaks';
 import remarkMath from 'remark-math';
@@ -315,7 +316,7 @@ const MarkdownContent = memo(function MarkdownContent({
     [paneContext]
   );
 
-  const rehypePlugins: Array<[typeof rehypeKatex] | typeof rehypePerBlockDirection | [typeof rehypeFileLinks, Record<string, unknown>]> = [
+  const rehypePlugins: PluggableList = [
     [
       rehypeKatex,
       {
@@ -353,7 +354,7 @@ const MarkdownContent = memo(function MarkdownContent({
       <ReactMarkdown
         urlTransform={customUrlTransform}
         remarkPlugins={[remarkGfm, remarkBreaks, [remarkMath, { singleDollarTextMath: false }]]}
-        rehypePlugins={rehypePlugins as Parameters<typeof ReactMarkdown>[0]['rehypePlugins']}
+        rehypePlugins={rehypePlugins}
         components={{
           a: (props) => {
             return (
