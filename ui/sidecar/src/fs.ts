@@ -1,5 +1,13 @@
 import chokidar from 'chokidar';
-import { mkdir, readdir, readFile, realpath, writeFile, rename, appendFile } from 'node:fs/promises';
+import {
+  mkdir,
+  readdir,
+  readFile,
+  realpath,
+  writeFile,
+  rename,
+  appendFile,
+} from 'node:fs/promises';
 import path from 'node:path';
 import type { WebSocket } from 'ws';
 
@@ -29,25 +37,22 @@ const requestPath = async (
   let resolved: string;
   let toplevel: string;
   try {
-    toplevel = await toplevelOf(spawnCwd);
-    try {
-      resolved = await realpath(requested);
-    } catch {
-      let checkPath = path.dirname(requested);
-      let realParent: string | null = null;
-      while (realParent === null) {
-        try {
-          realParent = await realpath(checkPath);
-        } catch {
-          const nextPath = path.dirname(checkPath);
-          if (nextPath === checkPath) {
-            throw new Error('cannot find parent directory');
-          }
-          checkPath = nextPath;
-        }
+    // Outside any repository (the Hub on a home directory) the spawn cwd is the boundary.
+    toplevel = await toplevelOf(spawnCwd).catch(() => realpath(spawnCwd));
+    // A path that does not exist yet resolves through its nearest existing ancestor, so a
+    // symlinked temp dir (/var → /private/var) cannot slip the new tail past the boundary.
+    let existing = requested;
+    const tail: string[] = [];
+    for (;;) {
+      try {
+        resolved = path.join(await realpath(existing), ...tail);
+        break;
+      } catch {
+        const parent = path.dirname(existing);
+        if (parent === existing) throw new Error('cannot find parent directory');
+        tail.unshift(path.basename(existing));
+        existing = parent;
       }
-      const subpath = requested.slice(realParent.length);
-      resolved = path.join(realParent, subpath);
     }
   } catch (error) {
     throw new HttpError(400, `path is not usable: ${(error as Error).message}`);

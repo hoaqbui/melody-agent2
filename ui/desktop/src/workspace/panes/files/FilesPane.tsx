@@ -4,7 +4,18 @@
 // watches the cwd through src/native only.
 
 import { useCallback, useEffect, useMemo, useSyncExternalStore, useRef, useState } from 'react';
-import { ChevronDown, ChevronRight, File, Folder, Lock, Copy, Plus, Trash2, FolderPlus, Edit2 } from 'lucide-react';
+import {
+  ChevronDown,
+  ChevronRight,
+  File,
+  Folder,
+  Lock,
+  Copy,
+  Plus,
+  Trash2,
+  FolderPlus,
+  Edit2,
+} from 'lucide-react';
 import { defineMessages, useIntl } from '../../../i18n';
 import { Button } from '../../../components/ui/button';
 import {
@@ -93,6 +104,24 @@ export function FilesPane() {
   const [inlineEditValue, setInlineEditValue] = useState('');
   const [trashStack, setTrashStack] = useState<Array<{ path: string; trash: string }>>([]);
   const filterInputRef = useRef<HTMLInputElement>(null);
+  const nameInputRef = useRef<HTMLInputElement>(null);
+  const treeRef = useRef<HTMLDivElement>(null);
+  // The name box mounts while the row menu still holds focus; take it on the next frame.
+  useEffect(() => {
+    if (!inlineEditPath) return;
+    const frame = requestAnimationFrame(() => nameInputRef.current?.focus());
+    return () => cancelAnimationFrame(frame);
+  }, [inlineEditPath]);
+  // ⇧⌘F: the shell opens the pane (task 69); the keystroke lands in the filter box (task 85).
+  useEffect(() => {
+    const onKey = (event: KeyboardEvent) => {
+      if ((event.metaKey || event.ctrlKey) && event.shiftKey && event.key.toLowerCase() === 'f') {
+        filterInputRef.current?.focus();
+      }
+    };
+    window.addEventListener('keydown', onKey);
+    return () => window.removeEventListener('keydown', onKey);
+  }, []);
   const focusedRowRef = useRef<string | null>(null);
 
   const load = useCallback(
@@ -253,7 +282,9 @@ export function FilesPane() {
         }
         load(parentDir(oldPath));
       } else {
-        const newPath = inlineEditPath.endsWith('/') ? inlineEditPath + inlineEditValue : inlineEditPath + '/' + inlineEditValue;
+        const newPath = inlineEditPath.endsWith('/')
+          ? inlineEditPath + inlineEditValue
+          : inlineEditPath + '/' + inlineEditValue;
         await sidecarFetch('/fs/write', { path: newPath, content: '' });
         openFile(newPath);
         load(inlineEditPath);
@@ -291,7 +322,9 @@ export function FilesPane() {
       const newIndex = e.key === 'ArrowDown' ? currentIndex + 1 : currentIndex - 1;
       if (newIndex >= 0 && newIndex < rows.length) {
         focusedRowRef.current = rows[newIndex].path;
-        const rowEl = document.querySelector(`[data-testid="files-row"][data-path="${rows[newIndex].path}"]`) as HTMLElement;
+        const rowEl = document.querySelector(
+          `[data-testid="files-row"][data-path="${rows[newIndex].path}"]`
+        ) as HTMLElement;
         rowEl?.focus();
       }
     } else if (e.key === 'Enter') {
@@ -331,6 +364,9 @@ export function FilesPane() {
             if (e.key === 'Escape') {
               e.preventDefault();
               setFilter('');
+            } else if (e.key === 'ArrowDown') {
+              e.preventDefault();
+              treeRef.current?.querySelector<HTMLElement>('[data-testid="files-row"]')?.focus();
             }
             e.stopPropagation();
           }}
@@ -338,18 +374,19 @@ export function FilesPane() {
           data-testid="files-filter"
         />
       </div>
-      <div className="flex items-center gap-1 px-2 py-1 border-b border-border-primary text-xs text-text-secondary">
+      <div
+        className="flex items-center gap-1 px-2 py-1 border-b border-border-primary text-xs text-text-secondary"
+        data-testid="files-root"
+      >
         <span className="truncate">{tree.root}</span>
       </div>
-      <div className="flex-1 min-h-0 overflow-auto py-1" role="tree">
+      <div className="flex-1 min-h-0 overflow-auto py-1" role="tree" ref={treeRef}>
         {state === 'loading' && (
           <p className="px-3 py-1 text-text-secondary" aria-live="polite">
             Loading…
           </p>
         )}
-        {state === 'empty' && (
-          <p className="px-3 py-1 text-text-secondary">Nothing here</p>
-        )}
+        {state === 'empty' && <p className="px-3 py-1 text-text-secondary">Nothing here</p>}
         {topLoad?.status === 'error' && (
           <div className="px-3 py-1 flex flex-col gap-1" role="alert">
             <span className="text-text-danger break-all">{topLoad.message}</span>
@@ -383,7 +420,7 @@ export function FilesPane() {
         {inlineEditPath && (
           <form onSubmit={handleInlineEditSubmit} className="px-2 py-0.5">
             <input
-              autoFocus
+              ref={nameInputRef}
               type="text"
               value={inlineEditValue}
               onChange={(e) => setInlineEditValue(e.target.value)}
@@ -460,7 +497,16 @@ function FileRowWithMenu({
   const isDir = row.type === 'dir';
   const unreadable = row.load?.status === 'error' ? row.load.message : null;
   const Chevron = row.expanded ? ChevronDown : ChevronRight;
-  const gitStatusText = tint === 'M' ? 'Modified' : tint === 'A' ? 'Added' : tint === '?' ? 'Untracked' : tint === 'D' ? 'Deleted' : '';
+  const gitStatusText =
+    tint === 'M'
+      ? 'Modified'
+      : tint === 'A'
+        ? 'Added'
+        : tint === '?'
+          ? 'Untracked'
+          : tint === 'D'
+            ? 'Deleted'
+            : '';
 
   const gitColorClass =
     tint === 'M'
@@ -504,7 +550,12 @@ function FileRowWithMenu({
         {isDir ? <Chevron className="size-3 shrink-0" /> : <span className="size-3 shrink-0" />}
         {isDir ? <Folder className="size-3.5 shrink-0" /> : <File className="size-3.5 shrink-0" />}
         <span className="truncate">{row.name}</span>
-        {tint && <span className={cn('size-1 rounded-full shrink-0', gitColorClass)} aria-label={gitStatusText} />}
+        {tint && (
+          <span
+            className={cn('size-1 rounded-full shrink-0', gitColorClass)}
+            aria-label={gitStatusText}
+          />
+        )}
         {unreadable && <Lock className="size-3 shrink-0 text-text-secondary" aria-hidden />}
         {written && (
           <span className="ml-auto size-1.5 shrink-0 rounded-full bg-text-info">
@@ -515,7 +566,13 @@ function FileRowWithMenu({
       <DropdownMenuTrigger asChild>
         <span aria-hidden className="absolute inset-x-0 bottom-0 h-0" />
       </DropdownMenuTrigger>
-      <DropdownMenuContent side="bottom" align="start" data-testid="files-menu">
+      <DropdownMenuContent
+        side="bottom"
+        align="start"
+        data-testid="files-menu"
+        // Rename mounts its own input on close; Radix must not hand focus back to the row.
+        onCloseAutoFocus={(event) => event.preventDefault()}
+      >
         <DropdownMenuItem onClick={onRename} data-testid="files-menu-rename">
           <Edit2 className="size-3 mr-2" />
           {intl.formatMessage(i18n.rename)}

@@ -1,13 +1,5 @@
 import { execFile } from 'node:child_process';
-import {
-  mkdir,
-  mkdtemp,
-  readFile,
-  realpath,
-  rm,
-  symlink,
-  writeFile,
-} from 'node:fs/promises';
+import { mkdir, mkdtemp, readFile, realpath, rm, symlink, writeFile } from 'node:fs/promises';
 import os from 'node:os';
 import path from 'node:path';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
@@ -61,6 +53,32 @@ describe('fsRoutes', () => {
 
   afterAll(async () => {
     await rm(scratch, { recursive: true, force: true });
+  });
+
+  describe('a new path under a symlinked directory', () => {
+    it('writes where the unresolved path says, not past the boundary', async () => {
+      const linked = await mkdtemp(path.join(os.tmpdir(), 'fs-linked-'));
+      const routes = fsRoutes(linked);
+      const written = (await routes['POST /fs/write']({ path: 'deep/new.txt', content: 'x' })) as {
+        path: string;
+      };
+      expect(written.path).toBe(path.join(await realpath(linked), 'deep', 'new.txt'));
+      expect(await readFile(written.path, 'utf8')).toBe('x');
+    });
+  });
+
+  describe('outside a repository', () => {
+    it('lists and refuses against the spawn cwd itself', async () => {
+      const plain = await mkdtemp(path.join(os.tmpdir(), 'fs-plain-'));
+      await writeFile(path.join(plain, 'a.txt'), 'a');
+      const routes = fsRoutes(plain);
+      const listed = (await routes['POST /fs/list']({ path: '.' })) as {
+        entries: { name: string }[];
+      };
+      expect(listed.entries.map((entry) => entry.name)).toEqual(['a.txt']);
+      const refused = await failure(routes['POST /fs/read']({ path: '../../etc/hosts' }));
+      expect(refused.status).toBe(400);
+    });
   });
 
   describe('path guard', () => {

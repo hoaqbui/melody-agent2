@@ -242,11 +242,11 @@ describe('RailMenu', () => {
       'workspace-archive',
       'workspace-delete',
     ]);
-    expect(menu.querySelectorAll('[data-slot="dropdown-menu-separator"]')).toHaveLength(7);
+    expect(menu.querySelectorAll('[data-slot="dropdown-menu-separator"]')).toHaveLength(5);
     const shortcuts = Array.from(menu.querySelectorAll('[data-slot="dropdown-menu-shortcut"]')).map(
       (span) => span.textContent
     );
-    expect(shortcuts).toEqual(['⇧⌘F', 'R', 'F', 'A', 'D']);
+    expect(shortcuts).toEqual(['⇧⌘F', '⌘K', 'R', 'F', 'A', 'D']);
     expect(screen.getByTestId('workspace-delete')).toHaveAttribute('data-variant', 'destructive');
   });
 

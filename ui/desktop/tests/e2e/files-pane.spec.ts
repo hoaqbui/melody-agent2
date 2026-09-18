@@ -97,106 +97,124 @@ test.describe('files pane', () => {
     await emptyDock(goosePage);
   });
 
-  test('filter, context menu, git tints, create/rename/delete with undo', async ({ goosePage }) => {
+  // The fixture launches the app before the test body runs, so the scratch repo (and
+  // GOOSE_TEST_DIR, which points the window at it) must exist in beforeAll.
+  test.describe('on a scratch repo', () => {
     let scratch = '';
-    try {
+    const previousDir = process.env.GOOSE_TEST_DIR;
+    test.beforeAll(() => {
       scratch = createFilesTestRepo();
-      const shell = goosePage.locator('[data-testid="workspace-shell"]');
-      await expect(shell).toBeVisible({ timeout: 30000 });
+    });
+    test.afterAll(() => {
+      if (scratch) rmSync(scratch, { recursive: true, force: true });
+      if (previousDir === undefined) delete process.env.GOOSE_TEST_DIR;
+      else process.env.GOOSE_TEST_DIR = previousDir;
+    });
 
-      await emptyDock(goosePage);
-      await openPane(goosePage, 'files');
-      const pane = goosePage.locator('[data-testid="files-pane"]');
-      await expect(pane).toBeVisible();
-      await expect(pane).not.toHaveAttribute('data-state', 'loading', { timeout: 15000 });
+    test('filter, context menu, git tints, create/rename/delete with undo', async ({
+      goosePage,
+    }) => {
+      try {
+        const shell = goosePage.locator('[data-testid="workspace-shell"]');
+        await expect(shell).toBeVisible({ timeout: 30000 });
 
-      // Test 1: Filter with Shift+Cmd+F
-      const filterInput = goosePage.locator('[data-testid="files-filter"]');
-      await goosePage.keyboard.press('Shift+Meta+F');
-      await expect(filterInput).toBeFocused();
-      await filterInput.type('notes');
-      let rows = goosePage.locator('[data-testid="files-row"]');
-      await expect(rows).toHaveCount(1);
-      const notesRow = rows.first();
-      await expect(notesRow).toContainText('notes.md');
-      await filterInput.press('Escape');
-      await expect(filterInput).toHaveValue('');
+        await emptyDock(goosePage);
+        await openPane(goosePage, 'files');
+        const pane = goosePage.locator('[data-testid="files-pane"]');
+        await expect(pane).toBeVisible();
+        await expect(pane).not.toHaveAttribute('data-state', 'loading', { timeout: 15000 });
 
-      // Test 2: Git status tints
-      await filterInput.clear();
-      rows = goosePage.locator('[data-testid="files-row"]');
-      const modifiedRow = goosePage.locator('[data-testid="files-row"][data-git="M"]');
-      await expect(modifiedRow).toContainText('notes.md');
-      const untrackedRow = goosePage.locator('[data-testid="files-row"][data-git="?"]');
-      await expect(untrackedRow).toContainText('untracked.txt');
+        // Test 1: Filter with Shift+Cmd+F
+        const filterInput = goosePage.locator('[data-testid="files-filter"]');
+        await goosePage.keyboard.press('Shift+Meta+F');
+        await expect(filterInput).toBeFocused();
+        await filterInput.type('notes');
+        let rows = goosePage.locator('[data-testid="files-row"]');
+        await expect(rows).toHaveCount(1);
+        const notesRow = rows.first();
+        await expect(notesRow).toContainText('notes.md');
+        await filterInput.press('Escape');
+        await expect(filterInput).toHaveValue('');
 
-      // Test 3: Right-click context menu
-      await notesRow.click({ button: 'right' });
-      const menu = goosePage.locator('[data-testid="files-menu"]');
-      await expect(menu).toBeVisible();
-      const renameBtn = goosePage.locator('[data-testid="files-menu-rename"]');
-      await expect(renameBtn).toBeVisible();
-      const deleteBtn = goosePage.locator('[data-testid="files-menu-delete"]');
-      await expect(deleteBtn).toBeVisible();
-      const copyPathBtn = goosePage.locator('[data-testid="files-menu-copy-path"]');
-      await expect(copyPathBtn).toBeVisible();
-      const addToChatBtn = goosePage.locator('[data-testid="files-menu-add-to-chat"]');
-      await expect(addToChatBtn).toBeVisible();
+        // Test 2: Git status tints
+        await filterInput.clear();
+        rows = goosePage.locator('[data-testid="files-row"]');
+        const modifiedRow = goosePage.locator('[data-testid="files-row"][data-git="M"]');
+        await expect(modifiedRow).toContainText('notes.md');
+        const untrackedRow = goosePage.locator('[data-testid="files-row"][data-git="?"]');
+        await expect(untrackedRow).toContainText('untracked.txt');
 
-      // Test 4: Create new file
-      await filterInput.clear();
-      const newFileBtn = goosePage.locator('[data-testid="files-new-file"]');
-      await newFileBtn.click();
-      const nameInput = goosePage.locator('[data-testid="files-name-input"]');
-      await expect(nameInput).toBeFocused();
-      await nameInput.type('test.ts');
-      await nameInput.press('Enter');
-      const testRow = goosePage.locator('[data-testid="files-row"][data-path*="test.ts"]');
-      await expect(testRow).toBeVisible();
-      const editor = goosePage.locator('[data-testid="workspace-pane-editor"]');
-      await expect(editor).toBeVisible();
+        // Test 3: Right-click context menu
+        await notesRow.click({ button: 'right' });
+        const menu = goosePage.locator('[data-testid="files-menu"]');
+        await expect(menu).toBeVisible();
+        const renameBtn = goosePage.locator('[data-testid="files-menu-rename"]');
+        await expect(renameBtn).toBeVisible();
+        const deleteBtn = goosePage.locator('[data-testid="files-menu-delete"]');
+        await expect(deleteBtn).toBeVisible();
+        const copyPathBtn = goosePage.locator('[data-testid="files-menu-copy-path"]');
+        await expect(copyPathBtn).toBeVisible();
+        const addToChatBtn = goosePage.locator('[data-testid="files-menu-add-to-chat"]');
+        await expect(addToChatBtn).toBeVisible();
+        await goosePage.keyboard.press('Escape');
+        await expect(menu).toBeHidden();
 
-      // Test 5: Rename
-      await testRow.click({ button: 'right' });
-      await goosePage.locator('[data-testid="files-menu-rename"]').click();
-      const renameInput = goosePage.locator('[data-testid="files-name-input"]');
-      await expect(renameInput).toBeFocused();
-      await renameInput.triple_click();
-      await renameInput.type('renamed.ts');
-      await renameInput.press('Enter');
-      const renamedRow = goosePage.locator('[data-testid="files-row"][data-path*="renamed.ts"]');
-      await expect(renamedRow).toBeVisible();
-      const editorFile = goosePage.locator('[data-testid="workspace-editor-file"]');
-      await expect(editorFile).toContainText('renamed.ts');
+        // Test 4: Create new file
+        await filterInput.clear();
+        const newFileBtn = goosePage.locator('[data-testid="files-new-file"]');
+        await newFileBtn.click();
+        const nameInput = goosePage.locator('[data-testid="files-name-input"]');
+        await expect(nameInput).toBeFocused();
+        await nameInput.type('test.ts');
+        await nameInput.press('Enter');
+        const testRow = goosePage.locator('[data-testid="files-row"][data-path*="test.ts"]');
+        await expect(testRow).toBeVisible();
+        const editor = goosePage.locator('[data-testid="workspace-pane-editor"]');
+        await expect(editor).toBeVisible();
 
-      // Test 6: Delete with Undo
-      await renamedRow.click({ button: 'right' });
-      await goosePage.locator('[data-testid="files-menu-delete"]').click();
-      await expect(renamedRow).not.toBeVisible();
-      const undoBtn = goosePage.locator('[data-testid="files-undo-button"]');
-      await expect(undoBtn).toBeVisible();
-      await undoBtn.click();
-      await expect(renamedRow).toBeVisible();
+        // Test 5: Rename
+        await testRow.click({ button: 'right' });
+        await goosePage.locator('[data-testid="files-menu-rename"]').click();
+        const renameInput = goosePage.locator('[data-testid="files-name-input"]');
+        await expect(renameInput).toBeFocused();
+        await renameInput.fill('');
+        await renameInput.type('renamed.ts');
+        await renameInput.press('Enter');
+        const renamedRow = goosePage.locator('[data-testid="files-row"][data-path*="renamed.ts"]');
+        await expect(renamedRow).toBeVisible();
+        const editorFile = goosePage.locator('[data-testid="workspace-editor-file"]');
+        await expect(editorFile).toContainText('renamed.ts');
 
-      // Test 7: Copy path
-      await notesRow.click({ button: 'right' });
-      await goosePage.locator('[data-testid="files-menu-copy-path"]').click();
-      const clipboardText = await goosePage.evaluate('navigator.clipboard.readText()');
-      expect(clipboardText).toContain('notes.md');
+        // Test 6: Delete with Undo
+        await renamedRow.click({ button: 'right' });
+        await goosePage.locator('[data-testid="files-menu-delete"]').click();
+        await expect(renamedRow).not.toBeVisible();
+        const undoBtn = goosePage.locator('[data-testid="files-undo-button"]');
+        await expect(undoBtn).toBeVisible();
+        await undoBtn.click();
+        await expect(renamedRow).toBeVisible();
 
-      // Test 8: Keyboard navigation
-      await filterInput.focus();
-      await goosePage.keyboard.press('ArrowDown');
-      const focusedRow = goosePage.evaluate(
-        () => document.querySelector('[data-testid="files-row"]:focus')
-      );
-      expect(focusedRow).toBeTruthy();
+        // Test 7: Copy path (the filter is clear now, so name the row by its path)
+        const notesRowUnfiltered = goosePage.locator(
+          '[data-testid="files-row"][data-path$="notes.md"]'
+        );
+        await notesRowUnfiltered.click({ button: 'right' });
+        await goosePage.locator('[data-testid="files-menu-copy-path"]').click();
+        const clipboardText = await goosePage.evaluate('navigator.clipboard.readText()');
+        expect(clipboardText).toContain('notes.md');
 
-      await emptyDock(goosePage);
-    } finally {
-      if (scratch) {
-        rmSync(scratch, { recursive: true, force: true });
+        // Test 8: Keyboard navigation
+        await filterInput.focus();
+        await goosePage.keyboard.press('ArrowDown');
+        const focusedRow = await goosePage.evaluate(
+          () => document.querySelector('[data-testid="files-row"]:focus') !== null
+        );
+        expect(focusedRow).toBe(true);
+
+        await emptyDock(goosePage);
+      } finally {
+        await emptyDock(goosePage).catch(() => {});
       }
-    }
+    });
   });
 });
