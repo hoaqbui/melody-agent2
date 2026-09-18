@@ -4,6 +4,7 @@
 // Panes keep their own contents.
 
 import { createContext, useContext } from 'react';
+import type { GitStatusResponse } from '../native/sidecar';
 import type { Message } from '../types/message';
 import type { InsertChatInput } from './chat-insert';
 import type { LayoutMode, PaneId } from './pane-store';
@@ -32,6 +33,9 @@ export interface PaneContextValue {
   openReview(sessionId: string): void;
   // Hand text or image to the chat input for the user to read before sending (task 76).
   insertIntoChat(input: InsertChatInput): void;
+  // The last git status from the workspace-wide poll; null until the first poll completes.
+  // All panes read one value instead of polling their own (task 74).
+  gitStatus: GitStatusResponse | null;
 }
 
 export const PaneContext = createContext<PaneContextValue | null>(null);
