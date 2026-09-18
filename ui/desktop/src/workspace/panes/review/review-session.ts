@@ -9,17 +9,15 @@ import { defineMessages, useIntl } from '../../../i18n';
 import { useConfig } from '../../../components/ConfigContext';
 import { toastError } from '../../../toasts';
 import { AppEvents } from '../../../constants/events';
-import { createUserMessage } from '../../../types/message';
-import { acpChatSessionActions, acpChatSessionStore } from '../../../acp/chatSessionStore';
-import { acpChatSessionController } from '../../../acp/chatSessionController';
+import { acpChatSessionActions } from '../../../acp/chatSessionStore';
 import { formatAcpError } from '../../../acp/errors';
 import { acpListProviderDetails } from '../../../acp/providers';
 import { encodeRecipe } from '../../../acp/recipe';
 import { acpRenameSession } from '../../../acp/sessions';
 import { listAgentSources } from '../../../acp/sources';
-import { notifyTurnFinished } from '../../../notifications';
 import { createSession } from '../../../sessions';
 import { usePaneContext } from '../../pane-context';
+import { prompt } from '../../prompt';
 import {
   reviewPrompt,
   reviewTitle,
@@ -65,28 +63,14 @@ export function useReviewRun(sessionId: string): ReviewRun | undefined {
   );
 }
 
-// The prompt goes the chat's way (`useChatSession` handleSubmit): the user message lands
-// in the store first so Open transcript, which reuses the cached snapshot, shows both
-// sides. A session the app has restarted since is loaded first; its agent is not live.
-async function prompt(sessionId: string, text: string, cwd: string): Promise<void> {
-  if (!acpChatSessionStore.getSnapshot(sessionId)?.session) {
-    await acpChatSessionController.loadSession(sessionId);
-  }
-  const current = acpChatSessionStore.getSnapshot(sessionId);
-  if (!current?.session) {
-    setRun(sessionId, { error: current?.sessionLoadError ?? 'session not loaded' });
-    return;
-  }
-  const message = createUserMessage(text);
-  acpChatSessionActions.setMessages(sessionId, [...current.messages, message]);
+// Wrapper around the lifted prompt that tracks the ReviewRun state (task 90).
+async function promptReview(sessionId: string, text: string, cwd: string): Promise<void> {
   setRun(sessionId, { error: null });
-  await acpChatSessionController.submitMessage(sessionId, message, {
-    getCurrentSnapshot: () => acpChatSessionStore.getSnapshot(sessionId),
-    onFinish: (error) => {
-      setRun(sessionId, { error: error ?? null });
-      if (!error) notifyTurnFinished({ sessionId, workingDir: cwd });
-    },
-  });
+  try {
+    await prompt(sessionId, text, cwd);
+  } catch (error) {
+    setRun(sessionId, { error: String(error) });
+  }
 }
 
 class ReviewStartError extends Error {
@@ -96,7 +80,7 @@ class ReviewStartError extends Error {
 }
 
 export function rerunReview(sessionId: string, branch: string, base: string, cwd: string): void {
-  void prompt(sessionId, reviewPrompt(branch, base, cwd), cwd);
+  void promptReview(sessionId, reviewPrompt(branch, base, cwd), cwd);
 }
 
 // Review branch… as the Changes and Git panes offer it: the session starts, is tagged, gets
@@ -132,7 +116,7 @@ export function useStartReview(): (branch: string, base: string) => Promise<void
           user_set_name: true,
         });
         window.dispatchEvent(new CustomEvent(AppEvents.SESSION_CREATED));
-        void prompt(session.id, reviewPrompt(branch, base, cwd), cwd);
+        void promptReview(session.id, reviewPrompt(branch, base, cwd), cwd);
         openReview(session.id);
       } catch (error) {
         toastError({

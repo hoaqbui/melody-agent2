@@ -2,7 +2,7 @@ import { readFileSync } from 'node:fs';
 import { resolve } from 'node:path';
 import { describe, expect, it } from 'vitest';
 import type { Delegation } from '../../acp/delegations';
-import { PHASES, phaseOfRole, phaseViews, RPI_STRIP_STATES, stripState } from './rpi-strip-state';
+import { PHASES, phaseOfRole, phaseViews, RPI_STRIP_STATES, stripState, gateState } from './rpi-strip-state';
 
 let next = 0;
 const row = (source: string | undefined, overrides: Partial<Delegation> = {}): Delegation => ({
@@ -149,5 +149,31 @@ describe('stripState', () => {
 
   it('walks PRODUCT.md §8’s phases in order', () => {
     expect(PHASES).toEqual(['research', 'plan', 'implement', 'review']);
+  });
+});
+
+
+describe('gateState (plan gate)', () => {
+  it('is true when plan is done, implement is dim, chat is idle, and gate is on', () => {
+    const rows = [row('planner'), row('researcher')];
+    const views = phaseViews(rows);
+    expect(gateState(views, true, true)).toBe(true);
+  });
+
+  it('is false when gate is off or chat is not idle', () => {
+    const rows = [row('planner'), row('researcher')];
+    const views = phaseViews(rows);
+    expect(gateState(views, true, false)).toBe(false);
+    expect(gateState(views, false, true)).toBe(false);
+    expect(gateState(views, false, false)).toBe(false);
+  });
+
+  it('is false when implement has started or plan has not finished', () => {
+    const withImplement = [row('planner'), row('implementer')];
+    expect(gateState(phaseViews(withImplement), true, true)).toBe(false);
+    const implementRunning = [row('planner'), row('implementer', { status: 'running' })];
+    expect(gateState(phaseViews(implementRunning), true, true)).toBe(false);
+    const planOnly = [row('planner', { status: 'running' })];
+    expect(gateState(phaseViews(planOnly), true, true)).toBe(false);
   });
 });
