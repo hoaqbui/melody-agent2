@@ -61,7 +61,7 @@ test.describe('chat links', () => {
     await openPane(goosePage, 'editor');
     const editor = goosePage.locator('[data-testid="workspace-editor-file"]');
     await expect(editor).toBeVisible({ timeout: 15000 });
-    const activeLine = goosePage.locator('[data-line="7"]');
+    const activeLine = goosePage.locator('[data-testid="workspace-editor-file"][data-line="7"]');
     await expect(activeLine).toBeVisible();
 
     // Step (4): keyboard navigation — Tab to link, Enter opens it
@@ -73,7 +73,9 @@ test.describe('chat links', () => {
     await freshLink.press('Enter');
     const freshEditor = goosePage.locator('[data-testid="workspace-editor-file"]');
     await expect(freshEditor).toBeVisible({ timeout: 15000 });
-    const freshActiveLine = goosePage.locator('[data-line="7"]');
+    const freshActiveLine = goosePage.locator(
+      '[data-testid="workspace-editor-file"][data-line="7"]'
+    );
     await expect(freshActiveLine).toBeVisible();
 
     // Step (5): a URL `https://x.y/a:1` and a time `12:30` in the same reply are NOT links
@@ -95,19 +97,8 @@ test.describe('chat links', () => {
       .locator('[data-testid="chat-file-link"]')
       .filter({ has: goosePage.getByText(/12:30/) });
     await expect(timeLink).toHaveCount(0);
-
-    // Step (5 continued): a path that does not exist renders as plain text
-    await emptyDock(goosePage);
-    const chatInputFinal = goosePage.locator('[data-testid="chat-input"]');
-    await chatInputFinal.fill('Check nonexistent file: nonexistent.ts:99');
-    await chatInputFinal.press('Enter');
-    const missingReply = goosePage.locator('[data-testid="message-container"].assistant').last();
-    await expect(missingReply).toContainText(/nonexistent\.ts:99/i, { timeout: 45000 });
-    // Verify it's still rendered as a link (openFile will handle the missing file)
-    const missingLink = missingReply.locator('[data-testid="chat-file-link"]').filter({
-      has: goosePage.getByText(/nonexistent\.ts:99/),
-    });
-    // Note: the plugin will create the link; the pane's open handler will decide what to do
-    // with a missing file. For now, we just verify the link structure is created.
+    // The partial state (a path outside the project reads as plain text, title "not in this
+    // project") is not built yet — task 82's ledger line names it; a live model will not echo a
+    // path it cannot see, so it is not asserted here.
   });
 });

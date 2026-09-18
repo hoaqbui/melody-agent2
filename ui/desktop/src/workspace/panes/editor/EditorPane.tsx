@@ -283,6 +283,7 @@ export function EditorPane() {
               className="min-w-0 flex-1 truncate text-text-secondary"
               title={doc.path}
               data-testid="workspace-editor-file"
+              data-line={line ?? undefined}
             >
               {doc.path}
             </span>

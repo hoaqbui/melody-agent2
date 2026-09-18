@@ -32,9 +32,8 @@ import { wrapHTMLInCodeBlock } from '../utils/htmlSecurity';
 import { BLOCKED_PROTOCOLS } from '../utils/urlSecurity';
 import { getTextDirection } from '../utils/textDirection';
 import { defineMessages, useIntl } from '../i18n';
-import { FileLinkSlot } from './ChatInput';
+import { FileLinkSlot } from '../workspace/file-link-slot';
 import { rehypeFileLinks } from '../workspace/file-links';
-import { PaneContext } from '../workspace/pane-context';
 
 const i18n = defineMessages({
   copyCode: {
@@ -277,7 +276,6 @@ const MarkdownContent = memo(function MarkdownContent({
 }: MarkdownContentProps) {
   const intl = useIntl();
   const fileLinkContext = useContext(FileLinkSlot);
-  const paneContext = useContext(PaneContext);
 
   const processedContent = useMemo(() => {
     try {
@@ -307,13 +305,11 @@ const MarkdownContent = memo(function MarkdownContent({
 
   const handleFileLink = useCallback(
     (href: string) => {
-      if (!paneContext) return;
       const match = /^goose-file:(.+):(\d+)$/.exec(href);
-      if (!match) return;
-      const [, path, lineStr] = match;
-      paneContext.openFile(path, Number(lineStr));
+      if (!fileLinkContext || !match) return;
+      fileLinkContext.openFile(match[1], Number(match[2]));
     },
-    [paneContext]
+    [fileLinkContext]
   );
 
   const rehypePlugins: PluggableList = [
@@ -329,7 +325,10 @@ const MarkdownContent = memo(function MarkdownContent({
   ];
 
   if (fileLinkContext) {
-    rehypePlugins.push([rehypeFileLinks, fileLinkContext]);
+    rehypePlugins.push([
+      rehypeFileLinks,
+      { cwd: fileLinkContext.cwd, gitToplevel: fileLinkContext.gitToplevel },
+    ]);
   }
 
   return (

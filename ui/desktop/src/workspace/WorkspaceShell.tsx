@@ -42,7 +42,8 @@ import { useConfig } from '../components/ConfigContext';
 import { useModelAndProvider } from '../components/ModelAndProviderContext';
 import { useNavigationContextSafe } from '../components/Layout/NavigationContext';
 import { Navigation } from '../components/Layout/NavigationPanel';
-import { SessionChipsSlot, FileLinkSlot } from '../components/ChatInput';
+import { SessionChipsSlot } from '../components/ChatInput';
+import { FileLinkSlot } from './file-link-slot';
 import { NextChat, type NextChatDraft } from '../components/Hub';
 import { Button } from '../components/ui/button';
 import { DropdownMenu, DropdownMenuTrigger } from '../components/ui/dropdown-menu';
@@ -1138,8 +1139,8 @@ export function WorkspaceShell({ chat, children, panes, paneStore }: WorkspaceSh
 
   // Task 29: the RPI strip sits above the chat in both faces, and only once a phase is lit.
   const fileLinkContext = useMemo(
-    () => ({ cwd, gitToplevel: gitStatus?.toplevel ?? cwd }),
-    [cwd, gitStatus?.toplevel]
+    () => ({ cwd, gitToplevel: gitStatus?.toplevel ?? cwd, openFile }),
+    [cwd, gitStatus?.toplevel, openFile]
   );
   const chatBody = (
     <SessionChipsSlot.Provider value={chipsFor}>
