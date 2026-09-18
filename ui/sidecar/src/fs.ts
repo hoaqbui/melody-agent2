@@ -1,9 +1,9 @@
-import { execFile } from 'node:child_process';
 import chokidar from 'chokidar';
 import { mkdir, readdir, readFile, realpath, writeFile } from 'node:fs/promises';
 import path from 'node:path';
 import type { WebSocket } from 'ws';
 
+import { isInside, toplevelOf } from './git.js';
 import { HttpError, type JsonHandler, requireString } from './http.js';
 
 type EntryType = 'file' | 'dir' | 'symlink' | 'other';
@@ -13,23 +13,6 @@ const WORKTREES_DIR = '.worktrees';
 const WATCH_IGNORED = /(^|[\\/])(node_modules|\.git|\.worktrees)([\\/]|$)/;
 
 const resolveIn = (cwd: string, target: string): string => path.resolve(cwd, target);
-
-const git = (cwd: string, args: string[]): Promise<string> =>
-  new Promise((resolve, reject) => {
-    execFile('git', args, { cwd }, (error, stdout, stderr) => {
-      if (error) {
-        reject(new HttpError(500, stderr.trim() || error.message));
-        return;
-      }
-      resolve(stdout);
-    });
-  });
-
-const toplevelOf = async (cwd: string): Promise<string> =>
-  realpath((await git(cwd, ['rev-parse', '--show-toplevel'])).trim());
-
-const isInside = (target: string, root: string): boolean =>
-  target === root || target.startsWith(root + path.sep);
 
 // The sidecar is unauthenticated on the tailnet, so a request path may only be
 // inside the spawn cwd's repository or a sibling worktree of it. realpath the
@@ -44,7 +27,6 @@ const requestPath = async (spawnCwd: string, body: Record<string, unknown>): Pro
     try {
       resolved = await realpath(requested);
     } catch {
-      // Walk up the path to find an existing directory, then realpath it
       let checkPath = path.dirname(requested);
       let realParent: string | null = null;
       while (realParent === null) {
@@ -53,13 +35,11 @@ const requestPath = async (spawnCwd: string, body: Record<string, unknown>): Pro
         } catch {
           const nextPath = path.dirname(checkPath);
           if (nextPath === checkPath) {
-            // Reached filesystem root without finding an existing directory
             throw new Error('cannot find parent directory');
           }
           checkPath = nextPath;
         }
       }
-      // Reconstruct the full path from the realpath'd ancestor
       const subpath = requested.slice(realParent.length);
       resolved = path.join(realParent, subpath);
     }

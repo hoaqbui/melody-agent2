@@ -10,7 +10,7 @@ const WORKTREES_DIR = '.worktrees';
 // lets a tailnet peer walk out of the directory.
 const SLUG = /^[a-z0-9][a-z0-9-]{0,63}$/;
 
-const git = (cwd: string, args: string[], stdin?: string): Promise<string> =>
+export const git = (cwd: string, args: string[], stdin?: string): Promise<string> =>
   new Promise((resolve, reject) => {
     const child = execFile(
       'git',
@@ -81,7 +81,7 @@ const ghOk = async (cwd: string, args: string[]): Promise<string> => {
   return result.stdout;
 };
 
-const toplevelOf = async (cwd: string): Promise<string> =>
+export const toplevelOf = async (cwd: string): Promise<string> =>
   realpath((await git(cwd, ['rev-parse', '--show-toplevel'])).trim());
 
 const currentBranch = async (cwd: string): Promise<string> => {
@@ -90,7 +90,7 @@ const currentBranch = async (cwd: string): Promise<string> => {
   return branch;
 };
 
-const isInside = (target: string, root: string): boolean =>
+export const isInside = (target: string, root: string): boolean =>
   target === root || target.startsWith(root + path.sep);
 
 // The sidecar is unauthenticated on the tailnet, so a request cwd may only be

@@ -90,14 +90,6 @@ Planned 2026-09-16 from the parity read (user: "plan it out all in tasks.md", th
 
 Approved 2026-09-18 on the user's delegation; all 17 gate decisions as recommended (17 → Permissions; 6 → CLT already current, proc-macro rebuild pending — see 77). Order (plan §Approach): wave 1 = 73 ∥ 74 ∥ 75 ∥ 76 ∥ 77 (Rust, gated) ∥ 78 ∥ 79 ∥ 80 ∥ 81 (disjoint files); wave 2 = 82 (75) ∥ 84 (74, 76) ∥ 85 (73, 74, 76) ∥ 86 (76) ∥ 87 (76) ∥ 88 (78) ∥ 89 (77) ∥ 90 (79) ∥ 91 (80) ∥ 92 (81); wave 3 = 83 (82, 85, 86, 87, 94) ∥ 93 (88) ∥ 94 (74, 84) ∥ 95 ∥ 96 (90) ∥ 97. Each pane's own "Add to chat" affordance is owned by that pane's task.
 
-- 73. Contain the sidecar's file routes: `requestPath(spawnCwd, body)` in `ui/sidecar/src/fs.ts` mirroring `git.ts:99-117` (realpath; inside the spawn cwd's toplevel or a `.worktrees/` sibling; else `400`), applied to `list`, `read`, `write` and every route added later; `fs.test.ts` gains the outside-toplevel and symlink-escape `400` cases.
-  - status: doing · agent: session-wave1 [Fable, worktree worker per AGENTS.md chain] · worker: medium
-  - card: as the user, know that a tailnet peer with the key can only touch files inside the project, as it can only run git there, so that the fs and git doors have one lock (panes research §The surprise)
-  - context:
-    - the guard also covers the three landed routes (decision 1); a session opened in a subdirectory keeps working because containment is the *toplevel*, as git's is
-    - headless — no UX plan
-  - confirm: `cd ui/sidecar && pnpm vitest run src/fs.test.ts 2>&1 | grep -E 'Tests ' && grep -c "requestPath" src/fs.ts` → `Tests` ≥ 6 passed and `≥ 1` (untouched: no `fs.test.ts` exists — vitest exits 1 "No test files found"; grep `0`)
-
 - 74. One poll, one source: widen task 69's status poll (`WorkspaceShell.tsx:762-783`, gated on `diffHidden`) to `isWorkspaceRoute`, hold the last `GitStatusResponse` in shell state, keep the Changes dot's baseline rule, expose `gitStatus` on `PaneContext` (+ the `pane-context` test).
   - status: doing · agent: session-wave1 [Fable, worktree worker per AGENTS.md chain] · worker: medium
   - card: as every pane, read one git status instead of polling my own, so that the bar, the tints and the badge agree (panes research §One poll, one source)
