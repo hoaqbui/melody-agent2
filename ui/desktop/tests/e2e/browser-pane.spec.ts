@@ -59,6 +59,18 @@ test.describe('browser pane', () => {
     await expect(address).toHaveValue(config, { timeout: 15000 });
     await expect(pane).toHaveAttribute('data-state', 'ready', { timeout: 15000 });
 
+    // main.ts locks the guest down: no node in the page, and a popup loads in place.
+    const guestEval = (code: string) =>
+      goosePage.evaluate(
+        ([js]) =>
+          (
+            document.querySelector('webview') as unknown as {
+              executeJavaScript(code: string): Promise<unknown>;
+            }
+          ).executeJavaScript(js),
+        [code]
+      );
+
     await address.fill('hea');
     const suggestions = pane.locator('[data-testid="browser-suggestion"]');
     await expect(suggestions).toHaveCount(1);
@@ -75,22 +87,42 @@ test.describe('browser pane', () => {
     await expect(address).toHaveValue(health, { timeout: 15000 });
     await expect(pane).toHaveAttribute('data-state', 'ready', { timeout: 15000 });
 
-    await pane.locator('[data-testid="browser-share"]').click();
+    const shareButton = pane.locator('[data-testid="browser-share"]');
+    await shareButton.click();
+    // The Share dropdown opens; click "Page" option
+    const pageOption = goosePage.locator('text=Page').last();
+    await expect(pageOption).toBeVisible();
+    await pageOption.click();
     const chatInput = goosePage.locator('[data-testid="chat-input"]');
     await expect(chatInput).toBeFocused();
     await expect(chatInput).toHaveValue(new RegExp(`^Page: .*\\n${health}\\n\\nok$`));
 
-    // main.ts locks the guest down: no node in the page, and a popup loads in place.
-    const guestEval = (code: string) =>
-      goosePage.evaluate(
-        ([js]) =>
-          (
-            document.querySelector('webview') as unknown as {
-              executeJavaScript(code: string): Promise<unknown>;
-            }
-          ).executeJavaScript(js),
-        [code]
-      );
+    // Test Screenshot share - should add an image to the input
+    await chatInput.clear();
+    await shareButton.click();
+    const screenshotOption = goosePage.locator('[data-testid="browser-share-screenshot"]');
+    await expect(screenshotOption).toBeVisible();
+    await screenshotOption.click();
+    // Screenshot adds an image tile to the input
+    await expect(goosePage.locator('img[alt*="Pasted image"]').first()).toBeVisible({
+      timeout: 5000,
+    });
+
+    // Test Console share - first log a console error
+    await guestEval("console.error('t87-boom')");
+    await chatInput.clear();
+    await shareButton.click();
+    const consoleOption = goosePage.locator('text=Console');
+    await expect(consoleOption).toBeVisible();
+    await consoleOption.click();
+    // Console text should appear in the input
+    await expect(chatInput).toContainText('t87-boom', { timeout: 5000 });
+
+    // Test "Set as home" button (sets URL for this project)
+    const setHomeButton = pane.locator('[data-testid="browser-set-home"]');
+    await expect(setHomeButton).toBeEnabled();
+    await setHomeButton.click();
+
     expect(await guestEval('typeof require + typeof process')).toBe('undefinedundefined');
     await guestEval(`window.open(${JSON.stringify(config)})`);
     await expect(address).toHaveValue(config, { timeout: 15000 });

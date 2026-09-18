@@ -4,6 +4,22 @@
 // lives outside the component so a promote or close keeps the address (DESIGN.md Nothing
 // Lost Rule).
 
+// The part of Electron's WebviewTag the pane calls; src/workspace cannot import 'electron'
+// (.dependency-cruiser.cjs renderer-runs-in-a-browser).
+export interface WebviewElement extends HTMLElement {
+  getURL(): string;
+  getTitle(): string;
+  loadURL(url: string): Promise<void>;
+  reload(): void;
+  stop(): void;
+  goBack(): void;
+  goForward(): void;
+  canGoBack(): boolean;
+  canGoForward(): boolean;
+  executeJavaScript(code: string): Promise<unknown>;
+  capturePage(): Promise<{ toDataURL(): string }>;
+}
+
 // The subset of DESIGN.md §Shared component states the pane reports, plus `ready` for a
 // frame that has settled.
 export const BROWSER_PANE_STATES = ['empty', 'loading', 'partial', 'error', 'ready'] as const;
@@ -286,4 +302,28 @@ export function createBrowserStore(defaultUrl: string, history: HistoryEntry[] =
       listeners.forEach((listener) => listener());
     },
   };
+}
+
+export interface ConsoleLine {
+  level: 'error' | 'info' | 'warning' | 'verbose';
+  message: string;
+  timestamp: number;
+}
+
+export const CONSOLE_CAP = 200;
+
+export function consoleLogged(lines: ConsoleLine[], entry: ConsoleLine): ConsoleLine[] {
+  const result = [entry, ...lines].slice(0, CONSOLE_CAP);
+  return result;
+}
+
+export function consoleText(lines: ConsoleLine[]): string {
+  const errors = lines.filter((line) => line.level === 'error');
+  const rest = lines.filter((line) => line.level !== 'error');
+  const ordered = [...errors.reverse(), ...rest.reverse()];
+  return ordered.map((line) => line.message).join('\n');
+}
+
+export function consoleCleared(): ConsoleLine[] {
+  return [];
 }
