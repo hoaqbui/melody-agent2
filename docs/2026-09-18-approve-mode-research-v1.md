@@ -15,7 +15,11 @@ Adapters read live this session: `claude-agent-acp` 0.62.0,
 `@agentclientprotocol/codex-acp` 1.12.0 (ChatGPT Plus),
 `cursor-agent` (`agent acp`), `agy` 1.2.4 — probe transcripts under
 `scratchpad/r-approve-mode/*.log` (`probe.py`, `probe2.py`,
-`probe3.py`).
+`probe3.py`). Those logs live in a session scratchpad and are
+**ephemeral** (the `t9`/`t65` captures the brief pointed at had
+already gone the same way); the excerpts quoted in §Inventory are the
+durable record, and `probe3.py`'s shape is reproduced in §Plan
+skeleton so any session can re-run it.
 
 ## The surprise (lead finding)
 
@@ -206,11 +210,30 @@ forwards") is contradicted by the capture.
   Auto until `get_agent_messages` forwards ActionRequired messages to
   the parent." (d) confirmed. (`tasks.md`'s cite `summon.rs:622,1400,
   2075,2373` has drifted; the live sites are `:849` and `:1655`.)
-- `crates/goose-cli/src/session/output.rs:325-329` — a headless
-  `goose run` prints `action_required(tool_confirmation): <tool_name>`;
-  the interactive `goose session` renders the prompt and waits
-  (`session/mod.rs:2218-2238`). That line is the CLI-observable proof
-  for the live probe below.
+- `crates/goose-cli/src/session/mod.rs:1356-1378` — a **headless**
+  `goose run` that meets a tool confirmation in Approve/SmartApprove
+  does not park and does not auto-allow: it cancels the turn and
+  errors, `"Tool approval required in non-interactive mode with
+  GooseMode::approve. This is an invalid configuration …"`. That
+  error *is* the CLI-observable proof that the seat asked; a seat that
+  does not ask finishes the run and leaves the file on disk. The
+  interactive `goose session` renders the prompt and waits
+  (`prompt_tool_confirmation`, `:1358`); `output.rs:325-329` prints
+  `action_required(tool_confirmation): <tool_name>` when the message
+  is rendered.
+- `crates/goose-cli/src/cli.rs:225-234`, `:326-336` — the probe's
+  flags: `goose run -t/--text <TEXT>` and `--provider <NAME>`.
+  `ui/desktop/src/bin/goose` and `target/debug/goose` are the same
+  483 MB debug binary built 2026-09-16 in the **main checkout**;
+  neither exists in this worktree, and nothing can rebuild them today
+  (§Unknowns, the `sqlx` dlopen break).
+- `crates/goose/src/providers/codex_acp.rs:85` — **Chat** maps to
+  `read-only` as well, and `reject_all_tools`
+  (`acp/provider.rs:930`, `:1000-1010`) only suppresses a tool request
+  when the adapter *asks*. The same capture that shows Approve is
+  ungated on Codex shows Chat is not chat-only there either: the
+  in-workspace write lands as an ordinary tool call. Adjacent to this
+  cluster's target; recorded for whoever owns the mapping.
 - `crates/goose/src/providers/claude_code.rs:350-364`, `:715-726` —
   out of this cluster (print mode, not ACP) but named because the
   lever's Hard stop runs on it: permission flags are read from the
@@ -531,92 +554,96 @@ Only a human can verify:
 
 ## Plan skeleton
 
-Tasks in dependency order. `worker:` per the model-routing table;
-`confirm:` baselined on the untouched tree below each.
+Evidence, not a task — the matrix in §The surprise was run 2026-09-18
+with `scratchpad/r-approve-mode/probe3.py <modeId> <adapter cmd…>`
+(stdio JSON-RPC: `initialize` → `session/new` → `session/set_mode` →
+`session/prompt` "create probe-write.txt containing HELLO", answering
+any `session/request_permission` with its `reject_once` option). Re-run
+it per seat whenever an adapter version bumps; it is the reference the
+tasks below are measured against.
 
-1. **Probe the seats** — re-run `scratchpad/r-approve-mode/probe3.py`
-   against all four adapters at their installed versions and record
-   the matrix in the plan doc. No source edit. Waits on: nothing.
-   - worker: none (session runs it)
-   - confirm: `python3 scratchpad/r-approve-mode/probe3.py default claude-agent-acp | grep -c "PERMISSION REQUEST"` → `1`
-   - baseline (this session, 2026-09-18): `1` for `claude-agent-acp
-     default` with a Write prompt; `0` for the same seat with a Bash
-     `echo` prompt; `0` for `codex-acp read-only`; `0` for
-     `cursor-agent acp agent` — logs in `scratchpad/r-approve-mode/`.
-     This task's value is re-running it after any mapping change, so
-     it is the only one whose confirm passes today.
-2. **agy refuses non-Auto** — implement `update_mode` on
+Tasks in dependency order. `worker:` per the model-routing table;
+`confirm:` baselined on the untouched tree beneath each.
+
+1. **agy refuses non-Auto** — implement `update_mode` on
    `AgyProvider` returning `ProviderError::RequestFailed` for
    Approve/SmartApprove/Chat with the reason ("agy runs
-   `--dangerously-skip-permissions`; it cannot ask"). Waits on: 1.
+   `--dangerously-skip-permissions`; it cannot ask"). Waits on:
+   nothing.
    - worker: low
    - confirm: `cargo test -p goose --lib providers::agy::tests::update_mode_refuses_non_auto 2>&1 | tail -3` → `test result: ok. 1 passed`
    - baseline: **no cargo build completes on this machine today.**
      Both the shared `CARGO_TARGET_DIR=/Users/hoaqbui/github/melody-agent2/target`
-     and a private one under the scratchpad fail identically before
-     any test runs:
+     and a fresh private one under the scratchpad fail identically
+     before any test runs:
      `error: …/debug/deps/libsqlx_macros-5a2651784b49b40f.dylib: dlopen(…): (mis-aligned LINKEDIT string pool, fileOffset=0x0066EC84)`
      → `error: could not compile 'sqlx' (lib) due to 1 previous error`
-     (run 2026-09-18 from this worktree, hermit PATH, twice). Not a
-     concurrency race — an environment break that blocks every Rust
-     `confirm:` in this repo until it is fixed (see §Unknowns). Tree
-     baseline instead:
-     `grep -c "fn update_mode" crates/goose/src/providers/agy.rs` →
-     `0` today.
-3. **Cursor's mapping and comment** — pick between Approve→`plan` and
+     (run twice, 2026-09-18, hermit PATH). Not a concurrency race — an
+     environment break that blocks every Rust `confirm:` in this repo
+     (§Unknowns). Tree baseline instead:
+     `grep -c "fn update_mode" crates/goose/src/providers/agy.rs` → `0`.
+2. **Cursor's mapping and comment** — pick between Approve→`plan` and
    "Approve unavailable on this seat" (an `update_mode` refusal like
    agy's), then make `cursor_acp.rs:70-103` say the true thing. Waits
-   on: 1, and on the user's pick between the two.
+   on: the user's pick between the two.
    - worker: low
    - confirm: `grep -n "requestPermission" crates/goose/src/providers/cursor_acp.rs | wc -l` → `0`
-   - baseline: `1` today (the comment at `:71-75` that the probe
+   - baseline: `1` today (the comment at `:71-75` the capture
      contradicts).
-4. **Carry the adapter's tool name and content** — set
+3. **Carry the adapter's tool name and content** — set
    `_meta.goose.toolCall.toolName` on the permission update and stop
-   `default_tool_title` re-titling a title; forward a `diff` content
-   block instead of dropping it
-   (`provider.rs:2107-2147`, `conversion.rs:136-156`). Waits on: 1.
+   `default_tool_title` re-titling a title that is already one;
+   forward a `diff` content block instead of dropping it
+   (`acp/provider.rs:2107-2147`,
+   `acp/server/tool_calls/conversion.rs:136-156`). Waits on: nothing.
    - worker: medium
    - confirm: `cargo test -p goose --lib acp::provider::tests::action_required_carries_adapter_tool_name 2>&1 | tail -3` → `test result: ok. 1 passed`
-   - baseline: same `sqlx`/`dlopen` failure as task 2; tree baseline
-     `grep -c "action_required_carries_adapter_tool_name" crates/goose/src/acp/provider.rs` → `0` today.
-5. **The card** — testids (`tool-confirmation`,
+   - baseline: same `sqlx`/`dlopen` failure as task 1; tree baseline
+     `grep -c "action_required_carries_adapter_tool_name" crates/goose/src/acp/provider.rs` → `0`.
+4. **The card** — testids (`tool-confirmation`,
    `tool-confirmation-diff`, `tool-approval-allow-once` /
    `-always-allow` / `-deny`), the diff row, the partial bar, and a
    `TOOL_CONFIRMATION_STATES` export naming the six states. Waits
-   on: 4.
+   on: 3.
    - worker: medium
    - confirm: `cd ui/desktop && pnpm vitest run src/components/ToolCallConfirmation.test.tsx -t "renders the adapter diff" 2>&1 | tail -3` → `1 passed`
-   - baseline: not runnable here — this worktree has no
+   - baseline: not runnable in this worktree — it has no
      `ui/desktop/node_modules` (`ls ui/desktop/node_modules` → no
-     output). Tree baseline:
-     `grep -c "tool-confirmation" ui/desktop/src/components/ToolCallConfirmation.tsx` → `0` today.
-6. **The per-seat note in Session controls** — one line under the
-   Mode radios naming what the current seat does with Approve, and
-   the Error row when a seat refuses the change. Waits on: 2, 3, 5.
+     output; `pnpm exec playwright …` → `ERR_PNPM_RECURSIVE_EXEC_FIRST_FAIL
+     Command "playwright" not found`). Tree baseline:
+     `grep -c "tool-confirmation" ui/desktop/src/components/ToolCallConfirmation.tsx` → `0`.
+5. **The per-seat note in Session controls** — one line under the Mode
+   radios naming what the current seat does with Approve, and the
+   Error row when a seat refuses the change. Waits on: 1, 2, 4.
    - worker: medium
    - confirm: `grep -c "workspace-config-mode-note" ui/desktop/src/workspace/SessionControls.tsx` → `1`
    - baseline: `0` today.
-7. **The walk** — `ui/desktop/tests/e2e/approve-mode.spec.ts` for
-   steps 1–7 of the UX test plan, on `claude-acp`. Waits on: 5, 6.
+6. **The walk** — `ui/desktop/tests/e2e/approve-mode.spec.ts` for
+   steps 1–7 of the UX test plan, on `claude-acp`. Waits on: 4, 5.
    - worker: medium
    - confirm: `just walk "approve mode"` → `1 passed`
-   - baseline: `ls ui/desktop/tests/e2e | grep -c approve` → `0`
-     today; `pnpm exec playwright test --project=walks -g "approve
-     mode" --list` cannot run in this worktree (`ERR_PNPM_RECURSIVE_EXEC_FIRST_FAIL
-     Command "playwright" not found` — no `node_modules`).
-8. **The live goose-level probe** (the proof the item asks for; run by
-   the session, not a worker). Waits on: 2–6.
-   - Command: from a scratch repo,
-     `GOOSE_MODE=approve GOOSE_PROVIDER=claude-acp ui/desktop/src/bin/goose run --no-session -t "create probe.txt containing HELLO using your file-write tool"`
-   - What shows the prompt: the CLI prints
-     `action_required(tool_confirmation): Write probe.txt`
-     (`goose-cli/src/session/output.rs:325-328`) and the run parks;
-     `probe.txt` must not exist while it is parked.
-   - The desktop rendering of the same: the Allow · Always Allow ·
-     Deny card in the chat column, then Deny → `Write probe.txt -
-     Denied once` and the agent's reply naming the refusal.
+   - baseline: `ls ui/desktop/tests/e2e | grep -c approve` → `0`; the
+     `--list` form cannot run here (no `node_modules`, above).
+7. **The live goose-level probe** — the proof the item asks for; the
+   session runs it, not a worker. Waits on: 1–5 **and** on the
+   toolchain break (§Unknowns): the probe needs a goose binary built
+   from the changed tree, and the only ones on disk
+   (`target/debug/goose`, `ui/desktop/src/bin/goose`, identical, built
+   2026-09-16 in the **main checkout**) predate every task above.
+   - Command, from a scratch git repo:
+     `GOOSE_MODE=approve <goose> run --provider cursor-acp -t "create probe.txt containing HELLO using your file-write tool"`
+   - What shows the prompt: headless `goose run` in Approve neither
+     parks nor auto-allows — it cancels the turn and errors with
+     `Tool approval required in non-interactive mode with GooseMode::approve`
+     (`goose-cli/src/session/mod.rs:1356-1373`). That error is the
+     seat asking; a seat that does not ask finishes the run and leaves
+     the file.
    - confirm: `test -f probe.txt && echo WROTE || echo GATED` → `GATED`
-   - baseline: on today's tree the same run against `cursor-acp` or
-     `codex-acp` prints `WROTE` — the probes above wrote the file in
-     both Approve-mapped modes with no prompt.
+   - baseline: `WROTE` today — the 2026-09-18 capture shows
+     `cursor-agent acp` in `agent` (and `codex-acp` in `read-only`)
+     writing the file with zero `session/request_permission`.
+   - the desktop half is a hand check, not a walk: the same prompt on
+     a `claude-acp` session with the card on screen → **Deny** → the
+     card collapses to `Write probe.txt - Denied once` and the agent's
+     reply names the refusal (live today: `tool_call_update status:
+     "failed", rawOutput: "User refused permission to run tool"`).
