@@ -202,7 +202,9 @@ lint-ui:
 # Light suite (~2 min, no Electron): Rust unit tests for the fork's crates, sidecar tests,
 # desktop typecheck + eslint + i18n + depcruise + vitest. Run on every merge.
 test-light:
-    cargo test -p goose --lib -- session_bridge summon scheduler 2>&1 | grep -E 'test result|error'
+    # Decision 6 of docs/2026-09-18-ux-parity-plan-v1.md: the sqlx-macros dylib fails dlopen on Darwin 27 (rustc 1.96.1),
+    # so the cargo line is non-fatal until the toolchain builds — a loud marker, never a silent pass.
+    out=$(cargo test -p goose --lib -- session_bridge summon scheduler 2>&1); if printf '%s\n' "$out" | grep -q '^test result'; then printf '%s\n' "$out" | grep -E 'test result|error'; else printf '%s\n' "$out" | grep -E '^error' | head -3; echo '>>> RUST SKIPPED: cargo test did not run to a result (toolchain, decision 6) — rerun every Rust confirm when it builds <<<'; fi
     cd ui/sidecar && pnpm run typecheck && pnpm vitest run
     cd ui/desktop && pnpm run test:light
 
