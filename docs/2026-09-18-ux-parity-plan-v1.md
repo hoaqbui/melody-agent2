@@ -79,7 +79,7 @@ panes, plan mode, onboarding, palette). Companion: the four research docs,
   - context:
     - the guard also covers the three landed routes (decision 1); a session opened in a subdirectory keeps working because containment is the *toplevel*, as git's is
     - headless — no UX plan
-  - confirm: `cd ui/sidecar && pnpm vitest run src/fs.test.ts 2>&1 | grep -E 'Tests ' && grep -c "requestPath" src/fs.ts` → `Tests` ≥ 8 passed and `≥ 1` (untouched: fs.test.ts has 5 tests; grep `0`)
+  - confirm: `cd ui/sidecar && pnpm vitest run src/fs.test.ts 2>&1 | grep -E 'Tests ' && grep -c "requestPath" src/fs.ts` → `Tests` ≥ 6 passed and `≥ 1` (untouched: no `fs.test.ts` exists — vitest exits 1 "No test files found"; grep `0`)
 
 - 74. One poll, one source: widen task 69's status poll (`WorkspaceShell.tsx:762-783`, gated on `diffHidden`) to `isWorkspaceRoute`, hold the last `GitStatusResponse` in shell state, keep the Changes dot's baseline rule, expose `gitStatus` on `PaneContext` (+ the `pane-context` test).
   - status: todo · agent: — · worker: medium
