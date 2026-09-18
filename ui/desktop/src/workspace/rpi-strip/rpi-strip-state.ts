@@ -24,10 +24,9 @@ export interface PhaseView {
   artifact: string | null;
 }
 
-// DESIGN.md §Shared component states, plus `ready` for a strip with nothing unresolved. The
-// PRD's partial line — lit but not clickable, no artifact — is the loading state here: only a
-// running child has no handoff yet, so no phase is lit and idle without one.
-export const RPI_STRIP_STATES = ['empty', 'loading', 'error', 'ready'] as const;
+// DESIGN.md §Shared component states, plus `ready` for a strip with nothing unresolved, and
+// `awaiting` for the plan gate (task 79): Plan done, Implement dim, waiting for Accept (task 90).
+export const RPI_STRIP_STATES = ['empty', 'loading', 'error', 'awaiting', 'ready'] as const;
 
 export type RpiStripState = (typeof RPI_STRIP_STATES)[number];
 
@@ -105,4 +104,17 @@ export function stripState(views: readonly PhaseView[]): RpiStripState {
   if (lit.some((view) => view.status === 'failed')) return 'error';
   if (lit.some((view) => view.status === 'active')) return 'loading';
   return 'ready';
+}
+
+// Plan gate state (task 90): awaiting is when the latest Plan run is done, Implement is dim,
+// chat is idle, and the gate is on. Returns true if in the awaiting state.
+export function gateState(
+  views: readonly PhaseView[],
+  chatIdle: boolean,
+  gateOn: boolean
+): boolean {
+  if (!gateOn || !chatIdle) return false;
+  const plan = views.find((v) => v.phase === 'plan');
+  const implement = views.find((v) => v.phase === 'implement');
+  return plan?.status === 'done' && implement?.status === 'dim';
 }
