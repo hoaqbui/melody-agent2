@@ -11,7 +11,7 @@ use super::base::{MessageStream, Provider, ProviderDef, ProviderMetadata};
 use super::cli_common::{error_from_event, extract_usage_tokens};
 use super::utils::filter_extensions_from_system_prompt;
 use crate::config::search_path::SearchPaths;
-use crate::config::Config;
+use crate::config::{Config, GooseMode};
 use crate::conversation::message::{Message, MessageContent};
 use crate::providers::base::ConfigKey;
 use crate::subprocess::configure_subprocess;
@@ -358,6 +358,17 @@ impl Provider for AgyProvider {
             yield (None, Some(provider_usage));
         }))
     }
+
+    async fn update_mode(&self, _session_id: &str, mode: GooseMode) -> Result<(), ProviderError> {
+        match mode {
+            GooseMode::Auto => Ok(()),
+            GooseMode::Approve | GooseMode::SmartApprove | GooseMode::Chat => {
+                Err(ProviderError::RequestFailed(
+                    "agy runs `--dangerously-skip-permissions`; it cannot ask".to_string(),
+                ))
+            }
+        }
+    }
 }
 
 #[cfg(test)]
@@ -600,5 +611,28 @@ printf '%s\n' '{"event":"result","result":{"conversation_id":"d4645554-a3be-4dd8
         assert!(fs::read_to_string(directory.path().join("stdin"))
             .unwrap()
             .contains("answer in four words or less"));
+    }
+
+    #[tokio::test]
+    async fn update_mode_refuses_non_auto() {
+        let provider = make_provider();
+
+        let result = provider.update_mode("session-1", GooseMode::Auto).await;
+        assert!(result.is_ok());
+
+        let result = provider.update_mode("session-1", GooseMode::Approve).await;
+        assert!(result.is_err());
+        assert_eq!(
+            result.unwrap_err().to_string(),
+            "agy runs `--dangerously-skip-permissions`; it cannot ask"
+        );
+
+        let result = provider
+            .update_mode("session-1", GooseMode::SmartApprove)
+            .await;
+        assert!(result.is_err());
+
+        let result = provider.update_mode("session-1", GooseMode::Chat).await;
+        assert!(result.is_err());
     }
 }

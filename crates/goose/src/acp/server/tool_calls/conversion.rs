@@ -25,6 +25,10 @@ pub(crate) fn format_tool_name(tool_name: &str) -> String {
 }
 
 fn default_tool_title(tool_name: &str, arguments: Option<&serde_json::Value>) -> String {
+    if tool_name.contains(' ') {
+        return tool_name.to_string();
+    }
+
     let base = format_tool_name(tool_name);
 
     let detail = arguments.and_then(|args| {
@@ -152,7 +156,22 @@ pub(crate) fn build_permission_tool_call_update(
         ))]);
     }
 
-    ToolCallUpdate::new(ToolCallId::new(request_id), fields)
+    let mut tool_call_meta = serde_json::Map::new();
+    tool_call_meta.insert(
+        "toolName".to_string(),
+        serde_json::Value::String(tool_name.to_string()),
+    );
+
+    let mut goose_meta = serde_json::Map::new();
+    goose_meta.insert(
+        "toolCall".to_string(),
+        serde_json::Value::Object(tool_call_meta),
+    );
+
+    let mut meta = serde_json::Map::new();
+    meta.insert("goose".to_string(), serde_json::Value::Object(goose_meta));
+
+    ToolCallUpdate::new(ToolCallId::new(request_id), fields).meta(meta)
 }
 
 fn json_u32(value: &serde_json::Value) -> Option<u32> {
@@ -575,6 +594,25 @@ mod tests {
                 first_tool_call_text(&permission.fields),
                 Some("Allow this command?")
             );
+        }
+
+        #[test]
+        fn action_required_carries_adapter_tool_name() {
+            let adapter_tool_name = "Write probe-write.txt";
+            let arguments = json_object(vec![("file_path", serde_json::json!("probe.txt"))]);
+
+            let permission =
+                build_permission_tool_call_update("req-1", adapter_tool_name, arguments, None);
+
+            let meta = permission.meta.as_ref().expect("meta should be set");
+            let goose = meta.get("goose").expect("goose key should exist");
+            let tool_call = goose.get("toolCall").expect("toolCall key should exist");
+            let tool_name = tool_call
+                .get("toolName")
+                .and_then(|v| v.as_str())
+                .expect("toolName should be a string");
+
+            assert_eq!(tool_name, adapter_tool_name);
         }
     }
 
