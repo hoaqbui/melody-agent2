@@ -14,6 +14,8 @@ import Close from './icons/Close';
 import Edit from './icons/Edit';
 import { Button } from './ui/button';
 import { defineMessages, useIntl } from '../i18n';
+import { usePaneContextSafe } from '../workspace/pane-context';
+import { sidecarFetch } from '../native/sidecar';
 
 const i18n = defineMessages({
   editPlaceholder: {
@@ -85,6 +87,22 @@ const i18n = defineMessages({
     id: 'userMessage.editImagesHeading',
     defaultMessage: 'Attached images:',
   },
+  undoThisTurn: {
+    id: 'userMessage.undoThisTurn',
+    defaultMessage: 'Undo this turn',
+  },
+  redoThisTurn: {
+    id: 'userMessage.redoThisTurn',
+    defaultMessage: 'Redo this turn',
+  },
+  undoDisabledInProgress: {
+    id: 'userMessage.undoDisabledInProgress',
+    defaultMessage: 'Undo not available while turn is in progress',
+  },
+  undoDisabledNoSnapshots: {
+    id: 'userMessage.undoDisabledNoSnapshots',
+    defaultMessage: 'No snapshots for this turn',
+  },
 });
 
 interface UserMessageProps {
@@ -104,6 +122,8 @@ function UserMessage({ message, onMessageUpdate }: UserMessageProps) {
   const [isEditing, setIsEditing] = useState(false);
   const [editContent, setEditContent] = useState('');
   const [error, setError] = useState<string | null>(null);
+  const [undoState, setUndoState] = useState<'ready' | 'undo' | 'redo' | 'partial' | 'error' | 'disabled'>('disabled');
+  const [undoError, setUndoError] = useState<string | null>(null);
 
   const { textContent, imagePaths } = getTextAndImageContent(message);
   const timestamp = formatMessageTimestamp(message.created);
@@ -113,12 +133,28 @@ function UserMessage({ message, onMessageUpdate }: UserMessageProps) {
   const messageImages: ImageData[] = imageDataFromMessage(message);
 
   const [removedImageIndices, setRemovedImageIndices] = useState<Set<number>>(new Set());
+  const paneContext = usePaneContextSafe();
 
   useEffect(() => {
     if (!isEditing) {
       setEditContent(textContent);
     }
   }, [message.content, textContent, message.id, isEditing]);
+
+  useEffect(() => {
+    if (!paneContext || message.role !== 'user' || !message.id) {
+      setUndoState('disabled');
+      return;
+    }
+
+    const snapshots = paneContext.getTurnSnapshots(message.id);
+    if (!snapshots) {
+      setUndoState('disabled');
+      return;
+    }
+
+    setUndoState('ready');
+  }, [message.id, message.role, paneContext]);
 
   const initializeEditMode = useCallback(() => {
     setEditContent(textContent);
@@ -204,6 +240,54 @@ function UserMessage({ message, onMessageUpdate }: UserMessageProps) {
     setEditContent(textContent);
     setError(null);
   }, [textContent]);
+
+  const handleTurnUndo = useCallback(async () => {
+    if (!paneContext || undoState !== 'ready' || !message.id) return;
+
+    try {
+      setUndoState('partial');
+      const snapshots = paneContext.getTurnSnapshots(message.id);
+      if (!snapshots) {
+        setUndoState('disabled');
+        return;
+      }
+
+      const diffResponse = (await sidecarFetch('http://localhost:61234/git/diff', {
+        method: 'POST',
+        body: JSON.stringify({
+          base: snapshots.end,
+          head: snapshots.start,
+        }),
+      })) as Response;
+
+      if (!diffResponse.ok) {
+        setUndoError(await diffResponse.text());
+        setUndoState('error');
+        return;
+      }
+
+      const { diff } = (await diffResponse.json()) as { diff: string };
+
+      const applyResponse = (await sidecarFetch('http://localhost:61234/git/apply', {
+        method: 'POST',
+        body: JSON.stringify({
+          patch: diff,
+        }),
+      })) as Response;
+
+      if (!applyResponse.ok) {
+        setUndoError(await applyResponse.text());
+        setUndoState('error');
+        return;
+      }
+
+      setUndoState('redo');
+      setUndoError(null);
+    } catch (e) {
+      setUndoError((e as Error).message);
+      setUndoState('error');
+    }
+  }, [paneContext, message.id, undoState]);
 
   const handleKeyDown = useCallback(
     (e: React.KeyboardEvent) => {
@@ -353,6 +437,34 @@ function UserMessage({ message, onMessageUpdate }: UserMessageProps) {
                     {timestamp}
                   </div>
                   <div className="absolute right-0 pt-1 flex items-center gap-2">
+                    {/* Undo/Redo this turn button (task 88) */}
+                    {undoState !== 'disabled' && (
+                      <button
+                        onClick={handleTurnUndo}
+                        disabled={undoState === 'error' || undoState === 'partial'}
+                        data-testid="turn-undo"
+                        data-disabled={undoState === 'error' || undoState === 'partial' ? 'true' : undefined}
+                        className="flex items-center gap-1 text-xs text-text-secondary hover:cursor-pointer hover:text-text-primary transition-all duration-200 opacity-0 group-hover:opacity-100 -translate-y-4 group-hover:translate-y-0 focus:outline-none focus:ring-2 focus:ring-blue-400 focus:ring-opacity-50 rounded disabled:opacity-50 disabled:cursor-not-allowed"
+                        title={
+                          undoState === 'error'
+                            ? undoError ?? 'Undo failed'
+                            : undoState === 'redo'
+                              ? intl.formatMessage(i18n.redoThisTurn)
+                              : intl.formatMessage(i18n.undoThisTurn)
+                        }
+                        aria-label={
+                          undoState === 'redo'
+                            ? intl.formatMessage(i18n.redoThisTurn)
+                            : intl.formatMessage(i18n.undoThisTurn)
+                        }
+                      >
+                        <span>
+                          {undoState === 'redo'
+                            ? intl.formatMessage(i18n.redoThisTurn)
+                            : intl.formatMessage(i18n.undoThisTurn)}
+                        </span>
+                      </button>
+                    )}
                     {/* A transcript shown read-only (the Agents pane) hands no update path. */}
                     {onMessageUpdate && (
                       <button

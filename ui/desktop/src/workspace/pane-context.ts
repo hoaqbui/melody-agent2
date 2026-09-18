@@ -8,6 +8,7 @@ import type { GitStatusResponse } from '../native/sidecar';
 import type { Message } from '../types/message';
 import type { InsertChatInput } from './chat-insert';
 import type { LayoutMode, PaneId } from './pane-store';
+import type { TurnSnapshots } from './turn-undo';
 
 export interface PaneContextValue {
   cwd: string;
@@ -36,6 +37,8 @@ export interface PaneContextValue {
   // The last git status from the workspace-wide poll; null until the first poll completes.
   // All panes read one value instead of polling their own (task 74).
   gitStatus: GitStatusResponse | null;
+  // Turn snapshots per turn ID (task 88).
+  getTurnSnapshots(turnId: string): TurnSnapshots | undefined;
 }
 
 export const PaneContext = createContext<PaneContextValue | null>(null);
@@ -44,4 +47,8 @@ export function usePaneContext(): PaneContextValue {
   const value = useContext(PaneContext);
   if (!value) throw new Error('usePaneContext: no WorkspaceShell above this pane');
   return value;
+}
+
+export function usePaneContextSafe(): PaneContextValue | null {
+  return useContext(PaneContext);
 }

@@ -93,7 +93,7 @@ import {
 import { WorkColumn, loadDock, saveDock, type PaneChrome } from './WorkColumn';
 import { RailMenu, type RailMenuProps, type TranscriptView } from './RailMenu';
 import { CHANGES_POLL_MS, presetDiffBase, statusFingerprint } from './panes/diff/diff-store';
-import { loadProjectEntry, saveProjectEntry } from './project-storage';
+import { loadProjectEntry, saveProjectEntry, loadTurnSnapshots } from './project-storage';
 import {
   MODE_MESSAGES,
   RoutineChip,
@@ -839,6 +839,14 @@ export function WorkspaceShell({ chat, children, panes, paneStore }: WorkspaceSh
       );
     }
   }, []);
+  const getTurnSnapshots = useCallback(
+    (turnId: string) => {
+      const snapshots = loadTurnSnapshots(cwd);
+      return snapshots[turnId];
+    },
+    [cwd]
+  );
+
   const paneContext = useMemo<PaneContextValue>(
     () => ({
       cwd,
@@ -855,6 +863,7 @@ export function WorkspaceShell({ chat, children, panes, paneStore }: WorkspaceSh
       openReview,
       insertIntoChat,
       gitStatus,
+      getTurnSnapshots,
     }),
     [
       artifact,
@@ -862,6 +871,7 @@ export function WorkspaceShell({ chat, children, panes, paneStore }: WorkspaceSh
       file,
       insertIntoChat,
       gitStatus,
+      getTurnSnapshots,
       layout.mode,
       line,
       openArtifact,

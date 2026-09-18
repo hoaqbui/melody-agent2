@@ -314,6 +314,8 @@ export const gitRoutes = (spawnCwd: string): Record<string, JsonHandler> => ({
     parseStatus(await git(await requestCwd(spawnCwd, body), ['status', '--porcelain=v1', '-b'])),
   // Fixed prefixes, raw paths and no external driver: the renderer parses this output,
   // so a user's diff.noprefix, core.quotePath or diff.external must not reshape it.
+  // With `head` (two tree SHAs), diffs T0..T1 with --binary for git apply compatibility.
+  // With `nameStatus`, shows only --name-status (for undo's file-set check).
   'POST /git/diff': async (body) => {
     const args = [
       '-c',
@@ -321,12 +323,19 @@ export const gitRoutes = (spawnCwd: string): Record<string, JsonHandler> => ({
       'diff',
       '--no-color',
       '--no-ext-diff',
-      '--src-prefix=a/',
-      '--dst-prefix=b/',
     ];
-    if (body.staged === true) args.push('--cached');
-    if (typeof body.context === 'number') args.push(`--unified=${Math.trunc(body.context)}`);
-    if (typeof body.base === 'string') args.push(body.base);
+    if (body.nameStatus === true) {
+      args.push('--name-status', '--no-renames');
+    } else {
+      args.push('--src-prefix=a/', '--dst-prefix=b/');
+      if (body.staged === true) args.push('--cached');
+      if (typeof body.context === 'number') args.push(`--unified=${Math.trunc(body.context)}`);
+    }
+    if (typeof body.head === 'string') {
+      args.push('--binary', `${requireString(body, 'base')}..${body.head}`);
+    } else {
+      if (typeof body.base === 'string') args.push(body.base);
+    }
     if (typeof body.path === 'string') args.push('--', body.path);
     return { diff: await git(await requestCwd(spawnCwd, body), args) };
   },
@@ -469,9 +478,10 @@ export const gitRoutes = (spawnCwd: string): Record<string, JsonHandler> => ({
   },
   'POST /git/snapshot': async (body) => {
     const toplevel = await toplevelOf(await requestCwd(spawnCwd, body));
+    const indexPath = (await git(toplevel, ['rev-parse', '--git-path', 'index'])).trim();
     const tempIndexPath = path.join(os.tmpdir(), `git-index-${Date.now()}-${Math.random().toString(36).slice(2)}`);
     try {
-      await copyFile(path.join(toplevel, '.git', 'index'), tempIndexPath);
+      await copyFile(indexPath, tempIndexPath);
       await git(toplevel, ['add', '-A'], undefined, { GIT_INDEX_FILE: tempIndexPath });
       const tree = (await git(toplevel, ['write-tree'], undefined, { GIT_INDEX_FILE: tempIndexPath })).trim();
       return { tree };
