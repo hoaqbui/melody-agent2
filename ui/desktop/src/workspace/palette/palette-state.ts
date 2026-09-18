@@ -28,20 +28,21 @@ export interface PaletteContext {
   runSchedule: (id: string) => Promise<void>;
   switchStop: (stop: Stop) => void;
   navigate: (view: View) => void;
-  sessionActions?: {
-    openRename?: () => void;
-    fork?: () => Promise<void>;
-    viewJson?: () => Promise<void>;
-    viewModelInteractions?: () => Promise<void>;
-    archive?: () => Promise<void>;
-    openDelete?: () => void;
+  // Task 69's rail ⋯ menu, as callbacks; present whenever currentSession is.
+  sessionActions: {
+    openRename: () => void;
+    fork: () => Promise<void>;
+    transcriptView: (mode: 'full' | 'compact') => void;
+    viewJson: () => Promise<void>;
+    viewModelInteractions: () => Promise<void>;
+    archive: () => Promise<void>;
+    openDelete: () => void;
   };
 }
 
 export function buildCommands(ctx: PaletteContext): Command[] {
   const commands: Command[] = [];
 
-  // Panes group
   for (const id of PANE_IDS) {
     commands.push({
       id: `pane-${id}`,
@@ -51,94 +52,86 @@ export function buildCommands(ctx: PaletteContext): Command[] {
     });
   }
 
-  // Current Session actions
   if (ctx.currentSession) {
     commands.push({
       id: 'session-rename',
       group: 'session',
       label: 'Rename',
-      run: () => ctx.sessionActions?.openRename?.(),
+      run: () => ctx.sessionActions.openRename(),
     });
 
     commands.push({
       id: 'session-fork',
       group: 'session',
       label: 'Fork',
-      run: () => ctx.sessionActions?.fork?.(),
+      run: () => ctx.sessionActions.fork(),
     });
 
     commands.push({
       id: 'session-transcript-full',
       group: 'session',
       label: 'Transcript view: Full',
-      run: () => {},
+      run: () => ctx.sessionActions.transcriptView('full'),
     });
 
     commands.push({
       id: 'session-transcript-compact',
       group: 'session',
       label: 'Transcript view: Compact',
-      run: () => {},
+      run: () => ctx.sessionActions.transcriptView('compact'),
     });
 
     commands.push({
       id: 'session-view-json',
       group: 'session',
       label: 'View session JSON',
-      run: () => ctx.sessionActions?.viewJson?.(),
+      run: () => ctx.sessionActions.viewJson(),
     });
 
     commands.push({
       id: 'session-view-interactions',
       group: 'session',
       label: 'View recent model interactions',
-      run: () => ctx.sessionActions?.viewModelInteractions?.(),
+      run: () => ctx.sessionActions.viewModelInteractions(),
     });
 
     commands.push({
       id: 'session-archive',
       group: 'session',
       label: 'Archive',
-      run: () => ctx.sessionActions?.archive?.(),
+      run: () => ctx.sessionActions.archive(),
     });
 
     commands.push({
       id: 'session-delete',
       group: 'session',
       label: 'Delete',
-      run: () => ctx.sessionActions?.openDelete?.(),
+      run: () => ctx.sessionActions.openDelete(),
     });
   }
 
-  // Other sessions
-  if (ctx.sessions.length > 0) {
-    for (const session of ctx.sessions) {
-      if (!ctx.currentSession || session.id !== ctx.currentSession.id) {
-        commands.push({
-          id: `open-session-${session.id}`,
-          group: 'sessions',
-          label: session.name,
-          hint: session.workingDir,
-          run: () => ctx.openSession(session.id),
-        });
-      }
-    }
-  }
-
-  // Schedules/Routines
-  if (ctx.schedules.length > 0) {
-    for (const schedule of ctx.schedules) {
+  for (const session of ctx.sessions) {
+    if (!ctx.currentSession || session.id !== ctx.currentSession.id) {
       commands.push({
-        id: `routine-${schedule.id}-run`,
-        group: 'routines',
-        label: `Run: ${schedule.name}`,
-        hint: schedule.description,
-        run: () => ctx.runSchedule(schedule.id),
+        id: `open-session-${session.id}`,
+        group: 'sessions',
+        label: session.name,
+        hint: session.workingDir,
+        run: () => ctx.openSession(session.id),
       });
     }
   }
 
-  // Lever stops
+  for (const schedule of ctx.schedules) {
+    commands.push({
+      id: `routine-${schedule.id}-run`,
+      group: 'routines',
+      label: `Run: ${schedule.name}`,
+      hint: schedule.description,
+      run: () => ctx.runSchedule(schedule.id),
+    });
+  }
+
   for (const stop of STOPS) {
     commands.push({
       id: `lever-${stop}`,
@@ -148,7 +141,6 @@ export function buildCommands(ctx: PaletteContext): Command[] {
     });
   }
 
-  // Routes
   commands.push({
     id: 'go-board',
     group: 'go-to',
@@ -179,17 +171,11 @@ export function filterCommands(commands: Command[], query: string): Command[] {
   }
 
   return commands.filter((command) => {
-    return (
-      fuzzyMatch(command.label, query) ||
-      (command.hint && fuzzyMatch(command.hint, query))
-    );
+    return fuzzyMatch(command.label, query) || (command.hint && fuzzyMatch(command.hint, query));
   });
 }
 
-export const PALETTE_STATES = {
-  idle: 'idle',
-  loading: 'loading',
-  error: 'error',
-} as const;
-
-export type PaletteState = (typeof PALETTE_STATES)[keyof typeof PALETTE_STATES];
+// The surface's states (plan-mode research §14): empty is a query with no match, partial a
+// Sessions or Routines call that failed while the local groups stay; error never covers the whole.
+export const PALETTE_STATES = ['empty', 'loading', 'partial', 'ready'] as const;
+export type PaletteState = (typeof PALETTE_STATES)[number];

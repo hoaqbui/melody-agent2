@@ -106,6 +106,11 @@ describe('buildCommands', () => {
       sessionActions: {
         openRename: vi.fn(),
         fork: vi.fn(),
+        transcriptView: vi.fn(),
+        viewJson: vi.fn(),
+        viewModelInteractions: vi.fn(),
+        archive: vi.fn(),
+        openDelete: vi.fn(),
       },
     };
 
@@ -200,15 +205,7 @@ describe('filterCommands', () => {
 });
 
 describe('PALETTE_STATES', () => {
-  it('has idle state', () => {
-    expect(PALETTE_STATES.idle).toBe('idle');
-  });
-
-  it('has loading state', () => {
-    expect(PALETTE_STATES.loading).toBe('loading');
-  });
-
-  it('has error state', () => {
-    expect(PALETTE_STATES.error).toBe('error');
+  it('declares the four surface states in order', () => {
+    expect(PALETTE_STATES).toEqual(['empty', 'loading', 'partial', 'ready']);
   });
 });
