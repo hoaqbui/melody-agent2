@@ -18,6 +18,8 @@ import { toast, ToastContainer } from 'react-toastify';
 import AnnouncementModal from './components/AnnouncementModal';
 import TelemetryConsentPrompt from './components/TelemetryConsentPrompt';
 import OnboardingGuard from './components/onboarding/OnboardingGuard';
+import RuntimesGate from './workspace/onboarding/RuntimesGate';
+import RuntimesGuard from './workspace/onboarding/RuntimesGuard';
 import { createSession } from './sessions';
 import { acpListSessions, acpDeleteSession } from './acp/sessions';
 
@@ -681,8 +683,9 @@ export function AppInner() {
               path="/"
               element={
                 <OnboardingGuard>
-                  <ChatProvider chat={chat} setChat={setChat} contextKey="hub">
-                    <AppLayout>
+                  <RuntimesGuard>
+                    <ChatProvider chat={chat} setChat={setChat} contextKey="hub">
+                      <AppLayout>
                       {/* The chat stays mounted across routes so its streams stay alive;
                           the shell shows it on /pair and hides it elsewhere. */}
                       <WorkspaceShell
@@ -707,11 +710,13 @@ export function AppInner() {
                         <Outlet />
                       </WorkspaceShell>
                     </AppLayout>
-                  </ChatProvider>
+                    </ChatProvider>
+                  </RuntimesGuard>
                 </OnboardingGuard>
               }
             >
               <Route index element={<HubRouteWrapper draftRef={hubDraftRef} />} />
+              <Route path="runtimes" element={<RuntimesGate />} />
               <Route
                 path="pair"
                 element={

@@ -29,6 +29,7 @@ const i18n = defineMessages({
   mode: { id: 'workspaceShell.mode', defaultMessage: 'Mode' },
   more: { id: 'workspaceShell.more', defaultMessage: 'More…' },
   install: { id: 'workspaceShell.install', defaultMessage: 'Install' },
+  signIn: { id: 'workspaceShell.signIn', defaultMessage: 'Sign in' },
   direct: { id: 'workspaceShell.direct', defaultMessage: 'Direct' },
   orchestrate: { id: 'workspaceShell.orchestrate', defaultMessage: 'Orchestrate' },
   noOrchestrator: {
@@ -64,6 +65,7 @@ const i18n = defineMessages({
 
 export const MODE_MESSAGES = { direct: i18n.direct, orchestrate: i18n.orchestrate } as const;
 export const INSTALL_MESSAGE = i18n.install;
+export const SIGN_IN_MESSAGE = i18n.signIn;
 export const NO_ORCHESTRATOR_MESSAGE = i18n.noOrchestrator;
 
 export interface RuntimeOption extends Runtime {

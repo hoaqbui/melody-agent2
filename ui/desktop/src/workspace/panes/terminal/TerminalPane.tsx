@@ -56,13 +56,16 @@ interface TerminalPaneProps {
   // The pty id on the sidecar; the chat session's id, so a reload or the phone reattaches.
   ptyId: string;
   cwd: string;
+  // Optional text to input after the terminal connects (e.g., a command for the user to review)
+  initialInput?: string;
 }
 
-export function TerminalPane({ ptyId, cwd }: TerminalPaneProps) {
+export function TerminalPane({ ptyId, cwd, initialInput }: TerminalPaneProps) {
   const intl = useIntl();
   const { resolvedTheme } = useTheme();
   const phone = usePhoneWidth();
   const hostRef = useRef<HTMLDivElement>(null);
+  const inputSentRef = useRef(false);
   const session = terminalSession(ptyId, cwd);
   const { status, ctrl } = useSyncExternalStore(
     session.subscribe,
@@ -81,6 +84,13 @@ export function TerminalPane({ ptyId, cwd }: TerminalPaneProps) {
       session.unmount();
     };
   }, [session]);
+
+  useEffect(() => {
+    if (initialInput && !inputSentRef.current && status !== 'exited') {
+      inputSentRef.current = true;
+      session.input(initialInput);
+    }
+  }, [initialInput, status, session]);
 
   useEffect(() => {
     session.syncTheme(resolvedTheme);

@@ -109,6 +109,8 @@ import { Lever, STOP_MESSAGES } from './Lever';
 import { TerminalPane } from './panes/terminal/TerminalPane';
 import { reattachTerminals, subscribeTerminalOutput } from './panes/terminal/terminal-session';
 import { newWorktreeSlug, worktreeSlugOf } from './worktree';
+import { probeRuntimes } from '../native/runtimes.js';
+import { seatState, type SeatStates } from './onboarding/seat-state';
 import {
   modeOfSession,
   moreRuntimes,
@@ -482,6 +484,10 @@ export function WorkspaceShell({ chat, children, panes, paneStore }: WorkspaceSh
   const [transcriptView, setTranscriptView] = useState<TranscriptView>('full');
   // The last git status from the workspace-wide poll (task 74).
   const [gitStatus, setGitStatus] = useState<GitStatusResponse | null>(null);
+  // Terminal pane: text to input after connection (task 91).
+  const [terminalInput, setTerminalInput] = useState<string | undefined>();
+  // Runtime seats probed once on workspace load (task 91).
+  const [seats, setSeats] = useState<SeatStates | undefined>();
 
   const cwd = session?.working_dir ?? getInitialWorkingDir();
   const sessionActions = useSessionActions(session);
@@ -568,17 +574,25 @@ export function WorkspaceShell({ chat, children, panes, paneStore }: WorkspaceSh
   useEffect(() => {
     if (!isWorkspaceRoute) return;
     acpListProviderDetails().then(setProviders).catch(console.error);
+    // Probe runtimes once per workspace load (task 91).
+    probeRuntimes()
+      .then((response) => setSeats(seatState(response)))
+      .catch(console.error);
   }, [isWorkspaceRoute]);
 
   // A route may arrive asking for a pane and a Changes base (the Runs inbox's Open, task
   // 53). The ask is consumed once: left in history it would reopen the pane on Back.
+  // Also handles terminalInput for opening Terminal with a login command (task 91).
   useEffect(() => {
     if (!isOnPairRoute) return;
-    const state = location.state as ViewOptions | null;
-    if (!state?.openPane && !state?.diffBase) return;
+    const state = location.state as ViewOptions & { terminalInput?: string } | null;
+    if (!state?.openPane && !state?.diffBase && !state?.terminalInput) return;
     if (state.diffBase) presetDiffBase(state.diffBase);
-    if (state.openPane) store.openPane(state.openPane);
-    const { openPane: _pane, diffBase: _base, ...rest } = state;
+    if (state.openPane) {
+      store.openPane(state.openPane);
+      if (state.terminalInput) setTerminalInput(state.terminalInput);
+    }
+    const { openPane: _pane, diffBase: _base, terminalInput: _input, ...rest } = state;
     // react-router keeps the route state under `usr` beside its own key and index.
     window.history.replaceState({ ...window.history.state, usr: rest }, document.title);
   }, [isOnPairRoute, location.key, location.state, store]);
@@ -926,6 +940,7 @@ export function WorkspaceShell({ chat, children, panes, paneStore }: WorkspaceSh
             busy={busy}
             model={sessionModel}
             onPick={pickStop}
+            seats={seats}
           />
           <WorktreeChip
             slug={worktreeSlug}
@@ -1049,7 +1064,7 @@ export function WorkspaceShell({ chat, children, panes, paneStore }: WorkspaceSh
   // still loading has no working_dir yet, and the shell it would spawn is cached.
   const defaultPane = (id: PaneId) =>
     id === 'terminal' && (!sessionId || session) ? (
-      <TerminalPane ptyId={ptyId} cwd={cwd} />
+      <TerminalPane ptyId={ptyId} cwd={cwd} initialInput={terminalInput} />
     ) : undefined;
   const renderPane = (id: PaneId) => (
     <PaneContext.Provider value={paneContext}>

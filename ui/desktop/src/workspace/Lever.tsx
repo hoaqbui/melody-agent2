@@ -7,8 +7,9 @@ import { Gauge } from 'lucide-react';
 import { defineMessages, useIntl } from '../i18n';
 import { cn } from '../utils';
 import type { ProviderDetails } from '../types/providers';
-import { INSTALL_MESSAGE, MODE_MESSAGES, NO_ORCHESTRATOR_MESSAGE } from './SessionChips';
+import { INSTALL_MESSAGE, MODE_MESSAGES, NO_ORCHESTRATOR_MESSAGE, SIGN_IN_MESSAGE } from './SessionChips';
 import { needsInstall, runtimeLabel, LEVER, STOPS, type Stop } from './session-controls';
+import { seatOfProvider, type SeatStates } from './onboarding/seat-state';
 
 const i18n = defineMessages({
   lever: { id: 'workspaceShell.lever', defaultMessage: 'Lever' },
@@ -29,20 +30,40 @@ export interface LeverProps {
   // The open session's model, named in the tooltip; the stop's match otherwise.
   model?: string;
   onPick(stop: Stop): void;
+  // Runtime seat states; when available, takes precedence over needsInstall (task 91).
+  seats?: SeatStates;
 }
 
 const STOP_WIDTH_PX = 36;
 
-export function Lever({ stop, providers, canOrchestrate, busy, model, onPick }: LeverProps) {
+export function Lever({ stop, providers, canOrchestrate, busy, model, onPick, seats }: LeverProps) {
   const intl = useIntl();
   const index = stop === 'custom' ? STOPS.length : STOPS.indexOf(stop);
   const install = (candidate: Stop) => needsInstall(LEVER[candidate].provider, providers);
+  const seatSuffix = (candidate: Stop): string => {
+    const providerId = LEVER[candidate].provider;
+    const seat = seats && seatOfProvider(providerId);
+    if (seat) {
+      const status = seats[seat];
+      if (status.state === 'signin') {
+        return ` — ${intl.formatMessage(SIGN_IN_MESSAGE)}`;
+      }
+      if (status.state === 'install') {
+        return ` — ${intl.formatMessage(INSTALL_MESSAGE)}`;
+      }
+    }
+    return install(candidate) ? ` — ${intl.formatMessage(INSTALL_MESSAGE)}` : '';
+  };
   // Hard without the project's orchestrator role is out of reach, as Orchestrate is.
-  const blocked = (candidate: Stop) =>
-    install(candidate) || (LEVER[candidate].mode === 'orchestrate' && !canOrchestrate);
+  const blocked = (candidate: Stop) => {
+    const providerId = LEVER[candidate].provider;
+    const seat = seats && seatOfProvider(providerId);
+    return (seat && seats[seat].state !== 'ready') ||
+           install(candidate) ||
+           (LEVER[candidate].mode === 'orchestrate' && !canOrchestrate);
+  };
   const stopLabel = (candidate: Stop) =>
-    intl.formatMessage(STOP_MESSAGES[candidate]) +
-    (install(candidate) ? ` — ${intl.formatMessage(INSTALL_MESSAGE)}` : '');
+    intl.formatMessage(STOP_MESSAGES[candidate]) + seatSuffix(candidate);
   const label = stop === 'custom' ? intl.formatMessage(i18n.custom) : stopLabel(stop);
   // The triple in one line: "Claude · sonnet · Direct".
   const summaryOf = (candidate: Stop) =>
