@@ -4,6 +4,7 @@
 // that child (task 30); a re-run reads ×2 beside the name. Nothing renders until a phase is
 // lit — a Direct session starts as a chat.
 
+import { useState } from 'react';
 import type { MessageDescriptor } from 'react-intl';
 import { defineMessages, useIntl } from '../../i18n';
 import { cn } from '../../utils';
@@ -72,23 +73,27 @@ export interface RpiStripProps {
   cwd: string;
 }
 
-export function RpiStrip({
-  sessionId,
-  openArtifact,
-  chatIdle,
-  gateOn,
-  cwd,
-}: RpiStripProps) {
+export function RpiStrip({ sessionId, openArtifact, chatIdle, gateOn, cwd }: RpiStripProps) {
   const intl = useIntl();
   const rows = useSessionDelegations(sessionId);
   const views = phaseViews(rows);
   const state = stripState(views);
   const awaiting = gateState(views, chatIdle, gateOn);
 
+  // Implement lit while the gate is armed and this plan run was never accepted: the model
+  // overran the rule (plan §Plan gate; decision 13 counts these).
+  const plan = views.find((v) => v.phase === 'plan');
   const implement = views.find((v) => v.phase === 'implement');
-  const overrun = awaiting && implement?.status !== 'dim';
+  const [acceptedRuns, setAcceptedRuns] = useState<number | null>(null);
+  const overrun =
+    gateOn &&
+    plan?.status === 'done' &&
+    implement !== undefined &&
+    implement.status !== 'dim' &&
+    acceptedRuns !== plan.runs;
 
   const handleAccept = () => {
+    setAcceptedRuns(plan?.runs ?? null);
     prompt(sessionId, 'Plan accepted — implement it.', cwd).catch(console.error);
   };
 
@@ -164,23 +169,11 @@ export function RpiStrip({
           data-testid="rpi-gate"
           role="status"
         >
-          <span className="flex-1 text-text-primary">
-            {intl.formatMessage(i18n.gateReady)}
-          </span>
-          <Button
-            variant="ghost"
-            size="xs"
-            data-testid="rpi-accept"
-            onClick={handleAccept}
-          >
+          <span className="flex-1 text-text-primary">{intl.formatMessage(i18n.gateReady)}</span>
+          <Button variant="ghost" size="xs" data-testid="rpi-accept" onClick={handleAccept}>
             {intl.formatMessage(i18n.gateAccept)}
           </Button>
-          <Button
-            variant="ghost"
-            size="xs"
-            data-testid="rpi-revise"
-            onClick={handleRevise}
-          >
+          <Button variant="ghost" size="xs" data-testid="rpi-revise" onClick={handleRevise}>
             {intl.formatMessage(i18n.gateRevise)}
           </Button>
         </div>
