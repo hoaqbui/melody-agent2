@@ -18,6 +18,8 @@ describe('pane-context types', () => {
       openReview: () => {},
       insertIntoChat: () => {},
       gitStatus: null,
+      openPane: () => {},
+      focusCommit: () => {},
     };
     expect(context.gitStatus).toBeNull();
   });
@@ -44,6 +46,8 @@ describe('pane-context types', () => {
         behind: 0,
         entries: [],
       },
+      openPane: () => {},
+      focusCommit: () => {},
     };
     expect(context.gitStatus).not.toBeNull();
     expect(context.gitStatus?.branch).toBe('main');

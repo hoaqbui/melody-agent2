@@ -325,6 +325,7 @@ export const gitRoutes = (spawnCwd: string): Record<string, JsonHandler> => ({
       '--dst-prefix=b/',
     ];
     if (body.staged === true) args.push('--cached');
+    if (body.numstat === true) args.push('--numstat');
     if (typeof body.context === 'number') args.push(`--unified=${Math.trunc(body.context)}`);
     if (typeof body.base === 'string') args.push(body.base);
     if (typeof body.path === 'string') args.push('--', body.path);
@@ -355,6 +356,25 @@ export const gitRoutes = (spawnCwd: string): Record<string, JsonHandler> => ({
       '--',
       ...requireStringArray(body, 'paths'),
     ]);
+    return {};
+  },
+  'POST /git/discard': async (body) => {
+    const cwd = await requestCwd(spawnCwd, body);
+    const message = `goose discard ${Date.now()}`;
+    await git(cwd, ['stash', 'push', '-u', '-m', message]);
+    return { stash: message };
+  },
+  'POST /git/discard/undo': async (body) => {
+    const cwd = await requestCwd(spawnCwd, body);
+    const stash = requireString(body, 'stash');
+    const stashList = (await git(cwd, ['stash', 'list'])).split('\n').filter((line) => line.length > 0);
+    const entry = stashList.find((line) => line.includes(stash));
+    if (!entry) {
+      throw new HttpError(404, `stash entry not found: ${stash}`);
+    }
+    const stashRef = entry.split(':')[0];
+    await git(cwd, ['stash', 'apply', stashRef]);
+    await git(cwd, ['stash', 'drop', stashRef]);
     return {};
   },
   'POST /git/commit': async (body) => ({
