@@ -798,6 +798,45 @@ export default function ChatInput({
     return () => window.removeEventListener(AppEvents.INSERT_INPUT_TEXT, handleInsertInputText);
   }, [applyInputValue, displayValue, textAreaRef]);
 
+  useEffect(() => {
+    const handleInsertInputImage = (event: Event) => {
+      if (pastedImages.length >= MAX_IMAGES_PER_MESSAGE) {
+        setPastedImages((prev) => [
+          ...prev,
+          {
+            id: `error-${Date.now()}`,
+            dataUrl: '',
+            isLoading: false,
+            error: `Maximum ${MAX_IMAGES_PER_MESSAGE} images per message allowed. Currently have ${pastedImages.length}.`,
+          },
+        ]);
+        const timeoutId = setTimeout(() => {
+          setPastedImages((prev) => prev.filter((img) => !img.id.startsWith('error-')));
+          timeoutRefsRef.current.delete(timeoutId);
+        }, 5000);
+        timeoutRefsRef.current.add(timeoutId);
+        return;
+      }
+
+      const { data, mimeType } = (
+        event as CustomEvent<{ data: string; mimeType: string }>
+      ).detail;
+      const imageId = `quoted-${Date.now()}-${Math.random().toString(36).substring(2, 9)}`;
+      const dataUrl = `data:${mimeType};base64,${data}`;
+
+      setPastedImages((prev) => [
+        ...prev,
+        {
+          id: imageId,
+          dataUrl,
+          isLoading: false,
+        },
+      ]);
+    };
+    window.addEventListener(AppEvents.INSERT_INPUT_IMAGE, handleInsertInputImage);
+    return () => window.removeEventListener(AppEvents.INSERT_INPUT_IMAGE, handleInsertInputImage);
+  }, [pastedImages.length]);
+
   const handleChange = (evt: React.ChangeEvent<HTMLTextAreaElement>) => {
     const val = evt.target.value;
     const cursorPosition = evt.target.selectionStart;

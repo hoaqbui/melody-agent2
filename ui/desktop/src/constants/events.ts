@@ -13,6 +13,7 @@ export enum AppEvents {
   SCROLL_CHAT_TO_BOTTOM = 'scroll-chat-to-bottom',
   HIDE_ALERT_POPOVER = 'hide-alert-popover',
   INSERT_INPUT_TEXT = 'insert-input-text',
+  INSERT_INPUT_IMAGE = 'insert-input-image',
   RESPONSE_STYLE_CHANGED = 'responseStyleChanged',
   WORKSPACE_UI_CHANGED = 'workspaceUiChanged',
 }

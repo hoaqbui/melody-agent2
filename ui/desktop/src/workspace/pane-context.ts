@@ -7,6 +7,12 @@ import { createContext, useContext } from 'react';
 import type { Message } from '../types/message';
 import type { LayoutMode, PaneId } from './pane-store';
 
+export interface InsertChatInput {
+  kind: 'text' | 'image';
+  text?: string;
+  source: { path: string; lines?: [number, number] };
+}
+
 export interface PaneContextValue {
   cwd: string;
   mode: LayoutMode;
@@ -29,6 +35,8 @@ export interface PaneContextValue {
   // The review session the Review pane shows (task 70); null until a review is started.
   review: string | null;
   openReview(sessionId: string): void;
+  // Hand text or image to the chat input for the user to read before sending (task 76).
+  insertIntoChat(input: InsertChatInput): void;
 }
 
 export const PaneContext = createContext<PaneContextValue | null>(null);
