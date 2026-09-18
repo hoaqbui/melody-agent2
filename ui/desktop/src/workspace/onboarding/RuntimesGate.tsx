@@ -1,11 +1,10 @@
-import { useEffect, useRef, useState } from 'react';
+import { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router';
 import { Loader2 } from 'lucide-react';
 import { defineMessages, useIntl } from '../../i18n';
 import { Button } from '../../components/ui/button';
 import { probeRuntimes } from '../../native/runtimes.js';
 import { seatState, overallGateState, SEAT_STATE_TO_DOM, type SeatStates, type RuntimesGateState } from './seat-state';
-import { cn } from '../../utils';
 
 export const RUNTIMES_GATE_TESTID = 'runtimes-gate';
 
@@ -50,18 +49,15 @@ export default function RuntimesGate() {
   const navigate = useNavigate();
   const [state, setState] = useState<RuntimesGateState>('loading');
   const [seats, setSeats] = useState<SeatStates | null>(null);
-  const [error, setError] = useState<string | null>(null);
   const isWebBuild = !/\bElectron\//.test(window.navigator.userAgent);
   const probe = async () => {
     try {
       setState('loading');
-      setError(null);
       const response = await probeRuntimes();
       const newSeats = seatState(response);
       setSeats(newSeats);
       setState(overallGateState(newSeats));
-    } catch (err) {
-      setError(err instanceof Error ? err.message : 'Unknown error');
+    } catch {
       setState('error');
     }
   };

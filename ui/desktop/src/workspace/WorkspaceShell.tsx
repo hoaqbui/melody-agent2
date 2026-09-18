@@ -1000,6 +1000,7 @@ export function WorkspaceShell({ chat, children, panes, paneStore }: WorkspaceSh
       providers,
       runtimeOptions,
       saveRoutine,
+      seats,
       session,
       sessionCwd,
       sessionModel,
