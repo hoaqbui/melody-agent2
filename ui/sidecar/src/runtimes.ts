@@ -1,4 +1,5 @@
 import { execFile } from 'node:child_process';
+
 import type { JsonHandler } from './http.js';
 
 interface SeatProbe {
@@ -7,81 +8,60 @@ interface SeatProbe {
   detail?: string;
 }
 
-interface RuntimesProbeResponse {
-  seat: Record<string, SeatProbe>;
-}
-
 const PROBE_TIMEOUT_MS = 5000;
+const SIGNED_OUT = /not (logged|signed) in/i;
 
-const probeCommand = (command: string, args: string[]): Promise<SeatProbe> =>
+// Four fixed argv arrays — never a shell, never anything from the request (plan §Security lens).
+const PROBES = {
+  claude: ['claude', ['auth', 'status', '--json']],
+  codex: ['codex', ['login', 'status']],
+  cursor: ['cursor-agent', ['status']],
+  agy: ['agy', ['models']],
+} as const;
+
+const firstLine = (text: string): string | undefined => text.trim().split('\n')[0] || undefined;
+
+// `claude auth status --json` is the one structured answer ({loggedIn, email}; claude 2.x, 2026-09);
+// the other three print a sentence, read for its sign-out words.
+const readSignedIn = (command: string, stdout: string): Omit<SeatProbe, 'installed'> => {
+  if (command === 'claude') {
+    try {
+      const parsed = JSON.parse(stdout) as { loggedIn?: boolean; email?: string };
+      return { signedIn: parsed.loggedIn === true, detail: parsed.email };
+    } catch {
+      // an older claude prints a sentence instead
+    }
+  }
+  const line = firstLine(stdout);
+  return { signedIn: line !== undefined && !SIGNED_OUT.test(stdout), detail: line };
+};
+
+const probe = (command: string, args: readonly string[]): Promise<SeatProbe> =>
   new Promise((resolve) => {
-    let timedOut = false;
-    const timeout = setTimeout(() => {
-      timedOut = true;
-      child.kill();
-    }, PROBE_TIMEOUT_MS);
-
-    const child = execFile(command, args, { timeout: PROBE_TIMEOUT_MS }, (error, stdout, stderr) => {
-      clearTimeout(timeout);
-
-      if (timedOut) {
-        resolve({ installed: true, signedIn: false, detail: 'timeout' });
-        return;
-      }
-
-      if (error?.code === 'ENOENT') {
+    execFile(command, [...args], { timeout: PROBE_TIMEOUT_MS }, (error, stdout, stderr) => {
+      if (error && (error as NodeJS.ErrnoException).code === 'ENOENT') {
         resolve({ installed: false, signedIn: false });
         return;
       }
-
       if (error) {
-        const output = stderr.trim() || stdout.trim();
-        const detail = output.split('\n')[0] || error.message;
+        const detail = error.killed
+          ? 'timed out'
+          : (firstLine(stderr) ?? firstLine(stdout) ?? error.message);
         resolve({ installed: true, signedIn: false, detail });
         return;
       }
-
-      const output = stdout.trim();
-
-      try {
-        // Parse the JSON response from claude auth status --json
-        if (command === 'claude') {
-          const parsed = JSON.parse(output);
-          const signedIn = parsed.loggedIn === true;
-          const detail = signedIn ? parsed.email : undefined;
-          resolve({ installed: true, signedIn, detail });
-          return;
-        }
-      } catch {
-        // Fall through to text parsing
-      }
-
-      // For text-based responses, use the output as detail
-      const signedIn =
-        output.length > 0 &&
-        !output.toLowerCase().includes('not logged in') &&
-        !output.toLowerCase().includes('not signed in');
-      const detail = output.split('\n')[0] || undefined;
-      resolve({ installed: true, signedIn, detail });
+      resolve({ installed: true, ...readSignedIn(command, stdout) });
     });
   });
 
 export const runtimesRoutes = (): Record<string, JsonHandler> => ({
   'POST /runtimes/probe': async () => {
-    const results = await Promise.all([
-      probeCommand('claude', ['auth', 'status', '--json']),
-      probeCommand('codex', ['login', 'status']),
-      probeCommand('cursor-agent', ['status']),
-      probeCommand('agy', ['models']),
-    ]);
-
-    return {
-      seat: {
-        claude: results[0],
-        codex: results[1],
-        cursor: results[2],
-        agy: results[3],
-      },
-    } as RuntimesProbeResponse;
+    const seats = await Promise.all(
+      Object.entries(PROBES).map(async ([seat, [command, args]]) => [
+        seat,
+        await probe(command, args),
+      ])
+    );
+    return { seat: Object.fromEntries(seats) };
   },
 });

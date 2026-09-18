@@ -1,8 +1,15 @@
 import type { RuntimesProbeResponse } from '../../native/runtimes.js';
 
-export type SeatState = 'install' | 'signin' | 'ready' | 'unknown';
+export type SeatState = 'install' | 'signin' | 'ready';
 
-export const RUNTIMES_GATE_STATES = ['empty', 'loading', 'partial', 'error', 'ready', 'unavailable'] as const;
+export const RUNTIMES_GATE_STATES = [
+  'empty',
+  'loading',
+  'partial',
+  'error',
+  'ready',
+  'unavailable',
+] as const;
 export type RuntimesGateState = (typeof RUNTIMES_GATE_STATES)[number];
 
 export interface SeatStatus {
@@ -18,7 +25,11 @@ export interface SeatStates {
 }
 
 export function seatState(probe: RuntimesProbeResponse): SeatStates {
-  const mapSeat = (seat: { installed: boolean; signedIn: boolean; detail?: string }): SeatStatus => {
+  const mapSeat = (seat: {
+    installed: boolean;
+    signedIn: boolean;
+    detail?: string;
+  }): SeatStatus => {
     if (!seat.installed) {
       return { state: 'install' };
     }

@@ -112,12 +112,6 @@ Approved 2026-09-18 on the user's delegation; all 17 gate decisions as recommend
   - context: headless — no UX plan; the recipe line is fixed at `session/new` (the `claude-code` system prompt is baked at first spawn); a routine saved from an Orchestrate session must NOT carry the gate line — `routine.ts` strips it (decision 3)
   - confirm: `cd ui/desktop && pnpm vitest run src/workspace/session-controls.test.ts -t "plan gate" 2>&1 | grep -E 'Tests'` → contains `2 passed` (untouched: `11 skipped`); `grep -c "end your turn after the Planner" .agents/agents/orchestrator.md` → `1` (untouched: `0`; the file already says "Accept" once, in §Reconcile)
 
-- 80. `POST /runtimes/probe` on the sidecar: `execFile` of `claude auth status --json`, `codex login status`, `cursor-agent status`, `agy models` (5 s timeout each) → `{seat: {installed, signedIn, detail}}`, keyed like every route; `src/native/runtimes.ts` client; `src/workspace/onboarding/seat-state.ts` (`RUNTIMES_GATE_STATES`, `seatState`) + test.
-  - status: doing · agent: session-wave1 [Fable, worktree worker per AGENTS.md chain] · worker: medium
-  - card: as the workspace, know whether each seat is installed and signed in — today the only probe is a binary lookup and `claude-code` always reads available (plan-mode research §13 surprise)
-  - context: headless — no UX plan; a Security lens at the gate: the sidecar spawns four fixed argv arrays, never a shell, never user input
-  - confirm: `cd ui/sidecar && pnpm vitest run src/runtimes.test.ts 2>&1 | grep -E 'Tests'` → contains `4 passed` (untouched: `No test files found`); `cd ui/desktop && pnpm vitest run src/workspace/onboarding` → ≥ 5 passed (untouched: no dir)
-
 - 81. Palette state: `src/workspace/palette/palette-state.ts` (`commands` from `PANE_IDS`, sessions, schedules with Run now, the lever's stops, routes, task 69's session actions; `filterCommands`; `PALETTE_STATES`) + `src/utils/fuzzy.ts` lifted from `ProviderSelector.tsx:97-103` (its second use) + tests.
   - status: doing · agent: session-wave1 [Fable, worktree worker per AGENTS.md chain] · worker: low
   - card: as the palette, have one list of everything the workspace can do, ranked by a match the app already uses (plan-mode research §14)
