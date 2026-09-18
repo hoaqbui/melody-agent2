@@ -31,6 +31,32 @@ export interface FsWriteResponse {
   path: string;
 }
 
+export interface FsMkdirRequest {
+  path: string;
+}
+
+export interface FsMkdirResponse {
+  path: string;
+}
+
+export interface FsRenameRequest {
+  path: string;
+  to: string;
+}
+
+export interface FsRenameResponse {
+  path: string;
+}
+
+export interface FsDeleteRequest {
+  path: string;
+}
+
+export interface FsDeleteResponse {
+  path: string;
+  trash: string;
+}
+
 export type FsWatchEventType = 'watching' | 'add' | 'addDir' | 'change' | 'unlink' | 'unlinkDir';
 
 export interface FsWatchEvent {

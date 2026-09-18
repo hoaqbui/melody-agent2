@@ -135,4 +135,92 @@ describe('fsRoutes', () => {
       expect((await failure(routes['POST /fs/list']({ path: 7 }))).status).toBe(400);
     });
   });
+
+  describe('mkdir', () => {
+    it('creates a directory', async () => {
+      await routes['POST /fs/mkdir']({ path: 'newdir' });
+      const listed = (await routes['POST /fs/list']({ path: '.' })) as {
+        entries: { name: string }[];
+      };
+      expect(listed.entries.map((e) => e.name)).toContain('newdir');
+      await rm(path.join(repo, 'newdir'), { recursive: true });
+    });
+
+    it('refuses to create a path outside the toplevel with 400', async () => {
+      const error = await failure(routes['POST /fs/mkdir']({ path: '../outside/newdir' }));
+      expect(error.status).toBe(400);
+      expect(error.message).toContain('outside the repository');
+    });
+  });
+
+  describe('rename', () => {
+    it('renames a file', async () => {
+      await writeFile(path.join(repo, 'old.txt'), 'content\n');
+      await routes['POST /fs/rename']({ path: 'old.txt', to: 'new.txt' });
+      const exists = (await routes['POST /fs/read']({ path: 'new.txt' })) as {
+        path: string;
+        content: string;
+      };
+      expect(exists.content).toBe('content\n');
+      await rm(path.join(repo, 'new.txt'));
+    });
+
+    it('refuses to rename to a path outside the toplevel with 400', async () => {
+      await writeFile(path.join(repo, 'rename-test.txt'), 'x\n');
+      const error = await failure(
+        routes['POST /fs/rename']({ path: 'rename-test.txt', to: '../outside/file.txt' })
+      );
+      expect(error.status).toBe(400);
+      expect(error.message).toContain('outside the repository');
+      await rm(path.join(repo, 'rename-test.txt'));
+    });
+
+    it('refuses to rename from a path outside the toplevel with 400', async () => {
+      const error = await failure(
+        routes['POST /fs/rename']({ path: '../outside/file.txt', to: 'local.txt' })
+      );
+      expect(error.status).toBe(400);
+      expect(error.message).toContain('outside the repository');
+    });
+  });
+
+  describe('delete', () => {
+    it('deletes a file into trash', async () => {
+      await writeFile(path.join(repo, 'delete-me.txt'), 'x\n');
+      const result = (await routes['POST /fs/delete']({ path: 'delete-me.txt' })) as {
+        path: string;
+        trash: string;
+      };
+      expect(result.trash).toMatch(/\.goose-trash/);
+      const trashEntries = (await routes['POST /fs/list']({ path: '.goose-trash' })) as {
+        entries: { name: string }[];
+      };
+      expect(trashEntries.entries.map((e) => e.name)).toContain('delete-me.txt');
+      await rm(path.join(repo, '.goose-trash'), { recursive: true });
+    });
+
+    it('hides .goose-trash from list', async () => {
+      await writeFile(path.join(repo, 'hidden-test.txt'), 'x\n');
+      await routes['POST /fs/delete']({ path: 'hidden-test.txt' });
+      const listed = (await routes['POST /fs/list']({ path: '.' })) as {
+        entries: { name: string }[];
+      };
+      expect(listed.entries.map((e) => e.name)).not.toContain('.goose-trash');
+      await rm(path.join(repo, '.goose-trash'), { recursive: true });
+    });
+
+    it('adds .goose-trash to git info/exclude', async () => {
+      await writeFile(path.join(repo, 'exclude-test.txt'), 'x\n');
+      await routes['POST /fs/delete']({ path: 'exclude-test.txt' });
+      const excludeContent = await readFile(path.join(repo, '.git', 'info', 'exclude'), 'utf8');
+      expect(excludeContent).toContain('.goose-trash');
+      await rm(path.join(repo, '.goose-trash'), { recursive: true });
+    });
+
+    it('refuses to delete a path outside the toplevel with 400', async () => {
+      const error = await failure(routes['POST /fs/delete']({ path: '../outside/file.txt' }));
+      expect(error.status).toBe(400);
+      expect(error.message).toContain('outside the repository');
+    });
+  });
 });
