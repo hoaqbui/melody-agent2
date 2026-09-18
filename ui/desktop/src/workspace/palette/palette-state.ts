@@ -18,26 +18,27 @@ export interface ScheduleDisplay {
   description?: string;
 }
 
+// Task 69's rail ⋯ menu, as callbacks.
+export interface SessionActions {
+  openRename: () => void;
+  fork: () => Promise<void>;
+  transcriptView: (mode: 'full' | 'compact') => void;
+  viewJson: () => Promise<void>;
+  viewModelInteractions: () => Promise<void>;
+  archive: () => Promise<void>;
+  openDelete: () => void;
+}
+
 export interface PaletteContext {
   panes: Record<PaneId, { title: string }>;
   sessions: SessionListItem[];
   schedules: ScheduleDisplay[];
-  currentSession: { id: string; name: string } | undefined;
+  currentSession: { id: string; name: string; actions: SessionActions } | undefined;
   openPane: (id: PaneId) => void;
   openSession: (id: string) => void;
   runSchedule: (id: string) => Promise<void>;
   switchStop: (stop: Stop) => void;
   navigate: (view: View) => void;
-  // Task 69's rail ⋯ menu, as callbacks; present whenever currentSession is.
-  sessionActions: {
-    openRename: () => void;
-    fork: () => Promise<void>;
-    transcriptView: (mode: 'full' | 'compact') => void;
-    viewJson: () => Promise<void>;
-    viewModelInteractions: () => Promise<void>;
-    archive: () => Promise<void>;
-    openDelete: () => void;
-  };
 }
 
 export function buildCommands(ctx: PaletteContext): Command[] {
@@ -53,60 +54,61 @@ export function buildCommands(ctx: PaletteContext): Command[] {
   }
 
   if (ctx.currentSession) {
+    const actions = ctx.currentSession.actions;
     commands.push({
       id: 'session-rename',
       group: 'session',
       label: 'Rename',
-      run: () => ctx.sessionActions.openRename(),
+      run: () => actions.openRename(),
     });
 
     commands.push({
       id: 'session-fork',
       group: 'session',
       label: 'Fork',
-      run: () => ctx.sessionActions.fork(),
+      run: () => actions.fork(),
     });
 
     commands.push({
       id: 'session-transcript-full',
       group: 'session',
       label: 'Transcript view: Full',
-      run: () => ctx.sessionActions.transcriptView('full'),
+      run: () => actions.transcriptView('full'),
     });
 
     commands.push({
       id: 'session-transcript-compact',
       group: 'session',
       label: 'Transcript view: Compact',
-      run: () => ctx.sessionActions.transcriptView('compact'),
+      run: () => actions.transcriptView('compact'),
     });
 
     commands.push({
       id: 'session-view-json',
       group: 'session',
       label: 'View session JSON',
-      run: () => ctx.sessionActions.viewJson(),
+      run: () => actions.viewJson(),
     });
 
     commands.push({
       id: 'session-view-interactions',
       group: 'session',
       label: 'View recent model interactions',
-      run: () => ctx.sessionActions.viewModelInteractions(),
+      run: () => actions.viewModelInteractions(),
     });
 
     commands.push({
       id: 'session-archive',
       group: 'session',
       label: 'Archive',
-      run: () => ctx.sessionActions.archive(),
+      run: () => actions.archive(),
     });
 
     commands.push({
       id: 'session-delete',
       group: 'session',
       label: 'Delete',
-      run: () => ctx.sessionActions.openDelete(),
+      run: () => actions.openDelete(),
     });
   }
 

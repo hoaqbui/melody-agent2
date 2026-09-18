@@ -97,21 +97,24 @@ describe('buildCommands', () => {
       panes: mockPanesRecord,
       sessions: [],
       schedules: [],
-      currentSession: { id: 'session-1', name: 'Test' },
+      currentSession: {
+        id: 'session-1',
+        name: 'Test',
+        actions: {
+          openRename: vi.fn(),
+          fork: vi.fn(),
+          transcriptView: vi.fn(),
+          viewJson: vi.fn(),
+          viewModelInteractions: vi.fn(),
+          archive: vi.fn(),
+          openDelete: vi.fn(),
+        },
+      },
       openPane: vi.fn(),
       openSession: vi.fn(),
       runSchedule: vi.fn(),
       switchStop: vi.fn(),
       navigate: vi.fn(),
-      sessionActions: {
-        openRename: vi.fn(),
-        fork: vi.fn(),
-        transcriptView: vi.fn(),
-        viewJson: vi.fn(),
-        viewModelInteractions: vi.fn(),
-        archive: vi.fn(),
-        openDelete: vi.fn(),
-      },
     };
 
     const commands = buildCommands(ctx);
