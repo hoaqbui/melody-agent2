@@ -206,6 +206,14 @@ function createTerminalSession(id: string, cwd: string): TerminalSession {
     void connect();
   };
 
+  // Let ⌘K through to the workspace (task 92).
+  term.attachCustomKeyEventHandler((event) => {
+    if ((event.metaKey || event.ctrlKey) && event.key.toLowerCase() === 'k') {
+      return false; // Let the event bubble to the workspace
+    }
+    return true; // Handle it in xterm
+  });
+
   return {
     getState: () => state,
     subscribe: (listener) => {

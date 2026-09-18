@@ -24,6 +24,7 @@ import {
 } from 'lucide-react';
 import { defineMessages, useIntl } from '../i18n';
 import { AppEvents } from '../constants/events';
+import { Command } from 'lucide-react';
 import { all_response_styles } from '../components/settings/response_styles/ResponseStyleSelectionItem';
 import {
   DropdownMenuContent,
@@ -89,6 +90,7 @@ const i18n = defineMessages({
     id: 'workspaceShell.routineNoSession',
     defaultMessage: 'Open a session first',
   },
+  commandPalette: { id: 'workspaceShell.commandPalette', defaultMessage: 'Command palette' },
 });
 
 export type TranscriptView = 'full' | 'compact';
@@ -120,6 +122,7 @@ export interface RailMenuProps {
   onOpenResponseStyles(): void;
   onBackgroundTasks(): void;
   onSaveRoutine?: () => void;
+  onCommandPalette(): void;
   // Where the content opens from its trigger; the host's geometry, not the menu's.
   side: 'bottom' | 'left';
   align: 'end' | 'center';
@@ -163,6 +166,7 @@ export function RailMenu({
   onOpenResponseStyles,
   onBackgroundTasks,
   onSaveRoutine,
+  onCommandPalette,
   side,
   align,
   onClose,
@@ -236,6 +240,18 @@ export function RailMenu({
           </DropdownMenuItem>
         );
       })}
+      <DropdownMenuSeparator />
+      <DropdownMenuItem
+        data-testid="workspace-command-palette"
+        onSelect={() => {
+          onClose();
+          onCommandPalette();
+        }}
+      >
+        <Command />
+        {intl.formatMessage(i18n.commandPalette)}
+        <DropdownMenuShortcut>⌘K</DropdownMenuShortcut>
+      </DropdownMenuItem>
       <DropdownMenuSeparator />
       {/* The Board (task 67) once it lands; the Runs inbox on Schedules until then. */}
       <DropdownMenuItem data-testid="workspace-background-tasks" onSelect={onBackgroundTasks}>

@@ -32,6 +32,7 @@ import {
   GitCompare,
   Globe,
   MessageSquareText,
+  Search,
   Terminal,
   Users,
 } from 'lucide-react';
@@ -68,8 +69,12 @@ import {
   acpChatSessionStore,
   useAcpChatSessionSnapshot,
 } from '../acp/chatSessionStore';
+import { acpListSessions, type SessionListItem } from '../acp/sessions';
+import { acpListSchedules } from '../acp/schedules';
 import { createSession } from '../sessions';
 import { AppEvents } from '../constants/events';
+import { CommandPalette } from './palette/CommandPalette';
+import type { PaletteContext, ScheduleDisplay } from './palette/palette-state';
 import type { ViewOptions } from '../utils/navigationUtils';
 import { getEffectiveWorkingDir, getInitialWorkingDir } from '../utils/workingDir';
 import type { Message } from '../types/message';
@@ -267,8 +272,8 @@ interface TabRailProps {
 }
 
 // The phone's one-at-a-time strip (DESIGN.md §Frame): chat first, then every pane, along the
-// bottom edge where a thumb reaches; the shown tab is pressed.
-function TabRail({ shown, onShow }: TabRailProps) {
+// bottom edge where a thumb reaches; the shown tab is pressed. The search tab opens the command palette.
+function TabRail({ shown, onShow, onCommandPalette }: TabRailProps & { onCommandPalette?: () => void }) {
   const intl = useIntl();
   const tabs = [
     { id: 'chat' as const, title: intl.formatMessage(i18n.columnChat), Icon: MessageSquareText },
@@ -301,6 +306,18 @@ function TabRail({ shown, onShow }: TabRailProps) {
           <Icon />
         </Button>
       ))}
+      {onCommandPalette && (
+        <Button
+          variant="ghost"
+          size="sm"
+          className="w-9 shrink-0 px-0"
+          aria-label="Command palette"
+          data-testid="palette-tab"
+          onClick={onCommandPalette}
+        >
+          <Search />
+        </Button>
+      )}
     </div>
   );
 }
@@ -482,6 +499,11 @@ export function WorkspaceShell({ chat, children, panes, paneStore }: WorkspaceSh
   const [transcriptView, setTranscriptView] = useState<TranscriptView>('full');
   // The last git status from the workspace-wide poll (task 74).
   const [gitStatus, setGitStatus] = useState<GitStatusResponse | null>(null);
+  // Command palette (task 92).
+  const [paletteOpen, setPaletteOpen] = useState(false);
+  const paletteReturnFocusRef = useRef<HTMLElement | null>(null);
+  const [paletteSessions, setPaletteSessions] = useState<SessionListItem[]>([]);
+  const [paletteSchedules, setPaletteSchedules] = useState<ScheduleDisplay[]>([]);
 
   const cwd = session?.working_dir ?? getInitialWorkingDir();
   const sessionActions = useSessionActions(session);
@@ -759,6 +781,30 @@ export function WorkspaceShell({ chat, children, panes, paneStore }: WorkspaceSh
     [intl, pickRuntime, sessionId]
   );
 
+  // Load sessions and schedules for the palette (task 92).
+  useEffect(() => {
+    if (!paletteOpen) return;
+    let cancelled = false;
+    const load = async () => {
+      try {
+        const [sessionsPage, schedules] = await Promise.all([
+          acpListSessions(null, { includeAcp: false }),
+          acpListSchedules(),
+        ]);
+        if (!cancelled) {
+          setPaletteSessions(sessionsPage.sessions);
+          setPaletteSchedules(schedules);
+        }
+      } catch (error) {
+        console.error('Failed to load palette data', error);
+      }
+    };
+    void load();
+    return () => {
+      cancelled = true;
+    };
+  }, [paletteOpen]);
+
   // Git status poll (task 74): on any workspace route, poll every 30 s and hold the
   // last response in state. The Changes dot (task 69) still only marks unseen while the
   // diff pane is hidden, using the first hidden poll as the baseline.
@@ -871,6 +917,66 @@ export function WorkspaceShell({ chat, children, panes, paneStore }: WorkspaceSh
       sessionId,
       snapshot?.messages,
       store,
+    ]
+  );
+
+  // Palette context (task 92). Adapt useSessionActions to palette-state's SessionActions interface.
+  const paletteSessionActions = useMemo(
+    () =>
+      sessionActions
+        ? {
+            openRename: sessionActions.openRename,
+            fork: sessionActions.fork,
+            transcriptView: pickTranscriptView,
+            viewJson: sessionActions.viewJson,
+            viewModelInteractions: sessionActions.viewModelInteractions,
+            archive: sessionActions.archive,
+            openDelete: sessionActions.openDelete,
+          }
+        : undefined,
+    [sessionActions, pickTranscriptView]
+  );
+
+  const paletteContext = useMemo<PaletteContext>(
+    () => {
+      const paneRecord: Record<string, { title: string }> = {};
+      for (const id of PANE_IDS) {
+        paneRecord[id] = { title: intl.formatMessage(PANE_TITLES[id]) };
+      }
+      return {
+        panes: paneRecord as Record<PaneId, { title: string }>,
+        sessions: paletteSessions,
+        schedules: paletteSchedules,
+        currentSession:
+          session && paletteSessionActions
+            ? {
+                id: session.id,
+                name: session.name,
+                actions: paletteSessionActions,
+              }
+            : undefined,
+        openPane: (id) => store.openPane(id),
+        openSession: (id) => setView('pair', { resumeSessionId: id }),
+        runSchedule: async (id) => {
+          const schedule = paletteSchedules.find((s) => s.id === id);
+          if (schedule) {
+            await acpListSchedules(); // Refresh for the Schedules view
+            setView('schedules', { scheduleId: id });
+          }
+        },
+        switchStop: (stop) => void pickStop(stop),
+        navigate: (view) => setView(view),
+      };
+    },
+    [
+      intl,
+      paletteSessions,
+      paletteSchedules,
+      session,
+      paletteSessionActions,
+      store,
+      setView,
+      pickStop,
     ]
   );
 
@@ -1006,10 +1112,19 @@ export function WorkspaceShell({ chat, children, panes, paneStore }: WorkspaceSh
   );
 
   // ⌘1 · ⌘2 · ⌘3 focus Sessions · Chat · Work; Work with nothing open is the bar's first
-  // tab. ⇧⌘F opens Files (the ⋯ menu's shortcut, task 69).
+  // tab. ⇧⌘F opens Files (the ⋯ menu's shortcut, task 69). ⌘K opens the command palette (task 92).
   useEffect(() => {
     const onKey = (event: KeyboardEvent) => {
       if (!(event.metaKey || event.ctrlKey) || event.altKey) return;
+
+      // ⌘K — command palette
+      if (event.key.toLowerCase() === 'k' && !event.shiftKey) {
+        event.preventDefault();
+        paletteReturnFocusRef.current = document.activeElement as HTMLElement | null;
+        setPaletteOpen(true);
+        return;
+      }
+
       if (event.shiftKey) {
         if (event.key.toLowerCase() === 'f' && isWorkspaceRoute) {
           event.preventDefault();
@@ -1106,6 +1221,7 @@ export function WorkspaceShell({ chat, children, panes, paneStore }: WorkspaceSh
       onOpenResponseStyles={() => setView('settings', { section: 'styles' })}
       onBackgroundTasks={() => setView('board')}
       onSaveRoutine={saveRoutine}
+      onCommandPalette={() => setPaletteOpen(true)}
     />
   );
 
@@ -1213,9 +1329,15 @@ export function WorkspaceShell({ chat, children, panes, paneStore }: WorkspaceSh
                 </div>
               ))}
           </div>
-          {isWorkspaceRoute && <TabRail shown={shown} onShow={store.show} />}
+          {isWorkspaceRoute && <TabRail shown={shown} onShow={store.show} onCommandPalette={() => setPaletteOpen(true)} />}
         </section>
         <SessionActionDialogs actions={sessionActions} />
+        <CommandPalette
+          open={paletteOpen}
+          onOpenChange={setPaletteOpen}
+          context={paletteContext}
+          onFocusReturn={() => paletteReturnFocusRef.current?.focus()}
+        />
       </div>
     );
   }
@@ -1273,6 +1395,12 @@ export function WorkspaceShell({ chat, children, panes, paneStore }: WorkspaceSh
         options={configOptions}
         cwd={cwd}
         onSaved={() => setView('schedules')}
+      />
+      <CommandPalette
+        open={paletteOpen}
+        onOpenChange={setPaletteOpen}
+        context={paletteContext}
+        onFocusReturn={() => paletteReturnFocusRef.current?.focus()}
       />
     </div>
   );
