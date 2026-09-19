@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react';
-import { usePaneContext } from './pane-context';
+import { useContext } from 'react';
+import { ChangesBarTarget, type ChangesBarTargetValue } from './changes-bar-slot';
 import { parseNumstat, aggregateStats, type ChangesBarContext } from './changes-bar';
 import { sidecarFetch } from '../native/sidecar';
 import { Button } from '../components/ui/button';
@@ -13,11 +14,13 @@ const i18n = defineMessages({
   discarded: { id: 'changesBar.discarded', defaultMessage: 'Discarded' },
   retry: { id: 'changesBar.retry', defaultMessage: 'Retry' },
   files: { id: 'changesBar.files', defaultMessage: '{count, plural, one {file} other {files}}' },
-  binary: { id: 'changesBar.binary', defaultMessage: '{count, plural, one {binary file} other {binary files}}' },
+  binary: {
+    id: 'changesBar.binary',
+    defaultMessage: '{count, plural, one {binary file} other {binary files}}',
+  },
 });
 
-export function ChangesBar() {
-  const paneContext = usePaneContext();
+export function ChangesBar({ paneContext }: { paneContext: ChangesBarTargetValue }) {
   const intl = useIntl();
   const [context, setContext] = useState<ChangesBarContext>({
     state: 'empty',
@@ -173,16 +176,24 @@ export function ChangesBar() {
   return (
     <div className="flex flex-col gap-2 border-b border-border-primary bg-background-primary px-4 py-3">
       <div className="flex flex-wrap items-center gap-3">
-        {context.state === 'loading' && !context.stats && <span className="text-sm text-text-secondary">…</span>}
+        {context.state === 'loading' && !context.stats && (
+          <span className="text-sm text-text-secondary">…</span>
+        )}
 
         {context.stats && (
           <>
             <span className="text-sm text-text-primary" data-testid="changes-bar-stats">
-              {context.stats.fileCount} {intl.formatMessage(i18n.files, { count: context.stats.fileCount })} · +
+              {context.stats.fileCount}{' '}
+              {intl.formatMessage(i18n.files, { count: context.stats.fileCount })} · +
               {context.stats.totalAdded} −{context.stats.totalDeleted}
             </span>
 
-            <Button size="xs" variant="secondary" onClick={handleReview}>
+            <Button
+              data-testid="changes-bar-review"
+              size="xs"
+              variant="secondary"
+              onClick={handleReview}
+            >
               {intl.formatMessage(i18n.review)}
             </Button>
 
@@ -209,7 +220,9 @@ export function ChangesBar() {
 
         {context.state === 'discarded' && (
           <>
-            <span className="text-sm text-text-secondary">{intl.formatMessage(i18n.discarded)} · </span>
+            <span className="text-sm text-text-secondary">
+              {intl.formatMessage(i18n.discarded)} ·{' '}
+            </span>
             <Button
               size="xs"
               variant="secondary"
@@ -243,11 +256,7 @@ export function ChangesBar() {
 }
 
 export function ChangesBarSlot() {
-  const paneContext = usePaneContext();
-
-  if (!paneContext.gitStatus || paneContext.gitStatus.entries.length === 0) {
-    return null;
-  }
-
-  return <ChangesBar />;
+  const target = useContext(ChangesBarTarget);
+  if (!target?.gitStatus || target.gitStatus.entries.length === 0) return null;
+  return <ChangesBar paneContext={target} />;
 }

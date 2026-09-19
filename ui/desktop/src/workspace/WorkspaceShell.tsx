@@ -45,6 +45,7 @@ import { useNavigationContextSafe } from '../components/Layout/NavigationContext
 import { Navigation } from '../components/Layout/NavigationPanel';
 import { SessionChipsSlot } from '../components/ChatInput';
 import { FileLinkSlot } from './file-link-slot';
+import { ChangesBarTarget } from './changes-bar-slot';
 import { NextChat, type NextChatDraft } from '../components/Hub';
 import { Button } from '../components/ui/button';
 import { DropdownMenu, DropdownMenuTrigger } from '../components/ui/dropdown-menu';
@@ -275,7 +276,11 @@ interface TabRailProps {
 
 // The phone's one-at-a-time strip (DESIGN.md §Frame): chat first, then every pane, along the
 // bottom edge where a thumb reaches; the shown tab is pressed. The search tab opens the command palette.
-function TabRail({ shown, onShow, onCommandPalette }: TabRailProps & { onCommandPalette?: () => void }) {
+function TabRail({
+  shown,
+  onShow,
+  onCommandPalette,
+}: TabRailProps & { onCommandPalette?: () => void }) {
   const intl = useIntl();
   const tabs = [
     { id: 'chat' as const, title: intl.formatMessage(i18n.columnChat), Icon: MessageSquareText },
@@ -886,11 +891,15 @@ export function WorkspaceShell({ chat, children, panes, paneStore }: WorkspaceSh
   // The ⋯ menu's pane rows (task 40); the modifier meant tear-off until task 71.
   const openPane = useCallback((id: PaneId) => store.openPane(id), [store]);
   // Focus the Git pane's commit textarea (task 84's Accept all in Changes bar).
+  // The Git pane may still be mounting when Accept all asks for its commit box.
   const focusCommit = useCallback(() => {
-    const textarea = document.querySelector('[data-testid="git-message"]') as HTMLTextAreaElement;
-    if (textarea) {
-      textarea.focus();
-    }
+    const deadline = Date.now() + 2000;
+    const tryFocus = () => {
+      const textarea = document.querySelector<HTMLTextAreaElement>('[data-testid="git-message"]');
+      if (textarea) textarea.focus();
+      else if (Date.now() < deadline) requestAnimationFrame(tryFocus);
+    };
+    tryFocus();
   }, []);
   const insertIntoChat = useCallback((input: InsertChatInput) => {
     if (input.kind === 'text') {
@@ -960,48 +969,45 @@ export function WorkspaceShell({ chat, children, panes, paneStore }: WorkspaceSh
     [sessionActions, pickTranscriptView]
   );
 
-  const paletteContext = useMemo<PaletteContext>(
-    () => {
-      const paneRecord: Record<string, { title: string }> = {};
-      for (const id of PANE_IDS) {
-        paneRecord[id] = { title: intl.formatMessage(PANE_TITLES[id]) };
-      }
-      return {
-        panes: paneRecord as Record<PaneId, { title: string }>,
-        sessions: paletteSessions,
-        schedules: paletteSchedules,
-        currentSession:
-          session && paletteSessionActions
-            ? {
-                id: session.id,
-                name: session.name,
-                actions: paletteSessionActions,
-              }
-            : undefined,
-        openPane: (id) => store.openPane(id),
-        openSession: (id) => setView('pair', { resumeSessionId: id }),
-        runSchedule: async (id) => {
-          const schedule = paletteSchedules.find((s) => s.id === id);
-          if (schedule) {
-            await acpListSchedules(); // Refresh for the Schedules view
-            setView('schedules', { scheduleId: id });
-          }
-        },
-        switchStop: (stop) => void pickStop(stop),
-        navigate: (view) => setView(view),
-      };
-    },
-    [
-      intl,
-      paletteSessions,
-      paletteSchedules,
-      session,
-      paletteSessionActions,
-      store,
-      setView,
-      pickStop,
-    ]
-  );
+  const paletteContext = useMemo<PaletteContext>(() => {
+    const paneRecord: Record<string, { title: string }> = {};
+    for (const id of PANE_IDS) {
+      paneRecord[id] = { title: intl.formatMessage(PANE_TITLES[id]) };
+    }
+    return {
+      panes: paneRecord as Record<PaneId, { title: string }>,
+      sessions: paletteSessions,
+      schedules: paletteSchedules,
+      currentSession:
+        session && paletteSessionActions
+          ? {
+              id: session.id,
+              name: session.name,
+              actions: paletteSessionActions,
+            }
+          : undefined,
+      openPane: (id) => store.openPane(id),
+      openSession: (id) => setView('pair', { resumeSessionId: id }),
+      runSchedule: async (id) => {
+        const schedule = paletteSchedules.find((s) => s.id === id);
+        if (schedule) {
+          await acpListSchedules(); // Refresh for the Schedules view
+          setView('schedules', { scheduleId: id });
+        }
+      },
+      switchStop: (stop) => void pickStop(stop),
+      navigate: (view) => setView(view),
+    };
+  }, [
+    intl,
+    paletteSessions,
+    paletteSchedules,
+    session,
+    paletteSessionActions,
+    store,
+    setView,
+    pickStop,
+  ]);
 
   // The transcript is read at the click, not closed over: it streams, the chips do not.
   const sessionName = session?.name;
@@ -1280,6 +1286,10 @@ export function WorkspaceShell({ chat, children, panes, paneStore }: WorkspaceSh
   ]);
 
   // Task 29: the RPI strip sits above the chat in both faces, and only once a phase is lit.
+  const changesBarTarget = useMemo(
+    () => ({ cwd, gitStatus, openPane, focusCommit }),
+    [cwd, gitStatus, openPane, focusCommit]
+  );
   const fileLinkContext = useMemo(
     () => ({ cwd, gitToplevel: gitStatus?.toplevel ?? cwd, openFile }),
     [cwd, gitStatus?.toplevel, openFile]
@@ -1289,23 +1299,25 @@ export function WorkspaceShell({ chat, children, panes, paneStore }: WorkspaceSh
   const chatBody = (
     <SessionChipsSlot.Provider value={chipsFor}>
       <FileLinkSlot.Provider value={fileLinkContext}>
-        <NextChat.Provider value={nextChat}>
-          <div className="flex min-h-0 min-w-0 flex-1 flex-col">
-            {isWorkspaceRoute && sessionId && (
-              <RpiStrip
-                sessionId={sessionId}
-                openArtifact={openArtifact}
-                chatIdle={chatIdle}
-                gateOn={planGate}
-                cwd={cwd}
-              />
-            )}
-            <div className="relative min-h-0 min-w-0 flex-1">
-              {children}
-              <div className={isOnPairRoute ? 'contents' : 'hidden'}>{chat}</div>
+        <ChangesBarTarget.Provider value={changesBarTarget}>
+          <NextChat.Provider value={nextChat}>
+            <div className="flex min-h-0 min-w-0 flex-1 flex-col">
+              {isWorkspaceRoute && sessionId && (
+                <RpiStrip
+                  sessionId={sessionId}
+                  openArtifact={openArtifact}
+                  chatIdle={chatIdle}
+                  gateOn={planGate}
+                  cwd={cwd}
+                />
+              )}
+              <div className="relative min-h-0 min-w-0 flex-1">
+                {children}
+                <div className={isOnPairRoute ? 'contents' : 'hidden'}>{chat}</div>
+              </div>
             </div>
-          </div>
-        </NextChat.Provider>
+          </NextChat.Provider>
+        </ChangesBarTarget.Provider>
       </FileLinkSlot.Provider>
     </SessionChipsSlot.Provider>
   );
@@ -1370,7 +1382,13 @@ export function WorkspaceShell({ chat, children, panes, paneStore }: WorkspaceSh
                 </div>
               ))}
           </div>
-          {isWorkspaceRoute && <TabRail shown={shown} onShow={store.show} onCommandPalette={() => setPaletteOpen(true)} />}
+          {isWorkspaceRoute && (
+            <TabRail
+              shown={shown}
+              onShow={store.show}
+              onCommandPalette={() => setPaletteOpen(true)}
+            />
+          )}
         </section>
         <SessionActionDialogs actions={sessionActions} />
         <CommandPalette

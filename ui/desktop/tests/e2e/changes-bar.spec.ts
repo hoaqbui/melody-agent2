@@ -1,18 +1,20 @@
 import { execFileSync } from 'child_process';
-import { mkdtempSync, mkdirSync, readFileSync, rmSync, writeFileSync } from 'fs';
-import { homedir, tmpdir } from 'os';
+import { mkdtempSync, rmSync, writeFileSync } from 'fs';
+import { tmpdir } from 'os';
 import { join } from 'path';
 import { test, expect, openPane } from './fixtures';
-
-const realHome = homedir();
-const previousEnv = { HOME: process.env.HOME, HERMIT_STATE_DIR: process.env.HERMIT_STATE_DIR };
+const previousDir = process.env.GOOSE_TEST_DIR;
 let scratch = '';
 
 const git = (cwd: string, args: string[]) =>
-  execFileSync('git', ['-c', 'user.name=changes-bar', '-c', 'user.email=changes-bar@test', ...args], {
-    cwd,
-    stdio: 'pipe',
-  }).toString();
+  execFileSync(
+    'git',
+    ['-c', 'user.name=changes-bar', '-c', 'user.email=changes-bar@test', ...args],
+    {
+      cwd,
+      stdio: 'pipe',
+    }
+  ).toString();
 
 test.describe('changes bar', () => {
   test.beforeAll(() => {
@@ -22,25 +24,21 @@ test.describe('changes bar', () => {
     git(scratch, ['init', '-q']);
     git(scratch, ['add', 'notes.md']);
     git(scratch, ['commit', '-q', '-m', 'base']);
-    mkdirSync(join(scratch, 'Library'), { recursive: true });
-    process.env.HERMIT_STATE_DIR ??=
-      process.platform === 'darwin'
-        ? join(realHome, 'Library', 'Caches', 'hermit')
-        : join(process.env.XDG_CACHE_HOME ?? join(realHome, '.cache'), 'hermit');
-    process.env.HOME = scratch;
+    // The fixture opens the window on GOOSE_TEST_DIR (see fixtures.ts); the app's own config stays.
+    process.env.GOOSE_TEST_DIR = scratch;
   });
 
   test.afterAll(() => {
-    for (const [key, value] of Object.entries(previousEnv)) {
-      if (value === undefined) delete process.env[key];
-      else process.env[key] = value;
-    }
+    if (previousDir === undefined) delete process.env.GOOSE_TEST_DIR;
+    else process.env.GOOSE_TEST_DIR = previousDir;
     rmSync(scratch, { recursive: true, force: true });
   });
 
   test('shows changes bar with stats, Review, Accept all, and Discard, then Undo', async ({
     goosePage,
   }) => {
+    // Two status polls (30 s each) sit inside this walk: after the edit and after Undo.
+    test.setTimeout(180_000);
     await expect(goosePage.locator('[data-testid="workspace-shell"]')).toBeVisible({
       timeout: 30000,
     });
@@ -82,8 +80,7 @@ test.describe('changes bar', () => {
 
     // Verify commit textarea is focused
     const commitTextarea = goosePage.locator('[data-testid="git-message"]');
-    const isFocused = await commitTextarea.evaluate((el) => document.activeElement === el);
-    expect(isFocused).toBe(true);
+    await expect(commitTextarea).toBeFocused();
 
     // Step 5: Unstage both files, click Discard → tree clean, bar shows Discarded · Undo
     const unstageButtons = goosePage.locator('[data-testid="git-unstage"]');
@@ -109,11 +106,11 @@ test.describe('changes bar', () => {
     await undoButton.click();
 
     // Bar should show stats again (within the next poll)
-    await expect(changesBarStats).toContainText(/files/, { timeout: 10000 });
+    await expect(changesBarStats).toContainText(/files/, { timeout: 35000 });
 
     // Step 7: Keyboard accessibility — tab through the bar's controls
     // Focus on Review button
-    const reviewBtn = goosePage.locator('button', { hasText: 'Review' });
+    const reviewBtn = goosePage.locator('[data-testid="changes-bar-review"]');
     const acceptBtn = goosePage.locator('[data-testid="changes-bar-accept"]');
     const discardBtn = goosePage.locator('[data-testid="changes-bar-discard"]');
 
