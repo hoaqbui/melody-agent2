@@ -79,6 +79,26 @@ describe('runtimesRoutes', () => {
     expect(result.seat.agy.signedIn).toBe(true);
   });
 
+  it('reads exit 127 as not installed, as a shell would', async () => {
+    mockExecFile.mockImplementation(
+      (
+        cmd: string,
+        args: string[],
+        opts: unknown,
+        cb: (e: unknown, o: string, r: string) => void
+      ) => {
+        const err = Object.assign(new Error('not found'), { code: 127 });
+        cb(cmd === 'cursor-agent' ? err : null, cmd === 'cursor-agent' ? '' : 'ok', '');
+        return { kill: () => {} };
+      }
+    );
+    const result = (await runtimesRoutes()['POST /runtimes/probe']({})) as {
+      seat: Record<string, { installed: boolean }>;
+    };
+    expect(result.seat.cursor.installed).toBe(false);
+    expect(result.seat.claude.installed).toBe(true);
+  });
+
   it('detects missing binaries', async () => {
     mockExecFile.mockImplementation((cmd: string, args: string[], opts: any, cb: any) => {
       const err = new Error('not found');

@@ -616,9 +616,10 @@ export function WorkspaceShell({ chat, children, panes, paneStore }: WorkspaceSh
 
   // A route may arrive asking for a pane and a Changes base (the Runs inbox's Open, task
   // 53). The ask is consumed once: left in history it would reopen the pane on Back.
-  // Also handles terminalInput for opening Terminal with a login command (task 91).
+  // Also handles terminalInput for opening Terminal with a login command (task 91) — the
+  // runtimes gate sends the user to the Hub, so any workspace route honours the ask.
   useEffect(() => {
-    if (!isOnPairRoute) return;
+    if (!isWorkspaceRoute) return;
     const state = location.state as (ViewOptions & { terminalInput?: string }) | null;
     if (!state?.openPane && !state?.diffBase && !state?.terminalInput) return;
     if (state.diffBase) presetDiffBase(state.diffBase);
@@ -629,7 +630,7 @@ export function WorkspaceShell({ chat, children, panes, paneStore }: WorkspaceSh
     const { openPane: _pane, diffBase: _base, terminalInput: _input, ...rest } = state;
     // react-router keeps the route state under `usr` beside its own key and index.
     window.history.replaceState({ ...window.history.state, usr: rest }, document.title);
-  }, [isOnPairRoute, location.key, location.state, store]);
+  }, [isWorkspaceRoute, location.key, location.state, store]);
 
   useEffect(() => {
     if (!isWorkspaceRoute) return;

@@ -39,7 +39,8 @@ const readSignedIn = (command: string, stdout: string): Omit<SeatProbe, 'install
 const probe = (command: string, args: readonly string[]): Promise<SeatProbe> =>
   new Promise((resolve) => {
     execFile(command, [...args], { timeout: PROBE_TIMEOUT_MS }, (error, stdout, stderr) => {
-      if (error && (error as NodeJS.ErrnoException).code === 'ENOENT') {
+      // No binary on PATH, or a shim that says "command not found" (exit 127): not installed.
+      if (error && ((error as NodeJS.ErrnoException).code === 'ENOENT' || error.code === 127)) {
         resolve({ installed: false, signedIn: false });
         return;
       }
