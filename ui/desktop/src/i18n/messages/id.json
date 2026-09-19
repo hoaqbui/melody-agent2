@@ -5687,6 +5687,9 @@
   "toolApprovalButtons.staleApprovalRequest": {
     "defaultMessage": "Permintaan persetujuan ini sudah tidak aktif lagi."
   },
+  "toolApprovalButtons.waitingForSeat": {
+    "defaultMessage": "waiting for {seat}"
+  },
   "toolCallStatusIndicator.toolStatus": {
     "defaultMessage": "Status alat: {status}"
   },

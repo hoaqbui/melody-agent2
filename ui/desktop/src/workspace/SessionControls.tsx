@@ -17,6 +17,7 @@ import {
 import { Switch } from '../components/ui/switch';
 import { configChoices, type SessionConfigOption } from '../acp/sessionConfig';
 import { Chip } from './SessionChips';
+import { approveModeNote } from './session-controls';
 
 const i18n = defineMessages({
   title: { id: 'workspaceShell.sessionControls', defaultMessage: 'Session controls' },
@@ -38,6 +39,10 @@ const i18n = defineMessages({
 export interface SessionControlsProps {
   options: readonly SessionConfigOption[];
   cwd: string;
+  // The current runtime (task 89): which note reads under the Mode radios.
+  currentRuntime: string;
+  // The message a seat's refusal of a mode change returned; cleared on the next attempt.
+  modeError?: string | null;
   // The orchestrator role's name while the session is Orchestrate.
   role?: string;
   extensionsEnabled: number;
@@ -56,6 +61,8 @@ const heading = 'text-xs text-text-secondary';
 export function SessionControls({
   options,
   cwd,
+  currentRuntime,
+  modeError,
   role,
   extensionsEnabled,
   busy,
@@ -106,6 +113,25 @@ export function SessionControls({
               </DropdownMenuRadioGroup>
             ) : (
               <DropdownMenuItem disabled>{String(option.currentValue)}</DropdownMenuItem>
+            )}
+            {option.id === 'mode' && (
+              <>
+                <p
+                  className="px-2 py-1 text-xs text-text-secondary"
+                  data-testid="workspace-config-mode-note"
+                >
+                  {approveModeNote(currentRuntime)}
+                </p>
+                {modeError && (
+                  <p
+                    className="px-2 py-1 text-xs text-text-danger"
+                    role="alert"
+                    data-testid="workspace-config-mode-error"
+                  >
+                    {modeError}
+                  </p>
+                )}
+              </>
             )}
             <DropdownMenuSeparator />
           </div>

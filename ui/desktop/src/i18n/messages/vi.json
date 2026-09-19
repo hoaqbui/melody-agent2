@@ -5687,6 +5687,9 @@
   "toolApprovalButtons.staleApprovalRequest": {
     "defaultMessage": "Yêu cầu phê duyệt này không còn hiệu lực."
   },
+  "toolApprovalButtons.waitingForSeat": {
+    "defaultMessage": "waiting for {seat}"
+  },
   "toolCallStatusIndicator.toolStatus": {
     "defaultMessage": "Trạng thái công cụ: {status}"
   },

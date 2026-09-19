@@ -1,4 +1,5 @@
 import type { RequestPermissionRequest } from '@agentclientprotocol/sdk';
+import type { ToolConfirmationDiff } from '../../types/message';
 import type { AcpPermissionRequest } from '../permissionRequestTypes';
 import {
   type AcpChatStateChange,
@@ -19,6 +20,7 @@ export function applyPermissionRequest(
 
   const identity = toolIdentity(request.toolCall);
   const prompt = permissionPrompt(request);
+  const diff = permissionDiff(request);
 
   state.messages.push({
     id: `acp_permission_${toolCallId}`,
@@ -35,6 +37,7 @@ export function applyPermissionRequest(
           arguments: rawInputToArguments(request.toolCall.rawInput),
           ...(prompt ? { prompt } : {}),
         },
+        ...(diff ? { diff } : {}),
       },
     ],
     metadata: { ...DEFAULT_VISIBLE_MESSAGE_METADATA },
@@ -85,6 +88,22 @@ function permissionPrompt(request: RequestPermissionRequest): string | undefined
   for (const content of request.toolCall.content ?? []) {
     if (content.type === 'content' && content.content.type === 'text') {
       return content.content.text;
+    }
+  }
+
+  return undefined;
+}
+
+// Task 77: the diff block an adapter's edit carries beside the prompt text, so the
+// confirmation card can show the change instead of raw arguments.
+function permissionDiff(request: RequestPermissionRequest): ToolConfirmationDiff | undefined {
+  for (const content of request.toolCall.content ?? []) {
+    if (content.type === 'diff') {
+      return {
+        path: content.path,
+        newText: content.newText,
+        ...(content.oldText != null ? { oldText: content.oldText } : {}),
+      };
     }
   }
 

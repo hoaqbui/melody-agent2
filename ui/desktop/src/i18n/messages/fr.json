@@ -5687,6 +5687,9 @@
   "toolApprovalButtons.staleApprovalRequest": {
     "defaultMessage": "Cette demande d'approbation n'est plus active."
   },
+  "toolApprovalButtons.waitingForSeat": {
+    "defaultMessage": "waiting for {seat}"
+  },
   "toolCallStatusIndicator.toolStatus": {
     "defaultMessage": "État de l'outil : {status}"
   },

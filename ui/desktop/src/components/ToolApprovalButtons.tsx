@@ -2,7 +2,10 @@ import { useState, useEffect } from 'react';
 import { Button } from './ui/button';
 import type { Permission } from '../types/permissions';
 import { resolveAcpPermissionRequest } from '../acp/permissionRequests';
+import { useAcpChatSessionSnapshot } from '../acp/chatSessionStore';
+import { runtimeLabel } from '../workspace/session-controls';
 import { defineMessages, useIntl } from '../i18n';
+import { toolConfirmationState } from './tool-confirmation-state';
 
 const i18n = defineMessages({
   allowOnce: {
@@ -41,6 +44,10 @@ const i18n = defineMessages({
     id: 'toolApprovalButtons.staleApprovalRequest',
     defaultMessage: 'This approval request is no longer active.',
   },
+  waitingForSeat: {
+    id: 'toolApprovalButtons.waitingForSeat',
+    defaultMessage: 'waiting for {seat}',
+  },
 });
 
 const globalApprovalState = new Map<
@@ -69,6 +76,9 @@ export default function ToolApprovalButtons({ data }: { data: ToolApprovalData }
   const [decision, setDecision] = useState<Permission | null>(storedState?.decision ?? null);
   const [isClicked, setIsClicked] = useState(storedState?.isClicked ?? initialIsClicked ?? false);
   const [approvalError, setApprovalError] = useState<string | null>(null);
+  const providerName = useAcpChatSessionSnapshot(sessionId)?.session?.provider_name ?? '';
+  const seat = runtimeLabel(providerName, []);
+  const state = toolConfirmationState({ decision, isClicked, approvalError });
 
   const setResolvedDecision = (action: Permission) => {
     setDecision(action);
@@ -114,7 +124,7 @@ export default function ToolApprovalButtons({ data }: { data: ToolApprovalData }
     };
     return (
       <p className="text-sm text-muted-foreground mt-2">
-        {toolName} - {statusMessages[decision]}
+        {toolName} · {statusMessages[decision]}
       </p>
     );
   }
@@ -125,6 +135,7 @@ export default function ToolApprovalButtons({ data }: { data: ToolApprovalData }
         <Button
           className="rounded-full"
           variant="secondary"
+          data-testid="tool-approval-allow-once"
           onClick={() => handleAction('allow_once')}
         >
           {intl.formatMessage(i18n.allowOnce)}
@@ -133,15 +144,26 @@ export default function ToolApprovalButtons({ data }: { data: ToolApprovalData }
           <Button
             className="rounded-full"
             variant="secondary"
+            data-testid="tool-approval-always-allow"
             onClick={() => handleAction('always_allow')}
           >
             {intl.formatMessage(i18n.alwaysAllow)}
           </Button>
         )}
-        <Button className="rounded-full" variant="outline" onClick={() => handleAction('deny_once')}>
+        <Button
+          className="rounded-full"
+          variant="outline"
+          data-testid="tool-approval-deny"
+          onClick={() => handleAction('deny_once')}
+        >
           {intl.formatMessage(i18n.deny)}
         </Button>
       </div>
+      {state === 'partial' && seat && (
+        <p className="text-xs text-text-secondary mt-1" role="status">
+          {intl.formatMessage(i18n.waitingForSeat, { seat })}
+        </p>
+      )}
       {approvalError && (
         <p className="text-sm text-red-500 mt-2" role="alert">
           {approvalError}

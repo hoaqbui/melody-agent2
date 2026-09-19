@@ -5687,6 +5687,9 @@
   "toolApprovalButtons.staleApprovalRequest": {
     "defaultMessage": "此核准要求已不再有效。"
   },
+  "toolApprovalButtons.waitingForSeat": {
+    "defaultMessage": "waiting for {seat}"
+  },
   "toolCallStatusIndicator.toolStatus": {
     "defaultMessage": "工具狀態：{status}"
   },

@@ -41,7 +41,7 @@ describe('ToolApprovalButtons', () => {
       'permission-generation-1',
       'allow_once'
     );
-    expect(screen.getByText('developer__shell - Allowed once')).toBeInTheDocument();
+    expect(screen.getByText('developer__shell · Allowed once')).toBeInTheDocument();
   });
 
   it('shows a stale request error when ACP has no pending request', async () => {
@@ -66,7 +66,7 @@ describe('ToolApprovalButtons', () => {
       'allow_once'
     );
     expect(screen.getByText('This approval request is no longer active.')).toBeInTheDocument();
-    expect(screen.queryByText('developer__shell - Allowed once')).not.toBeInTheDocument();
+    expect(screen.queryByText('developer__shell · Allowed once')).not.toBeInTheDocument();
   });
 
   it('resets the displayed decision for a new permission generation', async () => {
@@ -83,7 +83,7 @@ describe('ToolApprovalButtons', () => {
     );
 
     await userEvent.click(screen.getByRole('button', { name: 'Allow Once' }));
-    expect(screen.getByText('developer__shell - Allowed once')).toBeInTheDocument();
+    expect(screen.getByText('developer__shell · Allowed once')).toBeInTheDocument();
 
     rerender(
       <ToolApprovalButtons

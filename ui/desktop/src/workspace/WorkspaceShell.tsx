@@ -600,6 +600,9 @@ export function WorkspaceShell({ chat, children, panes, paneStore }: WorkspaceSh
   const configOptions = useSessionConfigOptions(sessionId);
 
   const [planGate, setPlanGate] = useState(true);
+  // Task 89: the message a seat's refusal of a mode change returned, shown under the Mode
+  // radios; cleared on the next attempt so a later success drops it.
+  const [modeError, setModeError] = useState<string | null>(null);
   useEffect(() => {
     window.electron.getSetting('workspace.ui').then(setWorkspaceUi).catch(console.error);
     window.electron.getSetting('workspace.planGate').then(setPlanGate).catch(console.error);
@@ -859,6 +862,7 @@ export function WorkspaceShell({ chat, children, panes, paneStore }: WorkspaceSh
         pickRuntime(value);
         return;
       }
+      if (configId === 'mode') setModeError(null);
       setBusy(true);
       try {
         await acpSetSessionConfigOption(sessionId, configId, value);
@@ -870,6 +874,7 @@ export function WorkspaceShell({ chat, children, panes, paneStore }: WorkspaceSh
           });
         }
       } catch (error) {
+        if (configId === 'mode') setModeError(formatAcpError(error));
         toastError({
           title: intl.formatMessage(i18n.optionFailed, { option: configId }),
           msg: formatAcpError(error),
@@ -1245,6 +1250,8 @@ export function WorkspaceShell({ chat, children, panes, paneStore }: WorkspaceSh
           <SessionControls
             options={configOptions}
             cwd={cwd}
+            currentRuntime={currentRuntime}
+            modeError={modeError}
             role={currentMode === 'orchestrate' ? orchestratorRole?.name : undefined}
             extensionsEnabled={extensionsEnabled}
             busy={busy}
@@ -1268,6 +1275,7 @@ export function WorkspaceShell({ chat, children, panes, paneStore }: WorkspaceSh
       cwd,
       extensionsEnabled,
       handlePlanGateChange,
+      modeError,
       openSchedule,
       orchestratorRole?.name,
       pickMode,
