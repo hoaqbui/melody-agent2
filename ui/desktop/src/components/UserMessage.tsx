@@ -14,6 +14,7 @@ import Close from './icons/Close';
 import Edit from './icons/Edit';
 import { Button } from './ui/button';
 import { defineMessages, useIntl } from '../i18n';
+import { usePaneContextSafe } from '../workspace/pane-context';
 
 const i18n = defineMessages({
   editPlaceholder: {
@@ -85,6 +86,14 @@ const i18n = defineMessages({
     id: 'userMessage.editImagesHeading',
     defaultMessage: 'Attached images:',
   },
+  undoThisTurn: {
+    id: 'userMessage.undoThisTurn',
+    defaultMessage: 'Undo this turn',
+  },
+  redoThisTurn: {
+    id: 'userMessage.redoThisTurn',
+    defaultMessage: 'Redo this turn',
+  },
 });
 
 interface UserMessageProps {
@@ -95,15 +104,17 @@ interface UserMessageProps {
     editType: 'fork' | 'edit',
     retainedImages: ImageData[]
   ) => void;
+  onTurnUndo?: (turnId: string, isRedo: boolean) => void;
 }
 
-function UserMessage({ message, onMessageUpdate }: UserMessageProps) {
+function UserMessage({ message, onMessageUpdate, onTurnUndo }: UserMessageProps) {
   const intl = useIntl();
   const contentRef = useRef<HTMLDivElement | null>(null);
   const textareaRef = useRef<HTMLTextAreaElement>(null);
   const [isEditing, setIsEditing] = useState(false);
   const [editContent, setEditContent] = useState('');
   const [error, setError] = useState<string | null>(null);
+  const [isRedo, setIsRedo] = useState(false);
 
   const { textContent, imagePaths } = getTextAndImageContent(message);
   const timestamp = formatMessageTimestamp(message.created);
@@ -113,6 +124,7 @@ function UserMessage({ message, onMessageUpdate }: UserMessageProps) {
   const messageImages: ImageData[] = imageDataFromMessage(message);
 
   const [removedImageIndices, setRemovedImageIndices] = useState<Set<number>>(new Set());
+  const paneContext = usePaneContextSafe();
 
   useEffect(() => {
     if (!isEditing) {
@@ -229,6 +241,15 @@ function UserMessage({ message, onMessageUpdate }: UserMessageProps) {
       textareaRef.current.style.height = `${Math.min(textareaRef.current.scrollHeight, 200)}px`;
     }
   }, [editContent, isEditing]);
+
+  const handleTurnUndo = useCallback(() => {
+    if (!onTurnUndo || !message.id) return;
+    onTurnUndo(message.id, isRedo);
+    setIsRedo(!isRedo);
+  }, [onTurnUndo, message.id, isRedo]);
+
+  const shouldShowUndoButton =
+    paneContext && message.role === 'user' && message.id && paneContext.getTurnSnapshots(message.id);
 
   return (
     <div className="w-full mt-[16px] opacity-0 animate-[appear_150ms_ease-in_forwards]">
@@ -353,6 +374,21 @@ function UserMessage({ message, onMessageUpdate }: UserMessageProps) {
                     {timestamp}
                   </div>
                   <div className="absolute right-0 pt-1 flex items-center gap-2">
+                    {shouldShowUndoButton && (
+                      <button
+                        onClick={handleTurnUndo}
+                        data-testid="turn-undo"
+                        className="flex items-center gap-1 text-xs text-text-secondary hover:cursor-pointer hover:text-text-primary transition-all duration-200 opacity-0 group-hover:opacity-100 -translate-y-4 group-hover:translate-y-0 focus:outline-none focus:ring-2 focus:ring-blue-400 focus:ring-opacity-50 rounded"
+                        title={isRedo ? intl.formatMessage(i18n.redoThisTurn) : intl.formatMessage(i18n.undoThisTurn)}
+                        aria-label={isRedo ? intl.formatMessage(i18n.redoThisTurn) : intl.formatMessage(i18n.undoThisTurn)}
+                      >
+                        <span>
+                          {isRedo
+                            ? intl.formatMessage(i18n.redoThisTurn)
+                            : intl.formatMessage(i18n.undoThisTurn)}
+                        </span>
+                      </button>
+                    )}
                     {/* A transcript shown read-only (the Agents pane) hands no update path. */}
                     {onMessageUpdate && (
                       <button

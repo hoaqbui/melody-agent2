@@ -20,6 +20,7 @@ describe('pane-context types', () => {
       gitStatus: null,
       openPane: () => {},
       focusCommit: () => {},
+      getTurnSnapshots: () => undefined,
     };
     expect(context.gitStatus).toBeNull();
   });
@@ -49,6 +50,7 @@ describe('pane-context types', () => {
       },
       openPane: () => {},
       focusCommit: () => {},
+      getTurnSnapshots: () => undefined,
     };
     expect(context.gitStatus).not.toBeNull();
     expect(context.gitStatus?.branch).toBe('main');

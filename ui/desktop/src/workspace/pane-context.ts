@@ -8,6 +8,7 @@ import type { GitStatusResponse } from '../native/sidecar';
 import type { Message } from '../types/message';
 import type { InsertChatInput } from './chat-insert';
 import type { LayoutMode, PaneId } from './pane-store';
+import type { TurnSnapshots } from './turn-undo';
 
 export interface PaneContextValue {
   cwd: string;
@@ -40,6 +41,8 @@ export interface PaneContextValue {
   openPane(id: PaneId): void;
   // Focus the Git pane's commit textarea (used by Accept all in the Changes bar).
   focusCommit(): void;
+  // Turn snapshots per turn ID (task 88).
+  getTurnSnapshots(turnId: string): TurnSnapshots | undefined;
 }
 
 export const PaneContext = createContext<PaneContextValue | null>(null);
@@ -48,4 +51,8 @@ export function usePaneContext(): PaneContextValue {
   const value = useContext(PaneContext);
   if (!value) throw new Error('usePaneContext: no WorkspaceShell above this pane');
   return value;
+}
+
+export function usePaneContextSafe(): PaneContextValue | null {
+  return useContext(PaneContext);
 }

@@ -320,26 +320,31 @@ export const gitRoutes = (spawnCwd: string): Record<string, JsonHandler> => ({
   },
   // Fixed prefixes, raw paths and no external driver: the renderer parses this output,
   // so a user's diff.noprefix, core.quotePath or diff.external must not reshape it.
+  // With `head` (two tree SHAs), diffs T0..T1 with --binary for git apply compatibility.
+  // With `nameStatus`, shows only --name-status (for undo's file-set check).
   'POST /git/diff': async (body) => {
     const cwd = await requestCwd(spawnCwd, body);
-    const args = [
-      '-c',
-      'core.quotePath=false',
-      'diff',
-      '--no-color',
-      '--no-ext-diff',
-      '--src-prefix=a/',
-      '--dst-prefix=b/',
-    ];
-    if (body.staged === true) args.push('--cached');
-    if (body.numstat === true) args.push('--numstat');
-    if (typeof body.context === 'number') args.push(`--unified=${Math.trunc(body.context)}`);
-    if (typeof body.base === 'string') args.push(body.base);
+    const args = ['-c', 'core.quotePath=false', 'diff', '--no-color', '--no-ext-diff'];
+    if (body.nameStatus === true) {
+      args.push('--name-status', '--no-renames');
+    } else {
+      args.push('--src-prefix=a/', '--dst-prefix=b/');
+      if (body.staged === true) args.push('--cached');
+      if (body.numstat === true) args.push('--numstat');
+      if (typeof body.context === 'number') args.push(`--unified=${Math.trunc(body.context)}`);
+    }
+    if (typeof body.head === 'string') {
+      args.push('--binary', `${requireString(body, 'base')}..${body.head}`);
+    } else if (typeof body.base === 'string') {
+      args.push(body.base);
+    }
     if (typeof body.path === 'string') args.push('--', body.path);
     let diff = await git(cwd, args);
 
     if (body.numstat === true && body.staged !== true) {
-      const status = (await git(cwd, ['-c', 'core.quotePath=false', 'status', '--porcelain'])).trim();
+      const status = (
+        await git(cwd, ['-c', 'core.quotePath=false', 'status', '--porcelain'])
+      ).trim();
       const lines = status.split('\n').filter((line) => line.length > 0);
       for (const line of lines) {
         if (line.startsWith('?? ')) {
@@ -394,7 +399,9 @@ export const gitRoutes = (spawnCwd: string): Record<string, JsonHandler> => ({
   'POST /git/discard-undo': async (body) => {
     const cwd = await requestCwd(spawnCwd, body);
     const stash = requireString(body, 'stash');
-    const stashList = (await git(cwd, ['stash', 'list'])).split('\n').filter((line) => line.length > 0);
+    const stashList = (await git(cwd, ['stash', 'list']))
+      .split('\n')
+      .filter((line) => line.length > 0);
     const entry = stashList.find((line) => line.includes(stash));
     if (!entry) {
       throw new HttpError(404, `stash entry not found: ${stash}`);
@@ -516,12 +523,18 @@ export const gitRoutes = (spawnCwd: string): Record<string, JsonHandler> => ({
   },
   'POST /git/snapshot': async (body) => {
     const toplevel = await toplevelOf(await requestCwd(spawnCwd, body));
+    // --git-path answers relative to the cwd it ran in; a linked worktree's index lives under
+    // its own gitdir, which is why this is not `.git/index` (task 88).
+    const indexPath = path.resolve(
+      toplevel,
+      (await git(toplevel, ['rev-parse', '--git-path', 'index'])).trim()
+    );
     const tempIndexPath = path.join(
       os.tmpdir(),
       `git-index-${Date.now()}-${Math.random().toString(36).slice(2)}`
     );
     try {
-      await copyFile(path.join(toplevel, '.git', 'index'), tempIndexPath);
+      await copyFile(indexPath, tempIndexPath);
       await git(toplevel, ['add', '-A'], undefined, { GIT_INDEX_FILE: tempIndexPath });
       const tree = (
         await git(toplevel, ['write-tree'], undefined, { GIT_INDEX_FILE: tempIndexPath })
