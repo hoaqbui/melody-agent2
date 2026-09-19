@@ -390,10 +390,14 @@ export const gitRoutes = (spawnCwd: string): Record<string, JsonHandler> => ({
     ]);
     return {};
   },
+  // With `path`, the stash scopes to that one file (task 94's row-level Discard); without
+  // it, the whole tree, as the Changes bar's Discard already sends.
   'POST /git/discard': async (body) => {
     const cwd = await requestCwd(spawnCwd, body);
     const message = `goose discard ${Date.now()}`;
-    await git(cwd, ['stash', 'push', '-u', '-m', message]);
+    const args = ['stash', 'push', '-u', '-m', message];
+    if (typeof body.path === 'string') args.push('--', body.path);
+    await git(cwd, args);
     return { stash: message };
   },
   'POST /git/discard-undo': async (body) => {

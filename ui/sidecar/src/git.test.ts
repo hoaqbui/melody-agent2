@@ -589,5 +589,25 @@ describe('gitRoutes', () => {
       expect(error.status).toBe(404);
       expect(error.message).toContain('stash entry not found');
     });
+
+    it('discards one file with path, leaving the other dirty', async () => {
+      await writeFile(path.join(repo, 'discard-a.txt'), 'a\n');
+      await writeFile(path.join(repo, 'discard-b.txt'), 'b\n');
+
+      const discardResult = (await routes['POST /git/discard']({
+        path: 'discard-a.txt',
+      })) as { stash: string };
+
+      const status = (await sh(repo, ['status', '--porcelain'])).trim();
+      expect(status).toBe('?? discard-b.txt');
+
+      await routes['POST /git/discard-undo']({ stash: discardResult.stash });
+      const restored = (await sh(repo, ['status', '--porcelain'])).trim();
+      expect(restored).toContain('discard-a.txt');
+      expect(restored).toContain('discard-b.txt');
+
+      await rm(path.join(repo, 'discard-a.txt'));
+      await rm(path.join(repo, 'discard-b.txt'));
+    });
   });
 });

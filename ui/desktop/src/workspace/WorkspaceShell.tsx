@@ -54,7 +54,13 @@ import { useSessionActions } from '../hooks/useSessionActions';
 import { Tooltip, TooltipContent, TooltipTrigger } from '../components/ui/Tooltip';
 import { cn } from '../utils';
 import { toastError } from '../toasts';
-import { sidecarFetch, type GitCwdRequest, type GitStatusResponse } from '../native/sidecar';
+import {
+  sidecarFetch,
+  type GitCwdRequest,
+  type GitDiffRequest,
+  type GitDiffResponse,
+  type GitStatusResponse,
+} from '../native/sidecar';
 import { reconnectAcpAfterSystemResume } from '../acp/acpConnection';
 import { formatAcpError } from '../acp/errors';
 import { acpListProviderDetails, acpSetSessionProviderModel } from '../acp/providers';
@@ -101,6 +107,7 @@ import {
 import { WorkColumn, loadDock, saveDock, type PaneChrome } from './WorkColumn';
 import { RailMenu, type RailMenuProps, type TranscriptView } from './RailMenu';
 import { CHANGES_POLL_MS, presetDiffBase, statusFingerprint } from './panes/diff/diff-store';
+import { aggregateStats, parseNumstat } from './changes-bar';
 import {
   loadProjectEntry,
   saveProjectEntry,
@@ -234,6 +241,48 @@ function usePaneLayout(store: PaneStore) {
   return useSyncExternalStore(store.subscribe, store.getState, store.getState);
 }
 
+// The Changes tab's badge (task 94): file count and line stats off the git-status poll
+// (task 74) and the numstat it triggers (task 84's `/git/diff {numstat: true}`, whose
+// untracked files the route already folds in); undefined on a clean tree, `…` while the
+// numstat for this gitStatus hasn't answered yet, the file count alone if it fails.
+function useChangesBadge(gitStatus: GitStatusResponse | null, cwd: string): string | undefined {
+  const [stats, setStats] = useState<{
+    fileCount: number;
+    totalAdded: number;
+    totalDeleted: number;
+  } | null>(null);
+  const [failed, setFailed] = useState(false);
+
+  useEffect(() => {
+    if (!gitStatus || gitStatus.entries.length === 0) {
+      setStats(null);
+      setFailed(false);
+      return;
+    }
+    let cancelled = false;
+    setFailed(false);
+    const request: GitDiffRequest = { cwd, numstat: true };
+    sidecarFetch<GitDiffResponse>('/git/diff', request)
+      .then((response) => {
+        if (cancelled) return;
+        setStats(aggregateStats(parseNumstat(response.diff)));
+      })
+      .catch(() => {
+        if (!cancelled) {
+          setStats(null);
+          setFailed(true);
+        }
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [gitStatus, cwd]);
+
+  if (!gitStatus || gitStatus.entries.length === 0) return undefined;
+  if (stats) return `${stats.fileCount} · +${stats.totalAdded} −${stats.totalDeleted}`;
+  return failed ? String(gitStatus.entries.length) : '…';
+}
+
 // Everything the ⋯ menu shows and does: RailMenu's own props minus the geometry.
 type SessionMenuProps = Omit<RailMenuProps, 'panes' | 'side' | 'align' | 'onClose'>;
 
@@ -279,6 +328,8 @@ function SessionMenuButton(menu: SessionMenuProps) {
 interface TabRailProps {
   shown: 'chat' | PaneId;
   onShow(target: 'chat' | PaneId): void;
+  // The Changes tab's badge (task 94): a dot here, not the count, decision 16.
+  chrome: Record<PaneId, PaneChrome>;
 }
 
 // The phone's one-at-a-time strip (DESIGN.md §Frame): chat first, then every pane, along the
@@ -286,6 +337,7 @@ interface TabRailProps {
 function TabRail({
   shown,
   onShow,
+  chrome,
   onCommandPalette,
 }: TabRailProps & { onCommandPalette?: () => void }) {
   const intl = useIntl();
@@ -306,20 +358,30 @@ function TabRail({
       aria-orientation="horizontal"
       data-testid="workspace-tab-rail"
     >
-      {tabs.map(({ id, title, Icon }) => (
-        <Button
-          key={id}
-          variant={shown === id ? 'secondary' : 'ghost'}
-          size="sm"
-          className={cn('w-9 shrink-0 px-0', shown === id && floating)}
-          aria-label={title}
-          aria-pressed={shown === id}
-          data-testid={`workspace-tab-${id}`}
-          onClick={() => onShow(id)}
-        >
-          <Icon />
-        </Button>
-      ))}
+      {tabs.map(({ id, title, Icon }) => {
+        const badge = id !== 'chat' ? chrome[id]?.badge : undefined;
+        return (
+          <Button
+            key={id}
+            variant={shown === id ? 'secondary' : 'ghost'}
+            size="sm"
+            className={cn('relative w-9 shrink-0 px-0', shown === id && floating)}
+            aria-label={badge ? `${title} — ${badge}` : title}
+            aria-pressed={shown === id}
+            data-testid={`workspace-tab-${id}`}
+            onClick={() => onShow(id)}
+          >
+            <Icon />
+            {badge && (
+              <span
+                aria-hidden
+                className="absolute top-0.5 right-0.5 size-1.5 rounded-full bg-text-info"
+                data-testid={`workspace-tab-badge-${id}`}
+              />
+            )}
+          </Button>
+        );
+      })}
       {onCommandPalette && (
         <Button
           variant="ghost"
@@ -529,6 +591,7 @@ export function WorkspaceShell({ chat, children, panes, paneStore }: WorkspaceSh
   const [seats, setSeats] = useState<SeatStates | undefined>();
 
   const cwd = session?.working_dir ?? getInitialWorkingDir();
+  const changesBadge = useChangesBadge(gitStatus, cwd);
   const sessionActions = useSessionActions(session);
   const currentRuntime =
     session?.provider_name ?? draftRuntime ?? defaultProvider ?? RUNTIMES[0].id;
@@ -1300,7 +1363,14 @@ export function WorkspaceShell({ chat, children, panes, paneStore }: WorkspaceSh
     </PaneContext.Provider>
   );
   const chrome = Object.fromEntries(
-    PANE_IDS.map((id) => [id, { title: intl.formatMessage(PANE_TITLES[id]), Icon: PANE_ICONS[id] }])
+    PANE_IDS.map((id) => [
+      id,
+      {
+        title: intl.formatMessage(PANE_TITLES[id]),
+        Icon: PANE_ICONS[id],
+        badge: id === 'diff' ? changesBadge : undefined,
+      },
+    ])
   ) as Record<PaneId, PaneChrome>;
 
   const columnLabel = (name: Column) =>
@@ -1479,6 +1549,7 @@ export function WorkspaceShell({ chat, children, panes, paneStore }: WorkspaceSh
             <TabRail
               shown={shown}
               onShow={store.show}
+              chrome={chrome}
               onCommandPalette={() => setPaletteOpen(true)}
             />
           )}

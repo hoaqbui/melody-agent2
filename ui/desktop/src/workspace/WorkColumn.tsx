@@ -55,6 +55,9 @@ const i18n = defineMessages({
 export interface PaneChrome {
   title: string;
   Icon: ComponentType<{ className?: string }>;
+  // The Changes tab's file count and line stats (task 94); undefined hides it, as a clean
+  // tree does.
+  badge?: string;
 }
 
 // DESIGN.md §Iconography: the three dock positions, one icon each.
@@ -329,7 +332,7 @@ export function WorkColumn({
   const open = PANE_IDS.filter((id) => tabs.includes(id));
 
   const tab = (id: PaneId) => {
-    const { title, Icon } = chrome[id];
+    const { title, Icon, badge } = chrome[id];
     const isOpen = tabs.includes(id);
     const showing = positionOf(layout, id) !== null;
     const unseen = layout.unseen.has(id);
@@ -374,6 +377,14 @@ export function WorkColumn({
             >
               <Icon />
               {title}
+              {badge && (
+                <span
+                  className="rounded-chip bg-background-secondary px-1 text-[10px] text-text-secondary"
+                  data-testid={`workspace-tab-badge-${id}`}
+                >
+                  {badge}
+                </span>
+              )}
               {/* DESIGN.md: `info` marks what changed; the dot is paired with the tooltip's
                   words, never alone (§Accessibility). */}
               {unseen && (
