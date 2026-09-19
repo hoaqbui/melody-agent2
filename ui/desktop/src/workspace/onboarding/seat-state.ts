@@ -60,3 +60,20 @@ export function overallGateState(states: SeatStates): RuntimesGateState {
 
   return 'unavailable';
 }
+
+export function seatOfProvider(id: string): keyof SeatStates | undefined {
+  const map: Record<string, keyof SeatStates> = {
+    'claude-acp': 'claude',
+    'claude-code': 'claude',
+    'codex-acp': 'codex',
+    'cursor-acp': 'cursor',
+    agy: 'agy',
+  };
+  return map[id];
+}
+
+export const SEAT_STATE_TO_DOM: Record<SeatState, 'ready' | 'signed-out' | 'missing'> = {
+  install: 'missing',
+  signin: 'signed-out',
+  ready: 'ready',
+};

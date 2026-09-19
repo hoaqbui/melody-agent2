@@ -1,5 +1,6 @@
 /* global Notification, NotificationPermission */
 import { useState, useEffect, useRef } from 'react';
+import { useNavigate } from 'react-router';
 import { defineMessages, useIntl } from '../../../i18n';
 import { Switch } from '../../ui/switch';
 import { Button } from '../../ui/button';
@@ -83,6 +84,7 @@ const i18n = defineMessages({
     id: 'settings.workspace.advancedControls.description',
     defaultMessage: 'Runtime, Mode and the Session controls in the chat card',
   },
+  runtimes: { id: 'settings.workspace.runtimes', defaultMessage: 'Runtimes…' },
   phoneTitle: { id: 'settings.phone.title', defaultMessage: 'Phone' },
   phoneDesc: {
     id: 'settings.phone.description',
@@ -262,6 +264,7 @@ function PhoneQr({ url, label }: { url: string; label: string }) {
 }
 
 export default function AppSettingsSection({ scrollToSection }: AppSettingsSectionProps) {
+  const navigate = useNavigate();
   const [menuBarIconEnabled, setMenuBarIconEnabled] = useState(true);
   const [dockIconEnabled, setDockIconEnabled] = useState(true);
   const [wakelockEnabled, setWakelockEnabled] = useState(true);
@@ -609,7 +612,7 @@ export default function AppSettingsSection({ scrollToSection }: AppSettingsSecti
           <CardTitle className="mb-1">{intl.formatMessage(i18n.workspaceTitle)}</CardTitle>
           <CardDescription>{intl.formatMessage(i18n.workspaceDesc)}</CardDescription>
         </CardHeader>
-        <CardContent className="pt-4 px-4">
+        <CardContent className="pt-4 px-4 space-y-4">
           <div className="flex items-center justify-between">
             <div>
               <h3 className="text-text-primary text-xs">
@@ -627,6 +630,16 @@ export default function AppSettingsSection({ scrollToSection }: AppSettingsSecti
                 data-testid="settings-advanced-controls"
               />
             </div>
+          </div>
+          <div>
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={() => navigate('/runtimes')}
+              data-testid="settings-runtimes"
+            >
+              {intl.formatMessage(i18n.runtimes)}
+            </Button>
           </div>
         </CardContent>
       </Card>

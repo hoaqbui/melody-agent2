@@ -10,7 +10,15 @@ import { usePaneContext } from '../../pane-context';
 import { PHONE_MAX_WIDTH_PX } from '../../pane-store';
 import { BAR_KEYS, keySequence, type BarKey } from './terminal-keys';
 import { terminalSession } from './terminal-session';
-import { getTabs, getActiveTabId, openTab, closeTab, renameTab, setActiveTab, ptyId } from './terminal-tabs';
+import {
+  getTabs,
+  getActiveTabId,
+  openTab,
+  closeTab,
+  renameTab,
+  setActiveTab,
+  ptyId,
+} from './terminal-tabs';
 
 const i18n = defineMessages({
   starting: { id: 'terminalPane.starting', defaultMessage: 'Starting shell…' },
@@ -58,9 +66,11 @@ interface TerminalPaneProps {
   // The pty id on the sidecar; the chat session's id, so a reload or the phone reattaches.
   ptyId: string;
   cwd: string;
+  // Optional text to input after the terminal connects (e.g., a command for the user to review)
+  initialInput?: string;
 }
 
-export function TerminalPane({ ptyId: baseId, cwd }: TerminalPaneProps) {
+export function TerminalPane({ ptyId: baseId, cwd, initialInput }: TerminalPaneProps) {
   const intl = useIntl();
   const { resolvedTheme } = useTheme();
   const { insertIntoChat, openFile } = usePaneContext();
@@ -78,6 +88,7 @@ export function TerminalPane({ ptyId: baseId, cwd }: TerminalPaneProps) {
   const session = terminalSession(currentPtyId, cwd);
   sessionRef.current = session;
 
+  const inputSentRef = useRef(false);
   const { status, ctrl } = useSyncExternalStore(
     session.subscribe,
     session.getState,
@@ -103,6 +114,13 @@ export function TerminalPane({ ptyId: baseId, cwd }: TerminalPaneProps) {
       unsubscribe();
     };
   }, [session, openFile]);
+
+  useEffect(() => {
+    if (initialInput && !inputSentRef.current && status.kind === 'running') {
+      inputSentRef.current = true;
+      session.input(initialInput);
+    }
+  }, [initialInput, status, session]);
 
   useEffect(() => {
     session.syncTheme(resolvedTheme);
@@ -188,7 +206,11 @@ export function TerminalPane({ ptyId: baseId, cwd }: TerminalPaneProps) {
 
   return (
     <div className="flex h-full flex-col bg-background-primary" data-testid="terminal-pane">
-      <div className="flex items-center border-b border-border-primary px-2 py-1" role="tablist" data-testid="terminal-tabs">
+      <div
+        className="flex items-center border-b border-border-primary px-2 py-1"
+        role="tablist"
+        data-testid="terminal-tabs"
+      >
         {tabs.map((tab) => (
           <div
             key={tab.id}
@@ -266,10 +288,20 @@ export function TerminalPane({ ptyId: baseId, cwd }: TerminalPaneProps) {
             data-testid="terminal-search"
             className="flex-1 min-w-0 rounded border border-border-primary bg-background-primary px-2 py-1 text-sm"
           />
-          <span className="text-xs text-text-secondary whitespace-nowrap" data-testid="terminal-search-count">
+          <span
+            className="text-xs text-text-secondary whitespace-nowrap"
+            data-testid="terminal-search-count"
+          >
             —
           </span>
-          <Button variant="outline" size="xs" onClick={() => { setSearchOpen(false); session.focus(); }}>
+          <Button
+            variant="outline"
+            size="xs"
+            onClick={() => {
+              setSearchOpen(false);
+              session.focus();
+            }}
+          >
             ✕
           </Button>
         </div>
