@@ -2525,6 +2525,12 @@
   "markdownContent.noApplicationFound": {
     "defaultMessage": "未找到可以打开此链接的应用。"
   },
+  "markdownPane.contents": {
+    "defaultMessage": "Contents"
+  },
+  "markdownPane.edit": {
+    "defaultMessage": "Edit"
+  },
   "markdownPane.loading": {
     "defaultMessage": "Loading…"
   },
@@ -5804,8 +5810,14 @@
   "userMessage.forkSessionTitle": {
     "defaultMessage": "用编辑过的消息创建新会话"
   },
+  "userMessage.redoThisTurn": {
+    "defaultMessage": "Redo this turn"
+  },
   "userMessage.removeImageFromEdit": {
     "defaultMessage": "从消息中移除图片"
+  },
+  "userMessage.undoThisTurn": {
+    "defaultMessage": "Undo this turn"
   },
   "workColumn.bar": {
     "defaultMessage": "Panes"

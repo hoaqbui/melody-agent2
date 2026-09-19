@@ -2525,6 +2525,12 @@
   "markdownContent.noApplicationFound": {
     "defaultMessage": "Tiada aplikasi dijumpai untuk membuka pautan ini."
   },
+  "markdownPane.contents": {
+    "defaultMessage": "Contents"
+  },
+  "markdownPane.edit": {
+    "defaultMessage": "Edit"
+  },
   "markdownPane.loading": {
     "defaultMessage": "Loading…"
   },
@@ -5804,8 +5810,14 @@
   "userMessage.forkSessionTitle": {
     "defaultMessage": "Cipta sesi baharu dengan mesej yang disunting"
   },
+  "userMessage.redoThisTurn": {
+    "defaultMessage": "Redo this turn"
+  },
   "userMessage.removeImageFromEdit": {
     "defaultMessage": "Alih keluar imej daripada mesej"
+  },
+  "userMessage.undoThisTurn": {
+    "defaultMessage": "Undo this turn"
   },
   "workColumn.bar": {
     "defaultMessage": "Panes"

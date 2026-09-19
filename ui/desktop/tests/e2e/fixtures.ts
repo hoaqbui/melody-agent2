@@ -199,6 +199,8 @@ export { expect } from '@playwright/test';
 export async function openPane(page: Page, id: string): Promise<void> {
   const button = page.locator(`[data-testid="workspace-pane-button-${id}"]`);
   if ((await button.count()) > 0) {
+    // An open tab can sit scrolled out of the strip once the column holds several panes.
+    await button.scrollIntoViewIfNeeded();
     await button.click();
     return;
   }

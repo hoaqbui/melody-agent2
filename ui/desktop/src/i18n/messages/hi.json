@@ -2525,6 +2525,12 @@
   "markdownContent.noApplicationFound": {
     "defaultMessage": "इस लिंक को खोलने के लिए कोई एप्लिकेशन नहीं मिला."
   },
+  "markdownPane.contents": {
+    "defaultMessage": "Contents"
+  },
+  "markdownPane.edit": {
+    "defaultMessage": "Edit"
+  },
   "markdownPane.loading": {
     "defaultMessage": "Loading…"
   },
@@ -5804,8 +5810,14 @@
   "userMessage.forkSessionTitle": {
     "defaultMessage": "संपादित संदेश के साथ एक नया सत्र बनाएं"
   },
+  "userMessage.redoThisTurn": {
+    "defaultMessage": "Redo this turn"
+  },
   "userMessage.removeImageFromEdit": {
     "defaultMessage": "संदेश से छवि हटाएँ"
+  },
+  "userMessage.undoThisTurn": {
+    "defaultMessage": "Undo this turn"
   },
   "workColumn.bar": {
     "defaultMessage": "Panes"

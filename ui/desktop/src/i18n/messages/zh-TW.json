@@ -2525,6 +2525,12 @@
   "markdownContent.noApplicationFound": {
     "defaultMessage": "找不到可開啟此連結的應用程式。"
   },
+  "markdownPane.contents": {
+    "defaultMessage": "Contents"
+  },
+  "markdownPane.edit": {
+    "defaultMessage": "Edit"
+  },
   "markdownPane.loading": {
     "defaultMessage": "Loading…"
   },
@@ -5804,8 +5810,14 @@
   "userMessage.forkSessionTitle": {
     "defaultMessage": "以編輯後的訊息建立新的工作階段"
   },
+  "userMessage.redoThisTurn": {
+    "defaultMessage": "Redo this turn"
+  },
   "userMessage.removeImageFromEdit": {
     "defaultMessage": "從訊息中移除圖片"
+  },
+  "userMessage.undoThisTurn": {
+    "defaultMessage": "Undo this turn"
   },
   "workColumn.bar": {
     "defaultMessage": "Panes"

@@ -2525,6 +2525,12 @@
   "markdownContent.noApplicationFound": {
     "defaultMessage": "Nenhum aplicativo encontrado para abrir este link."
   },
+  "markdownPane.contents": {
+    "defaultMessage": "Contents"
+  },
+  "markdownPane.edit": {
+    "defaultMessage": "Edit"
+  },
   "markdownPane.loading": {
     "defaultMessage": "Loading…"
   },
@@ -5804,8 +5810,14 @@
   "userMessage.forkSessionTitle": {
     "defaultMessage": "Criar uma nova sessão com a mensagem editada"
   },
+  "userMessage.redoThisTurn": {
+    "defaultMessage": "Redo this turn"
+  },
   "userMessage.removeImageFromEdit": {
     "defaultMessage": "Remover imagem da mensagem"
+  },
+  "userMessage.undoThisTurn": {
+    "defaultMessage": "Undo this turn"
   },
   "workColumn.bar": {
     "defaultMessage": "Panes"

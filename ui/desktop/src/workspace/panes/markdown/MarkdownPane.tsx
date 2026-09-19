@@ -6,7 +6,11 @@
 import { useCallback, useEffect, useMemo, useRef, useState, useSyncExternalStore } from 'react';
 import { defineMessages, useIntl } from '../../../i18n';
 import { Button } from '../../../components/ui/button';
-import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '../../../components/ui/collapsible';
+import {
+  Collapsible,
+  CollapsibleContent,
+  CollapsibleTrigger,
+} from '../../../components/ui/collapsible';
 import Expand from '../../../components/ui/Expand';
 import {
   sidecarFetch,
@@ -57,6 +61,18 @@ function useDocs() {
   );
 }
 
+function offsetWithin(target: HTMLElement, container: HTMLElement): number {
+  let top = 0;
+  for (
+    let node: HTMLElement | null = target;
+    node && node !== container;
+    node = node.offsetParent as HTMLElement | null
+  ) {
+    top += node.offsetTop;
+  }
+  return top;
+}
+
 export function MarkdownPane() {
   const intl = useIntl();
   const { file, openFile } = usePaneContext();
@@ -68,7 +84,7 @@ export function MarkdownPane() {
   const viewRef = useRef<HTMLDivElement>(null);
   const [tocOpen, setTocOpen] = useState(true);
 
-  // MarkdownView gives every h1..h6 the id at the same position in this array (task 95), so
+  // MarkdownView gives every h1..h6 the id `headings()` derives from its text (task 95), so
   // this list is only meaningful once the file is `ready` and rendered, not while it shows
   // as raw text under the "Not markdown" bar.
   const headingsList = useMemo(
@@ -77,18 +93,19 @@ export function MarkdownPane() {
   );
 
   const headingElement = useCallback(
-    (id: string) => viewRef.current?.querySelector(`[id="${CSS.escape(id)}"]`) ?? null,
+    (id: string) => viewRef.current?.querySelector<HTMLElement>(`[id="${CSS.escape(id)}"]`) ?? null,
     []
   );
 
-  // Scrolls the pane so the picked heading sits at the very top of the visible area.
+  // Scrolls the pane so the picked heading sits at the very top of the visible area. Offsets,
+  // not client rects: the pane zooms in for 150 ms when its slot opens, and a jump during that
+  // animation would read scaled positions and overshoot.
   const scrollToHeading = useCallback(
     (id: string) => {
       const container = viewRef.current;
       const target = container ? headingElement(id) : null;
       if (!container || !target) return;
-      const delta = target.getBoundingClientRect().top - container.getBoundingClientRect().top;
-      container.scrollTop += delta;
+      container.scrollTop = offsetWithin(target, container);
     },
     [headingElement]
   );
@@ -98,13 +115,12 @@ export function MarkdownPane() {
   const nearestHeadingLine = useCallback((): number | undefined => {
     const container = viewRef.current;
     if (!container || headingsList.length === 0) return undefined;
-    const containerTop = container.getBoundingClientRect().top;
     let nearest = headingsList[0];
     let nearestDistance = Infinity;
     for (const heading of headingsList) {
       const target = headingElement(heading.id);
       if (!target) continue;
-      const distance = Math.abs(target.getBoundingClientRect().top - containerTop);
+      const distance = Math.abs(offsetWithin(target, container) - container.scrollTop);
       if (distance < nearestDistance) {
         nearestDistance = distance;
         nearest = heading;
@@ -237,7 +253,11 @@ export function MarkdownPane() {
             </div>
           )}
           {doc.load.status === 'loaded' && (
-            <div className="flex-1 min-h-0 overflow-auto" data-testid="markdown-view" ref={viewRef}>
+            <div
+              className="relative flex-1 min-h-0 overflow-auto"
+              data-testid="markdown-view"
+              ref={viewRef}
+            >
               {state === 'ready' ? (
                 <MarkdownView text={doc.load.text} />
               ) : (

@@ -7,7 +7,13 @@ import { test, expect, emptyDock, openPane } from './fixtures';
 // you jump around it, and Edit steps into the Editor at the heading you were reading —
 // Markdown is a reader with a door, not a dead end. `doc.md` carries 5 headings over ~120
 // lines so Contents shows (>= 3 headings); `readme.md` carries 2 so it does not.
-const HEADING_TITLES = ['Heading One', 'Heading Two', 'Heading Three', 'Heading Four', 'Heading Five'];
+const HEADING_TITLES = [
+  'Heading One',
+  'Heading Two',
+  'Heading Three',
+  'Heading Four',
+  'Heading Five',
+];
 
 function buildDoc(): { content: string; headingLines: number[] } {
   const lines: string[] = [];
@@ -98,14 +104,16 @@ test.describe('markdown pane', () => {
     await expect(editorFile).toHaveAttribute('data-line', String(headingLines[3]));
 
     // Step 5: Contents rows are reachable by keyboard — focus, then Enter jumps like a click.
+    // The second heading, not the first: the first already sits at the top of the document, so
+    // a jump to it cannot move the view.
     await openPane(goosePage, 'markdown');
-    await rows.first().focus();
-    await rows.first().press('Enter');
-    const first = view.locator(`#${slugOf('Heading One')}`);
+    await rows.nth(1).focus();
+    await rows.nth(1).press('Enter');
+    const second = view.locator(`#${slugOf('Heading Two')}`);
     await expect
       .poll(async () => {
         const viewBox = await view.boundingBox();
-        const targetBox = await first.boundingBox();
+        const targetBox = await second.boundingBox();
         if (!viewBox || !targetBox) return null;
         return Math.abs(targetBox.y - viewBox.y);
       })
