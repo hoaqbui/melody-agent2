@@ -48,4 +48,8 @@ Decided 2026-09-18: every recommendation as written.
 5. **Floating Button reach** — the lift, press and shadow reach upstream's buttons through `button.tsx` (closing the open decision) — recommended; the alternative stops at the workspace's own controls and the board's "every filled control" language fails.
 6. **Every theme takes the faces and scale** — body text goes from 16 px to 13 px, small text 14 → 12, captions 12 → 11, large 18 → 15, the first heading 16 → 20, in Light, Monokai and Aura alike (chat, settings, panes; colours unchanged) — recommended; the alternative is a per-theme font token, two languages in one app.
 
-The five tasks landed in `tasks.md` as tranche 8; 98 started 2026-09-18.
+The five tasks landed in `tasks.md` as tranche 8; 98 started 2026-09-18; 102 landed 2026-09-19 and the section left the ledger.
+
+## Revisions
+
+- 2026-09-19, implemented: 98–102 landed, every `confirm:` rerun on main by the session — theme tests 16 passed with the light snapshot and Aura's colour snapshot retaken; the desktop suite 1198 passed under hermit's Node; eight walks green one at a time (`studio light` new; the seven existing ones unchanged in outcome). Found on the way: nothing in `main.css` ever applied the sans token to the page — Cash Sans was a CDN fetch that no rule used, and the new face was invisible until `body { font-family: var(--font-sans) }` (and the mono token on code, kbd, samp, pre); a walk reading a colour right after a state change reads the transition's first frame — the studio-light walk polls; the Send disc is a ghost variant in markup and a filled disc on screen, so it takes its lift in CSS rather than through decision 5's variant list; the browser-pane walk inherited a home URL a previous run's "Set as home" had persisted and now clears it first. Not built, named in DESIGN.md: idle tabs shrinking to icon + kind; the file line's amber bar.

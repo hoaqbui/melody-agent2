@@ -19,7 +19,10 @@ test.describe('browser pane', () => {
     // The sidecar's port changes per run, so an earlier run's /health would be a second row.
     await goosePage.evaluate(() => {
       Object.keys(window.localStorage)
-        .filter((key) => key.startsWith('goose.browserHistory:'))
+        // the history, and the per-project home a previous run's "Set as home" left (task 87)
+        .filter(
+          (key) => key.startsWith('goose.browserHistory:') || key.startsWith('goose.browser.home')
+        )
         .forEach((key) => window.localStorage.removeItem(key));
     });
 

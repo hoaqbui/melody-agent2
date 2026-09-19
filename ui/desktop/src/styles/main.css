@@ -13,6 +13,19 @@
 
 @custom-variant dark (&:where(.dark, .dark *));
 
+/* The faces are theme tokens (task 98): the page reads them here, nothing else names a family. */
+body {
+  font-family: var(--font-sans);
+}
+
+code,
+kbd,
+samp,
+pre,
+.font-mono {
+  font-family: var(--font-mono);
+}
+
 @theme {
   --breakpoint-md: 930px;
 }
@@ -538,7 +551,7 @@ body {
   border-radius: 4px;
   color: var(--color-inline-code);
   background-color: var(--color-neutral-50);
-  font-family: monospace;
+  font-family: var(--font-mono);
   font-size: 12px;
   font-style: normal;
   font-weight: 400;
@@ -1122,6 +1135,25 @@ pre:has(> code.bg-inline-code) {
 
   .send-disc[data-armed='true'] {
     animation: send-nudge calc(var(--motion-base) + 60ms) var(--ease-g2) 1;
+  }
+
+  /* The one round control is a ghost variant in markup, a filled disc on screen: it floats. */
+  .send-disc:not(:disabled) {
+    transition:
+      transform var(--motion-fast) var(--ease-g2),
+      box-shadow var(--motion-fast) var(--ease-g2),
+      background-color var(--motion-fast) var(--ease-g2);
+  }
+
+  .send-disc:not(:disabled):hover {
+    transform: translateY(-1px);
+    box-shadow: var(--shadow-md);
+  }
+
+  .send-disc:not(:disabled):active {
+    transform: translateY(1px);
+    box-shadow: var(--shadow-sm);
+    transition-duration: var(--motion-press);
   }
 
   .tool-row {

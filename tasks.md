@@ -152,20 +152,10 @@ Approved 2026-09-18 on the user's delegation; all 17 gate decisions as recommend
     - from 87 (2026-09-18): the Browser toolbar gained Share ▸ Page · Screenshot · Console and "Set as home"; DESIGN.md §Vocabulary's Browser row does not name them yet
   - confirm: `grep -c "Add to chat" DESIGN.md` → `≥ 1` (untouched: `0`); `grep -c "requestPath\|/fs/\* contained" ARCHITECTURE.md` → `≥ 1` (untouched: `0`)
 
-### docs/2026-09-18-studio-theme-plan-v1.md — tranche 8 (approved 2026-09-18)
-
-Approved 2026-09-18, all six gate decisions as recommended (option A; a Light AA test with `#0b7a72` for text on filled controls; radius 16 · 12 · 999 kept; frosted Sessions column; the lift reaches upstream's filled and outline buttons; every theme takes the faces and the five-size scale). Order: 98 → 99 → 100 ∥ 101 → 102. The session drafts.
-
-
-- 102. Amend the documents and prove it: `DESIGN.md` §Tokens & theme (2026-09-18 delta: Light is the Studio board — the mapping, the frosted column, the tint), §Typography (the five-size scale, the two faces, self-hosted), §Motion (the four duration roles), §Open decisions (Floating Button reach and Motion scale resolved); `tests/e2e/studio-light.spec.ts` per tasks 100–101's UX plan; every walk in `tests/e2e` rerun one at a time on main; one screenshot of the Light desktop for the user.
-  - status: doing · agent: session [Fable] · worker: low
-  - card: as the next agent, read what the light theme is and why, and trust the walks that say so
-  - confirm: `grep -c "Studio" DESIGN.md` → `≥ 3` (untouched: `0`); `just walk "studio light"` → 1 passed (untouched: no spec); `for w in "session menu" "terminal pane" "files pane" "chat links" "browser pane" "command palette" "changes bar"; do just walk "$w" | grep -E "passed|failed"; done` → seven `passed`
-
 ## Waiting on the user
 
 - Node for the desktop suite (2026-09-18): under the system Node v26.8.1 (`/opt/homebrew`), jsdom's `window.localStorage` reads undefined (Node 26's own Web Storage global shadows it) and 9 notifications tests fail; under hermit's Node v24.10.0 the suite is 1196/1196. Run `pnpm` for the desktop from the hermit env (`source bin/activate-hermit`), or pin `engines` harder — your call.
-- Tranche 8 — `docs/2026-09-18-studio-theme-plan-v1.md` (2026-09-18): the desktop in the Studio board's skin. Six gate decisions (option A over a fourth theme; white-on-teal vs the AA test; radius; frosted Sessions column; Floating Button reach; dark takes the faces) — approve or amend, then 98 starts.
+- Tranche 8 landed 2026-09-19 (tasks 98–102): pick Light and look — the screenshot the studio-light walk writes (`STUDIO_SHOT=<path> just walk "studio light"`) is the record; two things the board draws are not built and are named in DESIGN.md §Tokens: idle tabs shrinking to icon + kind, the file line's amber bar.
 - Walk environment (2026-09-18, twice): a `pnpm install` in `ui/` re-links `node_modules/.bin` from store copies without the executable bit and `electron-forge` fails "Permission denied" — every walk dies at the 60 s launch timeout. `for l in $(find -L ui/node_modules/.bin ui/desktop/node_modules/.bin ui/sidecar/node_modules/.bin -maxdepth 1 -type f ! -perm -u+x); do chmod u+x "$(readlink -f $l)"; done` fixes it; a Justfile recipe or a postinstall would make it stick — your call.
 - Walks share one machine (2026-09-18): the sidecar's fixed port 7788 and the dev Electron instance mean two walks at once collide; workers running walks in worktrees while main ran one were the day's "No windows/pages found" — walks run one at a time, on main.
 - Worker routing evidence (2026-09-18, AGENTS.md §Model routing): 8/8 wave-1 and 9/9 wave-2 haiku diffs needed session corrections before landing (import cycles, null contexts, unrun walks, one non-compiling branch on 77, two strays into the main checkout); 77's Rust half and every walk fix were the session's. The first rung's record today argues for `sonnet` on `worker: medium|high`.
