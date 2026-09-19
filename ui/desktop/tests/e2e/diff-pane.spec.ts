@@ -1,17 +1,15 @@
 import { execFileSync } from 'child_process';
-import { mkdtempSync, mkdirSync, readFileSync, rmSync, writeFileSync } from 'fs';
-import { homedir, tmpdir } from 'os';
+import { mkdtempSync, readFileSync, rmSync, writeFileSync } from 'fs';
+import { tmpdir } from 'os';
 import { join } from 'path';
 import { test, expect, openPane } from './fixtures';
 
 // PRD step 5: a modified file shows in the Changes list; unified and side-by-side render.
 // Task 50: a file with two separated edits is reviewed per chunk — Stage, Reject, Undo — and
-// git's own view of the index and the working tree confirms each step. With no --dir and a
-// piped stdin the app opens in $HOME, so the walk points HOME at a scratch repo with the
-// committed, then modified, files. Hermit resolves its state dir from HOME too, so that is
-// pinned to the real one first.
-const realHome = homedir();
-const previousEnv = { HOME: process.env.HOME, HERMIT_STATE_DIR: process.env.HERMIT_STATE_DIR };
+// git's own view of the index and the working tree confirms each step. GOOSE_TEST_DIR (task
+// 58) opens the window on the scratch repo with the committed, then modified, files; the
+// user's own config stays where it is, so the provider check on launch still finds a seat.
+const previousDir = process.env.GOOSE_TEST_DIR;
 let scratch = '';
 
 const git = (cwd: string, args: string[]) =>
@@ -34,19 +32,12 @@ test.describe('diff pane', () => {
     git(scratch, ['commit', '-q', '-m', 'base']);
     writeFileSync(file, 'one\ntwo, changed\nthree\nfour\n');
     writeFileSync(hunks, TEN_LINES.replace('l2', 'L2').replace('l9', 'L9'));
-    mkdirSync(join(scratch, 'Library'), { recursive: true });
-    process.env.HERMIT_STATE_DIR ??=
-      process.platform === 'darwin'
-        ? join(realHome, 'Library', 'Caches', 'hermit')
-        : join(process.env.XDG_CACHE_HOME ?? join(realHome, '.cache'), 'hermit');
-    process.env.HOME = scratch;
+    process.env.GOOSE_TEST_DIR = scratch;
   });
 
   test.afterAll(() => {
-    for (const [key, value] of Object.entries(previousEnv)) {
-      if (value === undefined) delete process.env[key];
-      else process.env[key] = value;
-    }
+    if (previousDir === undefined) delete process.env.GOOSE_TEST_DIR;
+    else process.env.GOOSE_TEST_DIR = previousDir;
     rmSync(scratch, { recursive: true, force: true });
   });
 
@@ -196,7 +187,9 @@ test.describe('diff pane', () => {
 
     await undoButton.click();
     await expect(notesRow).toBeVisible();
-    expect(readFileSync(join(scratch, 'notes.md'), 'utf8')).toBe('one\ntwo, changed\nthree\nfour\n');
+    expect(readFileSync(join(scratch, 'notes.md'), 'utf8')).toBe(
+      'one\ntwo, changed\nthree\nfour\n'
+    );
 
     // Keyboard: Tab from the row's own button reaches Stage file, then Discard file.
     await notesRow.focus();

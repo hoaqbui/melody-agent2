@@ -149,9 +149,13 @@ export const test = base.extend<GooseTestFixtures>({
     } finally {
       console.log('Cleaning up Electron app for this test...');
 
-      // Close the CDP connection
+      // Close the CDP connection. Electron does not exit on a CDP close, so the call can
+      // hang for minutes; the process group is killed right after either way.
       if (browser) {
-        await browser.close().catch(console.error);
+        await Promise.race([
+          browser.close().catch(console.error),
+          new Promise((resolve) => setTimeout(resolve, 5000)),
+        ]);
       }
 
       // Kill the npm process tree
