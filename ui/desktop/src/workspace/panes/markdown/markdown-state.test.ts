@@ -3,12 +3,14 @@ import { resolve } from 'node:path';
 import { describe, expect, it, vi } from 'vitest';
 import {
   createMarkdownStore,
+  headings,
   loaded,
   loadFailed,
   loadStarted,
   MARKDOWN_PANE_STATES,
   newDoc,
   paneState,
+  slug,
 } from './markdown-state';
 
 const PATH = '/repo/README.md';
@@ -46,6 +48,56 @@ describe('pane state', () => {
     expect(paneState(loadFailed(doc, 'ENOENT'))).toBe('error');
     expect(paneState(loaded(doc, '# hi\n'))).toBe('ready');
     expect(paneState(loaded(newDoc('/repo/main.rs'), 'fn main() {}\n'))).toBe('partial');
+  });
+});
+
+describe('slug', () => {
+  it('lowercases, spaces to hyphens, drops punctuation', () => {
+    expect(slug('Hello World')).toBe('hello-world');
+    expect(slug('Step 1: Setup!')).toBe('step-1-setup');
+    expect(slug('  trim me  ')).toBe('trim-me');
+    expect(slug('a---b')).toBe('a-b');
+  });
+
+  it('is stable across calls', () => {
+    expect(slug('Contents & Edit')).toBe(slug('Contents & Edit'));
+  });
+});
+
+describe('headings', () => {
+  it('finds ATX headings # through ######, in source order with 1-based lines', () => {
+    const text = '# One\ntext\n## Two\n###### Six\n';
+    expect(headings(text)).toEqual([
+      { level: 1, text: 'One', id: 'one', line: 1 },
+      { level: 2, text: 'Two', id: 'two', line: 3 },
+      { level: 6, text: 'Six', id: 'six', line: 4 },
+    ]);
+  });
+
+  it('ignores more than six leading #, a heading with no text, and non-ATX lines', () => {
+    const text = '####### Seven\n#\ncode #1\n';
+    expect(headings(text)).toEqual([]);
+  });
+
+  it('strips an ATX closing sequence of trailing #', () => {
+    expect(headings('# Title #####\n')).toEqual([
+      { level: 1, text: 'Title', id: 'title', line: 1 },
+    ]);
+  });
+
+  it('ignores a heading-shaped line inside a fenced code block', () => {
+    const text = '# Real\n```\n# Not a heading\n```\n~~~\n## Also not\n~~~\n## Also Real\n';
+    expect(headings(text)).toEqual([
+      { level: 1, text: 'Real', id: 'real', line: 1 },
+      { level: 2, text: 'Also Real', id: 'also-real', line: 8 },
+    ]);
+  });
+
+  it('gives repeated heading text stable, unique ids', () => {
+    const text = '# Notes\n## Notes\n### Notes\n';
+    const found = headings(text);
+    expect(found.map((heading) => heading.id)).toEqual(['notes', 'notes-1', 'notes-2']);
+    expect(headings(text)).toEqual(found);
   });
 });
 

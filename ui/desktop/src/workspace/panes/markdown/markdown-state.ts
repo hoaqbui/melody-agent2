@@ -36,6 +36,65 @@ export function loadStarted(doc: MarkdownDoc): MarkdownDoc {
   return doc.load.status === 'loading' ? doc : { ...doc, load: { status: 'loading' } };
 }
 
+// One heading in the document: its level, its text stripped of the `#` marks, the anchor
+// id `MarkdownView` gives its rendered element, and the 1-based source line `openFile`
+// takes to land the Editor there (task 95, PRD §Item 12 — Contents + Edit).
+export interface Heading {
+  level: number;
+  text: string;
+  id: string;
+  line: number;
+}
+
+// GitHub's anchor algorithm: lowercase, drop everything but letters, numbers, space and
+// hyphen, spaces become hyphens. Pure in the name alone — `headings` below dedupes repeats
+// across a document, which `slug` on its own cannot know about.
+export function slug(name: string): string {
+  return name
+    .toLowerCase()
+    .trim()
+    .replace(/[^\p{L}\p{N}\s-]/gu, '')
+    .replace(/\s+/g, '-')
+    .replace(/-+/g, '-')
+    .replace(/^-|-$/g, '');
+}
+
+const ATX_HEADING = /^ {0,3}(#{1,6})(?:\s+(.*?))?\s*$/;
+const FENCE = /^ {0,3}(`{3,}|~{3,})/;
+
+// ATX headings `#` … `######`; a fenced block (``` or ~~~) hides whatever looks like a
+// heading inside it, same as `review-parse.ts`'s `itemsOf`. Repeated heading text gets
+// GitHub's `-1`, `-2`, … suffix so every id stays unique within the document.
+export function headings(text: string): Heading[] {
+  const found: Heading[] = [];
+  const seen = new Map<string, number>();
+  let fence: string | null = null;
+  const lines = text.split('\n');
+  for (let i = 0; i < lines.length; i++) {
+    const line = lines[i];
+    const fenceMatch = FENCE.exec(line);
+    if (fenceMatch) {
+      const marker = fenceMatch[1][0];
+      fence = fence === marker ? null : (fence ?? marker);
+      continue;
+    }
+    if (fence) continue;
+    const match = ATX_HEADING.exec(line);
+    const headingText = match?.[2]?.replace(/\s+#+\s*$/, '').trim();
+    if (!headingText) continue;
+    const base = slug(headingText);
+    const seenCount = seen.get(base) ?? 0;
+    seen.set(base, seenCount + 1);
+    found.push({
+      level: match![1].length,
+      text: headingText,
+      id: seenCount === 0 ? base : `${base}-${seenCount}`,
+      line: i + 1,
+    });
+  }
+  return found;
+}
+
 // A file that is not markdown still shows, as text under a bar saying so (DESIGN.md
 // Partial: the resolved part live, one bar naming what is missing).
 export function paneState(doc: MarkdownDoc | null): MarkdownPaneState {
