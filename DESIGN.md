@@ -123,7 +123,6 @@ The PRD's per-surface lines (`:137-170`) are deviations from these rows; a state
 | Empty | the surface's purpose, the path or base it looked at, one starting action ("Nothing here" + path; "No changes vs <base>"; "No delegated work yet") | the starting action | — | the action | the empty line |
 | Loading | layout preserved; the unresolved part is a skeleton or a row spinner, never a blank | navigation, tab switch, Stop | all | unchanged | "loading" once, then silence |
 | Partial | the resolved part is live; the unresolved part carries one icon or one bar naming what is missing (lock, reload bar, "binary", "Sign in") | everything on the resolved part; the bar's action | all | unchanged | the bar's text |
-| Awaiting | the resolved part (Plan) is lit and done; a bar on the chip or row names what is missing and its actions (Accept, Revise… for the plan gate) — one icon or one bar never two | everything on the resolved part; the bar's actions | all | unchanged | the bar's text |
 | Running | the row keeps its spinner while the call runs, even after the reply ends (PRD `:148-149`); Commit is disabled and says why (PRD `:79`) | Stop; navigation | all | unchanged | the row's title |
 | Error | plain cause (git's stderr, the OS error, the provider's error) then the recovery it names; the row stays (PRD `:167`, `:170`) | the recovery | input and selection kept; chat input enabled | the recovery | cause, then recovery |
 | Cancelled | the reply truncated where it stopped; input enabled (PRD `:54`) | send again | the draft | the input | "stopped" |

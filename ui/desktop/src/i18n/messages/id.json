@@ -1,4 +1,25 @@
 {
+  "acpReadinessPanel.adapterFound": {
+    "defaultMessage": "Adaptor ACP ditemukan"
+  },
+  "acpReadinessPanel.adapterNotFound": {
+    "defaultMessage": "Adaptor ACP tidak ditemukan"
+  },
+  "acpReadinessPanel.authenticationHelp": {
+    "defaultMessage": "Masuk melalui CLI penyedia, lalu periksa lagi."
+  },
+  "acpReadinessPanel.checkAgain": {
+    "defaultMessage": "Periksa lagi"
+  },
+  "acpReadinessPanel.checking": {
+    "defaultMessage": "Memeriksa..."
+  },
+  "acpReadinessPanel.connected": {
+    "defaultMessage": "Berhasil terhubung"
+  },
+  "acpReadinessPanel.connectionNotChecked": {
+    "defaultMessage": "Periksa koneksi akun Anda sebelum melanjutkan."
+  },
   "agentsPane.adHoc": {
     "defaultMessage": "Ad hoc"
   },
@@ -112,6 +133,12 @@
   },
   "artifactPane.empty": {
     "defaultMessage": "No artifacts yet — delegate work and the results land here"
+  },
+  "artifactPane.gateAccept": {
+    "defaultMessage": "Accept"
+  },
+  "artifactPane.gateRevise": {
+    "defaultMessage": "Revise…"
   },
   "artifactPane.list": {
     "defaultMessage": "Artifacts"
@@ -323,6 +350,12 @@
   "browserPane.back": {
     "defaultMessage": "Back"
   },
+  "browserPane.captureFailed": {
+    "defaultMessage": "Failed to capture page"
+  },
+  "browserPane.desktopOnly": {
+    "defaultMessage": "Desktop only"
+  },
   "browserPane.forward": {
     "defaultMessage": "Forward"
   },
@@ -344,8 +377,20 @@
   "browserPane.refresh": {
     "defaultMessage": "Refresh"
   },
+  "browserPane.setHome": {
+    "defaultMessage": "Set as home"
+  },
   "browserPane.share": {
     "defaultMessage": "Share with agent"
+  },
+  "browserPane.shareConsole": {
+    "defaultMessage": "Console"
+  },
+  "browserPane.sharePage": {
+    "defaultMessage": "Page"
+  },
+  "browserPane.shareScreenshot": {
+    "defaultMessage": "Screenshot"
   },
   "browserPane.shareUrlOnly": {
     "defaultMessage": "Share sends the address only from here"
@@ -364,6 +409,30 @@
   },
   "cardButtons.launch": {
     "defaultMessage": "Jalankan"
+  },
+  "changesBar.acceptAll": {
+    "defaultMessage": "Accept all"
+  },
+  "changesBar.binary": {
+    "defaultMessage": "{count,plural,one{binary file} other{binary files}}"
+  },
+  "changesBar.discard": {
+    "defaultMessage": "Discard"
+  },
+  "changesBar.discarded": {
+    "defaultMessage": "Discarded"
+  },
+  "changesBar.files": {
+    "defaultMessage": "{count,plural,one{file} other{files}}"
+  },
+  "changesBar.retry": {
+    "defaultMessage": "Retry"
+  },
+  "changesBar.review": {
+    "defaultMessage": "Review"
+  },
+  "changesBar.undo": {
+    "defaultMessage": "Undo"
   },
   "chat.notification.taskComplete.body": {
     "defaultMessage": "Klik di sini untuk membawa Goose kembali ke fokus."
@@ -430,6 +499,15 @@
   },
   "chatSettings.responseStylesTitle": {
     "defaultMessage": "Gaya Respons"
+  },
+  "commandPalette.loading": {
+    "defaultMessage": "Loading…"
+  },
+  "commandPalette.noMatches": {
+    "defaultMessage": "Nothing matches \"{query}\""
+  },
+  "commandPalette.placeholder": {
+    "defaultMessage": "Type to search…"
   },
   "configSettings.configReset": {
     "defaultMessage": "Konfigurasi Disetel Ulang"
@@ -1196,11 +1274,11 @@
   "diffPane.vsHead": {
     "defaultMessage": "vs HEAD"
   },
-  "diffPane.worktreeBlockedRunning": {
-    "defaultMessage": "Merge and Remove wait for the running tool call to finish"
-  },
   "diffPane.worktree": {
     "defaultMessage": "Worktree"
+  },
+  "diffPane.worktreeBlockedRunning": {
+    "defaultMessage": "Merge and Remove wait for the running tool call to finish"
   },
   "diffPane.worktreeRemoved": {
     "defaultMessage": "Worktree removed; this chat continues in {path}"
@@ -1214,11 +1292,11 @@
   "dirSwitcher.enterPath": {
     "defaultMessage": "Enter path"
   },
-  "dirSwitcher.enterPathPlaceholder": {
-    "defaultMessage": "Enter an absolute path (e.g. /home/goose/workspace)"
-  },
   "dirSwitcher.enterPathInvalid": {
     "defaultMessage": "Working directory must be an absolute path"
+  },
+  "dirSwitcher.enterPathPlaceholder": {
+    "defaultMessage": "Enter an absolute path (e.g. /home/goose/workspace)"
   },
   "dirSwitcher.failedToUpdateWorkingDir": {
     "defaultMessage": "Gagal memperbarui direktori kerja"
@@ -1273,36 +1351,6 @@
   },
   "editorPane.unsaved": {
     "defaultMessage": "Unsaved changes"
-  },
-  "filesPane.back": {
-    "defaultMessage": "Back"
-  },
-  "filesPane.loading": {
-    "defaultMessage": "Loading…"
-  },
-  "filesPane.nothingHere": {
-    "defaultMessage": "Nothing here"
-  },
-  "filesPane.retry": {
-    "defaultMessage": "Retry"
-  },
-  "filesPane.unreadable": {
-    "defaultMessage": "Unreadable"
-  },
-  "filesPane.written": {
-    "defaultMessage": "Written this session"
-  },
-  "gitBranchIndicator.failedToSwitch": {
-    "defaultMessage": "Gagal beralih ke {branch}"
-  },
-  "gitBranchIndicator.noBranchesFound": {
-    "defaultMessage": "Tidak ada branch yang ditemukan"
-  },
-  "gitBranchIndicator.searchBranches": {
-    "defaultMessage": "Cari branch…"
-  },
-  "gitBranchIndicator.uncommittedChanges": {
-    "defaultMessage": "Anda mungkin memiliki perubahan yang belum di-commit."
   },
   "elicitationRequest.accept": {
     "defaultMessage": "Terima"
@@ -1606,6 +1654,63 @@
   },
   "externalBackendSection.workingDirPlaceholder": {
     "defaultMessage": "/home/goose/workspace"
+  },
+  "filesPane.addToChat": {
+    "defaultMessage": "Add to chat"
+  },
+  "filesPane.back": {
+    "defaultMessage": "Back"
+  },
+  "filesPane.copyPath": {
+    "defaultMessage": "Copy path"
+  },
+  "filesPane.delete": {
+    "defaultMessage": "Delete"
+  },
+  "filesPane.deleted": {
+    "defaultMessage": "Deleted"
+  },
+  "filesPane.loading": {
+    "defaultMessage": "Loading…"
+  },
+  "filesPane.newFile": {
+    "defaultMessage": "New file"
+  },
+  "filesPane.newFolder": {
+    "defaultMessage": "New folder"
+  },
+  "filesPane.nothingHere": {
+    "defaultMessage": "Nothing here"
+  },
+  "filesPane.rename": {
+    "defaultMessage": "Rename"
+  },
+  "filesPane.retry": {
+    "defaultMessage": "Retry"
+  },
+  "filesPane.revealInFinder": {
+    "defaultMessage": "Reveal in Finder"
+  },
+  "filesPane.undo": {
+    "defaultMessage": "Undo"
+  },
+  "filesPane.unreadable": {
+    "defaultMessage": "Unreadable"
+  },
+  "filesPane.written": {
+    "defaultMessage": "Written this session"
+  },
+  "gitBranchIndicator.failedToSwitch": {
+    "defaultMessage": "Gagal beralih ke {branch}"
+  },
+  "gitBranchIndicator.noBranchesFound": {
+    "defaultMessage": "Tidak ada branch yang ditemukan"
+  },
+  "gitBranchIndicator.searchBranches": {
+    "defaultMessage": "Cari branch…"
+  },
+  "gitBranchIndicator.uncommittedChanges": {
+    "defaultMessage": "Anda mungkin memiliki perubahan yang belum di-commit."
   },
   "gitPane.blockedConflicts": {
     "defaultMessage": "Resolve the conflicts to commit"
@@ -2837,6 +2942,9 @@
   "modelsBottomBar.localModelSettingsTitle": {
     "defaultMessage": "Pengaturan Model Lokal — {modelName}"
   },
+  "modelsBottomBar.recentModels": {
+    "defaultMessage": "Terbaru"
+  },
   "modelsBottomBar.resolvedModel": {
     "defaultMessage": "Model yang diselesaikan"
   },
@@ -3239,6 +3347,9 @@
   "promptsSettings.unsavedChanges": {
     "defaultMessage": "Anda memiliki perubahan yang belum disimpan"
   },
+  "providerCard.deprecatedReplacement": {
+    "defaultMessage": "Tidak digunakan lagi — gunakan {replacement} sebagai gantinya."
+  },
   "providerCard.noMetadata": {
     "defaultMessage": "Kesalahan ProviderCard: Tidak ada metadata yang disediakan"
   },
@@ -3293,8 +3404,17 @@
   "providerConfigForm.continue": {
     "defaultMessage": "Lanjutkan"
   },
+  "providerConfigForm.deviceCodeAndEnter": {
+    "defaultMessage": "dan masukkan:"
+  },
+  "providerConfigForm.deviceCodeCopy": {
+    "defaultMessage": "Salin"
+  },
   "providerConfigForm.deviceCodeFlowHint": {
     "defaultMessage": "Jendela browser akan terbuka. Kode verifikasi akan muncul di sini agar Anda dapat memasukkannya untuk menyelesaikan proses masuk."
+  },
+  "providerConfigForm.deviceCodeVisit": {
+    "defaultMessage": "Kunjungi"
   },
   "providerConfigForm.noApiKey": {
     "defaultMessage": "Tidak punya kunci API?"
@@ -3320,6 +3440,9 @@
   "providerConfigurationModal.checkConfigAgain": {
     "defaultMessage": "Periksa kembali konfigurasi Anda untuk menggunakan penyedia ini."
   },
+  "providerConfigurationModal.chooseModel": {
+    "defaultMessage": "Pilih Model"
+  },
   "providerConfigurationModal.close": {
     "defaultMessage": "Tutup"
   },
@@ -3332,8 +3455,17 @@
   "providerConfigurationModal.deleteConfirmation": {
     "defaultMessage": "Tindakan ini akan menghapus konfigurasi penyedia saat ini secara permanen."
   },
+  "providerConfigurationModal.deviceCodeAndEnter": {
+    "defaultMessage": "dan masukkan:"
+  },
+  "providerConfigurationModal.deviceCodeCopy": {
+    "defaultMessage": "Salin"
+  },
   "providerConfigurationModal.deviceCodeFlowHint": {
     "defaultMessage": "Jendela browser akan terbuka. Kode verifikasi akan muncul di sini agar Anda dapat memasukkannya untuk menyelesaikan proses masuk."
+  },
+  "providerConfigurationModal.deviceCodeVisit": {
+    "defaultMessage": "Kunjungi"
   },
   "providerConfigurationModal.errorCheckingConfig": {
     "defaultMessage": "Terjadi kesalahan saat memeriksa konfigurasi penyedia ini."
@@ -3971,6 +4103,15 @@
   "routineSheet.worktree": {
     "defaultMessage": "Run in its own worktree"
   },
+  "rpiStrip.gateAccept": {
+    "defaultMessage": "Accept"
+  },
+  "rpiStrip.gateReady": {
+    "defaultMessage": "Plan ready — waiting for you"
+  },
+  "rpiStrip.gateRevise": {
+    "defaultMessage": "Revise…"
+  },
   "rpiStrip.implement": {
     "defaultMessage": "Implement"
   },
@@ -3982,6 +4123,12 @@
   },
   "rpiStrip.opensWhenDone": {
     "defaultMessage": "Opens once the worker is done"
+  },
+  "rpiStrip.overrunMessage": {
+    "defaultMessage": "Implement started without your Accept"
+  },
+  "rpiStrip.overrunStop": {
+    "defaultMessage": "Stop"
   },
   "rpiStrip.plan": {
     "defaultMessage": "Plan"
@@ -4034,6 +4181,9 @@
   "runsInbox.loading": {
     "defaultMessage": "Loading…"
   },
+  "runsInbox.merged": {
+    "defaultMessage": "Merged {branch} into {checkout} at {sha}"
+  },
   "runsInbox.mode": {
     "defaultMessage": "Goose mode: {mode}"
   },
@@ -4075,6 +4225,48 @@
   },
   "runsInbox.unread": {
     "defaultMessage": "Unread"
+  },
+  "runtimesGate.agyName": {
+    "defaultMessage": "agy"
+  },
+  "runtimesGate.claudeName": {
+    "defaultMessage": "Claude"
+  },
+  "runtimesGate.codexName": {
+    "defaultMessage": "Codex"
+  },
+  "runtimesGate.couldntCheck": {
+    "defaultMessage": "Couldn't check"
+  },
+  "runtimesGate.cursorName": {
+    "defaultMessage": "Cursor"
+  },
+  "runtimesGate.description": {
+    "defaultMessage": "Connect your AI runtimes so goose can pick the right one for each task"
+  },
+  "runtimesGate.done": {
+    "defaultMessage": "Done"
+  },
+  "runtimesGate.install": {
+    "defaultMessage": "Install"
+  },
+  "runtimesGate.missing": {
+    "defaultMessage": "Not installed"
+  },
+  "runtimesGate.ready": {
+    "defaultMessage": "Ready"
+  },
+  "runtimesGate.recheck": {
+    "defaultMessage": "Recheck"
+  },
+  "runtimesGate.signIn": {
+    "defaultMessage": "Sign in"
+  },
+  "runtimesGate.signedOut": {
+    "defaultMessage": "Signed out"
+  },
+  "runtimesGate.title": {
+    "defaultMessage": "Set up seats"
   },
   "scheduleDetailView.actions": {
     "defaultMessage": "Tindakan"
@@ -4907,6 +5099,12 @@
   "settings.language.zhTW": {
     "defaultMessage": "Bahasa Tionghoa (Tradisional)"
   },
+  "settings.legacyAgentLoop.description": {
+    "defaultMessage": "Fall back to the classic agent loop if the new one causes issues"
+  },
+  "settings.legacyAgentLoop.title": {
+    "defaultMessage": "Use Legacy Agent Loop"
+  },
   "settings.menuBarIcon.description": {
     "defaultMessage": "Tampilkan goose di bilah menu"
   },
@@ -5032,6 +5230,9 @@
   },
   "settings.workspace.description": {
     "defaultMessage": "Easy shows one lever; Advanced shows every control the session has"
+  },
+  "settings.workspace.runtimes": {
+    "defaultMessage": "Runtimes…"
   },
   "settings.workspace.title": {
     "defaultMessage": "Workspace"
@@ -5384,6 +5585,45 @@
   "telemetrySettings.updateError": {
     "defaultMessage": "Gagal memperbarui pengaturan telemetri."
   },
+  "terminalPane.ctrl": {
+    "defaultMessage": "Ctrl"
+  },
+  "terminalPane.down": {
+    "defaultMessage": "Down"
+  },
+  "terminalPane.esc": {
+    "defaultMessage": "Esc"
+  },
+  "terminalPane.exited": {
+    "defaultMessage": "[exited {code}]"
+  },
+  "terminalPane.keyBar": {
+    "defaultMessage": "Terminal keys"
+  },
+  "terminalPane.left": {
+    "defaultMessage": "Left"
+  },
+  "terminalPane.paste": {
+    "defaultMessage": "Paste"
+  },
+  "terminalPane.reconnect": {
+    "defaultMessage": "Reconnect"
+  },
+  "terminalPane.restart": {
+    "defaultMessage": "Restart"
+  },
+  "terminalPane.right": {
+    "defaultMessage": "Right"
+  },
+  "terminalPane.starting": {
+    "defaultMessage": "Starting shell…"
+  },
+  "terminalPane.tab": {
+    "defaultMessage": "Tab"
+  },
+  "terminalPane.up": {
+    "defaultMessage": "Up"
+  },
   "themeSelector.aura": {
     "defaultMessage": "Aura"
   },
@@ -5567,60 +5807,6 @@
   "userMessage.removeImageFromEdit": {
     "defaultMessage": "Hapus gambar dari pesan"
   },
-  "modelsBottomBar.recentModels": {
-    "defaultMessage": "Terbaru"
-  },
-  "providerConfigurationModal.chooseModel": {
-    "defaultMessage": "Pilih Model"
-  },
-  "providerCard.deprecatedReplacement": {
-    "defaultMessage": "Tidak digunakan lagi — gunakan {replacement} sebagai gantinya."
-  },
-  "acpReadinessPanel.adapterFound": {
-    "defaultMessage": "Adaptor ACP ditemukan"
-  },
-  "acpReadinessPanel.adapterNotFound": {
-    "defaultMessage": "Adaptor ACP tidak ditemukan"
-  },
-  "acpReadinessPanel.authenticationHelp": {
-    "defaultMessage": "Masuk melalui CLI penyedia, lalu periksa lagi."
-  },
-  "acpReadinessPanel.checkAgain": {
-    "defaultMessage": "Periksa lagi"
-  },
-  "acpReadinessPanel.checking": {
-    "defaultMessage": "Memeriksa..."
-  },
-  "acpReadinessPanel.connected": {
-    "defaultMessage": "Berhasil terhubung"
-  },
-  "acpReadinessPanel.connectionNotChecked": {
-    "defaultMessage": "Periksa koneksi akun Anda sebelum melanjutkan."
-  },
-  "providerConfigForm.deviceCodeAndEnter": {
-    "defaultMessage": "dan masukkan:"
-  },
-  "providerConfigForm.deviceCodeCopy": {
-    "defaultMessage": "Salin"
-  },
-  "providerConfigForm.deviceCodeVisit": {
-    "defaultMessage": "Kunjungi"
-  },
-  "providerConfigurationModal.deviceCodeAndEnter": {
-    "defaultMessage": "dan masukkan:"
-  },
-  "providerConfigurationModal.deviceCodeCopy": {
-    "defaultMessage": "Salin"
-  },
-  "providerConfigurationModal.deviceCodeVisit": {
-    "defaultMessage": "Kunjungi"
-  },
-  "settings.legacyAgentLoop.description": {
-    "defaultMessage": "Fall back to the classic agent loop if the new one causes issues"
-  },
-  "settings.legacyAgentLoop.title": {
-    "defaultMessage": "Use Legacy Agent Loop"
-  },
   "workColumn.bar": {
     "defaultMessage": "Panes"
   },
@@ -5662,6 +5848,9 @@
   },
   "workspaceShell.columnWork": {
     "defaultMessage": "Work"
+  },
+  "workspaceShell.commandPalette": {
+    "defaultMessage": "Command palette"
   },
   "workspaceShell.direct": {
     "defaultMessage": "Direct"
@@ -5735,6 +5924,9 @@
   "workspaceShell.panes": {
     "defaultMessage": "Panes"
   },
+  "workspaceShell.planGate": {
+    "defaultMessage": "Wait for plan acceptance"
+  },
   "workspaceShell.resizeColumn": {
     "defaultMessage": "Resize {column}"
   },
@@ -5765,6 +5957,9 @@
   "workspaceShell.sessionControls": {
     "defaultMessage": "Session controls"
   },
+  "workspaceShell.signIn": {
+    "defaultMessage": "Sign in"
+  },
   "workspaceShell.startFailed": {
     "defaultMessage": "Couldn't start session"
   },
@@ -5782,45 +5977,6 @@
   },
   "workspaceShell.switchFailed": {
     "defaultMessage": "Couldn't switch runtime"
-  },
-  "terminalPane.ctrl": {
-    "defaultMessage": "Ctrl"
-  },
-  "terminalPane.down": {
-    "defaultMessage": "Down"
-  },
-  "terminalPane.esc": {
-    "defaultMessage": "Esc"
-  },
-  "terminalPane.exited": {
-    "defaultMessage": "[exited {code}]"
-  },
-  "terminalPane.keyBar": {
-    "defaultMessage": "Terminal keys"
-  },
-  "terminalPane.left": {
-    "defaultMessage": "Left"
-  },
-  "terminalPane.paste": {
-    "defaultMessage": "Paste"
-  },
-  "terminalPane.reconnect": {
-    "defaultMessage": "Reconnect"
-  },
-  "terminalPane.restart": {
-    "defaultMessage": "Restart"
-  },
-  "terminalPane.right": {
-    "defaultMessage": "Right"
-  },
-  "terminalPane.starting": {
-    "defaultMessage": "Starting shell…"
-  },
-  "terminalPane.tab": {
-    "defaultMessage": "Tab"
-  },
-  "terminalPane.up": {
-    "defaultMessage": "Up"
   },
   "workspaceShell.workingDir": {
     "defaultMessage": "Working directory"
@@ -5842,8 +5998,5 @@
   },
   "workspaceShell.worktreeOff": {
     "defaultMessage": "The next chat starts in the checkout; a worktree is picked before the chat."
-  },
-  "runsInbox.merged": {
-    "defaultMessage": "Merged {branch} into {checkout} at {sha}"
   }
 }

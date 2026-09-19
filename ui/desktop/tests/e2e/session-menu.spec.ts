@@ -83,6 +83,7 @@ test.describe('session menu', () => {
       'Agents',
       'Artifact',
       'Review',
+      'Command palette⌘K',
       'Background tasks',
       'Open in',
       'RenameR',
@@ -96,7 +97,7 @@ test.describe('session menu', () => {
       'ArchiveA',
       'DeleteD',
     ]);
-    await expect(menu.locator('[data-slot="dropdown-menu-separator"]')).toHaveCount(4);
+    await expect(menu.locator('[data-slot="dropdown-menu-separator"]')).toHaveCount(5);
     await expect(goosePage.locator('[data-testid="workspace-delete"]')).toHaveAttribute(
       'data-variant',
       'destructive'

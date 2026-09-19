@@ -144,13 +144,14 @@ describe('stripState', () => {
     ).toBe('error');
   });
 
-  it('declares only states from DESIGN.md §Shared component states, plus ready', () => {
+  // `ready` is every pane's own; `awaiting` is the strip's (task 90's amendment under the table).
+  it('declares only states from DESIGN.md §Shared component states, plus ready and awaiting', () => {
     const design = readFileSync(resolve(process.cwd(), '../../DESIGN.md'), 'utf8');
     const table = design.split('## Shared component states')[1].split('\n## ')[0];
     const named = [...table.matchAll(/^\| (\w+) \|/gm)].map((match) => match[1].toLowerCase());
     expect(named).toContain('empty');
     for (const state of RPI_STRIP_STATES) {
-      if (state !== 'ready') expect(named).toContain(state);
+      if (state !== 'ready' && state !== 'awaiting') expect(named).toContain(state);
     }
   });
 

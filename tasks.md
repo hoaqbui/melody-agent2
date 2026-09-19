@@ -154,6 +154,7 @@ Approved 2026-09-18 on the user's delegation; all 17 gate decisions as recommend
 
 ## Waiting on the user
 
+- Node for the desktop suite (2026-09-18): under the system Node v26.8.1 (`/opt/homebrew`), jsdom's `window.localStorage` reads undefined (Node 26's own Web Storage global shadows it) and 9 notifications tests fail; under hermit's Node v24.10.0 the suite is 1196/1196. Run `pnpm` for the desktop from the hermit env (`source bin/activate-hermit`), or pin `engines` harder — your call.
 - Tranche 8 — `docs/2026-09-18-studio-theme-plan-v1.md` (2026-09-18): the desktop in the Studio board's skin. Six gate decisions (option A over a fourth theme; white-on-teal vs the AA test; radius; frosted Sessions column; Floating Button reach; dark takes the faces) — approve or amend, then 98 starts.
 - Walk environment (2026-09-18, twice): a `pnpm install` in `ui/` re-links `node_modules/.bin` from store copies without the executable bit and `electron-forge` fails "Permission denied" — every walk dies at the 60 s launch timeout. `for l in $(find -L ui/node_modules/.bin ui/desktop/node_modules/.bin ui/sidecar/node_modules/.bin -maxdepth 1 -type f ! -perm -u+x); do chmod u+x "$(readlink -f $l)"; done` fixes it; a Justfile recipe or a postinstall would make it stick — your call.
 - Walks share one machine (2026-09-18): the sidecar's fixed port 7788 and the dev Electron instance mean two walks at once collide; workers running walks in worktrees while main ran one were the day's "No windows/pages found" — walks run one at a time, on main.
