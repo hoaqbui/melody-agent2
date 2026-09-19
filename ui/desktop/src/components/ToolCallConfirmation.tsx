@@ -40,7 +40,7 @@ export default function ToolConfirmation({
   const displayName = formatToolName(toolName);
 
   return (
-    <div className="goose-message-content bg-background-primary border border-border-primary rounded-2xl overflow-hidden">
+    <div className="ask-card goose-message-content bg-background-primary border border-border-primary rounded-2xl overflow-hidden">
       <div className="bg-background-secondary px-4 py-2 text-text-primary">
         {prompt
           ? intl.formatMessage(i18n.allowToolCallWithName, { toolName: displayName })

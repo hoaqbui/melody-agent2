@@ -194,8 +194,9 @@ const SessionRow: React.FC<SessionRowProps> = ({
       <TooltipTrigger asChild>
         <div
           onClick={() => !isEditing && onClick()}
+          data-active={active}
           className={cn(
-            'flex items-center gap-2 px-3 py-1.5 rounded-full cursor-pointer text-sm',
+            'session-row flex items-center gap-2 px-3 py-1.5 rounded-full cursor-pointer text-sm',
             'hover:bg-background-tertiary/60 transition-colors',
             active && 'bg-background-tertiary'
           )}

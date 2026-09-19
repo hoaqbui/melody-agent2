@@ -1350,6 +1350,7 @@ export function WorkspaceShell({ chat, children, panes, paneStore }: WorkspaceSh
       tabIndex={-1}
       aria-label={columnLabel('sessions')}
       data-testid="workspace-column-sessions"
+      data-column="sessions"
     >
       <Navigation />
     </section>
@@ -1379,6 +1380,7 @@ export function WorkspaceShell({ chat, children, panes, paneStore }: WorkspaceSh
           tabIndex={-1}
           aria-label={columnLabel('chat')}
           data-testid="workspace-column-chat"
+          data-column="chat"
           data-transcript-view={transcriptView}
         >
           <div className="relative min-h-0 min-w-0 flex-1">
@@ -1430,6 +1432,7 @@ export function WorkspaceShell({ chat, children, panes, paneStore }: WorkspaceSh
         tabIndex={-1}
         aria-label={columnLabel('chat')}
         data-testid="workspace-column-chat"
+        data-column="chat"
         data-transcript-view={transcriptView}
       >
         {chatBody}
@@ -1447,6 +1450,7 @@ export function WorkspaceShell({ chat, children, panes, paneStore }: WorkspaceSh
             tabIndex={-1}
             aria-label={columnLabel('work')}
             data-testid="workspace-column-work"
+            data-column="work"
           >
             <WorkColumn
               layout={layout}

@@ -1019,3 +1019,179 @@ pre:has(> code.bg-inline-code) {
   background-color: #2c2c2c;
   color: #f8f8f2;
 }
+
+/* ═════════════════════════════════════════════════
+   Studio light — the board's treatments (task 100; DESIGN.md §Tokens & theme, 2026-09-18).
+   The light theme is ux_tests's B · Studio — teal & amber board: surfaces float on the
+   board's three shadows, the Sessions column is frosted ivory, your message and the tool
+   rows are the light-blue tint, the agent's reply sits flat, an ask is the one white
+   surface with a hairline. Scoped to [data-theme='light']; the Monokai block above owns dark.
+   ═════════════════════════════════════════════════ */
+[data-theme='light'] .workspace-column {
+  border-color: transparent;
+}
+
+[data-theme='light'] .workspace-column[data-column='sessions'] {
+  background-color: rgba(241, 239, 233, 0.78);
+  backdrop-filter: blur(48px) saturate(1.1);
+}
+
+[data-theme='light'] .workspace-column[data-column='work'] {
+  background-color: #f8f7f3;
+}
+
+[data-theme='light'] .chat-input-card {
+  background-color: #ffffff;
+  border-color: transparent;
+  box-shadow: var(--shadow-md);
+}
+
+[data-theme='light'] .chat-input-card:focus-within {
+  outline: none;
+}
+
+[data-theme='light'] .user-message-bubble {
+  background-color: #f3f8fd;
+  color: #1e1d1a;
+  box-shadow: var(--shadow-sm);
+}
+
+[data-theme='light'] .tool-row {
+  background-color: #f3f8fd;
+  border-color: transparent;
+  box-shadow: var(--shadow-sm);
+}
+
+[data-theme='light'] .ask-card {
+  background-color: #ffffff;
+  border-color: transparent;
+  box-shadow: var(--shadow-hairline);
+}
+
+[data-theme='light'] .work-tab[data-active='true'] {
+  background-color: #ffffff;
+  color: #1e1d1a;
+  box-shadow: var(--shadow-sm);
+}
+
+[data-theme='light'] .work-tab[data-active='true'] svg {
+  color: #2277cc;
+}
+
+[data-theme='light'] .session-row[data-active='true'] {
+  background-color: #ffffff;
+  font-weight: 600;
+}
+
+[data-theme='light'] .send-disc:not(:disabled) {
+  background-color: #44c1b8;
+  color: #ffffff;
+  box-shadow: var(--shadow-sm);
+}
+
+[data-theme='light'] [data-slot='dropdown-menu-content'],
+[data-theme='light'] [data-slot='dropdown-menu-sub-content'] {
+  border-color: transparent;
+  box-shadow: var(--shadow-lg);
+}
+
+/* The running state is the dot alone (the board's session row): the spinner gives way to a
+   blue dot that breathes its halo. */
+[data-theme='light'] .running-dot svg {
+  display: none;
+}
+
+[data-theme='light'] .running-dot::before {
+  content: '';
+  display: inline-block;
+  width: 8px;
+  height: 8px;
+  border-radius: 999px;
+  background: #2277cc;
+}
+
+/* ═════════════════════════════════════════════════
+   The board's beats (task 101; DESIGN.md §Motion) — every theme. Lift and press live on
+   button.tsx; here: the running halo, the send nudge, tool rows landing, the tab's
+   colour slide, the menu pop. Reduced motion stills all of it.
+   ═════════════════════════════════════════════════ */
+@media (prefers-reduced-motion: no-preference) {
+  .running-dot::before {
+    animation: running-halo var(--halo-period) ease-out infinite;
+  }
+
+  .send-disc[data-armed='true'] {
+    animation: send-nudge calc(var(--motion-base) + 60ms) var(--ease-g2) 1;
+  }
+
+  .tool-row {
+    animation: tool-row-in var(--motion-base) var(--ease-g2) both;
+  }
+
+  .work-tab {
+    transition:
+      background-color var(--motion-base) var(--ease-g2),
+      box-shadow var(--motion-base) var(--ease-g2),
+      color var(--motion-base) var(--ease-g2);
+  }
+
+  .session-row {
+    transition: background-color var(--motion-fast) var(--ease-g2);
+  }
+
+  .user-message-bubble,
+  .chat-input-card {
+    transition: box-shadow var(--motion-fast) var(--ease-g2);
+  }
+
+  [data-slot='dropdown-menu-content'][data-state='open'] {
+    animation-duration: calc(var(--motion-base) - 20ms);
+  }
+
+  [data-slot='dropdown-menu-content'][data-state='closed'] {
+    animation-duration: 100ms;
+  }
+}
+
+@keyframes running-halo {
+  0% {
+    box-shadow: 0 0 0 0 rgba(34, 119, 204, 0.35);
+  }
+  70% {
+    box-shadow: 0 0 0 8px rgba(34, 119, 204, 0);
+  }
+  100% {
+    box-shadow: 0 0 0 0 rgba(34, 119, 204, 0);
+  }
+}
+
+@keyframes send-nudge {
+  0% {
+    transform: translateY(0);
+  }
+  40% {
+    transform: translateY(-3px);
+  }
+  100% {
+    transform: translateY(0);
+  }
+}
+
+@keyframes tool-row-in {
+  from {
+    opacity: 0;
+    transform: translateY(4px);
+  }
+  to {
+    opacity: 1;
+    transform: none;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .running-dot::before,
+  .send-disc,
+  .tool-row {
+    animation: none;
+  }
+}

@@ -1954,10 +1954,11 @@ export default function ChatInput({
                   shape="round"
                   variant="ghost"
                   disabled={isSubmitButtonDisabled}
+                  data-armed={!isSubmitButtonDisabled}
                   aria-label={intl.formatMessage(i18n.send)}
                   onClick={onFormSubmit}
                   className={cn(
-                    'bg-background-tertiary',
+                    'send-disc bg-background-tertiary',
                     isSubmitButtonDisabled
                       ? 'text-text-secondary cursor-not-allowed opacity-60'
                       : 'text-text-primary hover:bg-background-tertiary/70 hover:cursor-pointer'

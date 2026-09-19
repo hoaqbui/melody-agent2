@@ -347,13 +347,14 @@ export function WorkColumn({
               variant={showing ? 'secondary' : 'ghost'}
               size="xs"
               className={cn(
-                'relative touch-none',
+                'work-tab relative touch-none',
                 showing && floating,
                 !isOpen && 'text-text-secondary',
                 drag?.id === id && 'opacity-50'
               )}
               aria-label={name}
               aria-pressed={showing}
+              data-active={showing}
               data-testid={`workspace-pane-button-${id}`}
               data-unseen={unseen}
               data-open={isOpen}
