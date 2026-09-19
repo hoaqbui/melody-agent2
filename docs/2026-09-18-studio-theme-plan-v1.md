@@ -46,7 +46,7 @@ Decided 2026-09-18: every recommendation as written.
 3. **Radius** — keep the fork's 16 · 12 · 999 (your 2026-09-16 call) over the board's 8 · 10 · 12 — recommended; a live look can revisit.
 4. **The Sessions column** — frosted ivory at 78 % over a 48 px blur (the board; the desk shows through the vibrancy) — recommended over opaque ivory.
 5. **Floating Button reach** — the lift, press and shadow reach upstream's buttons through `button.tsx` (closing the open decision) — recommended; the alternative stops at the workspace's own controls and the board's "every filled control" language fails.
-6. **Every theme takes the faces and scale** — body text goes from 16 px to 13 px, small text 14 → 12, captions 12 → 11, large 18 → 15, the first heading 16 → 20, in Light, Monokai and Aura alike (chat, settings, panes; colours unchanged) — recommended; the alternative is a per-theme font token, two languages in one app.
+6. **Every theme takes the faces and scale** — body text goes from 16 px to 13 px, small text 14 → 12, captions 12 → 11, large 18 → 15, the first heading 16 → 20, in Light, Monokai and Aura alike (chat, settings, panes; colours unchanged; Aura keeps its own monospace face, `theme-tokens.ts` `auraFontTokens`) — recommended; the alternative is a per-theme font token, two languages in one app.
 
 The five tasks landed in `tasks.md` as tranche 8; 98 started 2026-09-18; 102 landed 2026-09-19 and the section left the ledger.
 

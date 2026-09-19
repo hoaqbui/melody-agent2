@@ -16,6 +16,24 @@
 /* The faces are theme tokens (task 98): the page reads them here, nothing else names a family. */
 body {
   font-family: var(--font-sans);
+  font-size: var(--font-text-md-size);
+  line-height: var(--font-text-md-line-height);
+}
+
+/* The five-size scale (task 98; DESIGN.md §Typography): Tailwind's text-* utilities read
+   the theme's size tokens, so every theme renders one scale — xs 11 · sm 12 · base 13 ·
+   lg 15 · xl 20. Nothing mapped these before; the tokens were set and never read. */
+@theme inline {
+  --text-xs: var(--font-text-xs-size);
+  --text-xs--line-height: var(--font-text-xs-line-height);
+  --text-sm: var(--font-text-sm-size);
+  --text-sm--line-height: var(--font-text-sm-line-height);
+  --text-base: var(--font-text-md-size);
+  --text-base--line-height: var(--font-text-md-line-height);
+  --text-lg: var(--font-text-lg-size);
+  --text-lg--line-height: var(--font-text-lg-line-height);
+  --text-xl: var(--font-heading-xs-size);
+  --text-xl--line-height: var(--font-heading-xs-line-height);
 }
 
 code,

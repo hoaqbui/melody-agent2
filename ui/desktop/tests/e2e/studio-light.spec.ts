@@ -38,6 +38,12 @@ test.describe('studio light', () => {
         .toBe(rgb('#ffffff'));
       const family = await body.evaluate((el) => window.getComputedStyle(el).fontFamily);
       expect(family).toContain('Schibsted Grotesk');
+      // the five-size scale: body 13 px, the chat input's small text 12 px
+      expect(await body.evaluate((el) => window.getComputedStyle(el).fontSize)).toBe('13px');
+      const smallText = goosePage.locator('.text-sm').first();
+      await expect
+        .poll(() => smallText.evaluate((el) => window.getComputedStyle(el).fontSize))
+        .toBe('12px');
       const tokenText = await goosePage.evaluate(() =>
         window
           .getComputedStyle(document.documentElement)
