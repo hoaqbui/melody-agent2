@@ -5666,6 +5666,9 @@
   "toolApprovalButtons.staleApprovalRequest": {
     "defaultMessage": "Permintaan persetujuan ini sudah tidak aktif lagi."
   },
+  "toolApprovalButtons.waitingForSeat": {
+    "defaultMessage": "waiting for {seat}"
+  },
   "toolCallStatusIndicator.toolStatus": {
     "defaultMessage": "Status alat: {status}"
   },
@@ -5804,8 +5807,14 @@
   "userMessage.forkSessionTitle": {
     "defaultMessage": "Buat sesi baru dengan pesan yang diedit"
   },
+  "userMessage.redoThisTurn": {
+    "defaultMessage": "Redo this turn"
+  },
   "userMessage.removeImageFromEdit": {
     "defaultMessage": "Hapus gambar dari pesan"
+  },
+  "userMessage.undoThisTurn": {
+    "defaultMessage": "Undo this turn"
   },
   "workColumn.bar": {
     "defaultMessage": "Panes"

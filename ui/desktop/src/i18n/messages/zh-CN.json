@@ -5666,6 +5666,9 @@
   "toolApprovalButtons.staleApprovalRequest": {
     "defaultMessage": "This approval request is no longer active."
   },
+  "toolApprovalButtons.waitingForSeat": {
+    "defaultMessage": "waiting for {seat}"
+  },
   "toolCallStatusIndicator.toolStatus": {
     "defaultMessage": "工具状态：{status}"
   },
@@ -5804,8 +5807,14 @@
   "userMessage.forkSessionTitle": {
     "defaultMessage": "用编辑过的消息创建新会话"
   },
+  "userMessage.redoThisTurn": {
+    "defaultMessage": "Redo this turn"
+  },
   "userMessage.removeImageFromEdit": {
     "defaultMessage": "从消息中移除图片"
+  },
+  "userMessage.undoThisTurn": {
+    "defaultMessage": "Undo this turn"
   },
   "workColumn.bar": {
     "defaultMessage": "Panes"

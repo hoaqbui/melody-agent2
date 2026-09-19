@@ -5666,6 +5666,9 @@
   "toolApprovalButtons.staleApprovalRequest": {
     "defaultMessage": "This approval request is no longer active."
   },
+  "toolApprovalButtons.waitingForSeat": {
+    "defaultMessage": "waiting for {seat}"
+  },
   "toolCallStatusIndicator.toolStatus": {
     "defaultMessage": "ツールのステータス: {status}"
   },
@@ -5804,8 +5807,14 @@
   "userMessage.forkSessionTitle": {
     "defaultMessage": "編集したメッセージで新しいセッションを作成"
   },
+  "userMessage.redoThisTurn": {
+    "defaultMessage": "Redo this turn"
+  },
   "userMessage.removeImageFromEdit": {
     "defaultMessage": "メッセージから画像を削除"
+  },
+  "userMessage.undoThisTurn": {
+    "defaultMessage": "Undo this turn"
   },
   "workColumn.bar": {
     "defaultMessage": "Panes"

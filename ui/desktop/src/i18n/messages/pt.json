@@ -5666,6 +5666,9 @@
   "toolApprovalButtons.staleApprovalRequest": {
     "defaultMessage": "Este pedido de aprovação já não está ativo."
   },
+  "toolApprovalButtons.waitingForSeat": {
+    "defaultMessage": "waiting for {seat}"
+  },
   "toolCallStatusIndicator.toolStatus": {
     "defaultMessage": "Estado da ferramenta: {status}"
   },
@@ -5804,8 +5807,14 @@
   "userMessage.forkSessionTitle": {
     "defaultMessage": "Criar uma nova sessão com a mensagem editada"
   },
+  "userMessage.redoThisTurn": {
+    "defaultMessage": "Redo this turn"
+  },
   "userMessage.removeImageFromEdit": {
     "defaultMessage": "Remover imagem da mensagem"
+  },
+  "userMessage.undoThisTurn": {
+    "defaultMessage": "Undo this turn"
   },
   "workColumn.bar": {
     "defaultMessage": "Panes"

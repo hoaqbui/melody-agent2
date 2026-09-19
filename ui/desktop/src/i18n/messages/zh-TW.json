@@ -5666,6 +5666,9 @@
   "toolApprovalButtons.staleApprovalRequest": {
     "defaultMessage": "此核准要求已不再有效。"
   },
+  "toolApprovalButtons.waitingForSeat": {
+    "defaultMessage": "waiting for {seat}"
+  },
   "toolCallStatusIndicator.toolStatus": {
     "defaultMessage": "工具狀態：{status}"
   },
@@ -5804,8 +5807,14 @@
   "userMessage.forkSessionTitle": {
     "defaultMessage": "以編輯後的訊息建立新的工作階段"
   },
+  "userMessage.redoThisTurn": {
+    "defaultMessage": "Redo this turn"
+  },
   "userMessage.removeImageFromEdit": {
     "defaultMessage": "從訊息中移除圖片"
+  },
+  "userMessage.undoThisTurn": {
+    "defaultMessage": "Undo this turn"
   },
   "workColumn.bar": {
     "defaultMessage": "Panes"

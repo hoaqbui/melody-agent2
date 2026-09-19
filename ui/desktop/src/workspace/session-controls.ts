@@ -27,6 +27,24 @@ export function runtimeLabel(providerId: string, providers: readonly ProviderDet
   );
 }
 
+// Task 89: what the current seat does with the Mode option's Approve value, under the
+// Mode radios in Session controls. agy runs `--dangerously-skip-permissions` and refuses
+// every mode but Auto, so its note also says Approve stays out of reach.
+export function approveModeNote(providerId: string): string {
+  switch (providerId) {
+    case 'claude-acp':
+      return 'Claude asks for risky actions';
+    case 'codex-acp':
+      return 'Codex asks outside the workspace';
+    case 'cursor-acp':
+      return 'Cursor plans without editing';
+    case 'agy':
+      return 'agy cannot ask — Approve unavailable';
+    default:
+      return '';
+  }
+}
+
 export function moreRuntimes(providers: readonly ProviderDetails[]): Runtime[] {
   const fixed = new Set(RUNTIMES.map((runtime) => runtime.id));
   return providers

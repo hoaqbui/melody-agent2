@@ -1,6 +1,7 @@
 import type { ActionRequired } from '../types/message';
 import { defineMessages, useIntl } from '../i18n';
 import { snakeToTitleCase } from '../utils';
+import { toolConfirmationDiffLines } from '../workspace/panes/diff/unified-diff';
 import ToolApprovalButtons from './ToolApprovalButtons';
 import { ToolCallArguments, type ToolCallArgumentValue } from './ToolCallArguments';
 
@@ -15,7 +16,11 @@ const i18n = defineMessages({
   },
 });
 
+// A raw MCP name (`developer__shell`) needs the extension prefix stripped and title-casing;
+// an adapter's own tool name (`Write probe.txt`) already reads as a sentence — the same
+// "has a space" test the server's `default_tool_title` uses — so it rides through as-is.
 function formatToolName(fullName: string): string {
+  if (fullName.includes(' ')) return fullName;
   const delimiterIndex = fullName.lastIndexOf('__');
   const shortName = delimiterIndex === -1 ? fullName : fullName.substring(delimiterIndex + 2);
   return snakeToTitleCase(shortName);
@@ -37,18 +42,49 @@ export default function ToolConfirmation({
   const intl = useIntl();
   const data = actionRequiredContent.data as ToolConfirmationData;
   const { generation, id, toolName, arguments: toolArguments, prompt } = data;
+  const diff = actionRequiredContent.diff;
   const displayName = formatToolName(toolName);
+  const diffLines = diff ? toolConfirmationDiffLines(diff.oldText, diff.newText) : [];
 
   return (
-    <div className="ask-card goose-message-content bg-background-primary border border-border-primary rounded-2xl overflow-hidden">
+    <div
+      className="ask-card goose-message-content bg-background-primary border border-border-primary rounded-2xl overflow-hidden"
+      data-testid="tool-confirmation"
+    >
       <div className="bg-background-secondary px-4 py-2 text-text-primary">
-        {prompt
-          ? intl.formatMessage(i18n.allowToolCallWithName, { toolName: displayName })
-          : intl.formatMessage(i18n.gooseWouldLikeToCallWithName, { toolName: displayName })}
+        {diff
+          ? displayName
+          : prompt
+            ? intl.formatMessage(i18n.allowToolCallWithName, { toolName: displayName })
+            : intl.formatMessage(i18n.gooseWouldLikeToCallWithName, { toolName: displayName })}
       </div>
       <div className="px-4 pb-2">
         {prompt && <div className="py-2 text-sm text-amber-600 dark:text-amber-400">{prompt}</div>}
-        <ToolCallArguments args={toolArguments as Record<string, ToolCallArgumentValue>} />
+        {diff ? (
+          <pre
+            className="my-2 overflow-x-auto rounded-md bg-background-secondary p-2 font-mono text-xs"
+            data-testid="tool-confirmation-diff"
+            data-path={diff.path}
+          >
+            {diffLines.map((line, index) => (
+              <div
+                key={index}
+                className={
+                  line.marker === '+'
+                    ? 'text-text-success'
+                    : line.marker === '-'
+                      ? 'text-text-danger'
+                      : 'text-text-secondary'
+                }
+              >
+                {line.marker}
+                {line.text}
+              </div>
+            ))}
+          </pre>
+        ) : (
+          <ToolCallArguments args={toolArguments as Record<string, ToolCallArgumentValue>} />
+        )}
         <ToolApprovalButtons
           data={{ generation, id, toolName, prompt: prompt ?? undefined, sessionId, isClicked }}
         />

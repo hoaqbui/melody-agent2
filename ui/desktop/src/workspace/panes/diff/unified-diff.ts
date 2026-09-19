@@ -3,6 +3,9 @@
 // whole documents only when the diff was taken with enough context to cover the file
 // (FULL_CONTEXT); with the default three lines they are fragments and only the counts matter.
 
+import { Chunk } from '@codemirror/merge';
+import { Text } from '@codemirror/state';
+
 export const FULL_CONTEXT = 1_000_000_000;
 
 export type DiffKind = 'added' | 'deleted' | 'modified' | 'renamed';
@@ -154,4 +157,35 @@ export function parseUnifiedDiff(text: string): DiffFile[] {
   }
   finish();
   return files;
+}
+
+export interface ToolConfirmationDiffLine {
+  marker: '+' | '-' | ' ';
+  text: string;
+}
+
+const sideLines = (doc: Text, from: number, to: number): string[] => {
+  const end = Math.min(to, doc.length);
+  if (from >= end) return [];
+  const text = doc.sliceString(from, end);
+  const lines = text.split('\n');
+  if (text.endsWith('\n')) lines.pop();
+  return lines;
+};
+
+// A tool confirmation's diff (task 89) is the whole file's two sides, not git's hunks, so
+// `Chunk.build` — the same pass the Changes pane's `unifiedMergeView` runs — finds what
+// changed; each chunk's removed then added lines become the card's - / + rows.
+export function toolConfirmationDiffLines(
+  oldText: string | undefined,
+  newText: string
+): ToolConfirmationDiffLine[] {
+  const a = Text.of((oldText ?? '').split('\n'));
+  const b = Text.of(newText.split('\n'));
+  const lines: ToolConfirmationDiffLine[] = [];
+  for (const chunk of Chunk.build(a, b)) {
+    for (const text of sideLines(a, chunk.fromA, chunk.toA)) lines.push({ marker: '-', text });
+    for (const text of sideLines(b, chunk.fromB, chunk.toB)) lines.push({ marker: '+', text });
+  }
+  return lines;
 }

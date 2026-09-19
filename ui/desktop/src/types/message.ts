@@ -102,8 +102,17 @@ export type SystemNotificationContent = {
   notificationType: SystemNotificationType;
 };
 
+// An adapter's edit beside a tool confirmation (task 77's `ToolConfirmationDiff`), so the
+// card shows the change, not raw arguments.
+export type ToolConfirmationDiff = {
+  path: string;
+  oldText?: string;
+  newText: string;
+};
+
 export type ActionRequired = {
   data: ActionRequiredData;
+  diff?: ToolConfirmationDiff;
 };
 
 export type ActionRequiredData =

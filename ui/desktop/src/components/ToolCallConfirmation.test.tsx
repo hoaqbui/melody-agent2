@@ -26,7 +26,36 @@ const actionRequiredContent = {
   },
 } as ActionRequired & { type: 'actionRequired' };
 
+const diffActionRequiredContent = {
+  type: 'actionRequired',
+  data: {
+    actionType: 'toolConfirmation',
+    generation: 'permission-generation-2',
+    id: 'request-2',
+    toolName: 'Write probe.txt',
+    arguments: { file_path: 'probe.txt' },
+  },
+  diff: {
+    path: 'probe.txt',
+    newText: 'HELLO\n',
+  },
+} as ActionRequired & { type: 'actionRequired' };
+
 describe('ToolCallConfirmation', () => {
+  it('renders the adapter diff', () => {
+    render(
+      <ToolCallConfirmation
+        sessionId="session-1"
+        isClicked={false}
+        actionRequiredContent={diffActionRequiredContent}
+      />,
+      { wrapper: IntlTestWrapper }
+    );
+
+    expect(screen.getByTestId('tool-confirmation-diff')).toHaveTextContent('+HELLO');
+    expect(screen.getByText('Write probe.txt')).toBeInTheDocument();
+  });
+
   it('shows the concrete tool arguments before approval', () => {
     render(
       <ToolCallConfirmation
