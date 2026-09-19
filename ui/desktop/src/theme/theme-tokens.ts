@@ -91,57 +91,60 @@ type ColorTokens = Pick<ThemeTokens, ColorTokenKey>;
 // ---------------------------------------------------------------------------
 // Light theme — colors & shadows
 // ---------------------------------------------------------------------------
+// The Studio board (task 99; ux_tests B · Studio — teal & amber): white page, ivory sidebar
+// and inspector, ink text, teal acts (#0b7a72 under text — decision 2), blue where you are,
+// amber marks; the one hairline #e3dfd6; elevation as the board's three shadows.
 const lightColorTokens: ColorTokens = {
   // Backgrounds
   '--color-background-primary': '#ffffff',
-  '--color-background-secondary': '#f4f6f7',
-  '--color-background-tertiary': '#e3e6ea',
-  '--color-background-inverse': '#000000',
+  '--color-background-secondary': '#f8f7f3',
+  '--color-background-tertiary': '#f1efe9',
+  '--color-background-inverse': '#0b7a72',
   '--color-background-ghost': 'transparent',
-  '--color-background-info': '#5c98f9',
-  '--color-background-danger': '#f94b4b',
-  '--color-background-success': '#91cb80',
-  '--color-background-warning': '#fbcd44',
-  '--color-background-disabled': '#e3e6ea',
+  '--color-background-info': '#2277cc',
+  '--color-background-danger': '#c23b3b',
+  '--color-background-success': '#2f8f5b',
+  '--color-background-warning': '#fbbf24',
+  '--color-background-disabled': '#e6e1d6',
 
   // Text
-  '--color-text-primary': '#3f434b',
-  '--color-text-secondary': '#878787',
-  '--color-text-tertiary': '#a7b0b9',
+  '--color-text-primary': '#1e1d1a',
+  '--color-text-secondary': '#5a5851',
+  '--color-text-tertiary': '#6f6c64',
   '--color-text-inverse': '#ffffff',
-  '--color-text-ghost': '#878787',
-  '--color-text-info': '#5c98f9',
-  '--color-text-danger': '#f94b4b',
-  '--color-text-success': '#91cb80',
-  '--color-text-warning': '#fbcd44',
-  '--color-text-disabled': '#cbd1d6',
+  '--color-text-ghost': '#6f6c64',
+  '--color-text-info': '#2277cc',
+  '--color-text-danger': '#c23b3b',
+  '--color-text-success': '#2f8f5b',
+  '--color-text-warning': '#d9a012',
+  '--color-text-disabled': '#a8a49b',
 
   // Borders
-  '--color-border-primary': '#e3e6ea',
-  '--color-border-secondary': '#e3e6ea',
-  '--color-border-tertiary': '#cbd1d6',
-  '--color-border-inverse': '#000000',
+  '--color-border-primary': '#e3dfd6',
+  '--color-border-secondary': '#e3dfd6',
+  '--color-border-tertiary': '#d6d1c6',
+  '--color-border-inverse': '#1e1d1a',
   '--color-border-ghost': 'transparent',
-  '--color-border-info': '#5c98f9',
-  '--color-border-danger': '#f94b4b',
-  '--color-border-success': '#91cb80',
-  '--color-border-warning': '#fbcd44',
-  '--color-border-disabled': '#e3e6ea',
+  '--color-border-info': '#2277cc',
+  '--color-border-danger': '#c23b3b',
+  '--color-border-success': '#2f8f5b',
+  '--color-border-warning': '#fbbf24',
+  '--color-border-disabled': '#e3dfd6',
 
   // Rings
-  '--color-ring-primary': '#e3e6ea',
-  '--color-ring-secondary': '#cbd1d6',
+  '--color-ring-primary': '#2277cc',
+  '--color-ring-secondary': '#7fb3ea',
   '--color-ring-inverse': '#ffffff',
-  '--color-ring-info': '#5c98f9',
-  '--color-ring-danger': '#f94b4b',
-  '--color-ring-success': '#91cb80',
-  '--color-ring-warning': '#fbcd44',
+  '--color-ring-info': '#2277cc',
+  '--color-ring-danger': '#c23b3b',
+  '--color-ring-success': '#2f8f5b',
+  '--color-ring-warning': '#fbbf24',
 
   // Shadows
-  '--shadow-hairline': '0 0 0 1px rgba(0, 0, 0, 0.05)',
-  '--shadow-sm': '0 1px 2px 0 rgba(0, 0, 0, 0.05)',
-  '--shadow-md': '0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -2px rgba(0, 0, 0, 0.1)',
-  '--shadow-lg': '0 10px 15px -3px rgba(0, 0, 0, 0.1), 0 4px 6px -4px rgba(0, 0, 0, 0.1)',
+  '--shadow-hairline': '0 0 0 1px #e3dfd6',
+  '--shadow-sm': '0 1px 2px rgba(0, 0, 0, 0.1), 0 2px 6px rgba(0, 0, 0, 0.08)',
+  '--shadow-md': '0 1px 2px rgba(0, 0, 0, 0.06), 0 6px 18px rgba(0, 0, 0, 0.12)',
+  '--shadow-lg': '0 10px 28px rgba(0, 0, 0, 0.16), 0 0 0 0.5px rgba(0, 0, 0, 0.1)',
 };
 
 // ---------------------------------------------------------------------------

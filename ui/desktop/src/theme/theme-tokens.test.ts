@@ -105,4 +105,27 @@ describe('light and aura themes', () => {
   it('aura colours are unchanged', () => {
     expect(auraColorTokens).toMatchSnapshot();
   });
+
+  it('keeps inverse text at WCAG AA on the light accent surface', () => {
+    expect(
+      contrast(lightTokens['--color-text-inverse'], lightTokens['--color-background-inverse'])
+    ).toBeGreaterThanOrEqual(4.5);
+  });
+
+  it('keeps the light body text at WCAG AA on every light ground', () => {
+    for (const ground of [
+      '--color-background-primary',
+      '--color-background-secondary',
+      '--color-background-tertiary',
+    ] as const) {
+      expect(
+        contrast(lightTokens['--color-text-primary'], lightTokens[ground]),
+        ground
+      ).toBeGreaterThanOrEqual(4.5);
+      expect(
+        contrast(lightTokens['--color-text-tertiary'], lightTokens[ground]),
+        ground
+      ).toBeGreaterThanOrEqual(4.5);
+    }
+  });
 });
