@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { auraTokens, darkTokens, lightTokens } from './theme-tokens';
+import { auraColorTokens, darkTokens, lightTokens } from './theme-tokens';
 
 type Rgb = [number, number, number];
 
@@ -95,13 +95,14 @@ describe('dark theme (Charcoal Monokai)', () => {
 });
 
 describe('light and aura themes', () => {
-  // Snapshot taken at fork commit a8d8763e3, before the dark theme became Charcoal
-  // Monokai: light and aura are upstream's / task 22's and stay byte-for-byte.
-  it('light tokens are unchanged', () => {
+  // Faces and sizes are every theme's (task 98); the colours are each theme's own. Aura's
+  // colours are task 22's and stay byte-for-byte; the light theme becomes the Studio board
+  // in task 99.
+  it('light tokens match the snapshot', () => {
     expect(lightTokens).toMatchSnapshot();
   });
 
-  it('aura tokens are unchanged', () => {
-    expect(auraTokens).toMatchSnapshot();
+  it('aura colours are unchanged', () => {
+    expect(auraColorTokens).toMatchSnapshot();
   });
 });

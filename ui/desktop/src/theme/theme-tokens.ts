@@ -33,9 +33,9 @@ type ColorTokenKey = Exclude<McpUiStyleVariableKey, BaseTokenKey>;
 // Base tokens — shared across light and dark themes
 // ---------------------------------------------------------------------------
 const baseTokens: Pick<ThemeTokens, BaseTokenKey> = {
-  // Typography — families
-  '--font-sans': "'Cash Sans', sans-serif",
-  '--font-mono': 'monospace',
+  // Typography — families: the Studio board's, self-hosted (task 98; DESIGN.md §Typography)
+  '--font-sans': "'Schibsted Grotesk Variable', system-ui, sans-serif",
+  '--font-mono': "'JetBrains Mono Variable', ui-monospace, monospace",
 
   // Typography — weights
   '--font-weight-normal': '400',
@@ -44,13 +44,13 @@ const baseTokens: Pick<ThemeTokens, BaseTokenKey> = {
   '--font-weight-bold': '700',
 
   // Typography — text sizes
-  '--font-text-xs-size': '0.75rem',
-  '--font-text-sm-size': '0.875rem',
-  '--font-text-md-size': '1rem',
-  '--font-text-lg-size': '1.125rem',
+  '--font-text-xs-size': '11px',
+  '--font-text-sm-size': '12px',
+  '--font-text-md-size': '13px',
+  '--font-text-lg-size': '15px',
 
   // Typography — heading sizes
-  '--font-heading-xs-size': '1rem',
+  '--font-heading-xs-size': '20px',
   '--font-heading-sm-size': '1.125rem',
   '--font-heading-md-size': '1.25rem',
   '--font-heading-lg-size': '1.5rem',
@@ -59,13 +59,13 @@ const baseTokens: Pick<ThemeTokens, BaseTokenKey> = {
   '--font-heading-3xl-size': '3rem',
 
   // Typography — text line heights
-  '--font-text-xs-line-height': '1rem',
-  '--font-text-sm-line-height': '1.25rem',
-  '--font-text-md-line-height': '1.5rem',
-  '--font-text-lg-line-height': '1.75rem',
+  '--font-text-xs-line-height': '16px',
+  '--font-text-sm-line-height': '16px',
+  '--font-text-md-line-height': '20px',
+  '--font-text-lg-line-height': '22px',
 
   // Typography — heading line heights
-  '--font-heading-xs-line-height': '1.5rem',
+  '--font-heading-xs-line-height': '28px',
   '--font-heading-sm-line-height': '1.75rem',
   '--font-heading-md-line-height': '1.75rem',
   '--font-heading-lg-line-height': '2rem',
@@ -210,7 +210,7 @@ const darkColorTokens: ColorTokens = {
 // Ported from OpenChamber's Aura preset: purple-black surfaces, purple accent,
 // mint/peach/cyan/coral status colors, monospace typography.
 // ---------------------------------------------------------------------------
-const auraColorTokens: ColorTokens = {
+export const auraColorTokens: ColorTokens = {
   // Backgrounds
   '--color-background-primary': '#15141b',
   '--color-background-secondary': '#1a1921',
@@ -265,8 +265,10 @@ const auraColorTokens: ColorTokens = {
 
 // Aura is monospace-first — override the shared sans family.
 const auraFontTokens: Partial<Pick<ThemeTokens, BaseTokenKey>> = {
-  '--font-sans': 'ui-monospace, "SFMono-Regular", "Menlo", "Cascadia Mono", "Segoe UI Mono", monospace',
-  '--font-mono': 'ui-monospace, "SFMono-Regular", "Menlo", "Cascadia Mono", "Segoe UI Mono", monospace',
+  '--font-sans':
+    'ui-monospace, "SFMono-Regular", "Menlo", "Cascadia Mono", "Segoe UI Mono", monospace',
+  '--font-mono':
+    'ui-monospace, "SFMono-Regular", "Menlo", "Cascadia Mono", "Segoe UI Mono", monospace',
 };
 
 // ---------------------------------------------------------------------------
