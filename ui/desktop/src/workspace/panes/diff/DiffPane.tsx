@@ -9,6 +9,7 @@
 
 import { useCallback, useEffect, useRef, useState, useSyncExternalStore } from 'react';
 import { useLocation, useSearchParams } from 'react-router';
+import { toast } from 'react-toastify';
 import { syntaxHighlighting } from '@codemirror/language';
 import {
   type Chunk,
@@ -22,6 +23,8 @@ import { EditorView, lineNumbers } from '@codemirror/view';
 import { defineMessages, useIntl } from '../../../i18n';
 import { useTheme } from '../../../contexts/ThemeContext';
 import { usePaneContext } from '../../pane-context';
+import type { InsertChatInput } from '../../chat-insert';
+import { resolveLinkPath } from '../../file-links';
 import { monokaiHighlight } from '../../../theme/monokai-highlight';
 import {
   acpChatSessionActions,
@@ -38,6 +41,9 @@ import {
   type GitCwdRequest,
   type GitDiffRequest,
   type GitDiffResponse,
+  type GitDiscardRequest,
+  type GitDiscardResponse,
+  type GitDiscardUndoRequest,
   type GitMergeRequest,
   type GitMergeResponse,
   type GitPathsRequest,
@@ -81,6 +87,11 @@ const i18n = defineMessages({
   reject: { id: 'diffPane.reject', defaultMessage: 'Reject' },
   stage: { id: 'diffPane.stage', defaultMessage: 'Stage' },
   undo: { id: 'diffPane.undo', defaultMessage: 'Undo' },
+  rowStage: { id: 'diffPane.rowStage', defaultMessage: 'Stage file' },
+  rowDiscard: { id: 'diffPane.rowDiscard', defaultMessage: 'Discard file' },
+  discarded: { id: 'diffPane.discarded', defaultMessage: 'Discarded {path}' },
+  hunkAsk: { id: 'diffPane.hunkAsk', defaultMessage: 'Ask about this' },
+  hunkOpen: { id: 'diffPane.hunkOpen', defaultMessage: 'Open in Editor' },
   blockedRunning: {
     id: 'diffPane.blockedRunning',
     defaultMessage: 'Reject and Stage wait for the running tool call to finish',
@@ -226,22 +237,36 @@ const setBlocked = (button: HTMLButtonElement, blocked: string | null) => {
   else button.removeAttribute('title');
 };
 
+interface ChangeViewProps {
+  file: DiffFile;
+  view: DiffView;
+  dark: boolean;
+  controls: ChunkControls | null;
+  // Task 94: the hunk header's Ask about this and Open in Editor read these off the pane's
+  // context so the chunk-button factory never has to remount on a context change.
+  cwd: string;
+  gitToplevel: string;
+  insertIntoChat(input: InsertChatInput): void;
+  openFile(path: string, line?: number): void;
+}
+
 function ChangeView({
   file,
   view,
   dark,
   controls,
-}: {
-  file: DiffFile;
-  view: DiffView;
-  dark: boolean;
-  controls: ChunkControls | null;
-}) {
+  cwd,
+  gitToplevel,
+  insertIntoChat,
+  openFile,
+}: ChangeViewProps) {
+  const intl = useIntl();
   const host = useRef<HTMLDivElement>(null);
   // CodeMirror builds each chunk's buttons once (the widget is memoized per chunk), so the
   // gate and the handler reach them through refs rather than a remount, which would drop the
   // scroll position on every tool-call edge.
   const controlsRef = useRef(controls);
+  const contextRef = useRef({ cwd, gitToplevel, insertIntoChat, openFile });
   const buttons = useRef(new Set<HTMLButtonElement>());
   const blocked = controls?.blocked ?? null;
   const hasControls = controls !== null;
@@ -249,6 +274,10 @@ function ChangeView({
   useEffect(() => {
     controlsRef.current = controls;
   }, [controls]);
+
+  useEffect(() => {
+    contextRef.current = { cwd, gitToplevel, insertIntoChat, openFile };
+  }, [cwd, gitToplevel, insertIntoChat, openFile]);
 
   useEffect(() => {
     for (const button of buttons.current) setBlocked(button, blocked);
@@ -273,32 +302,81 @@ function ChangeView({
       });
       return () => merge.destroy();
     }
+    const chunkAt = (marker: HTMLButtonElement) => {
+      const at = editor.posAtDOM(marker);
+      return getChunks(editor.state)?.chunks.find(
+        (candidate) => candidate.fromB <= at && candidate.endB >= at
+      );
+    };
     // CodeMirror's `action` is never called: acceptChunk/rejectChunk ignore readOnly and
     // would edit the in-memory doc that nothing writes back (research 45 §The surprise).
-    const mergeControls = hasControls
-      ? (type: 'reject' | 'accept') => {
-          const action: ChunkAction = type === 'accept' ? 'stage' : 'reject';
-          const button = document.createElement('button');
-          button.type = 'button';
-          button.name = action;
-          button.textContent = controlsRef.current?.labels[action] ?? action;
-          button.dataset.testid = `diff-chunk-${action}`;
-          setBlocked(button, controlsRef.current?.blocked ?? null);
-          button.addEventListener('click', (event) => {
-            event.preventDefault();
-            const current = controlsRef.current;
-            if (!current || current.blocked) return;
-            const at = editor.posAtDOM(button);
-            const chunk = getChunks(editor.state)?.chunks.find(
-              (candidate) => candidate.fromB <= at && candidate.endB >= at
-            );
-            if (chunk)
-              current.onAction(action, chunk, getOriginalDoc(editor.state), editor.state.doc);
+    // Every hunk gets this bar, staged/unstaged alike; Stage/Reject only join it when the
+    // scope offers them (`hasControls`) — CodeMirror's own two-button API has no third slot,
+    // so `display: contents` makes the extra pair sit as if they were direct siblings of it.
+    const mergeControls = (type: 'reject' | 'accept') => {
+      const group = document.createElement('span');
+      group.style.display = 'contents';
+      if (hasControls) {
+        const action: ChunkAction = type === 'accept' ? 'stage' : 'reject';
+        const button = document.createElement('button');
+        button.type = 'button';
+        button.name = action;
+        button.textContent = controlsRef.current?.labels[action] ?? action;
+        button.dataset.testid = `diff-chunk-${action}`;
+        setBlocked(button, controlsRef.current?.blocked ?? null);
+        button.addEventListener('click', (event) => {
+          event.preventDefault();
+          const current = controlsRef.current;
+          if (!current || current.blocked) return;
+          const chunk = chunkAt(button);
+          if (chunk)
+            current.onAction(action, chunk, getOriginalDoc(editor.state), editor.state.doc);
+        });
+        buttons.current.add(button);
+        group.appendChild(button);
+      }
+      if (type === 'accept') {
+        const ask = document.createElement('button');
+        ask.type = 'button';
+        ask.name = 'ask';
+        ask.textContent = intl.formatMessage(i18n.hunkAsk);
+        ask.dataset.testid = 'diff-hunk-ask';
+        ask.addEventListener('click', (event) => {
+          event.preventDefault();
+          const chunk = chunkAt(ask);
+          if (!chunk) return;
+          const doc = editor.state.doc;
+          const text = doc.sliceString(chunk.fromB, chunk.toB);
+          const first = doc.lineAt(chunk.fromB).number;
+          const last =
+            chunk.toB > chunk.fromB
+              ? doc.lineAt(Math.min(chunk.toB, doc.length) - 1).number
+              : first;
+          contextRef.current.insertIntoChat({
+            kind: 'text',
+            text,
+            source: { path: file.path, lines: [first, last] },
           });
-          buttons.current.add(button);
-          return button;
-        }
-      : false;
+        });
+        group.appendChild(ask);
+
+        const open = document.createElement('button');
+        open.type = 'button';
+        open.name = 'open';
+        open.textContent = intl.formatMessage(i18n.hunkOpen);
+        open.dataset.testid = 'diff-hunk-open';
+        open.addEventListener('click', (event) => {
+          event.preventDefault();
+          const chunk = chunkAt(open);
+          if (!chunk) return;
+          const line = editor.state.doc.lineAt(chunk.fromB).number;
+          const { gitToplevel: currentToplevel, openFile: currentOpenFile } = contextRef.current;
+          currentOpenFile(resolveLinkPath(file.path, currentToplevel), line);
+        });
+        group.appendChild(open);
+      }
+      return group;
+    };
     const editor = new EditorView({
       parent,
       state: EditorState.create({
@@ -314,7 +392,7 @@ function ChangeView({
       editor.destroy();
       created.clear();
     };
-  }, [file, view, dark, hasControls]);
+  }, [file, view, dark, hasControls, intl]);
 
   return <div ref={host} data-testid="diff-view" data-view={view} data-path={file.path} />;
 }
@@ -354,7 +432,8 @@ interface MergeFailure {
 
 export function DiffPane() {
   const intl = useIntl();
-  const { cwd, messages } = usePaneContext();
+  const { cwd, messages, gitStatus, insertIntoChat, openFile } = usePaneContext();
+  const gitToplevel = gitStatus?.toplevel ?? cwd;
   const { resolvedTheme } = useTheme();
   const selection = useSyncExternalStore(
     diffStore.subscribe,
@@ -493,10 +572,52 @@ export function DiffPane() {
   // A rename or a binary carries headers the synthesized patch cannot (unified-diff.ts
   // drops them), so those entries stage whole, through the same route the Git pane uses.
   const fileLevel = file !== null && (file.binary || file.kind === 'renamed');
-  const stageFile = () => {
-    if (!file || blocked) return;
-    const paths = file.oldPath ? [file.oldPath, file.path] : [file.path];
+  // The list row's Stage file (task 94) and the per-file header's Stage (above) are the same
+  // action; a rename's old path rides along so git sees the move, not a delete plus an add.
+  const stagePath = (entry: DiffFile) => {
+    if (blocked) return;
+    const paths = entry.oldPath ? [entry.oldPath, entry.path] : [entry.path];
     void send('/git/stage', { paths, cwd });
+  };
+  const stageFile = () => {
+    if (!file) return;
+    stagePath(file);
+  };
+
+  // Discard file (task 94): the stash scopes to this one path, so the toast's Undo (the
+  // pane's lastApply pattern, closed over the returned stash tag rather than kept in state,
+  // since the toast itself is the only place that ever needs it) restores just this file.
+  const discardPath = (entry: DiffFile) => {
+    if (blocked) return;
+    setApplying(true);
+    setActionError(null);
+    const request: GitDiscardRequest = { cwd, path: entry.path };
+    sidecarFetch<GitDiscardResponse>('/git/discard', request)
+      .then((response) => {
+        refresh();
+        const undo = () => {
+          const undoBody: GitDiscardUndoRequest = { cwd, stash: response.stash };
+          void sidecarFetch('/git/discard-undo', undoBody)
+            .then(() => refresh())
+            .catch((cause: Error) => setActionError(cause.message));
+        };
+        toast.success(
+          <div className="flex items-center gap-2">
+            <span>{intl.formatMessage(i18n.discarded, { path: entry.path })}</span>
+            <Button
+              size="xs"
+              variant="outline"
+              data-testid="diff-discard-undo"
+              onClick={undo}
+            >
+              {intl.formatMessage(i18n.undo)}
+            </Button>
+          </div>,
+          { position: 'top-right', autoClose: 5000 }
+        );
+      })
+      .catch((cause: Error) => setActionError(cause.message))
+      .finally(() => setApplying(false));
   };
 
   // Both run in the main checkout: from the worktree, git's toplevel is the worktree itself
@@ -759,11 +880,14 @@ export function DiffPane() {
             aria-busy={loading}
           >
             {files.map((entry) => (
-              <li key={entry.path}>
+              <li
+                key={entry.path}
+                className="group relative flex items-center hover:bg-background-secondary"
+              >
                 <button
                   type="button"
                   className={cn(
-                    'flex w-full items-center gap-2 px-2 py-0.5 text-left font-mono text-xs hover:bg-background-secondary',
+                    'flex min-w-0 flex-1 items-center gap-2 px-2 py-0.5 text-left font-mono text-xs',
                     entry.path === selection.path && 'bg-background-secondary'
                   )}
                   aria-pressed={entry.path === selection.path}
@@ -784,6 +908,34 @@ export function DiffPane() {
                     </span>
                   )}
                 </button>
+                {/* Row actions (task 94): hidden until the row is hovered or a child has
+                    focus, so Tab still reaches them without the row showing its hand. */}
+                {scope !== 'staged' && (
+                  <div className="flex shrink-0 items-center gap-1 px-1 opacity-0 group-hover:opacity-100 group-focus-within:opacity-100">
+                    <Button
+                      size="xs"
+                      variant="ghost"
+                      disabled={blocked !== null}
+                      title={blocked ?? undefined}
+                      data-testid="diff-row-stage"
+                      data-path={entry.path}
+                      onClick={() => stagePath(entry)}
+                    >
+                      {intl.formatMessage(i18n.rowStage)}
+                    </Button>
+                    <Button
+                      size="xs"
+                      variant="ghost"
+                      disabled={blocked !== null}
+                      title={blocked ?? undefined}
+                      data-testid="diff-row-discard"
+                      data-path={entry.path}
+                      onClick={() => discardPath(entry)}
+                    >
+                      {intl.formatMessage(i18n.rowDiscard)}
+                    </Button>
+                  </div>
+                )}
               </li>
             ))}
           </ul>
@@ -828,6 +980,10 @@ export function DiffPane() {
                 view={selection.view}
                 dark={resolvedTheme === 'dark'}
                 controls={fileLevel ? null : controls}
+                cwd={cwd}
+                gitToplevel={gitToplevel}
+                insertIntoChat={insertIntoChat}
+                openFile={openFile}
               />
             )}
           </div>

@@ -1199,6 +1199,15 @@
   "diffPane.blockedRunning": {
     "defaultMessage": "Reject and Stage wait for the running tool call to finish"
   },
+  "diffPane.discarded": {
+    "defaultMessage": "Discarded {path}"
+  },
+  "diffPane.hunkAsk": {
+    "defaultMessage": "Ask about this"
+  },
+  "diffPane.hunkOpen": {
+    "defaultMessage": "Open in Editor"
+  },
   "diffPane.loading": {
     "defaultMessage": "Loading…"
   },
@@ -1243,6 +1252,12 @@
   },
   "diffPane.reviewStarting": {
     "defaultMessage": "Starting review…"
+  },
+  "diffPane.rowDiscard": {
+    "defaultMessage": "Discard file"
+  },
+  "diffPane.rowStage": {
+    "defaultMessage": "Stage file"
   },
   "diffPane.scope": {
     "defaultMessage": "Scope"
@@ -5804,8 +5819,14 @@
   "userMessage.forkSessionTitle": {
     "defaultMessage": "Создать новый сеанс с измененным сообщением"
   },
+  "userMessage.redoThisTurn": {
+    "defaultMessage": "Redo this turn"
+  },
   "userMessage.removeImageFromEdit": {
     "defaultMessage": "Удалить изображение из сообщения"
+  },
+  "userMessage.undoThisTurn": {
+    "defaultMessage": "Undo this turn"
   },
   "workColumn.bar": {
     "defaultMessage": "Panes"

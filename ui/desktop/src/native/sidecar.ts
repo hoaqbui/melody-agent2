@@ -95,6 +95,7 @@ export interface GitDiffRequest extends GitCwdRequest {
   base?: string;
   path?: string;
   context?: number;
+  numstat?: boolean;
 }
 
 export interface GitDiffResponse {
@@ -111,6 +112,20 @@ export interface GitRevParseResponse {
 
 export interface GitPathsRequest extends GitCwdRequest {
   paths: string[];
+}
+
+// With `path`, the stash scopes to that one file (task 94's row-level Discard); without
+// it, the whole tree.
+export interface GitDiscardRequest extends GitCwdRequest {
+  path?: string;
+}
+
+export interface GitDiscardResponse {
+  stash: string;
+}
+
+export interface GitDiscardUndoRequest extends GitCwdRequest {
+  stash: string;
 }
 
 export interface GitCommitRequest extends GitCwdRequest {
