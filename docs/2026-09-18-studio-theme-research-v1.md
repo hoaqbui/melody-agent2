@@ -134,8 +134,9 @@ Pick: **A**.
   §Tokens/§Typography/§Motion amendments, `package.json` + `ui/pnpm-lock.yaml`
 - out: the Compo video panels in ux_tests; a new layout (the three columns already
   match); Magic UI; the radius change; phone-specific redesign beyond what tokens give
-- protected: Charcoal Monokai's colour values and glass rule (its snapshot stays), aura
-  byte-for-byte, every existing walk green, The Upstream Rule (no component copies)
+- protected: Charcoal Monokai's and Aura's colour values and the glass rule (their colour
+  snapshots stay; faces and sizes move for every theme — option A), every existing walk
+  green, The Upstream Rule (no component copies)
 
 ## Unknowns
 
