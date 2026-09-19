@@ -70,7 +70,7 @@ back later as a wrapper around the same URL, if at all.
    [".eel-terrapin.ts.net"]`, `/api` proxied to 8000, preview on 4173
    for `tailscale funnel` (`frontend/vite.config.ts:8-27`); `mise run
    dev` launches the Electron shell (`shell/package.json:8`). The
-   tailnet has `hoa-macstudio-2026` (100.127.56.10) and `hoa-phone`
+   tailnet has `mac-m4max` (100.127.56.10) and `hoa-phone`
    (iOS, 100.73.1.24) (`tailscale status`, 2026-09-15). > The phone
    already reaches compo's UI; the workspace joins it on the same
    tailnet — no tunnel, no relay, no new auth story beyond Tailscale
@@ -138,7 +138,7 @@ Pane libraries, with the phone as the constraint:
   no `X-Frame-Options` and no `Content-Security-Policy` (`curl -sI
   localhost:5173`, 2026-09-15, server up) and already allows tailnet
   hosts; the workspace
-  embeds `http://hoa-macstudio-2026.<tailnet>:5173` directly, with an
+  embeds `http://mac-m4max.<tailnet>:5173` directly, with an
   address bar limited to the project's own ports. Arbitrary sites are
   out (X-Frame-Options); a screenshot-streaming browser is a later
   option, not MVP.
