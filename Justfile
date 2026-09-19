@@ -208,8 +208,13 @@ test-light:
     cd ui/sidecar && pnpm run typecheck && pnpm vitest run
     cd ui/desktop && pnpm run test:light
 
+# A `pnpm install` re-links ui/node_modules/.bin from store copies without the executable bit
+# (2026-09-18, twice); electron-forge then dies "Permission denied" and every walk times out at launch.
+fix-bins:
+    for l in $(find -L ui/node_modules/.bin ui/desktop/node_modules/.bin ui/sidecar/node_modules/.bin -maxdepth 1 -type f ! -perm -u+x 2>/dev/null); do chmod u+x "$(readlink -f $l)"; done
+
 # One walk: `just walk "git pane|diff pane"` — the Electron walks a change touches.
-walk pattern:
+walk pattern: fix-bins
     cd ui/desktop && pnpm exec playwright test --project=walks -g "{{pattern}}"
 
 # Full suite (~25 min): the light suite, clippy, the spine check, every fork walk, the phone
