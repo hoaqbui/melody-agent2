@@ -4,6 +4,18 @@ Read this before planning any change. If code contradicts this map, flag it.
 
 ## Bootstrap Status
 
+**Promotion draft, 2026-09-20 (task 108).** Every box this map marks **(new)** exists in
+the tree: `ui/sidecar/src` (pty, fs, git, runtimes, the ACP proxy, the web build),
+`ui/desktop/src/shims/electron-web.ts` (a file, not the directory the diagram draws),
+`ui/desktop/src/workspace` (the shell, the pane store, fourteen panes), `ui/desktop/src/native`,
+the three spine files (`agents/platform_extensions/summon.rs`, `providers/cursor_acp.rs`,
+`providers/agy.rs`) and the ten role files under `.agents/agents/`. Three claims below are
+now wrong: the tree read for the map (`~/github/goose`) — the map has described this
+repository since tranche 1; "do not exist yet"; and the suspended drift flag — with every box
+built, a plan's drift check runs against a description. Everything under §Module View,
+§Modules, §Invariants, §Ownership and §Data Flow has been amended in place, dated, as
+tranches landed, and stays. Sign-off deletes this section.
+
 Proposal, not a description of implemented code. melody-agent2 is a
 planned fork of `aaif-goose/goose@a23a8cd5` (v1.50.0, 2026-09-14); the
 tree read for this map is `~/github/goose`, and the boxes marked
