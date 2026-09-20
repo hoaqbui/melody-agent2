@@ -121,12 +121,6 @@ Approved 2026-09-18 on the user's delegation; all 17 gate decisions as recommend
     - from 90 (2026-09-18): the `rpi strip` walk (a live Hard session that must delegate to the researcher) fails on main today at 'Research active' after 120 s — and fails the same way with the plan gate off, with the orchestrator role's gate line removed, and with the desktop sources checked out at 3317f25ba (before wave 1); the Claude seat answers `claude -p` in 5 s. Not a regression of 79/90; the live orchestrate path needs its own look before this walk is written
   - confirm: `just walk "plan gate"` → 1 passed (untouched: no spec); `test -f docs/2026-09-18-plan-gate-runs-v1.md && grep -c '^| ' docs/2026-09-18-plan-gate-runs-v1.md` → `≥ 11` (untouched: no file)
 
-- 97. Amend the documents: `DESIGN.md` §Vocabulary rows Add to chat · diff card · Undo this turn / Redo · Changes bar · Contents · palette · runtimes gate · plan gate; §Tokens the git-tint mapping (M `warning`, A/? `success`, D `danger`); §Shared component states "waiting on the user" mapped to Partial (task 90's shape) and `TOOL_CONFIRMATION_STATES`; §Accessibility Destructive amended for turn undo and Discard (no confirm, Undo/Redo in place); `docs/2026-09-15-workspace-prd-v1.md` steps 16–19 (dated): Add to chat, plan gate, runtimes gate, palette; `ARCHITECTURE.md` §Modules sidecar line: `/fs/*` contained like `/git/*`, `/git/snapshot`, `/git/discard`, `/runtimes/probe` (one refusal-shaped clause each); `scripts/probe-approve.py` named under §Invariants as the approve-mode reference.
-  - status: todo · agent: — · worker: low
-  - card: as a reader, find the map and the PRD saying what the tree does so that the next plan does not re-argue these picks
-  - context: headless — no UX plan; dated amendments, no rewrites
-    - from 87 (2026-09-18): the Browser toolbar gained Share ▸ Page · Screenshot · Console and "Set as home"; DESIGN.md §Vocabulary's Browser row does not name them yet
-  - confirm: `grep -c "Add to chat" DESIGN.md` → `≥ 1` (untouched: `0`); `grep -c "requestPath\|/fs/\* contained" ARCHITECTURE.md` → `≥ 1` (untouched: `0`)
 
 ## Waiting on the user
 

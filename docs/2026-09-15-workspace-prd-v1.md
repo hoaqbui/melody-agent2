@@ -265,6 +265,48 @@
       the same session; Open transcript → [the review session on
       `/pair`]; a reply that does not parse → shown as markdown
 
+16. [Any pane, something worth asking about] · P0 (added 2026-09-19, tasks 76, 83)
+    - does: select text in the Editor, the Markdown pane or the
+      Terminal; right-click a file in Files; hover a hunk in Changes;
+      Share ▸ Screenshot in the Browser — then Add to chat (Send to
+      chat, Ask about this)
+    - rule: one door — the quote lands in the chat input at the caret
+      as a fenced block under a header the model can locate
+      (`path:from-to`, `path`, `terminal`), an image as a tile; a
+      second quote starts on its own line; nothing is sent — the user
+      reads and edits it first; no selection → the button is disabled
+      and says "Select text first"
+    - → [chat input holding the block, focus in it]; ⌘Enter → step 4
+
+17. [Orchestrate session, task sent] · P0 (added 2026-09-19, tasks 79, 90)
+    - does: nothing — the plan gate is on by default
+    - rule: the orchestrator ends its turn once the Planner returns;
+      the RPI strip's Plan chip reads "Plan ready — waiting for you"
+      with Accept · Revise…; Implement lighting before Accept raises a
+      warning bar with Stop; Tiny tasks have no plan and no gate; a
+      routine saved from the session does not carry the gate
+    - → Accept → [Implement runs, step 10]; Revise… → [the plan's
+      Artifact pane with the input focused]
+
+18. [First launch, or a seat that stopped answering] · P0 (added 2026-09-19, task 91)
+    - does: open the app with no runtime ready, or open Set up seats
+      from the lever
+    - rule: one row per runtime — Claude · Codex · Cursor · agy —
+      reading Install, Sign in or Ready, from a probe of the four
+      binaries (fixed argv, never a shell, 5 s each); the gate shows on
+      launch only while no seat is Ready; Recheck re-probes; Install
+      and Sign in open the seat's own instructions
+    - → [Runtimes gate]; a seat turns Ready → [Workspace, step 2]
+
+19. [Any route] · P0 (added 2026-09-19, task 92)
+    - does: ⌘K
+    - rule: one list of everything the workspace can do — the panes,
+      the sessions, the routines with Run now, the lever's stops, the
+      routes, the session menu's actions — ranked by the fuzzy match
+      the provider picker uses; Enter runs the highlighted row, Esc
+      closes and keeps the chat input's draft
+    - → [the picked pane, session, route or action]
+
 ## States
 
 - Hub: empty → no recent directories, chooser only; loading → session
