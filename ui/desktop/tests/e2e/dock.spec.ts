@@ -69,13 +69,15 @@ test.describe('dock', () => {
     await expect(diffPane).toBeVisible();
     await expect(diffTab).toHaveAttribute('aria-pressed', 'true');
     // The seam between them resizes from the keyboard too (DESIGN.md §Accessibility).
+    // The split persists per project, so the walk moves from wherever the seam is.
     const seam = goosePage.locator('[data-testid="workspace-dock-seam"]');
-    await expect(seam).toHaveAttribute('aria-valuenow', '50');
+    await expect(seam).toHaveAttribute('aria-valuenow', /^\d+$/);
+    const start = Number(await seam.getAttribute('aria-valuenow'));
     await seam.focus();
     await goosePage.keyboard.press('ArrowDown');
-    await expect(seam).toHaveAttribute('aria-valuenow', '55');
+    await expect(seam).toHaveAttribute('aria-valuenow', String(start + 5));
     await goosePage.keyboard.press('ArrowUp');
-    await expect(seam).toHaveAttribute('aria-valuenow', '50');
+    await expect(seam).toHaveAttribute('aria-valuenow', String(start));
     await goosePage.screenshot({
       path: test.info().outputPath('dock-top-bottom.png'),
       fullPage: true,

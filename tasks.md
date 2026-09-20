@@ -136,6 +136,19 @@ Approved 2026-09-20 (user: "Ok orchestrate it"); pick B of `docs/2026-09-20-prog
   - confirm: `grep -c "2026-09-19" ~/github/agent-workspace/AGENTS.md` → `≥ 1` (untouched: `0`); `python ~/github/agent-workspace/scripts/check-reach.py` → PASS
 
 
+### The beta gate — the reds of the first full run (2026-09-20, user: "fix the reds. add to tasks.")
+
+`just test-full` ran end to end for the first time since the 1.98.1 move (24.0 min): clippy green, spine clean, Rust light suite 90/91 (one flaky), sidecar 89, desktop 1231, walks 34 passed / 8 failed. Five of the eight need a live Claude seat (agents pane, artifact pane, review pane, rpi strip, turn undo — tranche 10). The three below are headless. 112 is the user's ask the same turn: a macOS app to try.
+
+- 112. A macOS app the user can try: `just make-ui` (release binary → `pnpm run bundle:default` → `out/Goose-darwin-arm64/Goose.app` + zip) on main, with the Studio theme, the sidecar and the goose binary bundled; the first launch checked by hand (opens, a seat listed, Files and Terminal panes open on a directory).
+  - status: doing · agent: session-t9 [Opus, direct] · worker: —  (session)
+  - card: as the user, open the fork as an app from Finder so that the beta is something to try, not a dev server to start
+  - context:
+    - `bundle:default` runs `scripts/prepare-platform-binaries.js` then `electron-forge make`; the binary is `just release-binary` (cargo release build, minutes)
+    - unsigned: Gatekeeper will ask on first open (right-click → Open); a signed/notarized build is not this task
+    - the Rust proc-macro dlopen failure of 2026-09-18 (decision 6) has not recurred since 1.98.1 — if `release-binary` fails, that is the blocker to report
+  - confirm: `test -d ui/desktop/out/Goose-darwin-arm64/Goose.app && ls ui/desktop/out/Goose-darwin-arm64/*.zip` → the zip path (untouched: no `out/`); the hand check above → listed under §Waiting on the user
+
 ## Waiting on the user
 
 - Tranche-end gate (2026-09-19): `just test-full` cannot run green — its first line is `cargo clippy --all-targets -D warnings`, red since the 1.98.1 move (24 pre-existing lints in agents/*). The Playwright set was run directly: the `chromium` project is upstream's suite and needs a Databricks provider and live MCP servers (25 failed, expected here); the fork's `walks` + `phone` projects ran one worker at a time in 38.7 min → 17 passed, 26 failed. Cause of the failures: partway through, the Claude seat answered "Credits exhausted: you've hit your monthly spend limit" (claude.ai/settings/usage) and every walk that needs a live reply failed after that — session menu, easy mode, chat links, command palette and the rest had passed alone within the hour; the six runtimes-gate specs are task 91's known contradiction; the `phone` spec needs the web build served on :3285. Raise the Claude spend limit (or wait for the month), then rerun `pnpm exec playwright test --project=walks --project=phone --workers=1` from `ui/desktop` under the hermit env.

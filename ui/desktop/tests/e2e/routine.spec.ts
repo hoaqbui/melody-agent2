@@ -1,6 +1,6 @@
 import { execFileSync } from 'child_process';
 import { existsSync, mkdirSync, mkdtempSync, readFileSync, writeFileSync } from 'fs';
-import { tmpdir } from 'os';
+import { homedir, tmpdir } from 'os';
 import { join } from 'path';
 import { test, expect, setAdvancedControls } from './fixtures';
 
@@ -98,12 +98,14 @@ test.describe('routine', () => {
       throw error;
     }
 
+    // The root the app ran under: GOOSE_PATH_ROOT when the recipe set one, else goosed's
+    // default data dir (`Paths::data_dir`: the XDG strategy on every platform, so
+    // ~/.local/share/goose on macOS too — `paths.rs` says changing it would orphan installs).
     const pathRoot = process.env.GOOSE_PATH_ROOT;
-    expect(pathRoot, 'GOOSE_PATH_ROOT names the Goose root the walk runs under').toBeTruthy();
-    const yaml = readFileSync(
-      join(pathRoot as string, 'data/scheduled_recipes', `${routineTitle}.yaml`),
-      'utf8'
-    );
+    const dataDir = pathRoot
+      ? join(pathRoot, 'data')
+      : join(process.env.XDG_DATA_HOME ?? join(homedir(), '.local', 'share'), 'goose');
+    const yaml = readFileSync(join(dataDir, 'scheduled_recipes', `${routineTitle}.yaml`), 'utf8');
     console.log(`saved settings:\n${yaml.slice(yaml.indexOf('settings:'))}`);
     const setting = (key: string) => yaml.match(new RegExp(`^  ${key}: (.+)$`, 'm'))?.[1];
     expect(setting('goose_provider')).toBeTruthy();

@@ -41,6 +41,16 @@ test.describe('approve mode', () => {
     await expect(shell).toBeVisible({ timeout: 30000 });
     await setAdvancedControls(goosePage, true);
 
+    // The Mode radios are the server's config options, so a session must exist before
+    // Session controls lists them (task 109): one word from the hub starts it.
+    const hubInput = goosePage.locator('[data-testid="chat-input"]');
+    await hubInput.fill('Respond with the single word hello.');
+    await hubInput.press('Enter');
+    await expect(goosePage).toHaveURL(/resumeSessionId=/, { timeout: 30000 });
+    await expect(
+      goosePage.locator('[data-testid="message-container"].assistant').last()
+    ).toContainText(/hello/i, { timeout: 45000 });
+
     // Session controls → Mode → Approve; the note names what Claude does with it.
     await goosePage.locator('[data-testid="workspace-session-controls"]').click();
     const menu = goosePage.locator('[data-testid="workspace-session-controls-menu"]');
@@ -91,9 +101,10 @@ test.describe('approve mode', () => {
       'agy cannot ask — Approve unavailable',
       { timeout: 15000 }
     );
-    await expect(
-      menu.locator('[data-testid="workspace-config-mode-auto"]')
-    ).toHaveAttribute('aria-checked', 'true');
+    await expect(menu.locator('[data-testid="workspace-config-mode-auto"]')).toHaveAttribute(
+      'aria-checked',
+      'true'
+    );
     await goosePage.keyboard.press('Escape');
 
     // Keyboard: the three buttons reachable by Tab, fired by Enter.
