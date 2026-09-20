@@ -127,20 +127,14 @@ Approved 2026-09-18 on the user's delegation; all 17 gate decisions as recommend
 Approved 2026-09-20 (user: "Ok orchestrate it"); pick B of `docs/2026-09-20-program-rest-research-v1.md`. Order: 103 ∥ 105 ∥ 106 (one `Justfile`, one sitting) → 104 (three specs, walks rerun) → 108 (doc draft) → 107 (rule change; waits on two advisors on runtimes other than Claude). Tranches 10–12 are planned at their gates.
 
 - 107. Revise `AGENTS.md` §Model routing on the evidence, one dated row under the table, naming the mechanism it governs: the evidence is from the session's Agent-tool worktree subagents (`model: haiku` for tranches 1–7's workers, `model: sonnet` for wave 3), not from the table's `claude -p --model haiku` CLI rung — 17/17 haiku diffs needed session corrections (`tasks.md` §Waiting "Worker routing evidence"), and three sonnet workers stalled on task 83 without a line while the Sonnet endpoint timed out (2026-09-19; whether the stall was the endpoint or the worktree isolation is untested — one worker on a trivial task once the endpoint answers would tell). The rule change proposed: the worker chain's first rung for `worker: medium` and above is a sonnet-class model, haiku keeps `worker: low`; a stalled worker that leaves an empty worktree is retried once, then the session implements (as 83 was); the row says which mechanism (Agent tool vs CLI) each rung names. Takes one advisor per lens (architect, PM) on runtimes other than the one that drafted it, per AGENTS.md; the row lands only with their verdicts quoted.
-  - status: todo · agent: — · worker: —  (session; a rule change)
+  - status: blocked · agent: — · worker: —  (session; a rule change)
+  - blocked: the row is drafted with both advisors' changes in `docs/2026-09-20-agents-routing-row-v1.md`; the session's edit to `~/github/agent-workspace/AGENTS.md` was refused by the permission classifier (an agent-instructions file) — owner: user, paste the row or say "apply it" from an interactive session; then run the two confirms
   - card: as the user paying for three seats, route work to the rung that lands it, so that the session stops redoing worker output
   - context:
     - `AGENTS.md` lives in `~/github/agent-workspace` (global rules), not this repo — the edit is there; this repo's `tasks.md` records the pointer
     - the advisor chain's first rung (`claude -p … --model opus`) is dark while the seat is out; the row waits on an advisor that answers, or on the user
   - confirm: `grep -c "2026-09-19" ~/github/agent-workspace/AGENTS.md` → `≥ 1` (untouched: `0`); `python ~/github/agent-workspace/scripts/check-reach.py` → PASS
 
-- 108. Draft `ARCHITECTURE.md`'s promotion: a new dated paragraph at the top of §Bootstrap Status stating what the map now describes as built (every box marked **(new)** exists — `ui/sidecar`, `shims/electron-web`, `workspace`, `native`, the three spine files, `.agents/agents`), listing the three claims the section still gets wrong (the tree read for the map, "do not exist yet", the suspended drift flag), and ending with the sentence the user signs: "Sign-off deletes this section." No other line of the file changes.
-  - status: doing · agent: session-t9 [Fable, direct] · worker: low
-  - card: as the reader, trust the map's tense, so that the next plan's drift check runs against a description and not a proposal
-  - context:
-    - the deletion is the user's (`tasks.md` §Waiting "`ARCHITECTURE.md` — sign-off deletes"); this task only makes the sign-off a one-word answer
-    - the four `DESIGN.md` §Open decisions that wait on a user test (`:212-215`) are listed beside it in `tasks.md` §Waiting as one hand-check row, so the look and the sign-off happen in one sitting
-  - confirm: `grep -c "Sign-off deletes this section" ARCHITECTURE.md` → `1` (untouched: `0`; the current text says "sign-off deletes this section" in a different sentence — match the capitalised form); `bash scripts/check-spine.sh` → `spine clean`
 
 ## Waiting on the user
 
