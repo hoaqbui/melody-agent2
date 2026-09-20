@@ -163,3 +163,18 @@ export function createEditorStore(): EditorStore {
     },
   };
 }
+
+// The main selection as a quote: its text without the newline a whole-line selection
+// drags along, and the 1-based lines it spans (an end at column 0 belongs to the line
+// above it). Null when nothing is selected.
+export function selectedLines(
+  state: EditorState
+): { text: string; lines: [number, number] } | null {
+  const { from, to } = state.selection.main;
+  if (from === to) return null;
+  const last = state.doc.lineAt(to).from === to ? to - 1 : to;
+  return {
+    text: state.sliceDoc(from, to).replace(/\n$/, ''),
+    lines: [state.doc.lineAt(from).number, state.doc.lineAt(last).number],
+  };
+}

@@ -18,3 +18,10 @@ export function quoteForChat({ text, source }: ChatQuote): string {
     : source.path;
   return `\`\`\`${header}\n${text}\n\`\`\``;
 }
+
+// The header names the file the way a model cites it: relative to the project when the
+// path lies under it, untouched otherwise (a `terminal` tag, a path outside the tree).
+export function pathForChat(path: string, cwd: string): string {
+  const root = cwd.endsWith('/') ? cwd : `${cwd}/`;
+  return path.startsWith(root) ? path.slice(root.length) : path;
+}

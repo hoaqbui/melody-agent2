@@ -3,7 +3,14 @@
 // bar when the file changes on disk under unsaved edits, and for markdown a Preview beside
 // the source. Reads, writes and watches the file through src/native only.
 
-import { useCallback, useEffect, useRef, useSyncExternalStore, type KeyboardEvent } from 'react';
+import {
+  useCallback,
+  useEffect,
+  useRef,
+  useState,
+  useSyncExternalStore,
+  type KeyboardEvent,
+} from 'react';
 import { defaultKeymap, history, historyKeymap, indentWithTab } from '@codemirror/commands';
 import {
   defaultHighlightStyle,
@@ -44,10 +51,12 @@ import {
   saveDone,
   saveFailed,
   saveStarted,
+  selectedLines,
   setView,
   snapshot,
   type EditorViewMode,
 } from './editor-store';
+import { pathForChat } from '../../chat-insert';
 
 const i18n = defineMessages({
   nothingOpen: {
@@ -56,6 +65,8 @@ const i18n = defineMessages({
   },
   loading: { id: 'editorPane.loading', defaultMessage: 'Loading…' },
   save: { id: 'editorPane.save', defaultMessage: 'Save' },
+  addToChat: { id: 'editorPane.addToChat', defaultMessage: 'Add to chat' },
+  selectFirst: { id: 'editorPane.selectFirst', defaultMessage: 'Select text first' },
   nothingToSave: { id: 'editorPane.nothingToSave', defaultMessage: 'Nothing to save' },
   saving: { id: 'editorPane.saving', defaultMessage: 'Saving…' },
   unsaved: { id: 'editorPane.unsaved', defaultMessage: 'Unsaved changes' },
@@ -103,7 +114,7 @@ function useDocs() {
 
 export function EditorPane() {
   const intl = useIntl();
-  const { file, line } = usePaneContext();
+  const { file, line, cwd, insertIntoChat } = usePaneContext();
   const { resolvedTheme } = useTheme();
   const dark = resolvedTheme === 'dark';
   const docs = useDocs();
@@ -114,6 +125,7 @@ export function EditorPane() {
   const host = useRef<HTMLDivElement>(null);
   const viewRef = useRef<EditorView | null>(null);
   const appliedRevision = useRef(0);
+  const [hasSelection, setHasSelection] = useState(false);
 
   // Disk is read on every mount as well as on every watch event: the watch dies with the
   // pane on a tab switch, and the agent may have written meanwhile. The reducers tell a
@@ -198,11 +210,15 @@ export function EditorPane() {
             if (update.docChanged) {
               editorStore.apply(file, (latest) => edited(latest, update.state.doc.toString()));
             }
+            if (update.selectionSet || update.docChanged) {
+              setHasSelection(!update.state.selection.main.empty);
+            }
           }),
         ],
       });
     const view = new EditorView({ state, parent });
     viewRef.current = view;
+    setHasSelection(!state.selection.main.empty);
     appliedRevision.current = current.revision;
     let disposed = false;
     LanguageDescription.matchFilename(languages, file)
@@ -214,6 +230,7 @@ export function EditorPane() {
     return () => {
       disposed = true;
       viewRef.current = null;
+      setHasSelection(false);
       editorStore.apply(file, (latest) => snapshot(latest, view.state));
       view.destroy();
     };
@@ -258,6 +275,18 @@ export function EditorPane() {
       event.preventDefault();
       save();
     }
+  };
+
+  const addToChat = () => {
+    const view = viewRef.current;
+    if (!view || !doc) return;
+    const picked = selectedLines(view.state);
+    if (!picked) return;
+    insertIntoChat({
+      kind: 'text',
+      text: picked.text,
+      source: { path: pathForChat(doc.path, cwd), lines: picked.lines },
+    });
   };
 
   const dirty = doc ? isDirty(doc) : false;
@@ -305,6 +334,16 @@ export function EditorPane() {
                   {intl.formatMessage(view === 'source' ? i18n.source : i18n.preview)}
                 </Button>
               ))}
+            <Button
+              variant="ghost"
+              size="xs"
+              disabled={!showSource || !hasSelection}
+              title={showSource && hasSelection ? undefined : intl.formatMessage(i18n.selectFirst)}
+              data-testid="editor-add-to-chat"
+              onClick={addToChat}
+            >
+              {intl.formatMessage(i18n.addToChat)}
+            </Button>
             <Button
               variant="outline"
               size="xs"

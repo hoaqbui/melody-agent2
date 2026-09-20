@@ -1,5 +1,6 @@
 import { readFileSync } from 'node:fs';
 import { resolve } from 'node:path';
+import { EditorSelection, EditorState } from '@codemirror/state';
 import { describe, expect, it, vi } from 'vitest';
 import {
   createEditorStore,
@@ -16,6 +17,7 @@ import {
   reload,
   saveDone,
   saveFailed,
+  selectedLines,
   saveStarted,
 } from './editor-store';
 
@@ -121,5 +123,27 @@ describe('editor store', () => {
     store.apply('/elsewhere', (doc) => loaded(doc, 'x'));
     expect(store.getState()[PATH].text).toBe('one\n');
     expect(listener).toHaveBeenCalledTimes(1);
+  });
+});
+
+describe('selectedLines', () => {
+  const doc = 'one\ntwo\nthree\n';
+  const at = (anchor: number, head: number) =>
+    EditorState.create({ doc, selection: EditorSelection.single(anchor, head) });
+
+  it('is null without a selection', () => {
+    expect(selectedLines(at(2, 2))).toBeNull();
+  });
+
+  it('spans the lines the selection touches', () => {
+    expect(selectedLines(at(1, 6))).toEqual({ text: 'ne\ntw', lines: [1, 2] });
+  });
+
+  it('gives a whole-line selection its lines without the trailing newline', () => {
+    expect(selectedLines(at(0, 8))).toEqual({ text: 'one\ntwo', lines: [1, 2] });
+  });
+
+  it('reads a backwards selection the same way', () => {
+    expect(selectedLines(at(8, 0))).toEqual({ text: 'one\ntwo', lines: [1, 2] });
   });
 });

@@ -1328,6 +1328,9 @@
   "dirSwitcher.recentDirectories": {
     "defaultMessage": "최근 디렉터리"
   },
+  "editorPane.addToChat": {
+    "defaultMessage": "Add to chat"
+  },
   "editorPane.changedOnDisk": {
     "defaultMessage": "Changed on disk"
   },
@@ -1360,6 +1363,9 @@
   },
   "editorPane.saving": {
     "defaultMessage": "Saving…"
+  },
+  "editorPane.selectFirst": {
+    "defaultMessage": "Select text first"
   },
   "editorPane.source": {
     "defaultMessage": "Source"
@@ -2540,6 +2546,9 @@
   "markdownContent.noApplicationFound": {
     "defaultMessage": "이 링크를 열 수 있는 애플리케이션을 찾을 수 없습니다."
   },
+  "markdownPane.addToChat": {
+    "defaultMessage": "Add to chat"
+  },
   "markdownPane.contents": {
     "defaultMessage": "Contents"
   },
@@ -2557,6 +2566,9 @@
   },
   "markdownPane.retry": {
     "defaultMessage": "Retry"
+  },
+  "markdownPane.selectFirst": {
+    "defaultMessage": "Select text first"
   },
   "mcpAppRenderer.appFallbackTitle": {
     "defaultMessage": "앱"

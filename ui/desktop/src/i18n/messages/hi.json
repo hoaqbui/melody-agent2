@@ -1328,6 +1328,9 @@
   "dirSwitcher.recentDirectories": {
     "defaultMessage": "हाल की निर्देशिकाएँ"
   },
+  "editorPane.addToChat": {
+    "defaultMessage": "Add to chat"
+  },
   "editorPane.changedOnDisk": {
     "defaultMessage": "Changed on disk"
   },
@@ -1360,6 +1363,9 @@
   },
   "editorPane.saving": {
     "defaultMessage": "Saving…"
+  },
+  "editorPane.selectFirst": {
+    "defaultMessage": "Select text first"
   },
   "editorPane.source": {
     "defaultMessage": "Source"
@@ -2540,6 +2546,9 @@
   "markdownContent.noApplicationFound": {
     "defaultMessage": "इस लिंक को खोलने के लिए कोई एप्लिकेशन नहीं मिला."
   },
+  "markdownPane.addToChat": {
+    "defaultMessage": "Add to chat"
+  },
   "markdownPane.contents": {
     "defaultMessage": "Contents"
   },
@@ -2557,6 +2566,9 @@
   },
   "markdownPane.retry": {
     "defaultMessage": "Retry"
+  },
+  "markdownPane.selectFirst": {
+    "defaultMessage": "Select text first"
   },
   "mcpAppRenderer.appFallbackTitle": {
     "defaultMessage": "ऐप"

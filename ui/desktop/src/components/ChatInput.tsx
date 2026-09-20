@@ -787,9 +787,11 @@ export default function ChatInput({
     const handleInsertInputText = (event: Event) => {
       const textarea = textAreaRef.current;
       if (!textarea?.checkVisibility()) return;
-      const inserted = (event as CustomEvent<string>).detail;
       const start = textarea.selectionStart;
       const end = textarea.selectionEnd;
+      // A second quote starts on its own line: two fences run together otherwise.
+      const separator = start > 0 && displayValue[start - 1] !== '\n' ? '\n' : '';
+      const inserted = separator + (event as CustomEvent<string>).detail;
       applyInputValue(displayValue.slice(0, start) + inserted + displayValue.slice(end));
       setHasUserTyped(true);
       const caret = start + inserted.length;

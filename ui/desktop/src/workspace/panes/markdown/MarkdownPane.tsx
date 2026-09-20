@@ -21,6 +21,7 @@ import {
 } from '../../../native/sidecar';
 import { MarkdownView } from '../../MarkdownView';
 import { usePaneContext } from '../../pane-context';
+import { pathForChat } from '../../chat-insert';
 import {
   createMarkdownStore,
   headings,
@@ -29,6 +30,7 @@ import {
   loadStarted,
   newDoc,
   paneState,
+  selectedInside,
 } from './markdown-state';
 
 // Below this many headings a Contents list has nothing to organize (PRD §Item 12).
@@ -48,6 +50,8 @@ const i18n = defineMessages({
   notMarkdown: { id: 'markdownPane.notMarkdown', defaultMessage: 'Not markdown — shown as text' },
   contents: { id: 'markdownPane.contents', defaultMessage: 'Contents' },
   edit: { id: 'markdownPane.edit', defaultMessage: 'Edit' },
+  addToChat: { id: 'markdownPane.addToChat', defaultMessage: 'Add to chat' },
+  selectFirst: { id: 'markdownPane.selectFirst', defaultMessage: 'Select text first' },
 });
 
 // Docs by absolute path, kept across promote and close (DESIGN.md Nothing Lost Rule).
@@ -75,7 +79,7 @@ function offsetWithin(target: HTMLElement, container: HTMLElement): number {
 
 export function MarkdownPane() {
   const intl = useIntl();
-  const { file, openFile } = usePaneContext();
+  const { file, openFile, cwd, insertIntoChat } = usePaneContext();
   const docs = useDocs();
   // Until the effect below opens the file in the store, a fresh doc stands in as its
   // loading state.
@@ -83,6 +87,20 @@ export function MarkdownPane() {
   const state = paneState(doc);
   const viewRef = useRef<HTMLDivElement>(null);
   const [tocOpen, setTocOpen] = useState(true);
+  const [hasSelection, setHasSelection] = useState(false);
+
+  useEffect(() => {
+    const read = () =>
+      setHasSelection(selectedInside(window.getSelection(), viewRef.current) !== null);
+    document.addEventListener('selectionchange', read);
+    return () => document.removeEventListener('selectionchange', read);
+  }, []);
+
+  const addToChat = () => {
+    const text = selectedInside(window.getSelection(), viewRef.current);
+    if (!doc || text === null) return;
+    insertIntoChat({ kind: 'text', text, source: { path: pathForChat(doc.path, cwd) } });
+  };
 
   // MarkdownView gives every h1..h6 the id `headings()` derives from its text (task 95), so
   // this list is only meaningful once the file is `ready` and rendered, not while it shows
@@ -182,6 +200,18 @@ export function MarkdownPane() {
             >
               {doc.path}
             </span>
+            {doc.load.status === 'loaded' && (
+              <Button
+                variant="ghost"
+                size="xs"
+                disabled={!hasSelection}
+                title={hasSelection ? undefined : intl.formatMessage(i18n.selectFirst)}
+                data-testid="markdown-add-to-chat"
+                onClick={addToChat}
+              >
+                {intl.formatMessage(i18n.addToChat)}
+              </Button>
+            )}
             {doc.load.status === 'loaded' && (
               <Button
                 variant="outline"

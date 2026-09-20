@@ -34,6 +34,7 @@ import {
   type FsDeleteResponse,
 } from '../../../native/sidecar';
 import { usePaneContext } from '../../pane-context';
+import { pathForChat } from '../../chat-insert';
 import { toast } from 'react-toastify';
 import { toastError } from '../../../toasts';
 import {
@@ -249,7 +250,11 @@ export function FilesPane() {
       const response = await sidecarFetch<{ path: string; content: string }>('/fs/read', {
         path: rowPath,
       });
-      insertIntoChat({ kind: 'text', text: response.content, source: { path: rowPath } });
+      insertIntoChat({
+        kind: 'text',
+        text: response.content,
+        source: { path: pathForChat(rowPath, cwd) },
+      });
     } catch (error) {
       toastError({
         title: 'Add to chat failed',

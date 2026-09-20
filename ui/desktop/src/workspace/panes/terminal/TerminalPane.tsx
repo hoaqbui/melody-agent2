@@ -251,7 +251,25 @@ export function TerminalPane({ ptyId: baseId, cwd, initialInput }: TerminalPaneP
         </Button>
       </div>
 
-      <div ref={hostRef} className="min-h-0 flex-1 overflow-hidden px-2 pt-2" />
+      <div className="relative min-h-0 flex-1">
+        <div ref={hostRef} className="h-full overflow-hidden px-2 pt-2" />
+        {/* Floating, not a row: a row would shrink the terminal, and xterm drops the
+            selection whenever its row count changes — the pill would vanish as it appeared. */}
+        {hasSelection && (
+          <div className="absolute bottom-2 right-3 z-10">
+            <Button
+              variant="outline"
+              size="xs"
+              className={floating}
+              data-testid="terminal-send"
+              onClick={handleSendToChat}
+              onPointerDown={keepTerminalFocus}
+            >
+              Send to chat
+            </Button>
+          </div>
+        )}
+      </div>
 
       {searchOpen && (
         <div className="flex items-center gap-2 border-t border-border-primary px-3 py-2">
@@ -303,21 +321,6 @@ export function TerminalPane({ ptyId: baseId, cwd, initialInput }: TerminalPaneP
             }}
           >
             ✕
-          </Button>
-        </div>
-      )}
-
-      {hasSelection && (
-        <div className="flex items-center gap-2 border-t border-border-primary px-3 py-1 text-xs">
-          <Button
-            variant="outline"
-            size="xs"
-            className={floating}
-            data-testid="terminal-send"
-            onClick={handleSendToChat}
-            onPointerDown={keepTerminalFocus}
-          >
-            Send to chat
           </Button>
         </div>
       )}

@@ -142,3 +142,24 @@ export function createMarkdownStore(): MarkdownStore {
     },
   };
 }
+
+// The selected text that lies inside the rendered view, or null when the selection does
+// not touch it, so a selection in the chat or another pane never lights Add to chat. A
+// triple-click on the last paragraph ends on the seam past the view: the far end is clamped
+// to the view rather than refused.
+export function selectedInside(
+  selection: globalThis.Selection | null,
+  container: Element | null
+): string | null {
+  if (!selection || !container || selection.isCollapsed || selection.rangeCount === 0) {
+    return null;
+  }
+  const range = selection.getRangeAt(0).cloneRange();
+  const startsInside = container.contains(range.startContainer);
+  const endsInside = container.contains(range.endContainer);
+  if (!startsInside && !endsInside) return null;
+  if (!startsInside) range.setStart(container, 0);
+  if (!endsInside) range.setEnd(container, container.childNodes.length);
+  const text = range.toString().trim();
+  return text ? text : null;
+}

@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { quoteForChat } from './chat-insert';
+import { pathForChat, quoteForChat } from './chat-insert';
 
 describe('quoteForChat', () => {
   it('fences the text under a path header', () => {
@@ -22,5 +22,18 @@ describe('quoteForChat', () => {
 
   it('fences an empty quote', () => {
     expect(quoteForChat({ text: '', source: { path: 'file.txt' } })).toBe('```file.txt\n\n```');
+  });
+});
+
+describe('pathForChat', () => {
+  it('strips the project root', () => {
+    expect(pathForChat('/repo/src/a.ts', '/repo')).toBe('src/a.ts');
+    expect(pathForChat('/repo/src/a.ts', '/repo/')).toBe('src/a.ts');
+  });
+
+  it('leaves a path outside the project, a sibling prefix, and a tag alone', () => {
+    expect(pathForChat('/other/a.ts', '/repo')).toBe('/other/a.ts');
+    expect(pathForChat('/repo2/a.ts', '/repo')).toBe('/repo2/a.ts');
+    expect(pathForChat('terminal', '/repo')).toBe('terminal');
   });
 });

@@ -11,6 +11,7 @@ import {
   newDoc,
   paneState,
   slug,
+  selectedInside,
 } from './markdown-state';
 
 const PATH = '/repo/README.md';
@@ -122,5 +123,45 @@ describe('markdown store', () => {
     store.apply('/elsewhere', (doc) => loaded(doc, 'x'));
     expect(store.getState()[PATH].load).toEqual({ status: 'loaded', text: 'one\n' });
     expect(listener).toHaveBeenCalledTimes(1);
+  });
+});
+
+describe('selectedInside', () => {
+  const view = document.createElement('div');
+  const paragraph = document.createElement('p');
+  paragraph.textContent = 'a sentence to quote';
+  view.appendChild(paragraph);
+  const outside = document.createElement('p');
+  outside.textContent = 'elsewhere';
+  document.body.append(view, outside);
+
+  const select = (start: [Node, number], end: [Node, number]) => {
+    const range = document.createRange();
+    range.setStart(...start);
+    range.setEnd(...end);
+    const selection = window.getSelection()!;
+    selection.removeAllRanges();
+    selection.addRange(range);
+    return selection;
+  };
+  const words = paragraph.firstChild!;
+
+  it('returns the text of a range inside the view', () => {
+    expect(selectedInside(select([words, 2], [words, 10]), view)).toBe('sentence');
+  });
+
+  it('clamps a range that runs past the view to the view', () => {
+    expect(selectedInside(select([words, 0], [outside.firstChild!, 4]), view)).toBe(
+      'a sentence to quote'
+    );
+  });
+
+  it('is null for a caret, a range elsewhere, or no view', () => {
+    expect(selectedInside(select([words, 3], [words, 3]), view)).toBeNull();
+    expect(
+      selectedInside(select([outside.firstChild!, 0], [outside.firstChild!, 4]), view)
+    ).toBeNull();
+    expect(selectedInside(select([words, 0], [words, 4]), null)).toBeNull();
+    expect(selectedInside(null, view)).toBeNull();
   });
 });
