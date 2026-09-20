@@ -63,15 +63,15 @@ later tranche is planned at its own gate, on the facts the tranche before it sup
   - context:
     - the git-pane PR describe already uses `GOOSE_TEST_DIR` (`:162-197`); only the first describe changes
     - `turn undo` still needs a live seat to pass past setup — this task fixes its launch, not its walk
-  - confirm: `grep -c "HOME = scratch" ui/desktop/tests/e2e/editor-pane.spec.ts ui/desktop/tests/e2e/git-pane.spec.ts ui/desktop/tests/e2e/turn-undo.spec.ts` → `0` `0` `0` (untouched: `1` `1` `1`); `just walk "editor pane"` → 1 passed (untouched: red on the Welcome screen); `just walk "git pane"` → the first describe passes (untouched: red the same way)
+  - confirm: `grep -c "HOME = scratch" ui/desktop/tests/e2e/editor-pane.spec.ts ui/desktop/tests/e2e/git-pane.spec.ts ui/desktop/tests/e2e/turn-undo.spec.ts` → `0` `0` `0` (untouched: `1` `1` `1`); `just walk "editor pane"` → 1 passed (untouched, run 2026-09-20: 1 failed at 53 s, the shell never visible); `just walk "git pane"` → 1 passed — the pattern matches the first describe only, the `open pr` describe is its own walk (untouched, run 2026-09-20: 1 failed, the page snapshot reads "Welcome to goose")
 
-- 105. Pin the desktop recipes to hermit's Node: every `Justfile` recipe that runs `pnpm` in `ui/desktop` or `ui/sidecar` (`run-ui`, `walk`, `test-light`'s UI half, `test-full`'s Playwright line, `lint-ui`, `make-ui`) opens with `source bin/activate-hermit` so the suite runs under Node 24 whatever `/opt/homebrew` ships; one comment names the Node 26 `localStorage` failure (`tasks.md` §Waiting "Node for the desktop suite").
+- 105. Pin every recipe to hermit's toolchain with one line: `export PATH := justfile_directory() / "bin:" + env_var("PATH")` at the top of `Justfile` — `bin/` already holds hermit's `node`, `npm`, `pnpm` and `just` shims, so every recipe runs Node 24 whatever `/opt/homebrew` ships, and no recipe needs `source`; one comment names the Node 26 `localStorage` failure (`tasks.md` §Waiting "Node for the desktop suite"). In the same edit, `test-full`'s last line becomes `cd ui/desktop && pnpm exec playwright test --project=walks`, with a comment: `chromium` is upstream's suite and needs a Databricks provider and live MCP servers; `phone` needs the web build served on :3285 — both run by hand, neither is the fork's gate.
   - status: todo · agent: — · worker: low
-  - card: as anyone running `just`, get the same 1198/1198 the session gets, so that a red suite means the code and not the shell
+  - card: as anyone running `just`, get the same 1198/1198 the session gets and a `test-full` that can reach green, so that a red suite means the code and not the shell or a missing provider
   - context:
-    - `ui/desktop/package.json:7` already declares `"node": "^24.10.0"`; the recipe makes it true rather than warned
-    - `just` runs each recipe line in its own shell and the file sets no `set shell` today: one `source bin/activate-hermit && cd … && pnpm …` line per invocation
-  - confirm: `grep -c "activate-hermit" Justfile` → `≥ 6` (untouched: `0` — no recipe sources it today; the session does it by hand before every `just walk`); `node -v` printed from inside `just test-light`'s UI line → `v24.` (untouched: whatever PATH gives)
+    - `ui/desktop/package.json:7` already declares `"node": "^24.10.0"`; the export makes it true rather than warned
+    - `walk` already runs the `walks` project (`Justfile:217-218`); `test-full` is the only recipe that ran all three
+  - confirm: `grep -c 'export PATH := justfile_directory()' Justfile` → `1` (untouched: `0`); `just --evaluate PATH | tr ':' '\n' | head -1` → `/Users/hoaqbui/github/melody-agent2/bin` (untouched: whatever the shell gives); `grep -c "playwright test --project=walks" Justfile` → `2` (untouched: `1`, the `walk` recipe)
 
 - 106. Record the walk-launch fixes in the tree: `Justfile`'s `fix-bins` recipe also creates `~/.skip-forge-system-check` when absent, with the one-line why (forge's package-manager check hung ~15 min per launch on 2026-09-19); `ui/desktop/tests/e2e/fixtures.ts`'s 5 s CDP-close bound keeps its comment; `tasks.md` §Waiting's two walk notes point at the recipe instead of the user's home.
   - status: todo · agent: — · worker: low
@@ -81,7 +81,7 @@ later tranche is planned at its own gate, on the facts the tranche before it sup
     - `just walk` already runs `fix-bins` first (`Justfile:217`)
   - confirm: `grep -c "skip-forge-system-check" Justfile` → `1` (untouched: `0`); `rm -f ~/.skip-forge-system-check && just fix-bins && test -f ~/.skip-forge-system-check && echo ok` → `ok`
 
-- 107. Revise `AGENTS.md` §Model routing on the evidence, one dated row under the table: the haiku worker rung needed session corrections on 17/17 tranche-7 diffs (`tasks.md` §Waiting "Worker routing evidence"), and three sonnet worktree workers stalled on task 83 without a line while the Sonnet endpoint timed out (2026-09-19); the rule change proposed: the worker chain starts at sonnet for `worker: medium` and above, haiku keeps `worker: low`; a stalled worker that leaves an empty worktree is retried once, then the session implements (as 83 was). Takes one advisor per lens (architect, PM) on runtimes other than the one that drafted it, per AGENTS.md; the row lands only with their verdicts quoted.
+- 107. Revise `AGENTS.md` §Model routing on the evidence, one dated row under the table, naming the mechanism it governs: the evidence is from the session's Agent-tool worktree subagents (`model: haiku` for tranches 1–7's workers, `model: sonnet` for wave 3), not from the table's `claude -p --model haiku` CLI rung — 17/17 haiku diffs needed session corrections (`tasks.md` §Waiting "Worker routing evidence"), and three sonnet workers stalled on task 83 without a line while the Sonnet endpoint timed out (2026-09-19; whether the stall was the endpoint or the worktree isolation is untested — one worker on a trivial task once the endpoint answers would tell). The rule change proposed: the worker chain's first rung for `worker: medium` and above is a sonnet-class model, haiku keeps `worker: low`; a stalled worker that leaves an empty worktree is retried once, then the session implements (as 83 was); the row says which mechanism (Agent tool vs CLI) each rung names. Takes one advisor per lens (architect, PM) on runtimes other than the one that drafted it, per AGENTS.md; the row lands only with their verdicts quoted.
   - status: todo · agent: — · worker: —  (session; a rule change)
   - card: as the user paying for three seats, route work to the rung that lands it, so that the session stops redoing worker output
   - context:
@@ -97,9 +97,10 @@ later tranche is planned at its own gate, on the facts the tranche before it sup
     - the four `DESIGN.md` §Open decisions that wait on a user test (`:212-215`) are listed beside it in `tasks.md` §Waiting as one hand-check row, so the look and the sign-off happen in one sitting
   - confirm: `grep -c "Sign-off deletes this section" ARCHITECTURE.md` → `1` (untouched: `0`; the current text says "sign-off deletes this section" in a different sentence — match the capitalised form); `bash scripts/check-spine.sh` → `spine clean`
 
-Approval gate: tasks 103–108 wait on sign-off. 107 changes a global rule and 103 loosens
-a gate — both are flagged for the user's eye; only the user can verify 108's sign-off
-and tranche 11's look at Light. Tranches 10–12 are not approved here: 10 is already in
+Approval gate: tasks 103–108 wait on sign-off. Three are flagged for the user's eye:
+103 loosens a gate (two lints allowed workspace-wide), 106 has a repo recipe write a
+flag file into the user's home (`~/.skip-forge-system-check`), 107 changes a global rule.
+Only the user can verify 108's sign-off and tranche 11's look at Light. Tranches 10–12 are not approved here: 10 is already in
 `tasks.md`, 11 and 12 come back as their own plans at their gates. Approved → tasks
 103–108 land in `tasks.md` under `### docs/2026-09-20-program-plan-v1.md — tranche 9`;
 this section keeps only that pointer.

@@ -102,8 +102,8 @@ research, after 10 supplies the overrun count and the live approve card).
 
 ## Scope — in / out / protected
 
-- in (tranche 9): `Justfile` (clippy scope, hermit Node on the desktop recipes, a
-  `chromium`-skip note, the forge flag's recipe), `ui/desktop/tests/e2e/editor-pane.spec.ts`
+- in (tranche 9): `Justfile` (clippy scope, hermit's `bin/` on `PATH`, `test-full` on the
+  `walks` project only, the forge flag's recipe), `ui/desktop/tests/e2e/editor-pane.spec.ts`
   (GOOSE_TEST_DIR), `AGENTS.md` §Model routing (one dated row), `ARCHITECTURE.md`
   §Bootstrap Status (a sign-off-ready draft, deleted only on the user's word), `tasks.md`
   §Waiting (the hand-check backlog re-listed for the user).
