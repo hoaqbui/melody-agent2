@@ -1,14 +1,14 @@
-import { mkdtempSync, mkdirSync, readFileSync, rmSync, writeFileSync } from 'fs';
-import { homedir, tmpdir } from 'os';
+import { mkdtempSync, readFileSync, rmSync, writeFileSync } from 'fs';
+import { tmpdir } from 'os';
 import { join } from 'path';
 import { test, expect, emptyDock, openPane } from './fixtures';
 
 // PRD step 4: open a file from Files, type, ⌘S → the file on disk changed. Then the two
 // disk-change paths (a clean buffer follows disk; a dirty one gets the reload bar) and the
-// markdown Preview. As in the diff-pane walk the app opens in $HOME, so HOME is a scratch
-// directory holding one markdown file, with hermit's state dir pinned to the real one.
-const realHome = homedir();
-const previousEnv = { HOME: process.env.HOME, HERMIT_STATE_DIR: process.env.HERMIT_STATE_DIR };
+// markdown Preview. GOOSE_TEST_DIR (task 58) opens the window on a scratch directory holding
+// one markdown file; the user's own config stays where it is, so the provider check on launch
+// still finds a seat (task 104).
+const previousDir = process.env.GOOSE_TEST_DIR;
 let scratch = '';
 let file = '';
 
@@ -17,19 +17,12 @@ test.describe('editor pane', () => {
     scratch = mkdtempSync(join(tmpdir(), 'goose-editor-pane-'));
     file = join(scratch, 'notes.md');
     writeFileSync(file, '# Title\n\none\ntwo\n');
-    mkdirSync(join(scratch, 'Library'), { recursive: true });
-    process.env.HERMIT_STATE_DIR ??=
-      process.platform === 'darwin'
-        ? join(realHome, 'Library', 'Caches', 'hermit')
-        : join(process.env.XDG_CACHE_HOME ?? join(realHome, '.cache'), 'hermit');
-    process.env.HOME = scratch;
+    process.env.GOOSE_TEST_DIR = scratch;
   });
 
   test.afterAll(() => {
-    for (const [key, value] of Object.entries(previousEnv)) {
-      if (value === undefined) delete process.env[key];
-      else process.env[key] = value;
-    }
+    if (previousDir === undefined) delete process.env.GOOSE_TEST_DIR;
+    else process.env.GOOSE_TEST_DIR = previousDir;
     rmSync(scratch, { recursive: true, force: true });
   });
 

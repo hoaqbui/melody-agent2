@@ -8,21 +8,18 @@ import {
   rmSync,
   writeFileSync,
 } from 'fs';
-import { homedir, tmpdir } from 'os';
+import { tmpdir } from 'os';
 import { delimiter, join } from 'path';
 import { test, expect, openPane } from './fixtures';
 
 // PRD step 7: the branch is shown, a modified file is staged and committed, and the Changes
-// pane's "vs HEAD" is empty afterwards. As diff-pane.spec.ts: the app opens in $HOME, so HOME
-// points at a scratch repo; Hermit's state dir is pinned to the real one first. The commit
-// runs in the sidecar, which sees no global gitconfig under the scratch HOME, so the author
-// is set in the repo's own config. The Git pane's PR section (task 66) asks `gh`, so a stub
+// pane's "vs HEAD" is empty afterwards. GOOSE_TEST_DIR (task 58) opens the window on a scratch
+// repo; the user's own config stays where it is (task 104). The commit runs in the sidecar,
+// so the author is set in the repo's own config rather than relied on from a global one. The Git pane's PR section (task 66) asks `gh`, so a stub
 // that answers as a logged-out gh does (exit 4) goes first on the app's PATH: the real one
 // never runs in a walk, and the section's Sign in row is what this walk sees.
-const realHome = homedir();
 const previousEnv = {
-  HOME: process.env.HOME,
-  HERMIT_STATE_DIR: process.env.HERMIT_STATE_DIR,
+  GOOSE_TEST_DIR: process.env.GOOSE_TEST_DIR,
   PATH: process.env.PATH,
 };
 let scratch = '';
@@ -47,12 +44,7 @@ test.describe('git pane', () => {
     git(scratch, ['add', 'notes.md']);
     git(scratch, ['commit', '-q', '-m', 'base']);
     writeFileSync(file, 'one\ntwo, changed\nthree\nfour\n');
-    mkdirSync(join(scratch, 'Library'), { recursive: true });
-    process.env.HERMIT_STATE_DIR ??=
-      process.platform === 'darwin'
-        ? join(realHome, 'Library', 'Caches', 'hermit')
-        : join(process.env.XDG_CACHE_HOME ?? join(realHome, '.cache'), 'hermit');
-    process.env.HOME = scratch;
+    process.env.GOOSE_TEST_DIR = scratch;
     ghBin = mkdtempSync(join(tmpdir(), 'goose-git-pane-gh-'));
     writeFileSync(join(ghBin, 'gh'), loggedOutGh);
     chmodSync(join(ghBin, 'gh'), 0o755);
