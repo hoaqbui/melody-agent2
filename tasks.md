@@ -166,14 +166,8 @@ A + A4 from the research (`docs/2026-09-20-telemetry-pane-research-v1.md`), the 
 
 One branch, one remote, merged worktrees gone, every open workstream handed to its owner. Order: 134 → 135 → **user pushes** → 136 → 137. The push is the user's (the classifier refuses it from a session).
 
-- 134. Remove the 22 merged agent worktrees and their branches: `git worktree remove --force .claude/worktrees/agent-*` for each, then `git branch -d` each `worktree-agent-*` (all merged: `-d`, never `-D`), then `git worktree prune`; the 58 GB goes with them.
-  - status: doing · agent: session [Opus, direct] · worker: low
-  - card: as the repository, hold one checkout and one branch, so that the next session cannot land in a stale worktree or sweep another's edits
-  - context: verified before removal — every branch merged into main, every worktree clean, no process with a cwd inside one (2026-09-20)
-  - confirm: `git worktree list | wc -l` → `1` (untouched: `23`); `git branch | wc -l` → `1` (untouched: `23`); `du -sh .claude/worktrees 2>/dev/null` → nothing (untouched: `58G`)
-
 - 135. `tasks.md` §Waiting on the user rewritten as the handoff list — one line each with its command: the push (`git push origin main --force && git push origin --tags`, our history as the fork's main; or `main:melody` to keep upstream's main beside it), 107 (paste `docs/2026-09-20-agents-routing-row-v1.md`), 33 (file when ready), the seat-gated walks (88 · 89 · 93 · 96: `just walk "turn undo|approve mode"` once the seat answers), 133 (the telemetry session: commit its spec, then work in a worktree); the hand-check backlog kept below; `docs/2026-09-20-release-v0.9-beta.md` gains a "since the tag" section (tranche 9, the beta reds, the per-panel bars, the quiet composer, the ring, the hover lift).
-  - status: todo · agent: — · worker: low
+  - status: doing · agent: session [Opus, direct] · worker: low
   - confirm: `grep -c "git push origin" tasks.md` → `≥ 1`; `grep -c "since the tag" docs/2026-09-20-release-v0.9-beta.md` → `1` (untouched: `0`)
 
 - 136. Merge `upstream/main` (29 commits, e629eea1d) into main after the push lands: `git merge upstream/main`, conflicts resolved toward the fork's files (the spine deny-list stays untouched — a conflict inside `agents/agent.rs` or `state_machine/` takes upstream's side whole), then `just test-full` and every fork walk green before the merge commit is pushed.
@@ -188,18 +182,20 @@ One branch, one remote, merged worktrees gone, every open workstream handed to i
 
 ## Waiting on the user
 
-- Roles board, two plan-vs-found items (2026-09-20, task 131 — built without them, your call on each):
-  - **Hand-counted rows.** The plan read `status: done` per `worker:` tier from `tasks.md`, but Done is spent — done tasks leave the file in the landing commit, so that count is always ~0; the only record of the 17/17 corrected Haiku diffs is prose in §Waiting and git history. Proposal: a fixed-shape table under a `## Hand counts` heading here (`role · tier · seat · runs · corrected · since`) that you edit and the board reads with the **hand-counted** mark; or leave the board to the wire only. The `hand` flag exists on `RoleRow` (`telemetry-roles.ts`) — nothing fills it yet.
-  - **Review PASS per role.** A worker carries no branch on the wire (`DelegationUpdate` has no worktree field), so "the branch this role's worker last touched" is unknowable. Landed as the range's branch-level PASS rate in every row, the hover saying it is not role-attributed (`passRate`, `telemetry-roles.ts`). Attribution needs either a `branch` on the delegation (a spine touch in `summon.rs`, allowed) or the review event to name the worker — say which, or keep the range rate.
-- **Push (2026-09-20, user: "fork and submit … merge and push"):** the fork exists — https://github.com/hoaqbui/melody-agent2 (public, forked from aaif-goose/goose), added as `origin`. The session's pushes were refused by the permission classifier (both the force-with-lease to `main` and a plain push to a new `melody` branch), so nothing is on GitHub yet. Run one of these yourself:
-  - `git push origin main:melody && git push origin melody-v0.9-beta` — our history as a branch beside the fork's `main` (which is upstream's current main, 29 commits newer than our base a23a8cd5); then `gh repo edit hoaqbui/melody-agent2 --default-branch melody` if you want it to open there
-  - or `git push --force origin main && git push origin melody-v0.9-beta` — our history *as* the fork's main (upstream's 29 newer commits stay in upstream)
-  - "merge" in the sense of merging upstream's 29 newer commits into ours was not attempted: a stop-here moment is the wrong time to take a 29-commit upstream merge into a fork this size; it is its own task when you want it
-  - no PR to upstream: the fork is a product, not a patch; upstream's rules need a Ready issue per PR (AGENTS.md §Contribution Workflow), and task 33 (the three upstream issues) is still parked by you
-- **Attach hidden on the workspace route (found 2026-09-20, unfixed):** the composer's attach button is absent in Easy and Advanced on the workspace route — first because task 123's quiet gate wrapped it (moved out in 4ef77d78d), yet the `easy mode` walk still reads zero `chat-attach` buttons after the move, so a second cause remains (likely `isBottomBarNarrow` at the chat column's width). Open bug; the `chat-attach` testid and aria-label are in place for the fix.
-- **Cross-session commit (2026-09-20):** the telemetry session's commit 4ef77d78d (task 128) swept this session's uncommitted edits into it — the lever knob's plain handle, the Heroicons chips in `SessionChips.tsx`, the attach move in `ChatInput.tsx`. Two sessions in one checkout: the second should use a worktree. The edits are correct but sit under a telemetry message.
+### Handoff — one line, one command each (2026-09-20, closeout)
 
-- Task 88's snapshot capture in `WorkspaceShell.tsx` (the T0/T1 effects, ~`:963-1010`) calls `sidecarFetch('http://localhost:61234/git/snapshot', {method, body})` and then `.json()`s the result — `sidecarFetch` takes a route path and a body and already returns parsed JSON (`native/sidecar.ts:297`), so the URL never resolves and no snapshot lands; Undo has nothing to diff (found 2026-09-20 wiring task 127's ledger writer beside it; 88 is another agent's — flagged, not touched).
+- **Push the fork.** The remote is `origin` → https://github.com/hoaqbui/melody-agent2 (public, forked from aaif-goose/goose today). The classifier refuses pushes from a session. Our history as the fork's main:
+  `git push --force origin main && git push origin --tags`
+  — or beside upstream's main: `git push origin main:melody && git push origin --tags` then `gh repo edit hoaqbui/melody-agent2 --default-branch melody`. Then say "pushed" and task 136 (the 29-commit upstream merge) runs on that base.
+- **107 — the routing row:** paste the row from `docs/2026-09-20-agents-routing-row-v1.md` into `~/github/agent-workspace/AGENTS.md` §Model routing (the classifier refused the edit); then `python ~/github/agent-workspace/scripts/check-reach.py` → PASS.
+- **33 — the three upstream issues:** parked by you 2026-09-16; say "file them" when the parity fixes have proven out.
+- **88 · 89 · 93 · 96 — the seat:** the Claude seat answered live this afternoon, so these can run now: `just walk "turn undo"` (88), `just walk "approve mode"` (89), then 93 (transcript diff cards) and 96 (the plan-gate walk and ten Hard runs) as tranche 10 — say "run tranche 10".
+- **133 — the telemetry session:** its `ui/desktop/tests/e2e/telemetry-pane.spec.ts` sits untracked in the main checkout; that session commits it. Two sessions in one checkout swept each other's edits today (4ef77d78d) — the second session works in a worktree of its own from here.
+- **ARCHITECTURE.md sign-off:** one word deletes §Bootstrap Status (task 108 drafted the paragraph).
+- **The look at Light and the four DESIGN.md open decisions** (runtime colour, Esc as pane-close, phone breakpoint, dark canvas off macOS) — one sitting with the app open; tranche 11 waits on it.
+
+### Notes and hand checks
+
 - Composer row, one call (2026-09-20, task 123): the **Worktree** chip still shows in Easy while it is off (it reads "Worktree", a click starts one — the `worktree` walk relies on it). The mockup's Easy row had no such chip because its session had none. Keep it (one click to a worktree from Easy) or move it into Session controls in Easy — say which.
 - Untracked in the tree, not this session's: `docs/2026-09-20-telemetry-pane-research-v1.md` and `docs/mockups/` (a telemetry pane research map and two HTML mockups, from another session working here). Left alone.
   - *(2026-09-20, the telemetry session):* those files are this plan's — research, PRD, plan and three mockups; tasks 125–133 above.
