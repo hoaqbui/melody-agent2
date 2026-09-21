@@ -5792,6 +5792,33 @@
   "updateSection.versionIsAvailable": {
     "defaultMessage": "Đã có phiên bản {version}"
   },
+  "usageRing.breakdown": {
+    "defaultMessage": "See detailed breakdown"
+  },
+  "usageRing.compact": {
+    "defaultMessage": "Compact session"
+  },
+  "usageRing.compactsAt": {
+    "defaultMessage": "Compacts automatically at {pct}%"
+  },
+  "usageRing.contextWindow": {
+    "defaultMessage": "Context window"
+  },
+  "usageRing.notReported": {
+    "defaultMessage": "Plan limits: not reported by {seat}"
+  },
+  "usageRing.planLimits": {
+    "defaultMessage": "Plan usage"
+  },
+  "usageRing.ring": {
+    "defaultMessage": "Usage"
+  },
+  "usageRing.ringTitle": {
+    "defaultMessage": "{label}: {used} / {max} ({pct}%)"
+  },
+  "usageRing.unknown": {
+    "defaultMessage": "Usage: not known yet"
+  },
   "userMessage.cancel": {
     "defaultMessage": "Hủy"
   },

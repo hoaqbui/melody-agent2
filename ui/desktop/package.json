@@ -66,6 +66,7 @@
     "@codemirror/view": "^6.43.12",
     "@fontsource-variable/jetbrains-mono": "^5.3.0",
     "@fontsource-variable/schibsted-grotesk": "^5.3.0",
+    "@heroicons/react": "^2.2.0",
     "@lezer/highlight": "^1.2.3",
     "@mcp-ui/client": "6.1.0",
     "@modelcontextprotocol/ext-apps": "^1.7.5",
