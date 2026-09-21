@@ -5594,8 +5594,68 @@
   "telemetryConsentPrompt.optOut": {
     "defaultMessage": "No, grazie"
   },
-  "telemetryPane.comingNow": {
+  "telemetryNow.cache": {
+    "defaultMessage": "Cache"
+  },
+  "telemetryNow.cost": {
+    "defaultMessage": "Cost"
+  },
+  "telemetryNow.empty": {
     "defaultMessage": "No turns yet — send a message and the model that answers shows here."
+  },
+  "telemetryNow.in": {
+    "defaultMessage": "In"
+  },
+  "telemetryNow.model": {
+    "defaultMessage": "Runtime · model"
+  },
+  "telemetryNow.newestFirst": {
+    "defaultMessage": "{count} · newest first"
+  },
+  "telemetryNow.noSession": {
+    "defaultMessage": "No session open."
+  },
+  "telemetryNow.out": {
+    "defaultMessage": "Out"
+  },
+  "telemetryNow.outcome": {
+    "defaultMessage": "Outcome"
+  },
+  "telemetryNow.outcomeBlocked": {
+    "defaultMessage": "blocked"
+  },
+  "telemetryNow.outcomeCorrected": {
+    "defaultMessage": "corrected"
+  },
+  "telemetryNow.outcomeFailed": {
+    "defaultMessage": "failed"
+  },
+  "telemetryNow.outcomeLanded": {
+    "defaultMessage": "landed"
+  },
+  "telemetryNow.outcomeRunning": {
+    "defaultMessage": "running"
+  },
+  "telemetryNow.outcomeUndone": {
+    "defaultMessage": "undone"
+  },
+  "telemetryNow.session": {
+    "defaultMessage": "Session"
+  },
+  "telemetryNow.sessionWord": {
+    "defaultMessage": "Session"
+  },
+  "telemetryNow.time": {
+    "defaultMessage": "Time"
+  },
+  "telemetryNow.turns": {
+    "defaultMessage": "Turns"
+  },
+  "telemetryNow.when": {
+    "defaultMessage": "When"
+  },
+  "telemetryNow.who": {
+    "defaultMessage": "Who"
   },
   "telemetryPane.comingRoles": {
     "defaultMessage": "No delegated work in this range."
@@ -5617,9 +5677,6 @@
   },
   "telemetryPane.grainWhy": {
     "defaultMessage": "The grain of every chart in Over time and Roles. Quarters show the year's shape; Days show what last week cost."
-  },
-  "telemetryPane.noSession": {
-    "defaultMessage": "No session open — Now shows the chat you have open."
   },
   "telemetryPane.rangeWhy": {
     "defaultMessage": "How far back the charts look; every delta compares against the same span before it."

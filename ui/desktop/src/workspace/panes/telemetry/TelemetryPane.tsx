@@ -2,10 +2,11 @@
 // scopes — Now · Over time · Roles — over the work ledger, with three data-written trends at
 // the top. Words live in the Trends card and the hover tooltip; every card is numbers.
 
-import { useCallback, useEffect, useState, type ReactNode } from 'react';
+import { useCallback, useEffect, useState } from 'react';
 import { defineMessages, useIntl } from '../../../i18n';
 import { cn } from '../../../utils';
 import { usePaneContext } from '../../pane-context';
+import { TelemetryNow } from './TelemetryNow';
 import { Why, WhyProvider } from './Why';
 import {
   GRAINS,
@@ -41,14 +42,6 @@ const i18n = defineMessages({
     id: 'telemetryPane.rangeWhy',
     defaultMessage:
       'How far back the charts look; every delta compares against the same span before it.',
-  },
-  noSession: {
-    id: 'telemetryPane.noSession',
-    defaultMessage: 'No session open — Now shows the chat you have open.',
-  },
-  comingNow: {
-    id: 'telemetryPane.comingNow',
-    defaultMessage: 'No turns yet — send a message and the model that answers shows here.',
   },
   comingTime: {
     id: 'telemetryPane.comingTime',
@@ -108,8 +101,7 @@ function Seg<T extends string>({
   );
 }
 
-// What each scope renders until its task lands (129 Now · 130 Over time · 131 Roles): the
-// PRD's Empty line, so the pane is honest from the first commit.
+// What a scope renders until its task lands (130 Over time · 131 Roles): the PRD's Empty line.
 function Placeholder({ text, testId }: { text: string; testId: string }) {
   return (
     <p className="p-4 text-sm text-text-secondary" data-testid={testId}>
@@ -118,16 +110,9 @@ function Placeholder({ text, testId }: { text: string; testId: string }) {
   );
 }
 
-export interface TelemetryViews {
-  now?: ReactNode;
-  time?: ReactNode;
-  roles?: ReactNode;
-  trends?: ReactNode;
-}
-
-export function TelemetryPane({ views = {} }: { views?: TelemetryViews }) {
+export function TelemetryPane() {
   const intl = useIntl();
-  const { cwd, sessionId } = usePaneContext();
+  const { cwd } = usePaneContext();
   const [scope, setScope] = useState<Scope>(() => loadScope(cwd));
   const [grain, setGrain] = useState<Grain>(() => loadGrain(cwd));
   useEffect(() => {
@@ -150,23 +135,13 @@ export function TelemetryPane({ views = {} }: { views?: TelemetryViews }) {
   );
 
   const view =
-    scope === 'now'
-      ? (views.now ??
-        (sessionId ? (
-          <Placeholder text={intl.formatMessage(i18n.comingNow)} testId="telemetry-now-empty" />
-        ) : (
-          <Placeholder text={intl.formatMessage(i18n.noSession)} testId="telemetry-now-empty" />
-        )))
-      : scope === 'time'
-        ? (views.time ?? (
-            <Placeholder text={intl.formatMessage(i18n.comingTime)} testId="telemetry-time-empty" />
-          ))
-        : (views.roles ?? (
-            <Placeholder
-              text={intl.formatMessage(i18n.comingRoles)}
-              testId="telemetry-roles-empty"
-            />
-          ));
+    scope === 'now' ? (
+      <TelemetryNow />
+    ) : scope === 'time' ? (
+      <Placeholder text={intl.formatMessage(i18n.comingTime)} testId="telemetry-time-empty" />
+    ) : (
+      <Placeholder text={intl.formatMessage(i18n.comingRoles)} testId="telemetry-roles-empty" />
+    );
 
   return (
     <WhyProvider>
@@ -217,7 +192,6 @@ export function TelemetryPane({ views = {} }: { views?: TelemetryViews }) {
             </Why>
           )}
         </div>
-        {views.trends}
         <div className="min-h-0 flex-1 overflow-auto">{view}</div>
       </div>
     </WhyProvider>

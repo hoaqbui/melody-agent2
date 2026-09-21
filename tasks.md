@@ -152,17 +152,6 @@ Each panel owns its tab bar; the bar holds only open panes; + adds one; drag a t
 
 A + A4 from the research (`docs/2026-09-20-telemetry-pane-research-v1.md`), the PRD `docs/2026-09-20-work-ledger-prd-v1.md`, the prototype `docs/mockups/2026-09-20-work-ledger.html`. Order: 125 ∥ 126 → 127 ∥ 128 → 129 ∥ 130 ∥ 131 → 132 → 133, all on main. Only the user can verify: the hand-counted rows against their own count, the routing-change date, whether the Claude seat reports `cacheReadTokens`.
 
-- 129. Add `telemetry-now.ts` (+ test) and `TelemetryNow.tsx` under `panes/telemetry/`: the Session card and the Turns list for the open session.
-  - status: doing · agent: session [Opus, direct] · worker: medium
-  - card: as the user mid-session, see what this chat runs on and which model answered each reply, so that "which model with what settings" is answered on the tab
-  - context:
-    - settings: `session.provider_name`, `model_config.model_name`, `model_config.request_params.thinking_effort`, `goose_mode` (`types/session.ts:8-58`), `stopOfSession` (`session-controls.ts:192`), `useSessionConfigOptions` (`sessionConfig.ts:34`), context from `tokenState` (`types/chat.ts:4`); Runtime in its written name (`runtimeLabel`, `session-controls.ts:22`), ids in mono beneath — the DESIGN.md row (task 133) names this the Diagnostics-tier exception
-    - rows: assistant messages carrying `metadata.usage`, newest first; a delegation (`useSessionDelegations`) nests under the turn whose `parentToolCallId` it carries; outcome from the ledger's `correction` / `undo` / `worker.blocked` / `worker.status` for that turn, else `landed`; the newest row while streaming keeps the `info` dot and "—"
-    - Cache = `cacheReadTokens ÷ inputTokens`, "—" when absent; Cost `—` when null, `est.` suffix when `costSource = estimated`
-    - states per the PRD §States (Now)
-    - test ids: `telemetry-now-settings`, `telemetry-now-row` (`[data-outcome]`, `[data-worker]`)
-  - confirm: `cd ui/desktop && pnpm vitest run telemetry-now` → passes (untouched: no such test)
-
 - 130. Add `telemetry-buckets.ts` (+ test) and `TelemetryTime.tsx`: the Over time view — headline (Tokens · Cost · Turns with deltas and sparklines), tokens by model (stacked, morphing between grains), cost per week, share of tokens, quarters, by runtime, top sessions.
   - status: doing · agent: session [Opus, direct] · worker: high
   - card: as the user, see the year's shape and last week's cost by model on one scroll, so that a routing change shows as a colour change in the stack
