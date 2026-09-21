@@ -148,13 +148,8 @@ Option B: one pane visible by default, every open pane a tab, the pressed tab th
 
 Each panel owns its tab bar; the bar holds only open panes; + adds one; drag a tab onto a half makes the second panel with an identical bar; a panel whose last tab closes goes. The permanent launchers (task 71) are retired. Order: 117 → 118 → 119 → 120, all on main.
 
-- 117. `ui/desktop/src/workspace/pane-store.ts`: each slot owns an ordered tab list and its active pane (`panels: { full | top | bottom → { tabs: PaneId[], active: PaneId } }`); `openPane(id)` adds the pane to the active panel's bar (the full or top one) and shows it, or activates it where it already is; `dock(id, half)` moves the tab into that half's panel, creating the panel; `closePane(id)` activates the tab before it or removes an emptied panel (the other takes the column); `restoreDock` reads today's `{tabs, slots, positions}` into one panel; `pane-store.test.ts` follows.
-  - status: doing · agent: session [Opus, direct] · worker: high
-  - card: as the user, see each panel carry its own tabs like a browser window, so that what is open is what the bar shows
-  - confirm: `cd ui/desktop && pnpm vitest run src/workspace/pane-store` → all passed; `grep -c "panels" ui/desktop/src/workspace/pane-store.ts` → `≥ 5` (untouched: `0`)
-
 - 118. `ui/desktop/src/workspace/WorkColumn.tsx`: one tab bar per shown panel — attached tabs (task 114) each with × on hover and the right-click menu, a **+** at the bar's end (`workspace-panel-add`) listing the panes not open in that panel with icon, name and the unseen dot (`workspace-panel-add-<id>`), the ⋯ session menu at the right end of the top or full bar; empty start: one bar with + and ⋯ over an empty-panel hint; the launchers, the fold chevron and `primary` go.
-  - status: todo · agent: — · worker: high
+  - status: doing · agent: session [Opus, direct] · worker: high
   - card: as the user, add a tab with + and close it with ×, and read each panel's tabs on its own bar
   - confirm: `grep -c "workspace-panel-add" ui/desktop/src/workspace/WorkColumn.tsx` → `≥ 2` (untouched: `0`); `grep -c "workspace-pane-overflow" ui/desktop/src/workspace/WorkColumn.tsx` → `0` (untouched: `≥ 2`); `pnpm run typecheck` clean; `pnpm vitest run src/workspace` all passed
 

@@ -7,6 +7,7 @@ import {
   markUnseen,
   modeForWidth,
   openPane,
+  panelTabs,
   paneVisible,
   positionOf,
   resize,
@@ -62,11 +63,12 @@ describe('pane-store on the desktop', () => {
     expect(layout.positions).toEqual({ terminal: 'top', diff: 'bottom' });
   });
 
-  it('opens a third pane full over a split, parking both halves', () => {
+  it('opens a third pane onto the top bar over a split, leaving the bottom alone', () => {
     const layout = openPane(twoHalves(), 'git');
     expect(layout.tabs).toEqual(['terminal', 'diff', 'git']);
-    expect(slotsOf(layout)).toEqual({ top: null, bottom: null, full: 'git' });
-    expect(positionOf(layout, 'diff')).toBeNull();
+    expect(slotsOf(layout)).toEqual({ top: 'git', bottom: 'diff', full: null });
+    expect(panelTabs(layout, 'top')).toEqual(['terminal', 'git']);
+    expect(panelTabs(layout, 'bottom')).toEqual(['diff']);
     expect(paneVisible(layout, 'terminal')).toBe(false);
   });
 
@@ -76,11 +78,11 @@ describe('pane-store on the desktop', () => {
     expect(openPane(layout, 'diff')).toBe(layout);
   });
 
-  it('docks a pane full and keeps the other as a tab', () => {
+  it('docks a pane full: the two bars merge into one and the pane is active', () => {
     const layout = dock(twoHalves(), 'diff', 'full');
     expect(layout.tabs).toEqual(['terminal', 'diff']);
     expect(slotsOf(layout)).toEqual({ ...empty, full: 'diff' });
-    expect(layout.positions).toEqual({ terminal: 'top', diff: 'full' });
+    expect(panelTabs(layout, 'full')).toEqual(['terminal', 'diff']);
     expect(dock(layout, 'diff', 'full')).toBe(layout);
   });
 
@@ -104,12 +106,14 @@ describe('pane-store on the desktop', () => {
     });
   });
 
-  it('docks a full pane into a half and fills the other half from the tabs', () => {
-    const parked = dock(twoHalves(), 'diff', 'full');
-    const top = dock(parked, 'diff', 'top');
-    expect(slotsOf(top)).toEqual({ top: 'diff', bottom: 'terminal', full: null });
-    const bottom = dock(parked, 'diff', 'bottom');
-    expect(slotsOf(bottom)).toEqual({ top: 'terminal', bottom: 'diff', full: null });
+  it('docks a tab of a one-panel bar into a half: the rest of the bar takes the other half', () => {
+    const one = openPane(openPane(openPane(initialLayout(), 'terminal'), 'diff'), 'git');
+    const top = dock(one, 'diff', 'top');
+    expect(slotsOf(top)).toEqual({ top: 'diff', bottom: 'git', full: null });
+    expect(panelTabs(top, 'top')).toEqual(['diff']);
+    expect(panelTabs(top, 'bottom')).toEqual(['terminal', 'git']);
+    const bottom = dock(one, 'diff', 'bottom');
+    expect(slotsOf(bottom)).toEqual({ top: 'git', bottom: 'diff', full: null });
   });
 
   it('keeps a lone pane full whichever half it is docked to', () => {
@@ -118,18 +122,24 @@ describe('pane-store on the desktop', () => {
     expect(dock(lone, 'files', 'bottom')).toBe(lone);
   });
 
-  it('swaps the halves when a pane is docked to the other one', () => {
+  it('moving the only tab of a half onto the other bar folds the column back to one panel', () => {
     const layout = dock(twoHalves(), 'diff', 'top');
-    expect(slotsOf(layout)).toEqual({ top: 'diff', bottom: 'terminal', full: null });
-    expect(layout.positions).toEqual({ terminal: 'bottom', diff: 'top' });
-    expect(dock(layout, 'diff', 'top')).toBe(layout);
+    expect(slotsOf(layout)).toEqual({ ...empty, full: 'diff' });
+    expect(panelTabs(layout, 'full')).toEqual(['terminal', 'diff']);
   });
 
-  it('docks a parked tab into a taken half and parks what was there', () => {
-    const layout = dock(openPane(twoHalves(), 'git'), 'diff', 'top');
-    expect(slotsOf(layout)).toEqual({ top: 'diff', bottom: 'git', full: null });
-    expect(layout.tabs).toEqual(['terminal', 'diff', 'git']);
-    expect(layout.positions.terminal).toBe('top');
+  it("docks a tab from one bar onto the other, which makes it that bar's active tab", () => {
+    // terminal + git on top (git active), diff on the bottom; drag diff onto the top bar:
+    // the bottom bar empties and the column folds to one panel with diff active.
+    const three = openPane(twoHalves(), 'git');
+    const folded = dock(three, 'diff', 'top');
+    expect(slotsOf(folded)).toEqual({ ...empty, full: 'diff' });
+    expect(panelTabs(folded, 'full')).toEqual(['terminal', 'diff', 'git']);
+    // Drag terminal from the top bar onto the bottom bar instead: two bars stay.
+    const moved = dock(three, 'terminal', 'bottom');
+    expect(slotsOf(moved)).toEqual({ top: 'git', bottom: 'terminal', full: null });
+    expect(panelTabs(moved, 'top')).toEqual(['git']);
+    expect(panelTabs(moved, 'bottom')).toEqual(['terminal', 'diff']);
   });
 
   it('docks a new pane straight into a position', () => {
@@ -151,17 +161,19 @@ describe('pane-store on the desktop', () => {
     expect(resize(twoHalves(), 0.7).size).toBe(0.7);
   });
 
-  it('closes a half and the other takes the column; closes a parked tab in place', () => {
-    const layout = dock(twoHalves(), 'git', 'bottom');
-    const closedBottom = closePane(layout, 'git');
-    expect(closedBottom.tabs).toEqual(['terminal', 'diff']);
-    expect(slotsOf(closedBottom)).toEqual({ ...empty, full: 'terminal' });
-    expect(closedBottom.positions).toEqual({ terminal: 'top', diff: 'bottom' });
-    const closedParked = closePane(layout, 'diff');
-    expect(closedParked.tabs).toEqual(['terminal', 'git']);
-    expect(slotsOf(closedParked)).toEqual(slotsOf(layout));
-    expect(closePane(layout, 'files')).toBe(layout);
-    expect(slotsOf(closePane(closePane(closedBottom, 'terminal'), 'diff'))).toEqual(empty);
+  it('closes a tab: its bar activates the neighbour; an emptied bar takes its panel away', () => {
+    const three = openPane(twoHalves(), 'git'); // top: terminal, git (git active); bottom: diff
+    const closedActive = closePane(three, 'git');
+    expect(closedActive.tabs).toEqual(['terminal', 'diff']);
+    expect(slotsOf(closedActive)).toEqual({ top: 'terminal', bottom: 'diff', full: null });
+    const closedParked = closePane(three, 'terminal');
+    expect(closedParked.tabs).toEqual(['diff', 'git']);
+    expect(slotsOf(closedParked)).toEqual({ top: 'git', bottom: 'diff', full: null });
+    const closedBottom = closePane(three, 'diff');
+    expect(slotsOf(closedBottom)).toEqual({ ...empty, full: 'git' });
+    expect(panelTabs(closedBottom, 'full')).toEqual(['terminal', 'git']);
+    expect(closePane(three, 'files')).toBe(three);
+    expect(slotsOf(closePane(closePane(closedBottom, 'terminal'), 'git'))).toEqual(empty);
   });
 
   it('closing the pane showing hands the column to the tab before it', () => {
@@ -205,7 +217,7 @@ describe('pane-store on the phone', () => {
     expect(phone.slots).toBe(desktop.slots);
     const back = setMode(show(phone, 'git'), 'desktop');
     expect(back.visible).toBe('chat');
-    expect(slotsOf(back)).toEqual({ top: null, bottom: null, full: 'git' });
+    expect(slotsOf(back)).toEqual({ top: 'git', bottom: 'diff', full: null });
     expect(back.tabs).toEqual(['terminal', 'diff', 'git']);
   });
 });

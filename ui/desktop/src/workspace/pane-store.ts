@@ -147,58 +147,123 @@ function without(slots: Slots, id: PaneId): Slots {
   };
 }
 
-// Another open tab for the half a pane leaves empty: the one that last showed there, else
-// the most recently opened; none leaves the pane the whole column.
-function partnerFor(layout: PaneLayout, id: PaneId, half: 'top' | 'bottom'): PaneId | null {
-  const others = layout.tabs.filter((tab) => tab !== id);
-  return others.find((tab) => layout.positions[tab] === half) ?? others.at(-1) ?? null;
-}
-
 const sameSlots = (a: Slots, b: Slots) =>
   a.top === b.top && a.bottom === b.bottom && a.full === b.full;
 
-// Place a pane: full takes the column and parks what showed; a half keeps the other half's
-// pane, else moves a full pane or the half's own pane over, else fills the other half from
-// the tabs. The pane joins the tabs if it is new; what shows records where it showed.
+// Per-panel tab bars (2026-09-20, tasks 117–120): the column is one panel (full) or two
+// (top and bottom); every open tab belongs to exactly one panel, its slot names the panel's
+// active tab. With one panel every tab is its; with two, `positions` says which half a tab
+// belongs to (top when it never showed in a half).
+export type Panel = DockPosition;
+
+export function panelOf(layout: PaneLayout, id: PaneId): Panel | null {
+  if (!layout.tabs.includes(id)) return null;
+  if (!layout.slots.top || !layout.slots.bottom) return 'full';
+  return layout.positions[id] === 'bottom' ? 'bottom' : 'top';
+}
+
+// The tabs a panel's bar shows, in opening order.
+export function panelTabs(layout: PaneLayout, panel: Panel): PaneId[] {
+  return layout.tabs.filter((tab) => panelOf(layout, tab) === panel);
+}
+
+// The panels showing: [full], [top, bottom], or none.
+export function panels(layout: PaneLayout): Panel[] {
+  const { slots } = layout;
+  if (slots.full) return ['full'];
+  if (slots.top && slots.bottom) return ['top', 'bottom'];
+  return [];
+}
+
+// The panel a new tab joins: the full one, else the top one, else a new full panel.
+function activePanel(layout: PaneLayout): Panel {
+  return layout.slots.top && layout.slots.bottom ? 'top' : 'full';
+}
+
+// A tab's neighbour on its own bar: the one before it, else the one after; null when alone.
+function neighbour(layout: PaneLayout, id: PaneId): PaneId | null {
+  const panel = panelOf(layout, id);
+  if (!panel) return null;
+  const bar = panelTabs(layout, panel);
+  const index = bar.indexOf(id);
+  return bar[index - 1] ?? bar[index + 1] ?? null;
+}
+
+// Place a pane into a panel: a half puts it on that half's bar and makes it active there
+// (splitting the column when it was one panel — the panel that showed takes the other half
+// with every tab it had); full merges both bars into one and makes the pane active. The pane
+// joins the tabs if it is new.
 export function dock(layout: PaneLayout, id: PaneId, position: DockPosition): PaneLayout {
   if (layout.mode === 'phone') return show(layout, id);
   const tabs = layout.tabs.includes(id) ? layout.tabs : [...layout.tabs, id];
-  const current = without(layout.slots, id);
-  const positions = { ...layout.positions };
+  const positions: Record<string, DockPosition> = { ...layout.positions };
   let slots: Slots;
   if (position === 'full') {
     slots = { top: null, bottom: null, full: id };
+    for (const tab of tabs) positions[tab] = 'full';
   } else {
     const other = position === 'top' ? 'bottom' : 'top';
-    const partner =
-      current[other] ??
-      current.full ??
-      current[position] ??
-      partnerFor({ ...layout, tabs }, id, other);
-    if (partner) positions[partner] = other;
-    const half = (name: 'top' | 'bottom') => (name === position ? id : partner);
-    slots = settle({ top: half('top'), bottom: half('bottom'), full: null });
+    const split = !!(layout.slots.top && layout.slots.bottom);
+    if (!split) {
+      // One panel becomes two: everything that was here goes to the other half.
+      for (const tab of tabs) if (tab !== id) positions[tab] = other;
+    }
+    positions[id] = position;
+    const otherActive =
+      layout.slots[other] && layout.slots[other] !== id
+        ? layout.slots[other]
+        : split
+          ? (tabs.filter((tab) => tab !== id && positions[tab] === other).at(-1) ?? null)
+          : ((layout.slots.full !== id ? layout.slots.full : null) ??
+            tabs.filter((tab) => tab !== id).at(-1) ??
+            null);
+    // A tab whose half empties when it leaves: the bar it left keeps a tab or the column
+    // returns to one panel.
+    const leftBar = tabs.filter((tab) => tab !== id && positions[tab] === other);
+    if (!otherActive || leftBar.length === 0) {
+      slots = { top: null, bottom: null, full: id };
+      for (const tab of tabs) positions[tab] = 'full';
+    } else {
+      const half = (name: 'top' | 'bottom') => (name === position ? id : otherActive);
+      slots = { top: half('top'), bottom: half('bottom'), full: null };
+    }
   }
-  if (tabs === layout.tabs && sameSlots(slots, layout.slots)) return seen(layout, id);
-  const placed = { ...layout, tabs, slots };
-  positions[id] = positionOf(placed, id) ?? position;
-  return seen({ ...placed, positions }, id);
+  if (tabs === layout.tabs && sameSlots(slots, layout.slots)) {
+    const same = Object.keys(positions).every(
+      (tab) => positions[tab] === layout.positions[tab as PaneId]
+    );
+    if (same) return seen(layout, id);
+  }
+  return seen({ ...layout, tabs, slots, positions }, id);
 }
 
 // The one entry point the launchers, a file pick and a route's ask share: a pane already
-// showing is seen; otherwise it takes the column, parking what showed — one pane at a
-// time unless the user split the column by dragging a tab onto a half (option B,
-// 2026-09-20). A pane that last showed in a half comes back beside its partner only while
-// that partner is still showing in the other half; a lone pane is always Full.
+// on a bar becomes that panel's active tab; a new pane joins the active panel's bar (the
+// full one, else the top one) and shows there.
 export function openPane(layout: PaneLayout, id: PaneId): PaneLayout {
   if (layout.mode === 'phone') return show(layout, id);
   if (positionOf(layout, id) !== null) return seen(layout, id);
-  const remembered = layout.positions[id];
-  if (remembered && remembered !== 'full') {
-    const other = remembered === 'top' ? 'bottom' : 'top';
-    if (layout.slots[other]) return dock(layout, id, remembered);
+  const panel = panelOf(layout, id) ?? activePanel(layout);
+  if (panel === 'full') {
+    return seen(
+      {
+        ...layout,
+        tabs: layout.tabs.includes(id) ? layout.tabs : [...layout.tabs, id],
+        slots: { top: null, bottom: null, full: id },
+        positions: { ...layout.positions, [id]: 'full' },
+      },
+      id
+    );
   }
-  return dock(layout, id, 'full');
+  return seen(
+    {
+      ...layout,
+      tabs: layout.tabs.includes(id) ? layout.tabs : [...layout.tabs, id],
+      slots: { ...layout.slots, [panel]: id },
+      positions: { ...layout.positions, [id]: panel },
+    },
+    id
+  );
 }
 
 // A seam drag: the top half takes the share, clamped so neither half disappears.
@@ -209,18 +274,30 @@ export function resize(layout: PaneLayout, size: number): PaneLayout {
   return { ...layout, size: clamped };
 }
 
-// Closing the one pane showing hands the column to the tab before it (a browser's rule),
-// so the column empties only when the last tab closes.
+// Closing a tab: its bar activates the tab before it (else after); a bar that empties takes
+// its panel with it — the other half becomes the whole column with its tabs.
 export function closePane(layout: PaneLayout, id: PaneId): PaneLayout {
   const shown = layout.visible === id ? show(layout, 'chat') : layout;
   if (!shown.tabs.includes(id)) return shown;
-  const positions = { ...shown.positions };
-  delete positions[id];
+  const panel = panelOf(shown, id);
+  const next = neighbour(shown, id);
   const tabs = shown.tabs.filter((tab) => tab !== id);
-  let slots = settle(without(shown.slots, id));
-  if (shown.mode === 'desktop' && sameSlots(slots, EMPTY_SLOTS) && tabs.length > 0) {
-    const index = shown.tabs.indexOf(id);
-    slots = { top: null, bottom: null, full: tabs[Math.max(0, index - 1)] };
+  const positions: Record<string, DockPosition> = { ...shown.positions };
+  delete positions[id];
+  let slots = shown.slots;
+  if (shown.mode === 'desktop' && panel) {
+    const wasActive = shown.slots[panel] === id;
+    if (next) {
+      if (wasActive) slots = { ...shown.slots, [panel]: next };
+    } else if (panel === 'full') {
+      slots = EMPTY_SLOTS;
+    } else {
+      const other = panel === 'top' ? 'bottom' : 'top';
+      slots = { top: null, bottom: null, full: shown.slots[other] };
+      for (const tab of tabs) positions[tab] = 'full';
+    }
+  } else if (shown.mode === 'phone') {
+    slots = settle(without(shown.slots, id));
   }
   return { ...shown, tabs, slots, positions };
 }
