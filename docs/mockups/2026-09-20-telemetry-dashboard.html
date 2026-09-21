@@ -1,0 +1,523 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>Telemetry — mockup</title>
+<style>
+  :root {
+    --ground: #1c1c1c; --secondary: #242424; --raised: #2c2c2c; --hair: rgba(255,255,255,.06);
+    --t1: #f8f8f2; --t2: #c8c8c2; --t3: #7a7a72;
+    --info: #66d9ef; --success: #a6e22e; --warning: #e6db74; --danger: #f92672; --accent: #ae81ff; --orange: #fd971f;
+    --shadow-sm: 0 1px 2px 0 rgba(0,0,0,.5); --shadow-md: 0 4px 12px rgba(0,0,0,.55);
+    --rp: 16px; --rc: 12px; --rchip: 999px;
+    --mono: ui-monospace, "SF Mono", Menlo, monospace;
+  }
+  * { box-sizing: border-box; }
+  body { margin: 0; background: #121212; color: var(--t1); font: 13px/1.45 -apple-system, "Inter", system-ui, sans-serif; padding: 24px 16px; }
+    h1 { font-size: 15px; font-weight: 600; margin: 0 0 4px; }
+  .note { color: var(--t3); font-size: 12px; margin: 0 0 14px; }
+  .note b { color: var(--t2); font-weight: 500; }
+  .illus { display: inline-block; font-size: 10.5px; color: var(--warning); border: 1px solid rgba(230,219,116,.35); border-radius: var(--rchip); padding: 1px 8px; margin-left: 8px; vertical-align: middle; }
+
+  .column { max-width: 900px; margin: 0 auto; background: rgba(28,28,28,.92); border: 1px solid var(--hair); border-radius: var(--rp); box-shadow: var(--shadow-sm); overflow: hidden; }
+  .bar { display: flex; align-items: center; gap: 4px; padding: 8px 8px 0; border-bottom: 1px solid var(--hair); }
+  .tab { display: inline-flex; align-items: center; gap: 6px; padding: 7px 12px; border-radius: var(--rc) var(--rc) 0 0; color: var(--t3); font-size: 12.5px; }
+  .tab svg { width: 14px; height: 14px; stroke: currentColor; fill: none; stroke-width: 1.8; }
+  .tab[aria-pressed="true"] { background: var(--secondary); color: var(--t1); box-shadow: var(--shadow-sm); }
+  .tab .x { margin-left: 2px; color: var(--t3); font-size: 12px; }
+  .bar .plus, .bar .more { margin-left: auto; color: var(--t3); padding: 6px 10px; border-radius: var(--rc); box-shadow: var(--shadow-sm); background: var(--secondary); }
+  .bar .plus { margin-left: 4px; }
+
+  .pane { background: var(--secondary); padding: 12px 14px 16px; display: grid; gap: 12px; }
+  .toolbar { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; }
+  .seg { display: inline-flex; background: var(--raised); border-radius: var(--rc); box-shadow: var(--shadow-sm); padding: 3px; }
+  .seg span { padding: 5px 11px; border-radius: 9px; color: var(--t3); font-size: 12px; }
+  .seg span[aria-pressed="true"] { background: var(--ground); color: var(--t1); box-shadow: var(--shadow-sm); }
+  .spacer { flex: 1; }
+  .chipb { padding: 5px 11px; border-radius: var(--rc); background: var(--raised); box-shadow: var(--shadow-sm); color: var(--t2); font-size: 12px; }
+
+  .trends ul { margin: 0; padding-left: 18px; font-size: 13px; color: var(--t2); }
+  .trends li { margin: 4px 0; cursor: help; }
+  .trends li b { color: var(--t1); font-weight: 600; }
+  .grid2 { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
+  .grid3 { display: grid; grid-template-columns: repeat(3, 1fr); gap: 12px; }
+  @media (max-width: 700px) { .grid2, .grid3 { grid-template-columns: 1fr; } }
+  .card { background: var(--raised); border-radius: var(--rp); box-shadow: var(--shadow-sm); padding: 12px 14px; min-width: 0; }
+  .card:hover { box-shadow: var(--shadow-md); }
+  .card h2 { margin: 0 0 8px; font-size: 11px; letter-spacing: .06em; text-transform: uppercase; color: var(--t3); font-weight: 600; display: flex; justify-content: space-between; align-items: baseline; }
+  .card h2 small { text-transform: none; letter-spacing: 0; color: var(--t3); font-weight: 400; }
+  .big { font-size: 22px; font-weight: 600; font-family: var(--mono); font-variant-numeric: tabular-nums; letter-spacing: -.01em; }
+  .delta { font-size: 11.5px; font-family: var(--mono); }
+  .up { color: var(--danger); } .down { color: var(--success); } .flat { color: var(--t3); }
+  .sub { color: var(--t3); font-size: 11.5px; }
+  svg.chart { width: 100%; height: auto; display: block; }
+  .axis { fill: var(--t3); font-size: 10px; font-family: var(--mono); }
+  .gridline { stroke: rgba(255,255,255,.06); stroke-width: 1; }
+  .legend { display: flex; flex-wrap: wrap; gap: 6px 14px; margin-top: 8px; font-size: 11.5px; color: var(--t2); }
+  .legend i { display: inline-block; width: 9px; height: 9px; border-radius: 3px; margin-right: 6px; vertical-align: -1px; }
+  .legend .id { font-family: var(--mono); color: var(--t3); font-size: 10.5px; }
+  table { width: 100%; border-collapse: collapse; font-size: 12.5px; }
+  th { text-align: left; color: var(--t3); font-weight: 500; font-size: 11px; padding: 0 6px 6px 0; }
+  td { padding: 6px 6px 6px 0; border-top: 1px solid var(--hair); }
+  th.n, td.n { text-align: right; font-family: var(--mono); font-variant-numeric: tabular-nums; }
+  .id { font-family: var(--mono); color: var(--t3); font-size: 11px; }
+  .barrow { display: grid; grid-template-columns: 90px 1fr 56px; gap: 8px; align-items: center; font-size: 12px; padding: 3px 0; }
+  .barrow .track { height: 8px; border-radius: 4px; background: rgba(255,255,255,.05); overflow: hidden; }
+  .barrow .fill { height: 100%; border-radius: 4px; }
+  .barrow .n { text-align: right; font-family: var(--mono); color: var(--t2); font-size: 11.5px; }
+
+  .side { display: grid; gap: 14px; }
+  .mini { background: var(--secondary); border-radius: var(--rp); box-shadow: var(--shadow-sm); padding: 12px 14px; }
+  .mini h3 { margin: 0 0 6px; font-size: 12px; color: var(--t2); font-weight: 600; }
+  ul.spec { margin: 0; padding-left: 16px; color: var(--t2); font-size: 12px; }
+  ul.spec li { margin: 3px 0; }
+  ul.spec code { font-family: var(--mono); font-size: 11px; color: var(--t3); }
+  .state { display: flex; gap: 10px; align-items: center; padding: 7px 0; border-top: 1px solid var(--hair); font-size: 12.5px; }
+  .state:first-of-type { border-top: 0; }
+  .state .lbl { width: 70px; color: var(--t3); font-size: 11px; text-transform: uppercase; letter-spacing: .05em; flex: none; }
+
+  /* motion — the Into Rule: bars grow out of the axis, the line draws, the ring sweeps */
+  svg.chart rect { transition: y .55s cubic-bezier(.2,.8,.2,1), height .55s cubic-bezier(.2,.8,.2,1), x .45s cubic-bezier(.2,.8,.2,1), width .45s cubic-bezier(.2,.8,.2,1), opacity .25s; }
+  svg.chart rect.enter { transform-box: fill-box; transform-origin: bottom; animation: grow .6s cubic-bezier(.2,.8,.2,1) both; }
+  @keyframes grow { from { transform: scaleY(0); } }
+  svg.chart .draw { stroke-dasharray: 1200; stroke-dashoffset: 1200; animation: draw 1.4s cubic-bezier(.4,0,.2,1) .2s forwards; }
+  @keyframes draw { to { stroke-dashoffset: 0; } }
+  svg.chart .fade { opacity: 0; animation: fade .8s ease .9s forwards; }
+  @keyframes fade { to { opacity: .14; } }
+  svg.chart .pt { opacity: 0; animation: pop .3s ease forwards; }
+  @keyframes pop { from { opacity: 0; r: 0; } to { opacity: 1; } }
+  #donut circle.seg { transition: stroke-dasharray 1s cubic-bezier(.2,.8,.2,1), stroke-dashoffset 1s cubic-bezier(.2,.8,.2,1), opacity .25s; }
+  .barrow .fill { width: 0; transition: width .9s cubic-bezier(.2,.8,.2,1); }
+  .card { transition: box-shadow .2s ease, transform .2s ease; }
+  .card:hover { transform: translateY(-1px); }
+  .seg span { cursor: pointer; transition: background .2s, color .2s; }
+  .legend span { cursor: pointer; transition: opacity .2s; }
+  .legend span.dim { opacity: .35; }
+  svg.chart rect.dim { opacity: .18; }
+  .spark { width: 100%; height: 26px; display: block; margin-top: 6px; }
+  .spark polyline { fill: none; stroke-width: 1.5; }
+  .live { animation: pulse 1.6s ease-in-out infinite; }
+  @keyframes pulse { 0%,100% { opacity: 1; } 50% { opacity: .55; } }
+  .tip { position: fixed; pointer-events: none; background: rgba(28,28,28,.96); color: var(--t1); border-radius: var(--rc); box-shadow: var(--shadow-md); padding: 8px 10px; font-size: 11.5px; z-index: 9; opacity: 0; transform: translateY(4px); transition: opacity .15s, transform .15s; min-width: 150px; }
+  .tip.on { opacity: 1; transform: translateY(0); }
+  .tip .t { color: var(--t3); font-family: var(--mono); font-size: 10.5px; margin-bottom: 4px; }
+  .tip .r { display: flex; justify-content: space-between; gap: 12px; padding: 1px 0; }
+  .tip .r i { display: inline-block; width: 8px; height: 8px; border-radius: 2px; margin-right: 6px; }
+  .tip .r b { font-family: var(--mono); font-weight: 500; }
+  @media (prefers-reduced-motion: reduce) { svg.chart rect, svg.chart .draw, svg.chart .fade, svg.chart .pt, #donut circle.seg, .barrow .fill, .live { animation: none !important; transition: none !important; stroke-dashoffset: 0; opacity: 1; } svg.chart .fade { opacity: .14; } }
+
+  /* routing + roles */
+  #sankey path { fill: none; opacity: .55; transition: opacity .2s; cursor: help; stroke-dasharray: 900; stroke-dashoffset: 900; animation: draw 1.3s cubic-bezier(.4,0,.2,1) forwards; }
+  #sankey path.dim { opacity: .08; }
+  #sankey path.hot { opacity: .95; }
+  #sankey path.fail { stroke: var(--danger); stroke-dasharray: 6 5; animation: none; opacity: .8; }
+  #sankey .node { transition: opacity .2s; cursor: help; }
+  #sankey .node text { font-size: 11px; fill: var(--t1); }
+  #sankey .node .sub { font-size: 10px; fill: var(--t3); font-family: var(--mono); }
+  #sankey .node.dim { opacity: .3; }
+  .pill { display: inline-block; padding: 1px 8px; border-radius: var(--rchip); font-size: 10.5px; font-weight: 600; letter-spacing: .02em; }
+  .pill.ok { background: rgba(166,226,46,.14); color: var(--success); }
+  .pill.watch { background: rgba(230,219,116,.14); color: var(--warning); }
+  .pill.bad { background: rgba(249,38,114,.14); color: var(--danger); }
+  .pill.na { background: rgba(255,255,255,.06); color: var(--t3); }
+  .trend { width: 72px; height: 20px; display: inline-block; vertical-align: middle; }
+  .trend polyline { fill: none; stroke-width: 1.5; }
+  .meter { display: inline-block; width: 46px; height: 6px; border-radius: 3px; background: rgba(255,255,255,.06); vertical-align: middle; margin-right: 6px; overflow: hidden; }
+  .meter i { display: block; height: 100%; border-radius: 3px; width: 0; transition: width .9s cubic-bezier(.2,.8,.2,1); }
+  tr.role td { vertical-align: middle; }
+  tr.role:hover td { background: rgba(255,255,255,.025); }
+  .rolename { font-weight: 500; color: var(--accent); }
+  .why { color: var(--t3); font-size: 11px; }
+  #roleTrend .lbl { font-size: 10px; }
+  #roleTrend polyline { cursor: help; transition: opacity .2s; }
+  #roleTrend polyline.dim { opacity: .15; }
+  [data-why] { cursor: help; }
+  th { cursor: help; }
+  .tip .why { color: var(--t1); }
+  .tip .from { color: var(--t3); font-family: var(--mono); font-size: 10.5px; margin-top: 5px; }
+  .tip { max-width: 300px; line-height: 1.4; }
+  svg.chart .pt { cursor: help; }
+  #donut circle.seg { cursor: help; }
+  #donut circle.seg:hover { stroke-width: 18; }
+  #quarters rect { cursor: help; }
+</style>
+</head>
+<body>
+<div class="column" role="region" aria-label="Work">
+      <div class="bar">
+        <span class="tab"><svg viewBox="0 0 24 24"><path d="M4 17l6-5-6-5M12 19h8"/></svg>Terminal</span>
+        <span class="tab"><svg viewBox="0 0 24 24"><path d="M5 3v18M19 3v18M5 12h14"/></svg>Changes</span>
+        <span class="tab"><svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="9"/><path d="M3 12h18M12 3a14 14 0 010 18"/></svg>Browser</span>
+        <span class="tab" aria-pressed="true"><svg viewBox="0 0 24 24"><path d="M3 12h4l3-8 4 16 3-8h4"/></svg>Telemetry <span class="x">×</span></span>
+        <span class="plus">+</span>
+        <span class="more">⋯</span>
+      </div>
+
+      <div class="pane">
+        <div class="toolbar">
+          <span class="seg" data-why="This session = the open chat's turns. All sessions = every session on this Mac, bucketed by time." data-from="scope"><span>This session</span><span aria-pressed="true">All sessions</span></span>
+          <span class="seg" id="range" data-why="The grain of every chart below. Quarters show the year's shape; Days show what last week cost." data-from="session list · createdAt"><span aria-pressed="true" data-g="days">Days</span><span data-g="weeks">Weeks</span><span data-g="months">Months</span><span data-g="quarters">Quarters</span></span>
+          <span class="spacer"></span>
+          <span class="chipb" id="rangeLabel">Last 14 days ▾</span>
+          <span class="illus">illustrative numbers</span>
+        </div>
+
+    
+        <div class="card trends">
+          <h2>Trends <small>14 d vs prior · Q3 vs Q2</small></h2>
+          <ul>
+            <li data-why="Share of tokens on the dearest seat fell 64% → 58% while Sonnet rose 18% → 19% and took the Implementer's medium+ rung at W37. The roll is moving work down." data-from="Σ tokens by inference.resolvedModel · Q2 → Q3"><b>Opus is carrying less</b> — 64% → 58% of tokens, Sonnet up as the Implementer's seat since W37.</li>
+            <li data-why="Tokens per turn 6.4k → 7.5k and $ per turn $0.067 → $0.074 with turns up only 17%: each reply carries more context, not more work. Compaction and worktree isolation are the levers." data-from="tokens ÷ turns · cost ÷ turns · Q2 → Q3"><b>Each turn is getting heavier</b> — 6.4k → 7.5k tokens and $0.067 → $0.074 per turn; context weight, not more work.</li>
+            <li data-why="Implementer on Haiku: 17 runs, 17 corrected by the session, 35% done. On Sonnet: done 55% → 73% since the routing change, PASS still 68%. The low tier isn't paying for itself; the medium tier is turning." data-from="DelegationUpdate.status · session writes after Done · review verdicts"><b>The low-tier Implementer isn't earning its keep</b> — 17/17 corrected on Haiku; Sonnet's done rate 55% → 73% since the change.</li>
+          </ul>
+        </div>
+    <!-- headline numbers -->
+        <div class="grid3">
+          <div class="card" data-why="Total tokens through every seat in the range. Rising with the same work = context bloat; rising with more turns = more work." data-from="Σ usage.totalTokens per turn"><h2>Tokens <small>14 d</small></h2><div class="big" data-count="4.82" data-suffix="M">0</div><div class="delta up">▲ 23% vs prior 14 d</div><div class="sub">in 4.61M · out 0.21M</div><svg class="spark" viewBox="0 0 100 26" preserveAspectRatio="none" data-spark="190,300,170,410,470,50,25,470,410,550,410,200,650,640" data-col="--info"></svg></div>
+          <div class="card" data-why="What the range cost. The subscription seats report no price — those turns are estimated from a local price table, or left out." data-from="usage.cost where costSource = provider_reported · est. otherwise"><h2>Cost <small>14 d</small></h2><div class="big" data-count="41.30" data-prefix="$" data-dec="2">0</div><div class="delta up">▲ 9%</div><div class="sub">$2.95 / day · est. where the seat reports none</div><svg class="spark" viewBox="0 0 100 26" preserveAspectRatio="none" data-spark="2.1,3.4,1.9,4.2,4.9,.4,.2,4.6,3.9,5.1,3.8,1.7,5.6,5.5" data-col="--warning"></svg></div>
+          <div class="card" data-why="One turn = one reply from a model. Tokens ÷ turns is the real unit price." data-from="assistant messages carrying usage · workers included"><h2>Turns <small>14 d</small></h2><div class="big" data-count="612" data-dec="0">0</div><div class="delta down">▼ 4%</div><div class="sub">across 38 sessions · 71 workers</div><svg class="spark" viewBox="0 0 100 26" preserveAspectRatio="none" data-spark="38,52,30,61,70,9,4,58,49,66,50,26,63,36" data-col="--accent"></svg></div>
+        </div>
+
+        <!-- tokens per day, stacked by model -->
+        <div class="card">
+          <h2 data-why="Which model did the work, bucket by bucket. A stack that changes colour is a routing change; one that only grows is scope growth." data-from="inference.resolvedModel per turn"><span id="stackTitle">Tokens per day, by model</span> <small>hover a bar</small></h2>
+          <svg class="chart" id="stack" viewBox="0 0 640 190" role="img" aria-label="Tokens per day by model, last 14 days"></svg>
+          <div class="legend" id="legend">
+            <span data-k="opus" data-why="The Orchestrator's and Planner's seat. Most tokens, most cost." data-from="claude-acp · claude-code"><i style="background:var(--info)"></i>Claude · Opus <span class="id">claude-opus-5</span></span>
+            <span data-k="sonnet" data-why="Implementer, worker: medium and up, since W37." data-from="claude-acp"><i style="background:var(--accent)"></i>Claude · Sonnet <span class="id">claude-sonnet-5</span></span>
+            <span data-k="astra" data-why="Researcher, Reviewer, Advisor. Reports no cost." data-from="codex-acp"><i style="background:var(--orange)"></i>Codex · Astra <span class="id">gpt-6-astra</span></span>
+            <span data-k="flash" data-why="Researcher's second seat by weight." data-from="agy"><i style="background:var(--success)"></i>agy · Flash <span class="id">gemini-3.8-flash</span></span>
+            <span data-k="grok" data-why="Last rung on both chains." data-from="cursor-acp"><i style="background:var(--t3)"></i>Cursor · Grok <span class="id">grok-code-fast-2</span></span>
+          </div>
+        </div>
+
+        <div class="grid2">
+          <!-- cost per week, quarter -->
+          <div class="card">
+            <h2 data-why="Spend per week; the fill is the quarter's running total. A week above trend with no more turns is a model change or context growth." data-from="Σ usage.cost per week"><span>Cost per week</span> <small>Q3 · $312.80</small></h2>
+            <svg class="chart" id="line" viewBox="0 0 310 150" role="img" aria-label="Cost per week, Q3"></svg>
+          </div>
+          <!-- model share -->
+          <div class="card">
+            <h2 data-why="Who carries the quarter. Opus above 60% means the cheap seats aren't taking their share of the roll." data-from="Σ tokens by inference.resolvedModel"><span>Share of tokens</span> <small>Q3</small></h2>
+            <div style="display:flex;gap:14px;align-items:center">
+              <svg class="chart" id="donut" viewBox="0 0 120 120" style="width:120px;flex:none" role="img" aria-label="Share of tokens by model"></svg>
+              <div style="flex:1">
+                <div class="barrow" data-why="58% of Q3 tokens on the dearest seat; Q2 was 64%." data-from="claude-opus-5"><span>Opus</span><span class="track"><span class="fill" style="width:58%;background:var(--info)"></span></span><span class="n">58%</span></div>
+                <div class="barrow" data-why="Up from 18% — the Implementer rung moved to Sonnet at W37." data-from="claude-sonnet-5"><span>Sonnet</span><span class="track"><span class="fill" style="width:19%;background:var(--accent)"></span></span><span class="n">19%</span></div>
+                <div class="barrow" data-why="Research + review. Flat quarter on quarter." data-from="gpt-6-astra"><span>Astra</span><span class="track"><span class="fill" style="width:12%;background:var(--orange)"></span></span><span class="n">12%</span></div>
+                <div class="barrow" data-why="Second research seat; parked twice this quarter." data-from="gemini-3.8-flash"><span>Flash</span><span class="track"><span class="fill" style="width:8%;background:var(--success)"></span></span><span class="n">8%</span></div>
+                <div class="barrow" data-why="Last rung; reached on outage or rate limit only." data-from="grok-code-fast-2"><span>Grok</span><span class="track"><span class="fill" style="width:3%;background:var(--t3)"></span></span><span class="n">3%</span></div>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <!-- quarters -->
+        <div class="card">
+          <h2 data-why="Quarter on quarter. $ per turn and tokens per turn should fall as routing improves; sessions and turns may rise." data-from="session list by createdAt · totals from transcripts"><span>Quarters</span> <small>tokens by model</small></h2>
+          <svg class="chart" id="quarters" viewBox="0 0 640 120" role="img" aria-label="Quarter over quarter"></svg>
+          <table style="margin-top:6px">
+            <thead><tr><th>Quarter</th><th class="n" data-why="All tokens, all seats." data-from="Σ usage.totalTokens">Tokens</th><th class="n" data-why="Provider-reported where it exists; estimated for the subscription seats." data-from="Σ usage.cost">Cost</th><th class="n" data-why="Replies from a model, workers included." data-from="messages carrying usage">Turns</th><th class="n" data-why="Chats started; workers not counted." data-from="sessionType = user">Sessions</th><th class="n" data-why="The unit price. Should fall as cheaper seats take more turns." data-from="cost ÷ turns">$ / turn</th><th class="n" data-why="Context weight per reply. Rising = bigger prompts, not more work." data-from="tokens ÷ turns">tok / turn</th><th data-why="The seat carrying the most tokens." data-from="max by inference.resolvedModel">Top model</th></tr></thead>
+            <tbody>
+              <tr><td>Q3 2026 <span class="id">to 20 Sep</span></td><td class="n">31.4M</td><td class="n">$312.80</td><td class="n">4,210</td><td class="n">263</td><td class="n">$0.074</td><td class="n">7.5k</td><td>Claude · Opus <span class="id">58%</span></td></tr>
+              <tr><td>Q2 2026</td><td class="n">22.9M</td><td class="n">$241.10</td><td class="n">3,588</td><td class="n">201</td><td class="n">$0.067</td><td class="n">6.4k</td><td>Claude · Opus <span class="id">64%</span></td></tr>
+              <tr><td>Q1 2026</td><td class="n">9.7M</td><td class="n">$118.40</td><td class="n">1,902</td><td class="n">122</td><td class="n">$0.062</td><td class="n">5.1k</td><td>Claude · Sonnet <span class="id">51%</span></td></tr>
+            </tbody>
+          </table>
+        </div>
+
+
+        <!-- routing: role → seat -->
+        <div class="card">
+          <h2 data-why="Where each role's work went. Width = runs. Dashed red = a fail-over or re-roll: the first seat didn't answer." data-from="DelegationUpdate.source → provider · model · the → Codex from here handoffs"><span>Routing — role → seat</span> <small>14 d · hover a role</small></h2>
+          <svg class="chart" id="sankey" viewBox="0 0 640 270" role="img" aria-label="Which seat each role was routed to"></svg>
+        </div>
+
+        <!-- roles: effectiveness -->
+        <div class="card">
+          <h2 data-why="Is each role worth its seat? Done alone lies — a BLOCKED return and a corrected diff both count as Done on the wire. Corrected is the number that decides." data-from="DelegationUpdate · child return text · parent transcript writes · review verdicts"><span>Roles</span> <small>14 d</small></h2>
+          <table id="roles">
+            <thead><tr>
+              <th data-why="The role file that was delegated." data-from=".agents/agents/&lt;role&gt;.md · DelegationUpdate.source">Role</th>
+              <th data-why="The seat that took most of this role's runs." data-from="mode of provider · model per role">Seat (most)</th>
+              <th class="n" data-why="Delegations in the range." data-from="count DelegationUpdate per source">Runs</th>
+              <th data-why="Returned text without error. On the wire this includes BLOCKED returns — the next column takes those out." data-from="DelegationUpdate.status = done">Done</th>
+              <th class="n" data-why="Returned BLOCKED: the plan's assumption failed against the tree. Not a failure of the seat; a failure of the plan." data-from="child return text starts BLOCKED (implementer.md §Rules)">Blocked</th>
+              <th class="n" data-why="The session edited the worker's files after it returned Done. The one number that says the seat cost more than it saved." data-from="parent write/edit calls after Done ∩ the return's Files Changed · turn undo on the turn">Corrected</th>
+              <th data-why="The Reviewer's verdict on the branch this role produced." data-from="review-parse.ts · PASS ÷ reviews">Review PASS</th>
+              <th class="n" data-why="Median wall clock per run." data-from="child createdAt → lastMessageAt">Median</th>
+              <th class="n" data-why="Tokens the role burns per run — its price at the seat's rate." data-from="child session Σ usage.totalTokens ÷ runs">Tok / run</th>
+              <th data-why="Clean-done rate, weekly: done, not blocked, not corrected." data-from="(done − blocked − corrected) ÷ runs per week">Trend</th>
+              <th data-why="Effective: clean-done ≥ 80% and PASS ≥ 80%. Watch: below either. Failing: corrected ≥ half the runs, or clean-done &lt; 50%." data-from="the columns to the left">Verdict</th>
+            </tr></thead>
+            <tbody>
+              <tr data-why="The session's own seat; it never rolls. Two fail-overs to Codex this fortnight." data-from="claude-code · Hard stop"><td><span class="rolename">Orchestrator</span></td><td>Claude · Opus <span class="id">claude-code</span></td><td class="n">38</td><td><span class="meter"><i style="width:97%;background:var(--success)"></i></span>97%</td><td class="n">—</td><td class="n">2</td><td><span class="pill na">n/a</span></td><td class="n">41 m</td><td class="n">318k</td><td><svg class="trend" viewBox="0 0 72 20" data-trend="92,95,94,97,96,98,97" data-col="--success"></svg></td><td><span class="pill ok">Effective</span></td></tr>
+              <tr data-why="Rolled to Astra 24 of 31 times; agy took 7 and hung once. Three briefs re-read by the session." data-from="researcher.md runtimes:"><td><span class="rolename">Researcher</span></td><td>Codex · Astra <span class="id">gpt-6-astra</span></td><td class="n">31</td><td><span class="meter"><i style="width:90%;background:var(--success)"></i></span>90%</td><td class="n">0</td><td class="n">3</td><td><span class="pill na">n/a</span></td><td class="n">6 m</td><td class="n">88k</td><td><svg class="trend" viewBox="0 0 72 20" data-trend="80,84,88,86,91,90,92" data-col="--success"></svg></td><td><span class="pill ok">Effective</span></td></tr>
+              <tr data-why="Six plans revised by the session before approval, three weeks rising. Watch, not failing." data-from="planner.md"><td><span class="rolename">Planner</span></td><td>Claude · Opus <span class="id">claude-acp</span></td><td class="n">19</td><td><span class="meter"><i style="width:84%;background:var(--warning)"></i></span>84%</td><td class="n">1</td><td class="n">6</td><td><span class="pill na">n/a</span></td><td class="n">9 m</td><td class="n">121k</td><td><svg class="trend" viewBox="0 0 72 20" data-trend="90,88,85,86,82,84,80" data-col="--warning"></svg></td><td><span class="pill watch">Watch</span></td></tr>
+              <tr data-why="Clean-done 55% → 73% since worker: medium moved to the Sonnet rung. 14 of 44 still corrected; PASS 68%." data-from="implementer.md · worker: medium+"><td><span class="rolename">Implementer</span> <span class="id">medium+</span></td><td>Claude · Sonnet <span class="id">claude-acp</span></td><td class="n">44</td><td><span class="meter"><i style="width:91%;background:var(--success)"></i></span>91%</td><td class="n">5</td><td class="n">14</td><td><span class="meter"><i style="width:68%;background:var(--warning)"></i></span>68%</td><td class="n">12 m</td><td class="n">146k</td><td><svg class="trend" viewBox="0 0 72 20" data-trend="55,58,64,66,70,72,73" data-col="--warning"></svg></td><td><span class="pill watch">Watch</span></td></tr>
+              <tr data-why="17 runs returned Done; the session then edited every one. Done says nothing here — Corrected is the number." data-from="implementer.md · worker: low · tasks.md §Waiting"><td><span class="rolename">Implementer</span> <span class="id">low</span></td><td>Claude · Haiku <span class="id">claude-acp</span></td><td class="n">17</td><td><span class="meter"><i style="width:94%;background:var(--t3)"></i></span>94%</td><td class="n">0</td><td class="n" style="color:var(--danger)">17</td><td><span class="meter"><i style="width:18%;background:var(--danger)"></i></span>18%</td><td class="n">4 m</td><td class="n">39k</td><td><svg class="trend" viewBox="0 0 72 20" data-trend="10,8,5,6,0,5,0" data-col="--danger"></svg></td><td><span class="pill bad">Failing</span></td></tr>
+              <tr data-why="Caught 9 of the 11 bugs later fixed on main. Never corrected." data-from="reviewer.md · review sessions"><td><span class="rolename">Reviewer</span></td><td>Codex · Astra <span class="id">gpt-6-astra</span></td><td class="n">22</td><td><span class="meter"><i style="width:100%;background:var(--success)"></i></span>100%</td><td class="n">0</td><td class="n">0</td><td><span class="pill na">—</span></td><td class="n">3 m</td><td class="n">61k</td><td><svg class="trend" viewBox="0 0 72 20" data-trend="100,100,95,100,100,100,100" data-col="--success"></svg></td><td><span class="pill ok">Effective</span></td></tr>
+              <tr data-why="Architect · PM · UX · security lenses; one split opinion took a second runtime." data-from="advisor*.md"><td><span class="rolename">Advisor</span></td><td>Codex · Astra <span class="id">gpt-6-astra</span></td><td class="n">12</td><td><span class="meter"><i style="width:92%;background:var(--success)"></i></span>92%</td><td class="n">0</td><td class="n">1</td><td><span class="pill na">n/a</span></td><td class="n">5 m</td><td class="n">74k</td><td><svg class="trend" viewBox="0 0 72 20" data-trend="90,90,92,92,91,93,92" data-col="--success"></svg></td><td><span class="pill ok">Effective</span></td></tr>
+            </tbody>
+          </table>
+        </div>
+
+        <!-- done rate by role per week -->
+        <div class="card">
+          <h2 data-why="Clean-done rate per role, weekly. The dashed line is the AGENTS.md routing change — what bends after it is the change working or not." data-from="(done − blocked − corrected) ÷ runs per role per week"><span>Done rate by role</span> <small>Q3 · weekly · hover a line</small></h2>
+          <svg class="chart" id="roleTrend" viewBox="0 0 640 180" role="img" aria-label="Done rate by role per week"></svg>
+        </div>
+        <!-- by runtime + top sessions -->
+        <div class="grid2">
+          <div class="card">
+            <h2 data-why="Turns by runtime, workers under the seat the roll picked. Claude above 75% means the cheaper seats aren't in the roll." data-from="inference.provider per turn"><span>By runtime</span> <small>14 d · turns</small></h2>
+            <div class="barrow" data-why="453 turns — Orchestrator, Planner and Implementer all sit here." data-from="claude-acp + claude-code"><span>Claude</span><span class="track"><span class="fill" style="width:74%;background:var(--info)"></span></span><span class="n">453</span></div>
+            <div class="barrow" data-why="86 turns — research, review, advice." data-from="codex-acp"><span>Codex</span><span class="track"><span class="fill" style="width:14%;background:var(--orange)"></span></span><span class="n">86</span></div>
+            <div class="barrow" data-why="55 turns; more if it stopped hanging in print mode." data-from="agy"><span>agy</span><span class="track"><span class="fill" style="width:9%;background:var(--success)"></span></span><span class="n">55</span></div>
+            <div class="barrow" data-why="18 turns, all fail-overs." data-from="cursor-acp"><span>Cursor</span><span class="track"><span class="fill" style="width:3%;background:var(--t3)"></span></span><span class="n">18</span></div>
+          </div>
+          <div class="card">
+            <h2 data-why="Where the money went. One session carrying a quarter of the fortnight is a session to read." data-from="Σ usage.cost per session, workers under the parent"><span>Top sessions</span> <small>14 d · by cost</small></h2>
+            <table>
+              <thead><tr><th>Session</th><th>Model</th><th class="n">Turns</th><th class="n">Cost</th></tr></thead>
+              <tbody>
+                <tr><td>per-panel tab bars</td><td>Opus <span class="id">claude-opus-5</span></td><td class="n">88</td><td class="n">$7.10</td></tr>
+                <tr><td>composer row</td><td>Opus <span class="id">claude-opus-5</span></td><td class="n">61</td><td class="n">$5.42</td></tr>
+                <tr><td>Review: wt/undo vs main</td><td>Astra <span class="id">gpt-6-astra</span></td><td class="n">9</td><td class="n">—</td></tr>
+                <tr><td>beta reds</td><td>Sonnet <span class="id">claude-sonnet-5</span></td><td class="n">47</td><td class="n">$2.05</td></tr>
+              </tbody>
+            </table>
+          </div>
+        </div>
+      </div>
+    </div>
+<div class="tip" id="tip"></div>
+<script>
+  // Illustrative data only. The real pane buckets the session list (and, on demand, transcripts).
+  const css = (v) => getComputedStyle(document.documentElement).getPropertyValue(v).trim();
+  const C = { opus: css('--info'), sonnet: css('--accent'), astra: css('--orange'), flash: css('--success'), grok: css('--t3') };
+  const NAME = { opus:'Claude · Opus', sonnet:'Claude · Sonnet', astra:'Codex · Astra', flash:'agy · Flash', grok:'Cursor · Grok' };
+  const KEYS = ['opus','sonnet','astra','flash','grok'];
+  const reduced = matchMedia('(prefers-reduced-motion: reduce)').matches;
+
+  // one seeded generator so every grain is the same "history" bucketed differently
+  let seed = 7; const rnd = () => (seed = (seed * 9301 + 49297) % 233280) / 233280;
+  const DAYS = 400; const daily = KEYS.map(() => []);
+  const weight = { opus: 1, sonnet: .35, astra: .22, flash: .14, grok: .05 };
+  for (let d = 0; d < DAYS; d++) {
+    const dow = (d + 3) % 7, weekend = dow >= 5;
+    const trend = .35 + d / DAYS * .9;                       // usage grows over the year
+    KEYS.forEach((k, i) => {
+      const late = k === 'astra' || k === 'flash' ? Math.max(0, (d - 120) / DAYS) * 2 : 1; // seats added mid-year
+      const v = weekend ? rnd() * 40 : 90 + rnd() * 300;
+      daily[i].push(Math.round(v * weight[k] * trend * late));
+    });
+  }
+  const today = new Date(2026, 8, 20);
+  const dateOf = (i) => { const t = new Date(today); t.setDate(t.getDate() - (DAYS - 1 - i)); return t; };
+  const MON = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
+
+  const iso = (t) => t.toISOString().slice(0, 10);
+  const week = (t) => { const a = new Date(t.getFullYear(), 0, 1); return Math.ceil((((t - a) / 864e5) + a.getDay() + 1) / 7); };
+  const GRAINS = {
+    days:     { n: 14, label: 'Last 14 days ▾',  title: 'Tokens per day, by model',
+                key: (t) => iso(t), lab: (t) => `${t.getDate()} ${MON[t.getMonth()]}`, tick: (l, j) => (j % 2 === 0 ? l : '') },
+    weeks:    { n: 13, label: 'Last 13 weeks ▾', title: 'Tokens per week, by model',
+                key: (t) => `${t.getFullYear()}-W${String(week(t)).padStart(2, '0')}`, lab: (t) => 'W' + week(t), tick: (l, j) => (j % 2 === 0 ? l : '') },
+    months:   { n: 12, label: 'Last 12 months ▾', title: 'Tokens per month, by model',
+                key: (t) => `${t.getFullYear()}-${String(t.getMonth() + 1).padStart(2, '0')}`, lab: (t) => MON[t.getMonth()] + (t.getMonth() === 0 ? ' ' + String(t.getFullYear()).slice(2) : ''), tick: (l) => l },
+    quarters: { n: 5, label: 'Last 5 quarters ▾', title: 'Tokens per quarter, by model',
+                key: (t) => `${t.getFullYear()}-Q${Math.floor(t.getMonth() / 3) + 1}`, lab: (t) => `Q${Math.floor(t.getMonth() / 3) + 1} ${String(t.getFullYear()).slice(2)}`, tick: (l) => l },
+  };
+  function bucket(grain) {
+    const g = GRAINS[grain], order = [], sums = new Map(), labels = new Map();
+    for (let i = 0; i < DAYS; i++) { const t = dateOf(i), k = g.key(t);
+      if (!sums.has(k)) { sums.set(k, KEYS.map(() => 0)); labels.set(k, g.lab(t)); order.push(k); }
+      const s = sums.get(k); KEYS.forEach((_, j) => s[j] += daily[j][i]); }
+    const keys = order.slice(-g.n); return { keys: keys.map((k) => labels.get(k)), rows: keys.map((k) => sums.get(k)) };
+  }
+  const fmt = (v) => v >= 1000 ? (v / 1000).toFixed(v >= 10000 ? 0 : 1) + 'M' : v + 'k';
+
+  // ---- stacked bars: morph between grains, tooltip, legend dimming
+  const tip = document.getElementById('tip');
+  const showTip = (html, e) => { tip.innerHTML = html; tip.classList.add('on'); moveTip(e); };
+  const moveTip = (e) => { const w = tip.offsetWidth, h = tip.offsetHeight; let x = e.clientX + 14, y = e.clientY - 10; if (x + w > innerWidth - 8) x = e.clientX - w - 14; if (y + h > innerHeight - 8) y = innerHeight - h - 8; tip.style.left = x + 'px'; tip.style.top = y + 'px'; };
+  const hideTip = () => tip.classList.remove('on');
+  // any [data-why] explains itself on hover — the nearest wins, so a cell beats its row beats its card
+  document.addEventListener('mouseover', (e) => { if (e.target.closest('svg.chart')) return; const el = e.target.closest('[data-why]'); if (!el) return;
+    const head = el.matches('th') ? el.textContent.trim() : (el.querySelector('.big')?.textContent ?? el.querySelector('.rolename')?.textContent ?? el.querySelector('h2 span')?.textContent ?? '');
+    showTip(`${head ? `<div class="t">${head}</div>` : ''}<div class="why">${el.dataset.why}</div>${el.dataset.from ? `<div class="from">${el.dataset.from}</div>` : ''}`, e); });
+  document.addEventListener('mousemove', (e) => { if (tip.classList.contains('on') && !e.target.closest('svg.chart')) moveTip(e); });
+  document.addEventListener('mouseout', (e) => { const el = e.target.closest('[data-why]'); if (el && !el.contains(e.relatedTarget)) hideTip(); });
+  const svg = document.getElementById('stack');
+  const W = 640, H = 190, L = 40, R = 8, T = 10, B = 24;
+  let dimmed = null, current = 'days';
+  const rects = new Map();   // `${col}:${k}` → rect, kept across grains so the bars morph
+  function draw(grain, first) {
+    const { keys, rows } = bucket(grain); const g = GRAINS[grain];
+    const n = keys.length, w = (W - L - R) / n, gap = Math.max(4, w * .18);
+    const totals = rows.map((r) => r.reduce((a, v) => a + v, 0)); const max = Math.max(...totals) * 1.08;
+    const y = (v) => T + (H - T - B) * (1 - v / max);
+    const step = niceStep(max); let axis = '';
+    for (let gv = 0; gv <= max; gv += step) axis += `<line class="gridline" x1="${L}" x2="${W - R}" y1="${y(gv)}" y2="${y(gv)}"/><text class="axis" x="${L - 6}" y="${y(gv) + 3}" text-anchor="end">${gv ? fmt(gv) : '0'}</text>`;
+    svg.querySelector('#axis').innerHTML = axis;
+    let ticks = ''; keys.forEach((k, j) => { ticks += `<text class="axis" x="${L + j * w + w / 2}" y="${H - 8}" text-anchor="middle">${g.tick(k, j)}</text>`; });
+    svg.querySelector('#ticks').innerHTML = ticks;
+    const bars = svg.querySelector('#bars'); const seen = new Set();
+    keys.forEach((k, j) => {
+      let acc = 0; const x = L + j * w + gap / 2;
+      KEYS.forEach((mk, mi) => {
+        const v = rows[j][mi]; const id = `${j}:${mk}`; seen.add(id);
+        let r = rects.get(id);
+        if (!r) { r = document.createElementNS('http://www.w3.org/2000/svg', 'rect'); r.setAttribute('rx', '2'); r.setAttribute('fill', C[mk]); r.dataset.k = mk; r.dataset.col = j;
+          if (first && !reduced) { r.classList.add('enter'); r.style.animationDelay = (j * 35 + mi * 20) + 'ms'; }
+          bars.appendChild(r); rects.set(id, r); r.setAttribute('x', x); r.setAttribute('width', Math.max(w - gap, 1)); r.setAttribute('y', H - B); r.setAttribute('height', 0); }
+        const h = v ? y(acc) - y(acc + v) : 0, top = v ? y(acc + v) : H - B, width = Math.max(w - gap, 1);
+        requestAnimationFrame(() => { r.setAttribute('x', x); r.setAttribute('width', width); r.setAttribute('y', top); r.setAttribute('height', h); });
+        r.classList.toggle('live', j === n - 1 && mk === 'opus');
+        acc += v;
+      });
+    });
+    for (const [id, r] of rects) if (!seen.has(id)) { r.setAttribute('height', 0); r.setAttribute('y', H - B); setTimeout(() => r.remove(), 600); rects.delete(id); }
+    svg.dataset.keys = JSON.stringify(keys); svg.dataset.rows = JSON.stringify(rows);
+    document.getElementById('stackTitle').textContent = g.title; document.getElementById('rangeLabel').textContent = g.label;
+    applyDim();
+  }
+  function niceStep(max) { const raw = max / 4, p = Math.pow(10, Math.floor(Math.log10(raw))); const m = raw / p; return (m < 1.5 ? 1 : m < 3.5 ? 2 : m < 7.5 ? 5 : 10) * p; }
+  svg.innerHTML = '<g id="axis"></g><g id="bars"></g><g id="ticks"></g>';
+  draw('days', true);
+  document.getElementById('range').addEventListener('click', (e) => { const t = e.target.closest('[data-g]'); if (!t) return;
+    for (const s of t.parentNode.children) s.setAttribute('aria-pressed', s === t); current = t.dataset.g; draw(current, false); });
+  function applyDim() { for (const r of svg.querySelectorAll('rect')) r.classList.toggle('dim', !!dimmed && r.dataset.k !== dimmed);
+    for (const s of document.querySelectorAll('#legend span[data-k]')) s.classList.toggle('dim', !!dimmed && s.dataset.k !== dimmed); }
+  document.getElementById('legend').addEventListener('mouseover', (e) => { const t = e.target.closest('[data-k]'); if (t) { dimmed = t.dataset.k; applyDim(); } });
+  document.getElementById('legend').addEventListener('mouseleave', () => { dimmed = null; applyDim(); });
+  svg.addEventListener('mousemove', (e) => { const r = e.target.closest('rect'); if (!r) { hideTip(); return; }
+    const keys = JSON.parse(svg.dataset.keys), rows = JSON.parse(svg.dataset.rows), j = +r.dataset.col; const total = rows[j].reduce((a, v) => a + v, 0);
+    showTip(`<div class="t">${keys[j]} · ${fmt(total)} tokens</div>` + KEYS.map((k, i) => rows[j][i] ? `<div class="r"><span><i style="background:${C[k]}"></i>${NAME[k]}</span><b>${fmt(rows[j][i])} · ${Math.round(rows[j][i] / total * 100)}%</b></div>` : '').join('') + `<div class="from">inference.resolvedModel · Σ usage.totalTokens</div>`, e); });
+  svg.addEventListener('mouseleave', hideTip);
+
+  // ---- cost per week: the line draws itself, the running total fills in behind
+  (function line(){
+    const s=document.getElementById('line'); const W=310,H=150,L=34,R=8,T=10,B=22;
+    const weeks=[14,19,17,25,22,28,31,24,27,33,29,26,17], turns=[280,301,290,340,310,362,380,330,351,402,370,344,190]; const max=Math.max(...weeks)*1.15;
+    const run=[]; weeks.reduce((a,v,i)=>run[i]=a+v,0);
+    const x=i=>L+i*(W-L-R)/(weeks.length-1); const y=v=>T+(H-T-B)*(1-v/max); const yr=v=>T+(H-T-B)*(1-v/(run[run.length-1]*1.05));
+    let out=''; [0,15,30].forEach(g=>out+=`<line class="gridline" x1="${L}" x2="${W-R}" y1="${y(g)}" y2="${y(g)}"/><text class="axis" x="${L-6}" y="${y(g)+3}" text-anchor="end">$${g}</text>`);
+    const area=run.map((v,i)=>`${x(i)},${yr(v)}`).join(' ');
+    out+=`<polygon class="fade" points="${L},${H-B} ${area} ${W-R},${H-B}" fill="${C.opus}"/>`;
+    out+=`<polyline class="draw" points="${weeks.map((v,i)=>`${x(i)},${y(v)}`).join(' ')}" fill="none" stroke="${C.opus}" stroke-width="2" stroke-linejoin="round" stroke-linecap="round"/>`;
+    weeks.forEach((v,i)=>{ out+=`<circle class="pt" data-i="${i}" style="animation-delay:${.25+i*.1}s" cx="${x(i)}" cy="${y(v)}" r="3" fill="${C.opus}"/>`; if(i%3===0) out+=`<text class="axis" x="${x(i)}" y="${H-6}" text-anchor="middle">W${27+i}</text>`; });
+    s.innerHTML=out;
+    s.addEventListener('mousemove', (e) => { const p = e.target.closest('.pt'); if (!p) { hideTip(); return; } const i = +p.dataset.i;
+      showTip(`<div class="t">W${27 + i}</div><div class="r"><span>Cost</span><b>$${weeks[i].toFixed(2)}</b></div><div class="r"><span>Turns</span><b>${turns[i]}</b></div><div class="r"><span>$ / turn</span><b>$${(weeks[i] / turns[i]).toFixed(3)}</b></div><div class="r"><span>Running</span><b>$${run[i].toFixed(2)}</b></div><div class="from">Σ usage.cost per week${i === 12 ? ' · partial week' : ''}</div>`, e); });
+    s.addEventListener('mouseleave', hideTip);
+  })();
+
+  // ---- donut sweeps in, segments light one after another
+  (function donut(){
+    const s=document.getElementById('donut'); const parts=[[58,'opus',18.2],[19,'sonnet',6.0],[12,'astra',3.8],[8,'flash',2.5],[3,'grok',0.9]];
+    const r=44, c=2*Math.PI*r; let off=0, out='';
+    parts.forEach(([p,k],i)=>{ out+=`<circle class="seg" data-i="${i}" data-p="${p}" cx="60" cy="60" r="${r}" fill="none" stroke="${C[k]}" stroke-width="14" stroke-dasharray="0 ${c}" stroke-dashoffset="${-off}" transform="rotate(-90 60 60)" style="transition-delay:${i*.12}s"/>`; off+=c*p/100; });
+    out+=`<text x="60" y="57" text-anchor="middle" fill="${css('--t1')}" font-size="15" font-weight="600" font-family="${css('--mono')}">31.4M</text><text x="60" y="72" text-anchor="middle" class="axis">tokens</text>`;
+    s.innerHTML=out;
+    requestAnimationFrame(()=>requestAnimationFrame(()=>{ for (const seg of s.querySelectorAll('.seg')) seg.setAttribute('stroke-dasharray', `${c*seg.dataset.p/100} ${c}`); }));
+    s.addEventListener('mousemove', (e) => { const seg = e.target.closest('.seg'); if (!seg) { hideTip(); return; } const [p, k, m] = parts[+seg.dataset.i];
+      showTip(`<div class="t">${NAME[k]}</div><div class="r"><span>Share</span><b>${p}%</b></div><div class="r"><span>Tokens</span><b>${m}M</b></div><div class="from">Σ tokens by inference.resolvedModel · Q3</div>`, e); });
+    s.addEventListener('mouseleave', hideTip);
+  })();
+
+  // ---- quarter bars grow out of the left axis
+  (function quarters(){
+    const s=document.getElementById('quarters'); const W=640,L=60,T=8;
+    const q=[['Q1 26',9.7,[51,30,10,6,3]],['Q2 26',22.9,[64,18,9,6,3]],['Q3 26 →',31.4,[58,19,12,8,3]]];
+    const max=34; const bw=(W-L-12)/max;
+    let out=''; q.forEach(([name,tot,share],i)=>{ const y=T+i*32; let x=L;
+      out+=`<text class="axis" x="${L-8}" y="${y+15}" text-anchor="end" fill="${css('--t2')}">${name}</text>`;
+      const order = i===0 ? ['sonnet','opus','astra','flash','grok'] : KEYS;
+      order.forEach((k,j)=>{ const w=bw*tot*share[j]/100; out+=`<rect data-q="${name}" data-k="${k}" data-p="${share[j]}" data-m="${(tot*share[j]/100).toFixed(1)}" data-w="${Math.max(w-1,0)}" x="${x}" y="${y}" width="0" height="22" rx="3" fill="${C[k]}" style="transition-delay:${i*.15+j*.06}s"/>`; x+=w; });
+      out+=`<text class="axis fade" style="animation-delay:${.6+i*.15}s" x="${x+6}" y="${y+15}" fill="${css('--t1')}">${tot}M</text>`; });
+    s.innerHTML=out;
+    requestAnimationFrame(()=>requestAnimationFrame(()=>{ for (const r of s.querySelectorAll('rect')) r.setAttribute('width', r.dataset.w); }));
+    s.addEventListener('mousemove', (e) => { const r = e.target.closest('rect'); if (!r) { hideTip(); return; }
+      showTip(`<div class="t">${r.dataset.q} · ${NAME[r.dataset.k]}</div><div class="r"><span>Share</span><b>${r.dataset.p}%</b></div><div class="r"><span>Tokens</span><b>${r.dataset.m}M</b></div><div class="from">Σ tokens by inference.resolvedModel</div>`, e); });
+    s.addEventListener('mouseleave', hideTip);
+  })();
+
+  // ---- sparklines, horizontal bars, count-ups
+  for (const sp of document.querySelectorAll('.spark')) { const v = sp.dataset.spark.split(',').map(Number), max = Math.max(...v);
+    const pts = v.map((n, i) => `${i * 100 / (v.length - 1)},${24 - n / max * 22}`).join(' ');
+    sp.innerHTML = `<polyline class="draw" points="${pts}" stroke="${css(sp.dataset.col)}"/>`; }
+  requestAnimationFrame(()=>requestAnimationFrame(()=>{ for (const f of document.querySelectorAll('.barrow .fill')) f.style.width = f.getAttribute('style').match(/width:\s*([\d.]+%)/)[1]; }));
+  for (const el of document.querySelectorAll('[data-count]')) { const to = +el.dataset.count, dec = el.dataset.dec ?? 2, pre = el.dataset.prefix ?? '', suf = el.dataset.suffix ?? '';
+    const t0 = performance.now(), dur = reduced ? 0 : 1100;
+    (function tick(now) { const p = Math.min(1, (now - t0) / (dur || 1)), e = 1 - Math.pow(1 - p, 3);
+      el.textContent = pre + (to * e).toLocaleString('en-US', { minimumFractionDigits: +dec, maximumFractionDigits: +dec }) + suf; if (p < 1) requestAnimationFrame(tick); })(t0); }
+
+  // ---- routing: role → seat ribbons
+  (function sankey(){
+    const s = document.getElementById('sankey'); const H = 270, LX = 8, RX = 632, NW = 6, PAD = 8, MINH = 24;
+    const roles = [['Orchestrator', 38, "the session's own seat — never rolls, fails over only"], ['Researcher', 31, 'rolled by weight: Astra 3 · Flash 1'], ['Planner', 19, 'Opus by weight'], ['Implementer', 61, 'medium+ → the Sonnet rung · low → Haiku'], ['Reviewer', 22, 'a different runtime than the author, always'], ['Advisor', 12, 'one per lens, never the runtime that drafted']];
+    const seats = [['Claude · Opus', 'claude-opus-5', 'opus'], ['Claude · Sonnet', 'claude-sonnet-5', 'sonnet'], ['Claude · Haiku', 'claude-haiku-4-5', 'grok'], ['Codex · Astra', 'gpt-6-astra', 'astra'], ['agy · Flash', 'gemini-3.8-flash', 'flash'], ['Cursor · Grok', 'grok-code-fast-2', 'grok']];
+    // flows: [role index, seat index, runs, failovers]
+    const flows = [[0,0,36,0],[0,5,2,2],[1,3,24,1],[1,4,7,0],[2,0,19,0],[3,1,44,3],[3,2,17,0],[4,3,22,0],[5,3,9,0],[5,0,3,0]];
+    const seatTot = seats.map((_, j) => flows.filter((f) => f[1] === j).reduce((a, f) => a + f[2], 0));
+    const layout = (counts) => { let scale = (H - PAD * (counts.length + 1)) / counts.reduce((a, b) => a + b, 0);
+      for (let k = 0; k < 6; k++) { const hs = counts.map((c) => Math.max(c * scale, MINH)); const over = hs.reduce((a, b) => a + b, 0) + PAD * (counts.length + 1) - H; if (over <= 0) break; scale *= 1 - over / (hs.reduce((a, b) => a + b, 0)); }
+      const pos = []; let y = PAD; counts.forEach((c) => { const h = Math.max(c * scale, MINH); pos.push({ y, h, ribbon: c * scale }); y += h + PAD; }); return { pos, scale }; };
+    const Lp = layout(roles.map((r) => r[1])), Rp = layout(seatTot); const ly = Lp.pos, ry = Rp.pos, scale = Lp.scale, sScale = Rp.scale;
+    const lOff = roles.map(() => 0), rOff = seats.map(() => 0); let out = '';
+    flows.forEach(([ri, si, n, fo], k) => {
+      const h1 = n * scale, h2 = n * sScale; const y1 = ly[ri].y + (ly[ri].h - ly[ri].ribbon) / 2 + lOff[ri] + h1 / 2, y2 = ry[si].y + (ry[si].h - ry[si].ribbon) / 2 + rOff[si] + h2 / 2; lOff[ri] += h1; rOff[si] += h2;
+      const x1 = LX + NW + 96, x2 = RX - NW - 140, c = (x1 + x2) / 2;
+      out += `<path data-r="${ri}" data-s="${si}" data-n="${n}" data-fo="${fo}" d="M${x1},${y1} C${c},${y1} ${c},${y2} ${x2},${y2}" stroke="${C[seats[si][2]]}" stroke-width="${Math.max((h1 + h2) / 2, 2)}" style="animation-delay:${k * .08}s"/>`;
+      if (fo) out += `<path class="fail" data-r="${ri}" data-s="${si}" data-n="${n}" data-fo="${fo}" d="M${x1},${y1 + h1 / 2 - 2} C${c},${y1 + h1 / 2 - 2} ${c},${y2 + h2 / 2 - 2} ${x2},${y2 + h2 / 2 - 2}" stroke-width="1.5"/>`;
+    });
+    roles.forEach((r, i) => out += `<g class="node" data-r="${i}"><rect x="${LX + 96}" y="${ly[i].y}" width="${NW}" height="${ly[i].h}" rx="3" fill="${C.opus}" opacity=".9"/><text x="${LX + 90}" y="${ly[i].y + ly[i].h / 2 + 4}" text-anchor="end">${r[0]}</text><text class="sub" x="${LX + 90}" y="${ly[i].y + ly[i].h / 2 + 15}" text-anchor="end">${r[1]} runs</text></g>`);
+    seats.forEach((sd, j) => out += `<g class="node" data-s="${j}"><rect x="${RX - NW - 140}" y="${ry[j].y}" width="${NW}" height="${ry[j].h}" rx="3" fill="${C[sd[2]]}"/><text x="${RX - 134}" y="${ry[j].y + ry[j].h / 2 + 4}">${sd[0]} <tspan class="sub">${seatTot[j]}</tspan></text><text class="sub" x="${RX - 134}" y="${ry[j].y + ry[j].h / 2 + 15}">${sd[1]}</text></g>`);
+    s.innerHTML = out;
+    const hover = (ri) => { for (const p of s.querySelectorAll('path:not(.fail)')) { p.classList.toggle('dim', ri !== null && +p.dataset.r !== ri); p.classList.toggle('hot', ri !== null && +p.dataset.r === ri); }
+      for (const n of s.querySelectorAll('.node[data-r]')) n.classList.toggle('dim', ri !== null && +n.dataset.r !== ri); };
+    s.addEventListener('mousemove', (e) => { const p = e.target.closest('path'), n = e.target.closest('.node');
+      if (p) { const ri = +p.dataset.r, si = +p.dataset.s; hover(ri); showTip(`<div class="t">${roles[ri][0]} → ${seats[si][0]}</div><div class="r"><span>Runs</span><b>${p.dataset.n}</b></div><div class="r"><span>Fail-over / re-roll</span><b>${p.dataset.fo}</b></div><div class="why">${roles[ri][2]}</div><div class="from">DelegationUpdate.source → provider · model</div>`, e); }
+      else if (n && n.dataset.r !== undefined) { const ri = +n.dataset.r; hover(ri); showTip(`<div class="t">${roles[ri][0]}</div><div class="why">${roles[ri][2]}</div><div class="from">.agents/agents/${roles[ri][0].toLowerCase()}.md runtimes:</div>`, e); }
+      else if (n) { const si = +n.dataset.s; hover(null); showTip(`<div class="t">${seats[si][0]}</div><div class="r"><span>Runs</span><b>${seatTot[si]}</b></div><div class="from">${seats[si][1]}</div>`, e); }
+      else { hover(null); hideTip(); } });
+    s.addEventListener('mouseleave', () => { hover(null); hideTip(); });
+  })();
+
+  // ---- role trends and meters
+  for (const t of document.querySelectorAll('.trend')) { const v = t.dataset.trend.split(',').map(Number);
+    const pts = v.map((n, i) => `${2 + i * 68 / (v.length - 1)},${18 - (n - 20) / 80 * 16}`).join(' ');
+    t.innerHTML = `<polyline class="draw" points="${pts}" stroke="${css(t.dataset.col)}"/>`; }
+  requestAnimationFrame(()=>requestAnimationFrame(()=>{ for (const m of document.querySelectorAll('.meter i')) m.style.width = m.getAttribute('style').match(/width:\s*([\d.]+%)/)[1]; }));
+  (function roleTrend(){
+    const s = document.getElementById('roleTrend'); const W = 640, H = 180, L = 40, R = 122, T = 14, B = 22;
+    const weeks = ['W27','W28','W29','W30','W31','W32','W33','W34','W35','W36','W37','W38'];
+    const lines = [
+      ['Reviewer', '--success', [100,100,95,100,100,100,100,100,95,100,100,100]],
+      ['Researcher', '--orange', [78,80,82,84,85,88,86,90,89,91,90,92]],
+      ['Orchestrator', '--info', [90,92,93,95,94,96,97,96,98,97,98,97]],
+      ['Implementer · Sonnet', '--accent', [52,55,54,58,60,63,66,68,70,72,74,73]],
+      ['Planner', '--warning', [92,90,90,88,88,85,86,84,82,84,80,84]],
+      ['Implementer · Haiku', '--danger', [12,10,8,10,5,6,4,0,5,3,5,0]],
+    ];
+    const x = (i) => L + i * (W - L - R) / (weeks.length - 1), y = (v) => T + (H - T - B) * (1 - v / 100);
+    let out = ''; [0, 50, 100].forEach((g) => out += `<line class="gridline" x1="${L}" x2="${W - R}" y1="${y(g)}" y2="${y(g)}"/><text class="axis" x="${L - 6}" y="${y(g) + 3}" text-anchor="end">${g}%</text>`);
+    weeks.forEach((w, i) => { if (i % 2 === 0) out += `<text class="axis" x="${x(i)}" y="${H - 6}" text-anchor="middle">${w}</text>`; });
+    const mark = x(10); out += `<line x1="${mark}" x2="${mark}" y1="${T}" y2="${H - B}" stroke="${css('--t3')}" stroke-dasharray="3 3"/><text class="axis" x="${mark + 4}" y="${T + 9}">routing change</text>`;
+    const lab = lines.map(([name, col, v], k) => ({ k, name, col, y: y(v[v.length - 1]) })).sort((a, b) => a.y - b.y);
+    for (let i = 1; i < lab.length; i++) if (lab[i].y - lab[i - 1].y < 12) lab[i].y = lab[i - 1].y + 12;
+    lines.forEach(([name, col, v], k) => { out += `<polyline class="draw" data-i="${k}" style="animation-delay:${k * .12}s" points="${v.map((n, i) => `${x(i)},${y(n)}`).join(' ')}" fill="none" stroke="${css(col)}" stroke-width="2" stroke-linejoin="round"/>`; });
+    lab.forEach((l) => { out += `<text class="lbl" x="${W - R + 8}" y="${l.y + 4}" fill="${css(l.col)}">${l.name}</text>`; });
+    s.innerHTML = out;
+    s.addEventListener('mousemove', (e) => { const p = e.target.closest('polyline'); for (const l of s.querySelectorAll('polyline')) l.classList.toggle('dim', !!p && l !== p);
+      if (!p) { hideTip(); return; } const [name, , v] = lines[+p.dataset.i]; const d = v[v.length - 1] - v[0];
+      showTip(`<div class="t">${name}</div><div class="r"><span>W27 → W38</span><b>${v[0]}% → ${v[v.length - 1]}%</b></div><div class="r"><span>Change</span><b style="color:${d >= 0 ? css('--success') : css('--danger')}">${d >= 0 ? '+' : ''}${d} pts</b></div><div class="from">(done − blocked − corrected) ÷ runs per week</div>`, e); });
+    s.addEventListener('mouseleave', () => { for (const l of s.querySelectorAll('polyline')) l.classList.remove('dim'); hideTip(); });
+  })();
+</script>
+</body>
+</html>

@@ -1,0 +1,513 @@
+<title>Melody Work Ledger</title>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500;600&display=swap">
+<style>
+  /* Studio board (light) — the project's light theme — and Charcoal Monokai (dark). Semantic roles never retint. */
+  :root {
+    color-scheme: light;
+    --page: #ffffff; --ground: #f8f7f3; --raised: #ffffff; --sunk: #f1efe9; --hair: #e3dfd6;
+    --t1: #1e1d1a; --t2: #5a5851; --t3: #6f6c64;
+    --info: #2277cc; --success: #2f8f5b; --warning: #d9a012; --danger: #c23b3b; --accent: #0b7a72; --accent-2: #b8741a; --violet: #6c4fbf; --grey: #9a978f;
+    --shadow-sm: 0 1px 2px rgba(30,29,26,.08), 0 2px 6px rgba(30,29,26,.06); --shadow-md: 0 6px 16px rgba(30,29,26,.12);
+    --rp: 16px; --rc: 12px; --rchip: 999px;
+    --mono: "IBM Plex Mono", ui-monospace, "SF Mono", Menlo, monospace;
+    --sans: -apple-system, "Inter", system-ui, "Segoe UI", sans-serif;
+    --tip-bg: rgba(30,29,26,.96); --tip-fg: #f8f7f3; --tip-dim: #b9b5aa;
+  }
+  @media (prefers-color-scheme: dark) { :root:not([data-theme="light"]) {
+    color-scheme: dark;
+    --page: #121212; --ground: #1c1c1c; --raised: #2c2c2c; --sunk: #242424; --hair: rgba(255,255,255,.07);
+    --t1: #f8f8f2; --t2: #c8c8c2; --t3: #7a7a72;
+    --info: #66d9ef; --success: #a6e22e; --warning: #e6db74; --danger: #f92672; --accent: #c8c8c2; --accent-2: #fd971f; --violet: #ae81ff; --grey: #7a7a72;
+    --shadow-sm: 0 1px 2px 0 rgba(0,0,0,.5); --shadow-md: 0 6px 16px rgba(0,0,0,.55);
+    --tip-bg: rgba(28,28,28,.97); --tip-fg: #f8f8f2; --tip-dim: #7a7a72;
+  } }
+  :root[data-theme="dark"] {
+    color-scheme: dark;
+    --page: #121212; --ground: #1c1c1c; --raised: #2c2c2c; --sunk: #242424; --hair: rgba(255,255,255,.07);
+    --t1: #f8f8f2; --t2: #c8c8c2; --t3: #7a7a72;
+    --info: #66d9ef; --success: #a6e22e; --warning: #e6db74; --danger: #f92672; --accent: #c8c8c2; --accent-2: #fd971f; --violet: #ae81ff; --grey: #7a7a72;
+    --shadow-sm: 0 1px 2px 0 rgba(0,0,0,.5); --shadow-md: 0 6px 16px rgba(0,0,0,.55);
+    --tip-bg: rgba(28,28,28,.97); --tip-fg: #f8f8f2; --tip-dim: #7a7a72;
+  }
+  * { box-sizing: border-box; }
+  body { margin: 0; background: var(--page); color: var(--t1); font: 13px/1.45 var(--sans); padding-block: 18px; padding-inline: 16px; }
+  .app { max-width: 960px; margin: 0 auto; background: var(--ground); border: 1px solid var(--hair); border-radius: var(--rp); box-shadow: var(--shadow-sm); overflow: hidden; }
+  .top { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; padding: 12px 14px; border-bottom: 1px solid var(--hair); background: var(--sunk); }
+  .brand { display: flex; align-items: baseline; gap: 8px; margin-right: 6px; }
+  .brand b { font-size: 14px; font-weight: 600; letter-spacing: -.01em; }
+  .brand span { color: var(--t3); font-family: var(--mono); font-size: 11px; }
+  .seg { display: inline-flex; background: var(--raised); border-radius: var(--rc); box-shadow: var(--shadow-sm); padding: 3px; }
+  .seg button { appearance: none; border: 0; background: transparent; padding: 5px 11px; border-radius: 9px; color: var(--t3); font: inherit; font-size: 12px; cursor: pointer; transition: background .2s, color .2s; }
+  .seg button[aria-pressed="true"] { background: var(--sunk); color: var(--t1); box-shadow: var(--shadow-sm); }
+  .seg button:focus-visible { outline: 2px solid var(--info); outline-offset: 1px; }
+  .spacer { flex: 1; }
+  .chip { padding: 4px 10px; border-radius: var(--rchip); font-size: 11px; font-family: var(--mono); color: var(--t2); background: var(--raised); box-shadow: var(--shadow-sm); }
+  .chip.sim { color: var(--warning); }
+  .view { padding: 12px 14px 16px; display: grid; gap: 12px; }
+
+  .card { background: var(--raised); border-radius: var(--rp); box-shadow: var(--shadow-sm); padding: 12px 14px; min-width: 0; transition: box-shadow .2s, transform .2s; }
+  .card:hover { box-shadow: var(--shadow-md); transform: translateY(-1px); }
+  .card h2 { margin: 0 0 8px; font-size: 11px; letter-spacing: .06em; text-transform: uppercase; color: var(--t3); font-weight: 600; display: flex; justify-content: space-between; align-items: baseline; gap: 8px; }
+  .card h2 small { text-transform: none; letter-spacing: 0; font-weight: 400; font-family: var(--mono); color: var(--t3); }
+  .grid2 { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
+  .grid3 { display: grid; grid-template-columns: repeat(3, 1fr); gap: 12px; }
+  .grid4 { display: grid; grid-template-columns: repeat(4, 1fr); gap: 12px; }
+  @media (max-width: 720px) { .grid2, .grid3, .grid4 { grid-template-columns: 1fr 1fr; } }
+  @media (max-width: 460px) { .grid2, .grid3, .grid4 { grid-template-columns: 1fr; } }
+  .big { font-size: 24px; font-weight: 600; font-family: var(--mono); font-variant-numeric: tabular-nums; letter-spacing: -.01em; }
+  .delta { font-size: 11.5px; font-family: var(--mono); }
+  .bad { color: var(--danger); } .good { color: var(--success); } .flat { color: var(--t3); }
+  .sub { color: var(--t3); font-size: 11px; font-family: var(--mono); }
+  [data-why], th { cursor: help; }
+
+  /* trends: the one place words live — three sentences the data wrote */
+  .trends ol { margin: 0; padding-left: 20px; font-size: 13.5px; color: var(--t2); }
+  .trends li { margin: 5px 0; cursor: help; }
+  .trends li b { color: var(--t1); font-weight: 600; }
+  .trends li .n { font-family: var(--mono); font-variant-numeric: tabular-nums; }
+
+  svg.chart { width: 100%; height: auto; display: block; }
+  .axis { fill: var(--t3); font-size: 10px; font-family: var(--mono); }
+  .gridline { stroke: var(--hair); stroke-width: 1; }
+  .legend { display: flex; flex-wrap: wrap; gap: 6px 14px; margin-top: 8px; font-size: 11.5px; color: var(--t2); }
+  .legend span { cursor: pointer; transition: opacity .2s; }
+  .legend span.dim { opacity: .35; }
+  .legend i { display: inline-block; width: 9px; height: 9px; border-radius: 3px; margin-right: 6px; vertical-align: -1px; }
+  .legend .id { font-family: var(--mono); color: var(--t3); font-size: 10.5px; }
+  .tw { overflow-x: auto; }
+  table { width: 100%; border-collapse: collapse; font-size: 12.5px; }
+  th { text-align: left; color: var(--t3); font-weight: 500; font-size: 11px; padding: 0 8px 6px 0; white-space: nowrap; }
+  td { padding: 6px 8px 6px 0; border-top: 1px solid var(--hair); vertical-align: middle; }
+  tr:hover td { background: color-mix(in srgb, var(--t1) 3%, transparent); }
+  th.n, td.n { text-align: right; font-family: var(--mono); font-variant-numeric: tabular-nums; }
+  .id { font-family: var(--mono); color: var(--t3); font-size: 11px; }
+  .barrow { display: grid; grid-template-columns: 70px 1fr 48px; gap: 8px; align-items: center; font-size: 12px; padding: 3px 0; }
+  .barrow .track { height: 8px; border-radius: 4px; background: color-mix(in srgb, var(--t1) 6%, transparent); overflow: hidden; }
+  .barrow .fill { height: 100%; border-radius: 4px; width: 0; transition: width .9s cubic-bezier(.2,.8,.2,1); }
+  .barrow .n { text-align: right; font-family: var(--mono); color: var(--t2); font-size: 11.5px; }
+  .pill { display: inline-block; padding: 1px 8px; border-radius: var(--rchip); font-size: 10.5px; font-weight: 600; letter-spacing: .02em; white-space: nowrap; }
+  .pill.ok { background: color-mix(in srgb, var(--success) 16%, transparent); color: var(--success); }
+  .pill.watch { background: color-mix(in srgb, var(--warning) 20%, transparent); color: var(--warning); }
+  .pill.bad { background: color-mix(in srgb, var(--danger) 16%, transparent); color: var(--danger); }
+  .pill.na { background: color-mix(in srgb, var(--t1) 7%, transparent); color: var(--t3); }
+  .pill.hand { background: transparent; color: var(--t3); border: 1px dashed var(--t3); font-weight: 500; }
+  .meter { display: inline-block; width: 44px; height: 6px; border-radius: 3px; background: color-mix(in srgb, var(--t1) 7%, transparent); vertical-align: middle; margin-right: 6px; overflow: hidden; }
+  .meter i { display: block; height: 100%; border-radius: 3px; width: 0; transition: width .9s cubic-bezier(.2,.8,.2,1); }
+  .rolename { font-weight: 500; color: var(--violet); }
+  .trend { width: 72px; height: 20px; display: inline-block; vertical-align: middle; }
+  .trend polyline { fill: none; stroke-width: 1.5; }
+  .dot { display: inline-block; width: 7px; height: 7px; border-radius: 50%; margin-right: 6px; vertical-align: middle; }
+  .dot.run { background: var(--info); box-shadow: 0 0 0 3px color-mix(in srgb, var(--info) 25%, transparent); animation: pulse 1.6s ease-in-out infinite; }
+  .dot.done { background: var(--success); } .dot.fail { background: var(--danger); } .dot.warn { background: var(--warning); }
+  .kv .k { color: var(--t3); font-size: 11px; } .kv .v { font-size: 13.5px; font-weight: 500; } .kv .id { display: block; }
+  tr.child td:first-child { padding-left: 16px; }
+
+  /* motion — bars grow out of the axis, lines draw, rings sweep */
+  svg.chart rect { transition: y .55s cubic-bezier(.2,.8,.2,1), height .55s cubic-bezier(.2,.8,.2,1), x .45s cubic-bezier(.2,.8,.2,1), width .45s cubic-bezier(.2,.8,.2,1), opacity .25s; }
+  svg.chart rect.enter { transform-box: fill-box; transform-origin: bottom; animation: grow .6s cubic-bezier(.2,.8,.2,1) both; }
+  @keyframes grow { from { transform: scaleY(0); } }
+  .draw { stroke-dasharray: 1400; stroke-dashoffset: 1400; animation: draw 1.4s cubic-bezier(.4,0,.2,1) .15s forwards; }
+  @keyframes draw { to { stroke-dashoffset: 0; } }
+  .fade { opacity: 0; animation: fade .8s ease .9s forwards; }
+  @keyframes fade { to { opacity: .16; } }
+  .pt { cursor: help; } .pt:hover { r: 4.5; }
+  #donut circle.seg { transition: stroke-dasharray 1s cubic-bezier(.2,.8,.2,1); cursor: help; }
+  #donut circle.seg:hover { stroke-width: 18; }
+  svg.chart rect.dim { opacity: .18; }
+  .spark { width: 100%; height: 26px; display: block; margin-top: 6px; }
+  .spark polyline { fill: none; stroke-width: 1.5; }
+  @keyframes pulse { 0%,100% { opacity: 1; } 50% { opacity: .5; } }
+  #sankey path { fill: none; opacity: .55; transition: opacity .2s; stroke-dasharray: 900; stroke-dashoffset: 900; animation: draw 1.3s cubic-bezier(.4,0,.2,1) forwards; cursor: help; }
+  #sankey path.dim { opacity: .08; } #sankey path.hot { opacity: .95; }
+  #sankey path.fail { stroke: var(--danger); stroke-dasharray: 6 5; animation: none; opacity: .85; }
+  #sankey .node { transition: opacity .2s; cursor: help; }
+  #sankey .node text { font-size: 11px; fill: var(--t1); }
+  #sankey .node .sub { font-size: 10px; fill: var(--t3); font-family: var(--mono); }
+  #sankey .node.dim { opacity: .3; }
+  #roleTrend .lbl { font-size: 10px; }
+  #roleTrend polyline { cursor: help; transition: opacity .2s; }
+  #roleTrend polyline.dim { opacity: .15; }
+  #quarters rect { cursor: help; }
+
+  .tip { position: fixed; pointer-events: none; background: var(--tip-bg); color: var(--tip-fg); border-radius: var(--rc); box-shadow: var(--shadow-md); padding: 9px 11px; font-size: 11.5px; z-index: 9; opacity: 0; transform: translateY(4px); transition: opacity .15s, transform .15s; max-width: 300px; line-height: 1.4; }
+  .tip.on { opacity: 1; transform: translateY(0); }
+  .tip .t { color: var(--tip-dim); font-family: var(--mono); font-size: 10.5px; margin-bottom: 4px; }
+  .tip .why { color: var(--tip-fg); }
+  .tip .from { color: var(--tip-dim); font-family: var(--mono); font-size: 10.5px; margin-top: 5px; }
+  .tip .r { display: flex; justify-content: space-between; gap: 12px; padding: 1px 0; }
+  .tip .r i { display: inline-block; width: 8px; height: 8px; border-radius: 2px; margin-right: 6px; }
+  .tip .r b { font-family: var(--mono); font-weight: 500; }
+  .foot { padding: 10px 14px 14px; color: var(--t3); font-size: 11px; font-family: var(--mono); display: flex; gap: 14px; flex-wrap: wrap; }
+  @media (prefers-reduced-motion: reduce) { svg.chart rect, .draw, .fade, .pt, #donut circle.seg, .barrow .fill, .meter i, .dot.run, #sankey path { animation: none !important; transition: none !important; stroke-dashoffset: 0; opacity: 1; } .fade { opacity: .16; } }
+</style>
+
+<div class="app">
+  <div class="top">
+    <div class="brand"><b>Work Ledger</b><span>melody-agent2</span></div>
+    <div class="seg" id="scope" data-why="Now = the open session. Over time = every session on this Mac. Roles = every delegation, judged by outcome." data-from="scope">
+      <button aria-pressed="false" data-v="now">Now</button><button aria-pressed="true" data-v="time">Over time</button><button aria-pressed="false" data-v="roles">Roles</button>
+    </div>
+    <div class="seg" id="range" data-why="The grain of every chart in Over time. Quarters show the year's shape; Days show what last week cost." data-from="ledger · bucketed by turn time">
+      <button aria-pressed="true" data-g="days">Days</button><button aria-pressed="false" data-g="weeks">Weeks</button><button aria-pressed="false" data-g="months">Months</button><button aria-pressed="false" data-g="quarters">Quarters</button>
+    </div>
+    <span class="spacer"></span>
+    <span class="chip" id="rangeLabel">14 d</span>
+    <span class="chip sim" data-why="Every number on this page comes from a simulated ledger the page generates on load — the shape is real, the figures are not yours yet." data-from="seeded generator · 400 days · the role files' real seats">simulated</span>
+  </div>
+
+  <div class="view">
+    <div class="card trends" id="trends"><h2>Trends <small id="trendsRange">14 d vs prior 14 d</small></h2><ol id="trendList"></ol></div>
+
+    <!-- NOW -->
+    <div id="v-now" hidden>
+      <div class="card" style="margin-bottom:12px">
+        <h2 data-why="What this session runs on. Set once per session; the model that answered each turn is in the list below." data-from="session.provider_name · model_config · the lever's stop · thinking_effort · GOOSE_MODE"><span>Session</span> <small id="nowTitle"></small></h2>
+        <div class="grid4" id="nowSettings"></div>
+      </div>
+      <div class="card">
+        <h2 data-why="One row per reply. On the ACP seats a turn is one prompt to that CLI, which makes calls of its own that never show here." data-from="assistant messages carrying usage · DelegationUpdate per worker"><span>Turns</span> <small id="nowCount"></small></h2>
+        <div class="tw"><table id="nowTurns"><thead><tr>
+          <th data-why="Wall clock the reply landed." data-from="message timestamp">When</th>
+          <th data-why="The session itself, or the role a worker ran." data-from="DelegationUpdate.source">Who</th>
+          <th data-why="Runtime and the model that answered; the arrow shows a resolved snapshot when it differs." data-from="inference.provider · requestedModel → resolvedModel">Runtime · model</th>
+          <th class="n" data-why="Prompt tokens, cache reads included." data-from="usage.inputTokens">In</th>
+          <th class="n" data-why="Completion tokens." data-from="usage.outputTokens">Out</th>
+          <th class="n" data-why="Generation time · time to first token." data-from="usage.elapsedMs · timeToFirstTokenMs">Time</th>
+          <th class="n" data-why="Provider-reported where it exists; est. otherwise; — when neither." data-from="usage.cost · costSource">Cost</th>
+          <th data-why="How the turn ended: landed, corrected by the session, blocked, undone." data-from="ledger outcome events">Outcome</th>
+        </tr></thead><tbody></tbody></table></div>
+      </div>
+    </div>
+
+    <!-- OVER TIME -->
+    <div id="v-time">
+      <div class="grid3" style="margin-bottom:12px">
+        <div class="card" data-why="Total tokens through every seat in the range. Rising with the same turns = context bloat; rising with more turns = more work." data-from="Σ usage.totalTokens per turn"><h2>Tokens <small class="rl"></small></h2><div class="big" id="kTok">0</div><div class="delta" id="dTok"></div><div class="sub" id="sTok"></div><svg class="spark" id="spTok" viewBox="0 0 100 26" preserveAspectRatio="none"></svg></div>
+        <div class="card" data-why="What the range cost. The subscription seats report no price — their turns are estimated from a local price table." data-from="usage.cost where provider_reported · est. otherwise"><h2>Cost <small class="rl"></small></h2><div class="big" id="kCost">0</div><div class="delta" id="dCost"></div><div class="sub" id="sCost"></div><svg class="spark" id="spCost" viewBox="0 0 100 26" preserveAspectRatio="none"></svg></div>
+        <div class="card" data-why="One turn = one reply from a model. Tokens ÷ turns is the unit price that should fall as routing improves." data-from="messages carrying usage · workers included"><h2>Turns <small class="rl"></small></h2><div class="big" id="kTurn">0</div><div class="delta" id="dTurn"></div><div class="sub" id="sTurn"></div><svg class="spark" id="spTurn" viewBox="0 0 100 26" preserveAspectRatio="none"></svg></div>
+      </div>
+      <div class="card" style="margin-bottom:12px">
+        <h2 data-why="Which model did the work, bucket by bucket. A stack that changes colour is a routing change; one that only grows is scope growth." data-from="inference.resolvedModel per turn · workers under the seat the roll picked"><span id="stackTitle">Tokens per day, by model</span> <small>hover a bar</small></h2>
+        <svg class="chart" id="stack" viewBox="0 0 640 190" role="img" aria-label="Tokens by model over time"></svg>
+        <div class="legend" id="legend"></div>
+      </div>
+      <div class="grid2" style="margin-bottom:12px">
+        <div class="card"><h2 data-why="Spend per week; the fill is the quarter's running total. A week above trend with no more turns is a model change or context growth." data-from="Σ usage.cost per week"><span>Cost per week</span> <small id="lineSub"></small></h2><svg class="chart" id="line" viewBox="0 0 310 150" role="img" aria-label="Cost per week"></svg></div>
+        <div class="card"><h2 data-why="Who carries the quarter. The dearest seat above 60% means the cheap seats aren't taking their share of the roll." data-from="Σ tokens by inference.resolvedModel"><span>Share of tokens</span> <small>this quarter</small></h2>
+          <div style="display:flex;gap:14px;align-items:center"><svg class="chart" id="donut" viewBox="0 0 120 120" style="width:120px;flex:none" role="img" aria-label="Share of tokens by model"></svg><div style="flex:1" id="shareRows"></div></div></div>
+      </div>
+      <div class="card" style="margin-bottom:12px">
+        <h2 data-why="Quarter on quarter. $ per turn and tokens per turn should fall as routing improves; sessions and turns may rise." data-from="ledger bucketed by quarter"><span>Quarters</span> <small>tokens by model</small></h2>
+        <svg class="chart" id="quarters" viewBox="0 0 640 130" role="img" aria-label="Quarter over quarter"></svg>
+        <div class="tw"><table id="qTable"><thead><tr><th>Quarter</th><th class="n" data-why="All tokens, all seats." data-from="Σ usage.totalTokens">Tokens</th><th class="n" data-why="Provider-reported plus estimates." data-from="Σ usage.cost">Cost</th><th class="n" data-why="Replies from a model, workers included." data-from="messages carrying usage">Turns</th><th class="n" data-why="Chats started; workers not counted." data-from="sessionType = user">Sessions</th><th class="n" data-why="The unit price. Should fall as cheaper seats take more turns." data-from="cost ÷ turns">$ / turn</th><th class="n" data-why="Context weight per reply. Rising = bigger prompts, not more work." data-from="tokens ÷ turns">tok / turn</th><th data-why="The seat carrying the most tokens." data-from="max by resolvedModel">Top model</th></tr></thead><tbody></tbody></table></div>
+      </div>
+      <div class="grid2">
+        <div class="card"><h2 data-why="Turns by runtime, workers under the seat the roll picked. One runtime above 75% means the others aren't in the roll." data-from="inference.provider per turn"><span>By runtime</span> <small class="rl"></small></h2><div id="byRuntime"></div></div>
+        <div class="card"><h2 data-why="Where the money went. One session carrying a quarter of the range is a session to read." data-from="Σ usage.cost per session, workers under the parent"><span>Top sessions</span> <small class="rl"></small></h2><div class="tw"><table id="topSessions"><thead><tr><th>Session</th><th>Model</th><th class="n">Turns</th><th class="n">Cost</th></tr></thead><tbody></tbody></table></div></div>
+      </div>
+    </div>
+
+    <!-- ROLES -->
+    <div id="v-roles" hidden>
+      <div class="card" style="margin-bottom:12px">
+        <h2 data-why="Where each role's work went. Width = runs. Dashed red = a fail-over or re-roll: the first seat didn't answer. Only work that went through delegate is here — the session's own subagents never touch this wire." data-from="DelegationUpdate.source → provider · model"><span>Routing — role → seat</span> <small class="rl"></small></h2>
+        <svg class="chart" id="sankey" viewBox="0 0 640 270" role="img" aria-label="Which seat each role was routed to"></svg>
+      </div>
+      <div class="card" style="margin-bottom:12px">
+        <h2 data-why="Is each role worth its seat? Done alone lies: a BLOCKED return and a diff the session rewrote both count as Done on the wire. Corrected is the number that decides." data-from="DelegationUpdate · the child's return text · the session's writes after Done · review verdicts"><span>Roles</span> <small class="rl"></small></h2>
+        <div class="tw"><table id="roles"><thead><tr>
+          <th data-why="The role file that was delegated." data-from=".agents/agents/&lt;role&gt;.md · DelegationUpdate.source">Role</th>
+          <th data-why="The seat that took most of this role's runs, from the role file's own weights." data-from="runtimes: in the role file · mode of provider · model">Seat (most)</th>
+          <th class="n" data-why="Delegations in the range." data-from="count DelegationUpdate per source">Runs</th>
+          <th data-why="Returned text without error. Includes BLOCKED returns — the next column takes those out." data-from="DelegationUpdate.status = done">Done</th>
+          <th class="n" data-why="Returned BLOCKED: the plan's assumption failed against the tree. A failure of the plan, not the seat." data-from="child return text starts BLOCKED">Blocked</th>
+          <th class="n" data-why="The session edited the worker's files after it returned Done. The one number that says the seat cost more than it saved." data-from="session write/edit after Done ∩ the return's Files Changed · Undo on that turn">Corrected</th>
+          <th data-why="The Reviewer's verdict on the branch this role produced." data-from="review-parse verdict ÷ reviews">Review PASS</th>
+          <th class="n" data-why="Median wall clock per run." data-from="child createdAt → lastMessageAt">Median</th>
+          <th class="n" data-why="Tokens the role burns per run — its price at the seat's rate." data-from="child Σ usage.totalTokens ÷ runs">Tok / run</th>
+          <th data-why="Clean-done rate, weekly: done, not blocked, not corrected." data-from="(done − blocked − corrected) ÷ runs per week">Trend</th>
+          <th data-why="Effective: clean-done ≥ 80% and PASS ≥ 80%. Watch: below either. Failing: corrected ≥ half the runs, or clean-done under 50%." data-from="the columns to the left">Verdict</th>
+        </tr></thead><tbody></tbody></table></div>
+      </div>
+      <div class="card">
+        <h2 data-why="Clean-done rate per role, weekly. The dashed line is the AGENTS.md routing change — what bends after it is the change working or not." data-from="(done − blocked − corrected) ÷ runs per role per week"><span>Clean-done by role</span> <small>this quarter · weekly · hover a line</small></h2>
+        <svg class="chart" id="roleTrend" viewBox="0 0 640 180" role="img" aria-label="Clean-done rate by role per week"></svg>
+      </div>
+    </div>
+  </div>
+  <div class="foot"><span data-why="Each event is one line the app writes at a moment it already knows: a turn's usage landed, a worker returned, the session edited a worker's file, a confirm ran, a verdict parsed, a turn was undone." data-from="sidecar · &lt;state&gt;/ledger/&lt;project&gt;.jsonl">ledger: turn · worker · correction · confirm · review · undo · handoff</span><span data-why="Work the session runs as its own subagents never passes through goose, so it has no worker event. Until it does, its outcomes come from tasks.md and carry this mark." data-from="tasks.md status: done per worker: tier"><span class="pill hand">hand-counted</span> = not on the wire yet</span></div>
+</div>
+<div class="tip" id="tip"></div>
+
+<script>
+(() => {
+  // ---------- helpers
+  const css = (v) => getComputedStyle(document.documentElement).getPropertyValue(v).trim();
+  const reduced = matchMedia('(prefers-reduced-motion: reduce)').matches;
+  const $ = (s) => document.querySelector(s);
+  const fmtK = (v) => v >= 1e6 ? (v / 1e6).toFixed(v >= 1e7 ? 0 : 2) + 'M' : v >= 1e3 ? (v / 1e3).toFixed(v >= 1e4 ? 0 : 1) + 'k' : String(Math.round(v));
+  const usd = (v, d = 2) => '$' + v.toFixed(d);
+  const pct = (a, b) => b ? Math.round(a / b * 100) : 0;
+  const median = (a) => { if (!a.length) return 0; const s = [...a].sort((x, y) => x - y); return s[Math.floor(s.length / 2)]; };
+  const tip = $('#tip');
+  const showTip = (html, e) => { tip.innerHTML = html; tip.classList.add('on'); moveTip(e); };
+  const moveTip = (e) => { const w = tip.offsetWidth, h = tip.offsetHeight; let x = e.clientX + 14, y = e.clientY - 10; if (x + w > innerWidth - 8) x = e.clientX - w - 14; if (y + h > innerHeight - 8) y = innerHeight - h - 8; tip.style.left = x + 'px'; tip.style.top = y + 'px'; };
+  const hideTip = () => tip.classList.remove('on');
+  document.addEventListener('mouseover', (e) => { if (e.target.closest('svg.chart')) return; const el = e.target.closest('[data-why]'); if (!el) return;
+    const head = el.matches('th') ? el.textContent.trim() : (el.querySelector('.big')?.textContent ?? el.querySelector('.rolename')?.textContent ?? el.querySelector('h2 span')?.textContent ?? '');
+    showTip(`${head ? `<div class="t">${head}</div>` : ''}<div class="why">${el.dataset.why}</div>${el.dataset.from ? `<div class="from">${el.dataset.from}</div>` : ''}`, e); });
+  document.addEventListener('mousemove', (e) => { if (tip.classList.contains('on') && !e.target.closest('svg.chart')) moveTip(e); });
+  document.addEventListener('mouseout', (e) => { const el = e.target.closest('[data-why]'); if (el && !el.contains(e.relatedTarget)) hideTip(); });
+
+  // ---------- the seats, from the role files' runtimes: (weights as written)
+  const SEATS = {
+    opus:   { name: 'Claude · Opus',   id: 'claude-opus-5',           provider: 'claude-code', rt: 'Claude', col: '--info',     inK: 15, outK: 75 },
+    sonnet: { name: 'Claude · Sonnet', id: 'claude-sonnet-5',         provider: 'claude-code', rt: 'Claude', col: '--violet',   inK: 3,  outK: 15 },
+    fable:  { name: 'Claude · Fable',  id: 'claude-fable-5-1',        provider: 'claude-code', rt: 'Claude', col: '--accent',   inK: 25, outK: 125 },
+    haiku:  { name: 'Claude · Haiku',  id: 'claude-haiku-4-5',        provider: 'agent-tool',  rt: 'Claude', col: '--grey',     inK: 1,  outK: 5 },
+    sol:    { name: 'Codex · Sol',     id: 'gpt-5.6-sol',             provider: 'codex-acp',   rt: 'Codex',  col: '--accent-2', inK: 0,  outK: 0 },
+    astra:  { name: 'Codex · Astra',   id: 'gpt-6-astra',             provider: 'codex-acp',   rt: 'Codex',  col: '--warning',  inK: 0,  outK: 0 },
+    flash:  { name: 'agy · Flash',     id: 'gemini-3.8-flash-high',   provider: 'agy',         rt: 'agy',    col: '--success',  inK: 0,  outK: 0 },
+    grok:   { name: 'Cursor · Grok',   id: 'cursor-grok-4.6',         provider: 'cursor-acp',  rt: 'Cursor', col: '--danger',   inK: 0,  outK: 0 },
+  };
+  const ROLES = {
+    orchestrator: { name: 'Orchestrator', seats: [['opus', 1]], failover: 'grok', base: { ok: .96, blocked: 0, corr: .04 }, tok: [220e3, 420e3], min: [25, 60], note: "the session's own seat — never rolls, fails over to Cursor only" },
+    researcher:   { name: 'Researcher',   seats: [['flash', 9], ['grok', 1]], base: { ok: .88, blocked: 0, corr: .10 }, tok: [60e3, 120e3], min: [4, 9], note: 'agy by weight 9, Cursor 1; parked when print mode hangs' },
+    planner:      { name: 'Planner',      seats: [['astra', 9], ['opus', 1]], base: { ok: .84, blocked: .05, corr: .28 }, tok: [90e3, 160e3], min: [6, 14], note: 'Codex Astra by weight 9, Opus 1' },
+    implementer:  { name: 'Implementer',  seats: [['sonnet', 9], ['flash', 1]], base: { ok: .90, blocked: .10, corr: .45 }, after: { ok: .92, blocked: .08, corr: .30 }, tok: [110e3, 190e3], min: [8, 18], note: 'medium+ → Sonnet 9, agy 1 since the routing change' },
+    reviewer:     { name: 'Reviewer',     seats: [['sol', 9], ['grok', 1]], base: { ok: .99, blocked: 0, corr: .01 }, tok: [40e3, 80e3], min: [2, 5], note: 'Codex Sol by weight 9, Cursor 1' },
+    advisor:      { name: 'Advisor',      seats: [['fable', 1], ['sol', 1], ['grok', 1]], base: { ok: .93, blocked: 0, corr: .06 }, tok: [50e3, 100e3], min: [3, 8], note: 'one per lens, never the runtime that drafted' },
+  };
+  // the session's own subagents (Agent tool, haiku) — real work, no DelegationUpdate: hand-counted from tasks.md
+  const HAND = { name: 'Implementer', tier: 'low', seat: 'haiku', runs: 17, done: 17, blocked: 0, corrected: 17, pass: 0.18, med: 4, tok: 39e3 };
+
+  // ---------- one seeded ledger: 400 days of turns, workers and outcomes
+  let seed = 11; const rnd = () => (seed = (seed * 9301 + 49297) % 233280) / 233280;
+  const pick = (arr) => arr[Math.floor(rnd() * arr.length)];
+  const roll = (seats) => { const t = seats.reduce((a, s) => a + s[1], 0); let r = rnd() * t; for (const [k, w] of seats) { r -= w; if (r <= 0) return k; } return seats[0][0]; };
+  const DAYS = 400, today = new Date(2026, 8, 20, 14, 2);
+  const dateOf = (i, h = 10) => { const t = new Date(today); t.setDate(t.getDate() - (DAYS - 1 - i)); t.setHours(h, Math.floor(rnd() * 60)); return t; };
+  const CHANGE = new Date(2026, 8, 8); // AGENTS.md routing change, W37
+  const turns = [], workers = [], sessions = [];
+  const STOPS = [['easy', 'sonnet', 'direct'], ['medium', 'opus', 'direct'], ['hard', 'opus', 'orchestrate']];
+  const TITLES = ['per-panel tab bars', 'composer row', 'beta reds', 'plan gate walk', 'undo this turn', 'changes bar', 'files pane git tints', 'runtimes gate', 'command palette', 'review pane', 'markdown contents', 'sidecar auth', 'worktrees', 'board', 'PR creation', 'agents pane', 'artifact pane', 'RPI strip', 'studio theme', 'browser share'];
+  let sid = 0;
+  for (let d = 0; d < DAYS; d++) {
+    const dow = (d + 3) % 7, weekend = dow >= 5, growth = .35 + d / DAYS * .9;
+    const n = weekend ? (rnd() < .5 ? 1 : 0) : 1 + Math.floor(rnd() * 2.6 * growth);
+    for (let s = 0; s < n; s++) {
+      const stop = pick(STOPS); const id = 's' + (++sid); const start = dateOf(d, 8 + Math.floor(rnd() * 10));
+      const sess = { id, title: pick(TITLES), stop: stop[0], seat: stop[1], mode: stop[2], start, turns: 0, tokens: 0, cost: 0 };
+      sessions.push(sess);
+      const nt = 4 + Math.floor(rnd() * 22 * growth);
+      for (let t = 0; t < nt; t++) {
+        const seat = SEATS[sess.seat]; const inT = 12e3 + rnd() * 40e3, outT = 300 + rnd() * 2200;
+        const at = new Date(start.getTime() + t * (2 + rnd() * 6) * 60e3);
+        const outcome = rnd() < .04 ? 'undone' : 'landed';
+        turns.push({ at, sid: id, who: 'Session', seatKey: sess.seat, inT, outT, ms: 4e3 + rnd() * 30e3, ttft: 500 + rnd() * 1500, cost: seat.inK ? inT / 1e6 * seat.inK + outT / 1e6 * seat.outK : null, outcome, cache: .7 + rnd() * .25 });
+        sess.turns++; sess.tokens += inT + outT; sess.cost += seat.inK ? inT / 1e6 * seat.inK + outT / 1e6 * seat.outK : 0;
+        if (sess.mode === 'orchestrate' && t % 5 === 1) {
+          const rk = pick(['researcher', 'planner', 'implementer', 'implementer', 'reviewer', 'advisor']); const R = ROLES[rk];
+          let seatKey = roll(R.seats); let fo = 0; if (rnd() < .05) { seatKey = R.failover ?? roll(R.seats); fo = 1; }
+          const rates = (R.after && at >= CHANGE) ? R.after : R.base; const r = rnd();
+          const status = rnd() < .03 ? 'failed' : 'done'; const blocked = status === 'done' && r < rates.blocked; const corrected = status === 'done' && !blocked && rnd() < rates.corr;
+          const tok = R.tok[0] + rnd() * (R.tok[1] - R.tok[0]), min = R.min[0] + rnd() * (R.min[1] - R.min[0]);
+          const ws = SEATS[seatKey]; const cost = ws.inK ? tok * .92 / 1e6 * ws.inK + tok * .08 / 1e6 * ws.outK : null;
+          const w = { at, sid: id, role: rk, seatKey, fo, status, blocked, corrected, tok, min, cost, pass: rk === 'implementer' ? rnd() < (at >= CHANGE ? .68 : .55) : rk === 'planner' ? rnd() < .8 : null };
+          workers.push(w); turns.push({ at: new Date(at.getTime() + 20e3), sid: id, who: R.name, seatKey, inT: tok * .92, outT: tok * .08, ms: min * 60e3, ttft: 900, cost, outcome: status === 'failed' ? 'failed' : blocked ? 'blocked' : corrected ? 'corrected' : 'landed', worker: w });
+          sess.turns++; sess.tokens += tok; sess.cost += cost ?? 0;
+        }
+      }
+      sess.end = new Date(start.getTime() + nt * 5 * 60e3);
+    }
+  }
+  turns.sort((a, b) => a.at - b.at);
+  const MON = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
+  const iso = (t) => t.toISOString().slice(0, 10);
+  const week = (t) => { const a = new Date(t.getFullYear(), 0, 1); return Math.ceil((((t - a) / 864e5) + a.getDay() + 1) / 7); };
+  const qtr = (t) => `Q${Math.floor(t.getMonth() / 3) + 1} ${String(t.getFullYear()).slice(2)}`;
+  const GRAINS = {
+    days:     { n: 14, label: '14 d', title: 'Tokens per day, by model', key: (t) => iso(t), lab: (t) => `${t.getDate()} ${MON[t.getMonth()]}`, tick: (l, j) => (j % 2 === 0 ? l : ''), ms: 14 * 864e5 },
+    weeks:    { n: 13, label: '13 w', title: 'Tokens per week, by model', key: (t) => `${t.getFullYear()}-W${String(week(t)).padStart(2, '0')}`, lab: (t) => 'W' + week(t), tick: (l, j) => (j % 2 === 0 ? l : ''), ms: 91 * 864e5 },
+    months:   { n: 12, label: '12 mo', title: 'Tokens per month, by model', key: (t) => `${t.getFullYear()}-${String(t.getMonth() + 1).padStart(2, '0')}`, lab: (t) => MON[t.getMonth()] + (t.getMonth() === 0 ? ' ' + String(t.getFullYear()).slice(2) : ''), tick: (l) => l, ms: 365 * 864e5 },
+    quarters: { n: 5, label: '5 q', title: 'Tokens per quarter, by model', key: (t) => `${t.getFullYear()}-Q${Math.floor(t.getMonth() / 3) + 1}`, lab: (t) => qtr(t), tick: (l) => l, ms: 400 * 864e5 },
+  };
+  const KEYS = Object.keys(SEATS).filter((k) => k !== 'haiku');
+  const C = Object.fromEntries(Object.entries(SEATS).map(([k, s]) => [k, css(s.col)]));
+  const inRange = (ms, from = today) => turns.filter((t) => t.at > new Date(from - ms) && t.at <= from);
+  const sum = (arr, f) => arr.reduce((a, x) => a + (f(x) || 0), 0);
+  const stats = (arr) => ({ tokens: sum(arr, (t) => t.inT + t.outT), inT: sum(arr, (t) => t.inT), outT: sum(arr, (t) => t.outT), cost: sum(arr, (t) => t.cost), est: arr.filter((t) => t.cost == null).length, turns: arr.length, sessions: new Set(arr.filter((t) => t.who === 'Session').map((t) => t.sid)).size, workers: arr.filter((t) => t.worker).length });
+  let grain = 'days';
+
+  // ---------- trends: the three largest movements, written from templates — no model call
+  function trends() {
+    const g = GRAINS[grain], cur = inRange(g.ms), prev = inRange(g.ms, new Date(today - g.ms)); const a = stats(cur), b = stats(prev);
+    const share = (arr, k) => { const s = stats(arr).tokens; return s ? sum(arr.filter((t) => t.seatKey === k), (t) => t.inT + t.outT) / s : 0; };
+    const cands = [];
+    const tpt = a.tokens / a.turns, tptP = b.tokens / b.turns; cands.push({ w: Math.abs(tpt / tptP - 1) * 1.2, html: `<b>Each turn is ${tpt > tptP ? 'heavier' : 'lighter'}</b> — <span class="n">${fmtK(tptP)} → ${fmtK(tpt)}</span> tokens per turn with turns ${a.turns >= b.turns ? 'up' : 'down'} <span class="n">${Math.abs(pct(a.turns - b.turns, b.turns))}%</span>: ${tpt > tptP ? 'context weight, not more work' : 'leaner prompts'}.`, why: 'Tokens per turn is the context weight of a reply. Rising while turns are flat means the prompt grew — compaction and worktree isolation are the levers.', from: 'tokens ÷ turns · this range vs the one before' });
+    const top = KEYS.map((k) => [k, share(cur, k), share(prev, k)]).sort((x, y) => y[1] - x[1])[0];
+    cands.push({ w: Math.abs(top[1] - top[2]) * 3, html: `<b>${SEATS[top[0]].name} is carrying ${top[1] > top[2] ? 'more' : 'less'}</b> — <span class="n">${Math.round(top[2] * 100)}% → ${Math.round(top[1] * 100)}%</span> of tokens${top[1] > top[2] ? '; the roll is moving work up' : '; the roll is moving work down'}.`, why: 'Share of tokens on the seat that carries the most. Falling is the cheaper seats taking their share of the roll.', from: 'Σ tokens by inference.resolvedModel' });
+    const cpt = a.cost / (a.turns - a.est || 1), cptP = b.cost / (b.turns - b.est || 1); cands.push({ w: Math.abs(cpt / cptP - 1), html: `<b>Cost per priced turn ${cpt > cptP ? 'rose' : 'fell'}</b> — <span class="n">${usd(cptP, 3)} → ${usd(cpt, 3)}</span>; <span class="n">${a.est}</span> turns in the range have no price at all.`, why: 'The unit price on turns that report a price. The subscription seats report none — their share is the number to watch, not this one.', from: 'cost ÷ priced turns' });
+    const wr = workers.filter((w) => w.at > new Date(today - g.ms)), wp = workers.filter((w) => w.at > new Date(today - 2 * g.ms) && w.at <= new Date(today - g.ms));
+    for (const rk of ['implementer', 'planner', 'researcher']) { const c = wr.filter((w) => w.role === rk), p = wp.filter((w) => w.role === rk); if (c.length < 4 || p.length < 4) continue;
+      const cd = c.filter((w) => w.status === 'done' && !w.blocked && !w.corrected).length / c.length, pd = p.filter((w) => w.status === 'done' && !w.blocked && !w.corrected).length / p.length;
+      cands.push({ w: Math.abs(cd - pd) * 2.5, html: `<b>${ROLES[rk].name} clean-done ${cd > pd ? 'up' : 'down'}</b> — <span class="n">${Math.round(pd * 100)}% → ${Math.round(cd * 100)}%</span>; <span class="n">${c.filter((w) => w.corrected).length}</span> of <span class="n">${c.length}</span> runs corrected by the session.`, why: 'Clean-done = returned, not blocked, not rewritten by the session. The number that says whether the role is earning its seat.', from: '(done − blocked − corrected) ÷ runs · DelegationUpdate + the session\'s writes after Done' }); }
+    cands.push({ w: 1.5, html: `<b>The low-tier Implementer isn't earning its keep</b> — <span class="n">${HAND.corrected}/${HAND.runs}</span> corrected on Haiku <span class="pill hand">hand-counted</span>; not on the wire until that work routes through delegate.`, why: 'The session\'s own subagents never pass through goose, so the app cannot see them. tasks.md is the only record — and it says every diff needed rework.', from: 'tasks.md §Waiting · Agent-tool subagents' });
+    const top3 = cands.sort((x, y) => y.w - x.w).slice(0, 3);
+    $('#trendList').innerHTML = top3.map((c) => `<li data-why="${c.why.replace(/"/g, '&quot;')}" data-from="${c.from.replace(/"/g, '&quot;')}">${c.html}</li>`).join('');
+    $('#trendsRange').textContent = `${g.label} vs prior ${g.label}`;
+  }
+
+  // ---------- headline numbers, sparks, by runtime, top sessions
+  function headline() {
+    const g = GRAINS[grain], cur = inRange(g.ms), prev = inRange(g.ms, new Date(today - g.ms)), a = stats(cur), b = stats(prev);
+    for (const el of document.querySelectorAll('.rl')) el.textContent = g.label; $('#rangeLabel').textContent = g.label;
+    const d = (x, y) => { const p = pct(x - y, y); return `<span class="${p > 0 ? 'bad' : p < 0 ? 'good' : 'flat'}">${p > 0 ? '▲' : p < 0 ? '▼' : '—'} ${Math.abs(p)}% vs prior ${g.label}</span>`; };
+    count($('#kTok'), a.tokens / 1e6, 2, '', 'M'); $('#dTok').innerHTML = d(a.tokens, b.tokens); $('#sTok').textContent = `in ${fmtK(a.inT)} · out ${fmtK(a.outT)}`;
+    count($('#kCost'), a.cost, 2, '$', ''); $('#dCost').innerHTML = d(a.cost, b.cost); $('#sCost').textContent = `${usd(a.cost / (g.ms / 864e5))} / day · ${a.est} turns unpriced`;
+    count($('#kTurn'), a.turns, 0, '', ''); $('#dTurn').innerHTML = d(a.turns, b.turns); $('#sTurn').textContent = `${a.sessions} sessions · ${a.workers} workers · ${fmtK(a.tokens / a.turns)} tok/turn`;
+    const nb = 14, bins = Array.from({ length: nb }, () => ({ t: 0, c: 0, n: 0 })); for (const t of cur) { const i = Math.min(nb - 1, Math.floor((t.at - (today - g.ms)) / (g.ms / nb))); bins[i].t += t.inT + t.outT; bins[i].c += t.cost || 0; bins[i].n++; }
+    spark($('#spTok'), bins.map((x) => x.t), '--info'); spark($('#spCost'), bins.map((x) => x.c), '--warning'); spark($('#spTurn'), bins.map((x) => x.n), '--violet');
+    const rts = {}; for (const t of cur) { const r = SEATS[t.seatKey].rt; rts[r] = (rts[r] || 0) + 1; } const rmax = Math.max(...Object.values(rts));
+    $('#byRuntime').innerHTML = Object.entries(rts).sort((x, y) => y[1] - x[1]).map(([r, n]) => `<div class="barrow" data-why="${n} turns on ${r}, workers under the seat the roll picked." data-from="${KEYS.filter((k) => SEATS[k].rt === r).map((k) => SEATS[k].provider).filter((v, i, s) => s.indexOf(v) === i).join(' + ')}"><span>${r}</span><span class="track"><span class="fill" style="width:${n / rmax * 100}%;background:${C[KEYS.find((k) => SEATS[k].rt === r)]}"></span></span><span class="n">${n}</span></div>`).join('');
+    const bySess = {}; for (const t of cur) { const s = bySess[t.sid] ??= { t: 0, c: 0, n: 0 }; s.t += t.inT + t.outT; s.c += t.cost || 0; s.n++; }
+    const tops = Object.entries(bySess).sort((x, y) => y[1].c - x[1].c || y[1].t - x[1].t).slice(0, 5).map(([id, s]) => [sessions.find((x) => x.id === id), s]);
+    $('#topSessions tbody').innerHTML = tops.map(([s, v]) => `<tr data-why="${v.n} turns on ${SEATS[s.seat].name} — ${pct(v.c, a.cost)}% of the range's cost, ${pct(v.t, a.tokens)}% of its tokens." data-from="${s.id} · ${s.stop} stop · ${s.mode}"><td>${s.title}</td><td>${SEATS[s.seat].name.split(' · ')[1]} <span class="id">${SEATS[s.seat].id}</span></td><td class="n">${v.n}</td><td class="n">${v.c ? usd(v.c) : '—'}</td></tr>`).join('');
+    reveal();
+  }
+  function spark(el, v, col) { const max = Math.max(...v, 1); el.innerHTML = `<polyline class="draw" points="${v.map((n, i) => `${i * 100 / (v.length - 1)},${24 - n / max * 22}`).join(' ')}" stroke="${css(col)}"/>`; }
+  function count(el, to, dec, pre, suf) { const t0 = performance.now(), dur = reduced ? 0 : 900; (function tick(now) { const p = Math.min(1, (now - t0) / (dur || 1)), e = 1 - Math.pow(1 - p, 3); el.textContent = pre + (to * e).toLocaleString('en-US', { minimumFractionDigits: dec, maximumFractionDigits: dec }) + suf; if (p < 1) requestAnimationFrame(tick); })(t0); }
+  function reveal() { requestAnimationFrame(() => requestAnimationFrame(() => { for (const f of document.querySelectorAll('.barrow .fill, .meter i')) f.style.width = f.getAttribute('style').match(/width:\s*([\d.]+%)/)[1]; })); }
+
+  // ---------- stacked bars: morph between grains
+  const svg = $('#stack'); const W = 640, H = 190, L = 40, R = 8, T = 10, B = 24; let dimmed = null; const rects = new Map();
+  svg.innerHTML = '<g id="axis"></g><g id="bars"></g><g id="ticks"></g>';
+  const niceStep = (max) => { const raw = max / 4, p = Math.pow(10, Math.floor(Math.log10(raw))), m = raw / p; return (m < 1.5 ? 1 : m < 3.5 ? 2 : m < 7.5 ? 5 : 10) * p; };
+  function bucket(g) { const order = [], sums = new Map(), labels = new Map(); for (const t of turns) { const k = g.key(t.at); if (!sums.has(k)) { sums.set(k, Object.fromEntries(KEYS.map((x) => [x, 0]))); labels.set(k, g.lab(t.at)); order.push(k); } sums.get(k)[t.seatKey] += t.inT + t.outT; } const keys = order.slice(-g.n); return { keys: keys.map((k) => labels.get(k)), rows: keys.map((k) => sums.get(k)) }; }
+  function drawStack(first) {
+    const g = GRAINS[grain], { keys, rows } = bucket(g); const n = keys.length, w = (W - L - R) / n, gap = Math.max(4, w * .18);
+    const totals = rows.map((r) => KEYS.reduce((a, k) => a + r[k], 0)), max = Math.max(...totals) * 1.08, y = (v) => T + (H - T - B) * (1 - v / max);
+    const step = niceStep(max); let axis = ''; for (let gv = 0; gv <= max; gv += step) axis += `<line class="gridline" x1="${L}" x2="${W - R}" y1="${y(gv)}" y2="${y(gv)}"/><text class="axis" x="${L - 6}" y="${y(gv) + 3}" text-anchor="end">${gv ? fmtK(gv) : '0'}</text>`;
+    svg.querySelector('#axis').innerHTML = axis; svg.querySelector('#ticks').innerHTML = keys.map((k, j) => `<text class="axis" x="${L + j * w + w / 2}" y="${H - 8}" text-anchor="middle">${g.tick(k, j)}</text>`).join('');
+    const bars = svg.querySelector('#bars'), seen = new Set();
+    keys.forEach((k, j) => { let acc = 0; const x = L + j * w + gap / 2; KEYS.forEach((mk, mi) => { const v = rows[j][mk], id = `${j}:${mk}`; seen.add(id); let r = rects.get(id);
+      if (!r) { r = document.createElementNS('http://www.w3.org/2000/svg', 'rect'); r.setAttribute('rx', '2'); r.setAttribute('fill', C[mk]); r.dataset.k = mk; r.dataset.col = j; if (first && !reduced) { r.classList.add('enter'); r.style.animationDelay = (j * 35 + mi * 15) + 'ms'; } bars.appendChild(r); rects.set(id, r); r.setAttribute('x', x); r.setAttribute('width', Math.max(w - gap, 1)); r.setAttribute('y', H - B); r.setAttribute('height', 0); }
+      const h = v ? y(acc) - y(acc + v) : 0, top = v ? y(acc + v) : H - B, width = Math.max(w - gap, 1); requestAnimationFrame(() => { r.setAttribute('x', x); r.setAttribute('width', width); r.setAttribute('y', top); r.setAttribute('height', h); }); acc += v; }); });
+    for (const [id, r] of rects) if (!seen.has(id)) { r.setAttribute('height', 0); r.setAttribute('y', H - B); setTimeout(() => r.remove(), 600); rects.delete(id); }
+    svg.dataset.keys = JSON.stringify(keys); svg.dataset.rows = JSON.stringify(rows); $('#stackTitle').textContent = g.title; applyDim();
+    $('#legend').innerHTML = KEYS.filter((k) => rows.some((r) => r[k] > 0)).map((k) => `<span data-k="${k}" data-why="${SEATS[k].name}: ${SEATS[k].inK ? `priced at $${SEATS[k].inK}/M in · $${SEATS[k].outK}/M out` : 'a subscription seat — reports no price'}." data-from="${SEATS[k].provider}"><i style="background:${C[k]}"></i>${SEATS[k].name} <span class="id">${SEATS[k].id}</span></span>`).join('');
+  }
+  function applyDim() { for (const r of svg.querySelectorAll('rect')) r.classList.toggle('dim', !!dimmed && r.dataset.k !== dimmed); for (const s of document.querySelectorAll('#legend span[data-k]')) s.classList.toggle('dim', !!dimmed && s.dataset.k !== dimmed); }
+  $('#legend').addEventListener('mouseover', (e) => { const t = e.target.closest('[data-k]'); if (t) { dimmed = t.dataset.k; applyDim(); } });
+  $('#legend').addEventListener('mouseleave', () => { dimmed = null; applyDim(); });
+  svg.addEventListener('mousemove', (e) => { const r = e.target.closest('rect'); if (!r) { hideTip(); return; } const keys = JSON.parse(svg.dataset.keys), rows = JSON.parse(svg.dataset.rows), j = +r.dataset.col, total = KEYS.reduce((a, k) => a + rows[j][k], 0);
+    showTip(`<div class="t">${keys[j]} · ${fmtK(total)} tokens</div>` + KEYS.map((k) => rows[j][k] ? `<div class="r"><span><i style="background:${C[k]}"></i>${SEATS[k].name}</span><b>${fmtK(rows[j][k])} · ${pct(rows[j][k], total)}%</b></div>` : '').join('') + `<div class="from">inference.resolvedModel · Σ usage.totalTokens</div>`, e); });
+  svg.addEventListener('mouseleave', hideTip);
+
+  // ---------- cost per week, share, quarters
+  function drawLine() {
+    const s = $('#line'); const W = 310, H = 150, L = 34, R = 8, T = 10, B = 22; const q0 = new Date(today.getFullYear(), Math.floor(today.getMonth() / 3) * 3, 1);
+    const wk = []; for (const t of turns) if (t.at >= q0) { const i = Math.floor((t.at - q0) / (7 * 864e5)); (wk[i] ??= { c: 0, n: 0 }); wk[i].c += t.cost || 0; wk[i].n++; }
+    const weeks = wk.map((x) => x.c), turnsW = wk.map((x) => x.n), max = Math.max(...weeks) * 1.15, run = []; weeks.reduce((a, v, i) => run[i] = a + v, 0);
+    const x = (i) => L + i * (W - L - R) / Math.max(weeks.length - 1, 1), y = (v) => T + (H - T - B) * (1 - v / max), yr = (v) => T + (H - T - B) * (1 - v / (run[run.length - 1] * 1.05)); const w0 = week(q0);
+    let out = ''; const st = niceStep(max); for (let g = 0; g <= max; g += st) out += `<line class="gridline" x1="${L}" x2="${W - R}" y1="${y(g)}" y2="${y(g)}"/><text class="axis" x="${L - 6}" y="${y(g) + 3}" text-anchor="end">$${g}</text>`;
+    out += `<polygon class="fade" points="${L},${H - B} ${run.map((v, i) => `${x(i)},${yr(v)}`).join(' ')} ${x(weeks.length - 1)},${H - B}" fill="${C.opus}"/>`;
+    out += `<polyline class="draw" points="${weeks.map((v, i) => `${x(i)},${y(v)}`).join(' ')}" fill="none" stroke="${C.opus}" stroke-width="2" stroke-linejoin="round" stroke-linecap="round"/>`;
+    weeks.forEach((v, i) => { out += `<circle class="pt" data-i="${i}" cx="${x(i)}" cy="${y(v)}" r="3" fill="${C.opus}"/>`; if (i % 3 === 0) out += `<text class="axis" x="${x(i)}" y="${H - 6}" text-anchor="middle">W${w0 + i}</text>`; });
+    s.innerHTML = out; $('#lineSub').textContent = `${qtr(today)} · ${usd(run[run.length - 1])}`;
+    s.onmousemove = (e) => { const p = e.target.closest('.pt'); if (!p) { hideTip(); return; } const i = +p.dataset.i; showTip(`<div class="t">W${w0 + i}</div><div class="r"><span>Cost</span><b>${usd(weeks[i])}</b></div><div class="r"><span>Turns</span><b>${turnsW[i]}</b></div><div class="r"><span>$ / turn</span><b>${usd(weeks[i] / turnsW[i], 3)}</b></div><div class="r"><span>Running</span><b>${usd(run[i])}</b></div><div class="from">Σ usage.cost per week${i === weeks.length - 1 ? ' · partial week' : ''}</div>`, e); };
+    s.onmouseleave = hideTip;
+  }
+  function drawShare() {
+    const s = $('#donut'); const q0 = new Date(today.getFullYear(), Math.floor(today.getMonth() / 3) * 3, 1); const cur = turns.filter((t) => t.at >= q0), tot = stats(cur).tokens;
+    const parts = KEYS.map((k) => [k, sum(cur.filter((t) => t.seatKey === k), (t) => t.inT + t.outT)]).filter((p) => p[1] > 0).sort((a, b) => b[1] - a[1]);
+    const r = 44, c = 2 * Math.PI * r; let off = 0, out = '';
+    parts.forEach(([k, v], i) => { const p = v / tot; out += `<circle class="seg" data-i="${i}" data-p="${p}" cx="60" cy="60" r="${r}" fill="none" stroke="${C[k]}" stroke-width="14" stroke-dasharray="0 ${c}" stroke-dashoffset="${-off}" transform="rotate(-90 60 60)" style="transition-delay:${i * .1}s"/>`; off += c * p; });
+    out += `<text x="60" y="57" text-anchor="middle" fill="${css('--t1')}" font-size="15" font-weight="600" font-family="${css('--mono')}">${fmtK(tot)}</text><text x="60" y="72" text-anchor="middle" class="axis">tokens</text>`; s.innerHTML = out;
+    requestAnimationFrame(() => requestAnimationFrame(() => { for (const seg of s.querySelectorAll('.seg')) seg.setAttribute('stroke-dasharray', `${c * seg.dataset.p} ${c}`); }));
+    s.onmousemove = (e) => { const seg = e.target.closest('.seg'); if (!seg) { hideTip(); return; } const [k, v] = parts[+seg.dataset.i]; showTip(`<div class="t">${SEATS[k].name}</div><div class="r"><span>Share</span><b>${pct(v, tot)}%</b></div><div class="r"><span>Tokens</span><b>${fmtK(v)}</b></div><div class="from">Σ tokens by inference.resolvedModel · ${qtr(today)}</div>`, e); }; s.onmouseleave = hideTip;
+    $('#shareRows').innerHTML = parts.map(([k, v]) => `<div class="barrow" data-why="${pct(v, tot)}% of the quarter's tokens on ${SEATS[k].name}." data-from="${SEATS[k].id}"><span>${SEATS[k].name.split(' · ')[1]}</span><span class="track"><span class="fill" style="width:${pct(v, tot)}%;background:${C[k]}"></span></span><span class="n">${pct(v, tot)}%</span></div>`).join('');
+  }
+  function drawQuarters() {
+    const s = $('#quarters'); const W = 640, L = 60, T = 8; const by = new Map(); for (const t of turns) { const k = GRAINS.quarters.key(t.at); const q = by.get(k) ?? { name: qtr(t.at), tot: 0, seats: Object.fromEntries(KEYS.map((x) => [x, 0])), cost: 0, n: 0, sess: new Set() }; q.tot += t.inT + t.outT; q.seats[t.seatKey] += t.inT + t.outT; q.cost += t.cost || 0; q.n++; if (t.who === 'Session') q.sess.add(t.sid); by.set(k, q); }
+    const qs = [...by.values()].slice(-4); const max = Math.max(...qs.map((q) => q.tot)) * 1.15, bw = (W - L - 12) / max; let out = '';
+    qs.forEach((q, i) => { const y = T + i * 30; let x = L; out += `<text class="axis" x="${L - 8}" y="${y + 15}" text-anchor="end" fill="${css('--t2')}">${q.name}${i === qs.length - 1 ? ' →' : ''}</text>`;
+      KEYS.filter((k) => q.seats[k] > 0).sort((a, b) => q.seats[b] - q.seats[a]).forEach((k, j) => { const w = bw * q.seats[k]; out += `<rect data-q="${q.name}" data-k="${k}" data-v="${q.seats[k]}" data-p="${pct(q.seats[k], q.tot)}" data-w="${Math.max(w - 1, 0)}" x="${x}" y="${y}" width="0" height="22" rx="3" fill="${C[k]}" style="transition-delay:${i * .12 + j * .05}s"/>`; x += w; });
+      out += `<text class="axis fade" style="animation-delay:${.5 + i * .12}s" x="${x + 6}" y="${y + 15}" fill="${css('--t1')}">${fmtK(q.tot)}</text>`; });
+    s.innerHTML = out; requestAnimationFrame(() => requestAnimationFrame(() => { for (const r of s.querySelectorAll('rect')) r.setAttribute('width', r.dataset.w); }));
+    s.onmousemove = (e) => { const r = e.target.closest('rect'); if (!r) { hideTip(); return; } showTip(`<div class="t">${r.dataset.q} · ${SEATS[r.dataset.k].name}</div><div class="r"><span>Share</span><b>${r.dataset.p}%</b></div><div class="r"><span>Tokens</span><b>${fmtK(+r.dataset.v)}</b></div><div class="from">Σ tokens by inference.resolvedModel</div>`, e); }; s.onmouseleave = hideTip;
+    $('#qTable tbody').innerHTML = [...qs].reverse().map((q) => { const top = KEYS.sort((a, b) => q.seats[b] - q.seats[a])[0]; return `<tr><td>${q.name}${q === qs[qs.length - 1] ? ' <span class="id">→ 20 Sep</span>' : ''}</td><td class="n">${fmtK(q.tot)}</td><td class="n">${usd(q.cost)}</td><td class="n">${q.n.toLocaleString()}</td><td class="n">${q.sess.size}</td><td class="n">${usd(q.cost / q.n, 3)}</td><td class="n">${fmtK(q.tot / q.n)}</td><td>${SEATS[top].name} <span class="id">${pct(q.seats[top], q.tot)}%</span></td></tr>`; }).join('');
+  }
+
+  // ---------- roles
+  function drawRoles() {
+    const g = GRAINS[grain], ms = g.ms, cur = workers.filter((w) => w.at > new Date(today - ms));
+    // sankey
+    const s = $('#sankey'); const H = 270, LX = 8, RX = 632, NW = 6, PAD = 8, MINH = 24;
+    const roleKeys = Object.keys(ROLES).filter((k) => k !== 'orchestrator'); const seatKeys = KEYS.filter((k) => cur.some((w) => w.seatKey === k));
+    const flows = []; for (const rk of roleKeys) for (const sk of seatKeys) { const f = cur.filter((w) => w.role === rk && w.seatKey === sk); if (f.length) flows.push([roleKeys.indexOf(rk), seatKeys.indexOf(sk), f.length, f.filter((w) => w.fo).length]); }
+    const rc = roleKeys.map((rk) => cur.filter((w) => w.role === rk).length), sc = seatKeys.map((sk) => cur.filter((w) => w.seatKey === sk).length);
+    const layout = (counts) => { let scale = (H - PAD * (counts.length + 1)) / Math.max(counts.reduce((a, b) => a + b, 0), 1); for (let k = 0; k < 6; k++) { const hs = counts.map((c) => Math.max(c * scale, MINH)); const over = hs.reduce((a, b) => a + b, 0) + PAD * (counts.length + 1) - H; if (over <= 0) break; scale *= 1 - over / hs.reduce((a, b) => a + b, 0); } const pos = []; let y = PAD; counts.forEach((c) => { const h = Math.max(c * scale, MINH); pos.push({ y, h, ribbon: c * scale }); y += h + PAD; }); return { pos, scale }; };
+    const Lp = layout(rc), Rp = layout(sc), lOff = rc.map(() => 0), rOff = sc.map(() => 0); let out = '';
+    flows.forEach(([ri, si, n, fo], k) => { const h1 = n * Lp.scale, h2 = n * Rp.scale, y1 = Lp.pos[ri].y + (Lp.pos[ri].h - Lp.pos[ri].ribbon) / 2 + lOff[ri] + h1 / 2, y2 = Rp.pos[si].y + (Rp.pos[si].h - Rp.pos[si].ribbon) / 2 + rOff[si] + h2 / 2; lOff[ri] += h1; rOff[si] += h2; const x1 = LX + NW + 96, x2 = RX - NW - 140, c = (x1 + x2) / 2;
+      out += `<path data-r="${ri}" data-s="${si}" data-n="${n}" data-fo="${fo}" d="M${x1},${y1} C${c},${y1} ${c},${y2} ${x2},${y2}" stroke="${C[seatKeys[si]]}" stroke-width="${Math.max((h1 + h2) / 2, 2)}" style="animation-delay:${k * .06}s"/>`;
+      if (fo) out += `<path class="fail" data-r="${ri}" data-s="${si}" data-n="${n}" data-fo="${fo}" d="M${x1},${y1 + h1 / 2 - 1.5} C${c},${y1 + h1 / 2 - 1.5} ${c},${y2 + h2 / 2 - 1.5} ${x2},${y2 + h2 / 2 - 1.5}" stroke-width="1.5"/>`; });
+    roleKeys.forEach((rk, i) => out += `<g class="node" data-r="${i}"><rect x="${LX + 96}" y="${Lp.pos[i].y}" width="${NW}" height="${Lp.pos[i].h}" rx="3" fill="${css('--violet')}" opacity=".9"/><text x="${LX + 90}" y="${Lp.pos[i].y + Lp.pos[i].h / 2 + 4}" text-anchor="end">${ROLES[rk].name}</text><text class="sub" x="${LX + 90}" y="${Lp.pos[i].y + Lp.pos[i].h / 2 + 15}" text-anchor="end">${rc[i]} runs</text></g>`);
+    seatKeys.forEach((sk, j) => out += `<g class="node" data-s="${j}"><rect x="${RX - NW - 140}" y="${Rp.pos[j].y}" width="${NW}" height="${Rp.pos[j].h}" rx="3" fill="${C[sk]}"/><text x="${RX - 134}" y="${Rp.pos[j].y + Rp.pos[j].h / 2 + 4}">${SEATS[sk].name} <tspan class="sub">${sc[j]}</tspan></text><text class="sub" x="${RX - 134}" y="${Rp.pos[j].y + Rp.pos[j].h / 2 + 15}">${SEATS[sk].id}</text></g>`);
+    s.innerHTML = out;
+    const hover = (ri) => { for (const p of s.querySelectorAll('path')) { p.classList.toggle('dim', ri !== null && +p.dataset.r !== ri); p.classList.toggle('hot', ri !== null && +p.dataset.r === ri); } for (const n of s.querySelectorAll('.node[data-r]')) n.classList.toggle('dim', ri !== null && +n.dataset.r !== ri); };
+    s.onmousemove = (e) => { const p = e.target.closest('path'), n = e.target.closest('.node');
+      if (p) { const ri = +p.dataset.r, si = +p.dataset.s; hover(ri); showTip(`<div class="t">${ROLES[roleKeys[ri]].name} → ${SEATS[seatKeys[si]].name}</div><div class="r"><span>Runs</span><b>${p.dataset.n}</b></div><div class="r"><span>Fail-over / re-roll</span><b>${p.dataset.fo}</b></div><div class="why">${ROLES[roleKeys[ri]].note}</div><div class="from">DelegationUpdate.source → provider · model</div>`, e); }
+      else if (n && n.dataset.r !== undefined) { const ri = +n.dataset.r; hover(ri); showTip(`<div class="t">${ROLES[roleKeys[ri]].name}</div><div class="why">${ROLES[roleKeys[ri]].note}</div><div class="from">.agents/agents/${roleKeys[ri]}.md runtimes:</div>`, e); }
+      else if (n) { const si = +n.dataset.s; hover(null); showTip(`<div class="t">${SEATS[seatKeys[si]].name}</div><div class="r"><span>Runs</span><b>${sc[si]}</b></div><div class="from">${SEATS[seatKeys[si]].id}</div>`, e); } else { hover(null); hideTip(); } };
+    s.onmouseleave = () => { hover(null); hideTip(); };
+    // board
+    const rows = []; const sessTurns = turns.filter((t) => t.who === 'Session' && t.at > new Date(today - ms));
+    rows.push({ name: 'Orchestrator', seat: 'opus', runs: sessTurns.length ? new Set(sessTurns.map((t) => t.sid)).size : 0, done: 1 - sessTurns.filter((t) => t.outcome === 'undone').length / Math.max(sessTurns.length, 1), blocked: null, corr: sessTurns.filter((t) => t.outcome === 'undone').length, pass: null, med: median(sessions.filter((x) => x.start > new Date(today - ms)).map((x) => (x.end - x.start) / 60e3)), tok: sum(sessTurns, (t) => t.inT + t.outT) / Math.max(new Set(sessTurns.map((t) => t.sid)).size, 1), trend: weekly('orchestrator'), note: ROLES.orchestrator.note, corrLabel: 'undone' });
+    for (const rk of Object.keys(ROLES).filter((k) => k !== 'orchestrator')) { const c = cur.filter((w) => w.role === rk); if (!c.length) continue; const seatMode = Object.entries(c.reduce((a, w) => (a[w.seatKey] = (a[w.seatKey] || 0) + 1, a), {})).sort((x, y) => y[1] - x[1])[0][0];
+      const pr = c.filter((w) => w.pass !== null); rows.push({ name: ROLES[rk].name, seat: seatMode, runs: c.length, done: c.filter((w) => w.status === 'done').length / c.length, blocked: c.filter((w) => w.blocked).length, corr: c.filter((w) => w.corrected).length, pass: pr.length ? pr.filter((w) => w.pass).length / pr.length : null, med: median(c.map((w) => w.min)), tok: sum(c, (w) => w.tok) / c.length, trend: weekly(rk), note: ROLES[rk].note, corrLabel: 'corrected' }); }
+    rows.splice(4, 0, { name: 'Implementer', tier: 'low', seat: 'haiku', runs: HAND.runs, done: HAND.done / HAND.runs, blocked: HAND.blocked, corr: HAND.corrected, pass: HAND.pass, med: HAND.med, tok: HAND.tok, trend: [12, 10, 8, 10, 5, 6, 4, 0, 5, 3, 5, 0], hand: true, note: "the session's own Agent-tool subagents: 17 diffs, 17 corrected — not on any wire the app sees", corrLabel: 'corrected' });
+    const verdict = (r) => { const clean = r.runs ? (r.runs * r.done - (r.blocked || 0) - r.corr) / r.runs : 0; if (r.corr >= r.runs / 2 || clean < .5) return ['bad', 'Failing']; if (clean >= .8 && (r.pass === null || r.pass >= .8)) return ['ok', 'Effective']; return ['watch', 'Watch']; };
+    const meter = (v, col) => `<span class="meter"><i style="width:${Math.round(v * 100)}%;background:${css(col)}"></i></span>${Math.round(v * 100)}%`;
+    $('#roles tbody').innerHTML = rows.map((r) => { const [vc, vt] = verdict(r); const clean = (r.runs * r.done - (r.blocked || 0) - r.corr) / Math.max(r.runs, 1);
+      return `<tr data-why="${r.note.replace(/"/g, '&quot;')}${r.hand ? '' : ` Clean-done ${Math.round(clean * 100)}%.`}" data-from="${r.hand ? 'tasks.md §Waiting' : `${r.name.toLowerCase()}.md · DelegationUpdate`}"><td><span class="rolename">${r.name}</span>${r.tier ? ` <span class="id">${r.tier}</span>` : ''}${r.hand ? ' <span class="pill hand">hand-counted</span>' : ''}</td><td>${SEATS[r.seat].name} <span class="id">${SEATS[r.seat].provider}</span></td><td class="n">${r.runs}</td><td>${meter(r.done, r.hand ? '--grey' : r.done >= .85 ? '--success' : '--warning')}</td><td class="n">${r.blocked === null ? '—' : r.blocked}</td><td class="n"${r.corr >= r.runs / 2 ? ' style="color:var(--danger)"' : ''}>${r.corr}</td><td>${r.pass === null ? '<span class="pill na">n/a</span>' : meter(r.pass, r.pass >= .8 ? '--success' : r.pass >= .5 ? '--warning' : '--danger')}</td><td class="n">${Math.round(r.med)} m</td><td class="n">${fmtK(r.tok)}</td><td><svg class="trend" viewBox="0 0 72 20"><polyline class="draw" points="${r.trend.map((n, i) => `${2 + i * 68 / (r.trend.length - 1)},${18 - n / 100 * 16}`).join(' ')}" stroke="${css(vc === 'ok' ? '--success' : vc === 'watch' ? '--warning' : '--danger')}"/></svg></td><td><span class="pill ${vc}">${vt}</span></td></tr>`; }).join('');
+    reveal();
+    // trend lines
+    const t = $('#roleTrend'); const W = 640, HH = 180, L2 = 40, R2 = 122, T2 = 14, B2 = 22; const q0 = new Date(today.getFullYear(), Math.floor(today.getMonth() / 3) * 3, 1), w0 = week(q0);
+    const lines = [['Reviewer', '--success', weekly('reviewer')], ['Researcher', '--accent-2', weekly('researcher')], ['Orchestrator', '--info', weekly('orchestrator')], ['Implementer', '--violet', weekly('implementer')], ['Planner', '--warning', weekly('planner')], ['Implementer · low', '--danger', [12, 10, 8, 10, 5, 6, 4, 0, 5, 3, 5, 0]]];
+    const nW = lines[0][2].length, x = (i) => L2 + i * (W - L2 - R2) / (nW - 1), y = (v) => T2 + (HH - T2 - B2) * (1 - v / 100);
+    let o = ''; [0, 50, 100].forEach((g) => o += `<line class="gridline" x1="${L2}" x2="${W - R2}" y1="${y(g)}" y2="${y(g)}"/><text class="axis" x="${L2 - 6}" y="${y(g) + 3}" text-anchor="end">${g}%</text>`);
+    for (let i = 0; i < nW; i += 2) o += `<text class="axis" x="${x(i)}" y="${HH - 6}" text-anchor="middle">W${w0 + i}</text>`;
+    const mi = Math.round((CHANGE - q0) / (7 * 864e5)); o += `<line x1="${x(mi)}" x2="${x(mi)}" y1="${T2}" y2="${HH - B2}" stroke="${css('--t3')}" stroke-dasharray="3 3"/><text class="axis" x="${x(mi) + 4}" y="${T2 + 9}">routing change</text>`;
+    const lab = lines.map(([name, col, v], k) => ({ k, name, col, y: y(v[v.length - 1]) })).sort((a, b) => a.y - b.y); for (let i = 1; i < lab.length; i++) if (lab[i].y - lab[i - 1].y < 12) lab[i].y = lab[i - 1].y + 12;
+    lines.forEach(([name, col, v], k) => { o += `<polyline class="draw" data-i="${k}" style="animation-delay:${k * .1}s" points="${v.map((n, i) => `${x(i)},${y(n)}`).join(' ')}" fill="none" stroke="${css(col)}" stroke-width="2" stroke-linejoin="round"/>`; });
+    lab.forEach((l) => { o += `<text class="lbl" x="${W - R2 + 8}" y="${l.y + 4}" fill="${css(l.col)}">${l.name}</text>`; }); t.innerHTML = o;
+    t.onmousemove = (e) => { const p = e.target.closest('polyline'); for (const l of t.querySelectorAll('polyline')) l.classList.toggle('dim', !!p && l !== p); if (!p) { hideTip(); return; } const [name, , v] = lines[+p.dataset.i]; const d = v[v.length - 1] - v[0];
+      showTip(`<div class="t">${name}</div><div class="r"><span>W${w0} → W${w0 + nW - 1}</span><b>${v[0]}% → ${v[v.length - 1]}%</b></div><div class="r"><span>Change</span><b style="color:${d >= 0 ? css('--success') : css('--danger')}">${d >= 0 ? '+' : ''}${d} pts</b></div><div class="from">(done − blocked − corrected) ÷ runs per week</div>`, e); };
+    t.onmouseleave = () => { for (const l of t.querySelectorAll('polyline')) l.classList.remove('dim'); hideTip(); };
+  }
+  function weekly(rk) { const q0 = new Date(today.getFullYear(), Math.floor(today.getMonth() / 3) * 3, 1), n = Math.floor((today - q0) / (7 * 864e5)) + 1, out = [];
+    for (let i = 0; i < n; i++) { const a = new Date(q0.getTime() + i * 7 * 864e5), b = new Date(a.getTime() + 7 * 864e5);
+      if (rk === 'orchestrator') { const t = turns.filter((x) => x.who === 'Session' && x.at >= a && x.at < b); out.push(t.length ? Math.round((1 - t.filter((x) => x.outcome === 'undone').length / t.length) * 100) : 95); continue; }
+      const c = workers.filter((w) => w.role === rk && w.at >= a && w.at < b); out.push(c.length ? Math.round(c.filter((w) => w.status === 'done' && !w.blocked && !w.corrected).length / c.length * 100) : (out[out.length - 1] ?? 85)); }
+    return out; }
+
+  // ---------- now: the latest session
+  function drawNow() {
+    const s = sessions[sessions.length - 1]; const st = SEATS[s.seat]; $('#nowTitle').textContent = `${s.title} · ${s.id}`;
+    const kv = (k, v, id, why, from) => `<div class="kv" data-why="${why}" data-from="${from}"><div class="k">${k}</div><div class="v">${v}</div><span class="id">${id}</span></div>`;
+    $('#nowSettings').innerHTML = kv('Runtime', st.rt, st.provider, 'Who the session talks to. The chips row sets it; the Runtime selector is a view over this option.', 'session.provider_name · the provider config option') + kv('Model', st.name.split(' · ')[1], st.id, 'The model the session asks for. What answered each turn is in the list below.', 'model_config.model_name') + kv('Lever', s.stop[0].toUpperCase() + s.stop.slice(1), s.mode, 'The stop the session matches: a (provider, model, mode) triple.', 'stopOfSession · LEVER') + kv('Thinking effort', s.stop === 'hard' ? 'high' : 'medium', 'thinking_effort', 'Forwarded to the CLI once per session; nothing else about sampling is.', 'model_config.request_params.thinking_effort') + kv('Permission gate', 'Autonomous', 'GOOSE_MODE=auto', "Goose's own gate. Workers always run Auto regardless.", 'session.goose_mode · summon.rs') + kv('Context', `${fmtK(s.tokens / s.turns * 1.6)} / 200k`, `${pct(s.tokens / s.turns * 1.6, 200e3)}% of context_limit`, 'The window the next turn will carry. The ring on the composer reads the same number.', 'usage_update.used · contextLimit') + kv('Turns', s.turns, `${turns.filter((t) => t.sid === s.id && t.worker).length} by workers`, 'Replies in this session, workers included.', 'messages carrying usage') + kv('Cost', s.cost ? usd(s.cost) : '—', s.cost ? 'est.' : 'seat reports none', 'Priced turns only; the subscription seats report nothing.', 'Σ usage.cost');
+    const ts = turns.filter((t) => t.sid === s.id).reverse(); $('#nowCount').textContent = `${ts.length} · newest first`;
+    const dot = (o) => o === 'landed' ? 'done' : o === 'corrected' || o === 'undone' ? 'warn' : o === 'blocked' ? 'warn' : 'fail';
+    $('#nowTurns tbody').innerHTML = ts.map((t, i) => { const se = SEATS[t.seatKey]; const o = i === 0 ? 'running' : t.outcome; return `<tr class="${t.worker ? 'child' : ''}" data-why="${t.worker ? `${t.who} on ${se.name}: ${o === 'corrected' ? 'returned Done, then the session edited its files' : o === 'blocked' ? 'returned BLOCKED — the plan\'s assumption failed' : o === 'failed' ? 'the delegate call errored' : 'returned and landed'}.` : o === 'undone' ? 'The user undid this turn; its files went back to T0.' : o === 'running' ? 'Still writing; usage lands when the turn ends.' : 'Landed.'}" data-from="${t.worker ? 'DelegationUpdate · the return text · later writes' : 'message.metadata.inference · usage'}"><td class="n">${t.at.toTimeString().slice(0, 8)}</td><td>${t.worker ? `<span class="rolename">${t.who}</span>` : t.who}</td><td>${se.name}<br><span class="id">${se.id}${!t.worker && se.rt === 'Claude' ? ' → ' + se.id + '-20260814' : ''}</span></td><td class="n">${o === 'running' ? '—' : fmtK(t.inT)}</td><td class="n">${o === 'running' ? '—' : fmtK(t.outT)}</td><td class="n">${o === 'running' ? '…' : `${(t.ms / 1e3).toFixed(1)}s <span class="id">· ${(t.ttft / 1e3).toFixed(1)}s</span>`}</td><td class="n">${t.cost == null || o === 'running' ? '—' : usd(t.cost, 3)}</td><td><span class="dot ${o === 'running' ? 'run' : dot(o)}"></span>${o}</td></tr>`; }).join('');
+  }
+
+  // ---------- wiring
+  function show(v) { for (const b of $('#scope').children) b.setAttribute('aria-pressed', b.dataset.v === v); $('#v-now').hidden = v !== 'now'; $('#v-time').hidden = v !== 'time'; $('#v-roles').hidden = v !== 'roles'; $('#range').style.visibility = v === 'now' ? 'hidden' : 'visible'; if (v === 'roles') drawRoles(); if (v === 'now') drawNow(); }
+  $('#scope').addEventListener('click', (e) => { const b = e.target.closest('button'); if (b) show(b.dataset.v); });
+  $('#range').addEventListener('click', (e) => { const b = e.target.closest('button'); if (!b) return; for (const x of $('#range').children) x.setAttribute('aria-pressed', x === b); grain = b.dataset.g; trends(); headline(); drawStack(false); if (!$('#v-roles').hidden) drawRoles(); });
+  trends(); headline(); drawStack(true); drawLine(); drawShare(); drawQuarters(); drawNow();
+  try { const v = localStorage.getItem('ledger.scope'); if (v) show(v); } catch {}
+  $('#scope').addEventListener('click', (e) => { const b = e.target.closest('button'); if (b) { try { localStorage.setItem('ledger.scope', b.dataset.v); } catch {} } });
+})();
+</script>

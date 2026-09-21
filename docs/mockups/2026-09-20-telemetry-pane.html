@@ -1,0 +1,212 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>Telemetry pane — mockup</title>
+<style>
+  /* DESIGN.md Charcoal Monokai: ground #1c1c1c · secondary #242424 · raised #2c2c2c;
+     text #f8f8f2 / #c8c8c2 / #7a7a72; info #66d9ef · success #a6e22e · warning #e6db74 · danger #f92672;
+     radius panel 16 / control 12 / chip 999; surfaces float on --shadow-sm, lift to --shadow-md. */
+  :root {
+    --ground: #1c1c1c; --secondary: #242424; --raised: #2c2c2c; --hair: rgba(255,255,255,.06);
+    --t1: #f8f8f2; --t2: #c8c8c2; --t3: #7a7a72;
+    --info: #66d9ef; --success: #a6e22e; --warning: #e6db74; --danger: #f92672; --accent: #ae81ff;
+    --shadow-sm: 0 1px 2px 0 rgba(0,0,0,.5); --shadow-md: 0 4px 12px rgba(0,0,0,.55);
+    --rp: 16px; --rc: 12px; --rchip: 999px;
+    --mono: ui-monospace, "SF Mono", Menlo, monospace;
+  }
+  * { box-sizing: border-box; }
+  body { margin: 0; background: #121212; color: var(--t1); font: 13px/1.45 -apple-system, "Inter", system-ui, sans-serif; padding: 24px 16px; }
+  .desk { max-width: 1100px; margin: 0 auto; display: grid; grid-template-columns: 1fr 520px; gap: 18px; align-items: start; }
+  @media (max-width: 900px) { .desk { grid-template-columns: 1fr; } }
+  h1 { font-size: 15px; font-weight: 600; margin: 0 0 4px; }
+  .note { color: var(--t3); font-size: 12px; margin: 0 0 14px; }
+  .note b { color: var(--t2); font-weight: 500; }
+
+  /* Work column */
+  .column { background: rgba(28,28,28,.92); border: 1px solid var(--hair); border-radius: var(--rp); box-shadow: var(--shadow-sm); overflow: hidden; }
+  .bar { display: flex; align-items: center; gap: 4px; padding: 8px 8px 0; border-bottom: 1px solid var(--hair); }
+  .tab { display: inline-flex; align-items: center; gap: 6px; padding: 7px 12px; border-radius: var(--rc) var(--rc) 0 0; color: var(--t3); font-size: 12.5px; }
+  .tab svg { width: 14px; height: 14px; stroke: currentColor; fill: none; stroke-width: 1.8; }
+  .tab[aria-pressed="true"] { background: var(--secondary); color: var(--t1); box-shadow: var(--shadow-sm); }
+  .tab .x { margin-left: 2px; color: var(--t3); font-size: 12px; }
+  .bar .plus, .bar .more { margin-left: auto; color: var(--t3); padding: 6px 10px; border-radius: var(--rc); box-shadow: var(--shadow-sm); background: var(--secondary); }
+  .bar .plus { margin-left: 4px; }
+
+  .pane { background: var(--secondary); padding: 14px 14px 16px; display: grid; gap: 12px; }
+  .card { background: var(--raised); border-radius: var(--rp); box-shadow: var(--shadow-sm); padding: 12px 14px; }
+  .card:hover { box-shadow: var(--shadow-md); }
+  .card h2 { margin: 0 0 8px; font-size: 11px; letter-spacing: .06em; text-transform: uppercase; color: var(--t3); font-weight: 600; }
+
+  /* Settings header */
+  .settings { display: grid; grid-template-columns: repeat(3, 1fr); gap: 10px 14px; }
+  .kv .k { color: var(--t3); font-size: 11px; }
+  .kv .v { font-size: 13.5px; font-weight: 500; }
+  .kv .id { font-family: var(--mono); color: var(--t3); font-size: 11px; }
+  .honest { grid-column: 1 / -1; display: flex; gap: 8px; align-items: center; color: var(--t2); font-size: 12px; padding-top: 6px; border-top: 1px solid var(--hair); }
+  .honest i { width: 8px; height: 8px; border-radius: 50%; background: var(--warning); flex: none; }
+
+  /* Roll-up */
+  .rollup { display: grid; grid-template-columns: 1.3fr repeat(4, .7fr); gap: 6px 10px; align-items: baseline; }
+  .rollup .h { color: var(--t3); font-size: 11px; }
+  .rollup .num { font-family: var(--mono); font-size: 12.5px; text-align: right; }
+  .rollup .h.num { text-align: right; }
+  .rollup .m { font-weight: 500; }
+  .rollup .m .id { display: block; font-family: var(--mono); color: var(--t3); font-size: 11px; font-weight: 400; }
+  .rollup .total { border-top: 1px solid var(--hair); padding-top: 6px; color: var(--t2); }
+
+  /* Call log */
+  table { width: 100%; border-collapse: collapse; font-size: 12.5px; }
+  th { text-align: left; color: var(--t3); font-weight: 500; font-size: 11px; padding: 0 6px 8px 0; white-space: nowrap; }
+  td { padding: 7px 6px 7px 0; border-top: 1px solid var(--hair); vertical-align: top; }
+  th.n, td.n { text-align: right; font-family: var(--mono); font-variant-numeric: tabular-nums; }
+  td.who { white-space: nowrap; }
+  .rt { font-weight: 500; }
+  .id { font-family: var(--mono); color: var(--t3); font-size: 11px; }
+  .arrow { color: var(--t3); }
+  .dot { display: inline-block; width: 7px; height: 7px; border-radius: 50%; margin-right: 6px; vertical-align: middle; }
+  .dot.run { background: var(--info); box-shadow: 0 0 0 3px rgba(102,217,239,.18); }
+  .dot.done { background: var(--success); }
+  .dot.fail { background: var(--danger); }
+  tr.compact td { color: var(--t3); }
+  tr.compact .rt { color: var(--t3); font-weight: 400; }
+  tr.child td.who { padding-left: 14px; }
+  .role { color: var(--accent); }
+  .ttft { color: var(--t3); }
+  .raw { color: var(--info); text-decoration: none; font-size: 11.5px; }
+  .foot { display: flex; justify-content: space-between; align-items: center; color: var(--t3); font-size: 11.5px; padding-top: 8px; }
+  .btn { display: inline-block; padding: 5px 11px; border-radius: var(--rc); background: var(--raised); box-shadow: var(--shadow-sm); color: var(--t2); font-size: 12px; }
+
+  /* right rail: states + notes */
+  .side { display: grid; gap: 14px; }
+  .mini { background: var(--secondary); border-radius: var(--rp); box-shadow: var(--shadow-sm); padding: 12px 14px; }
+  .mini h3 { margin: 0 0 6px; font-size: 12px; color: var(--t2); font-weight: 600; }
+  .mini p { margin: 0; color: var(--t3); font-size: 12px; }
+  .state { display: flex; gap: 10px; align-items: center; padding: 8px 0; border-top: 1px solid var(--hair); font-size: 12.5px; }
+  .state:first-of-type { border-top: 0; }
+  .state .lbl { width: 76px; color: var(--t3); font-size: 11px; text-transform: uppercase; letter-spacing: .05em; flex: none; }
+  .state .bar-warn { color: var(--warning); }
+  ul.spec { margin: 0; padding-left: 16px; color: var(--t2); font-size: 12px; }
+  ul.spec li { margin: 3px 0; }
+  ul.spec code { font-family: var(--mono); font-size: 11px; color: var(--t3); }
+</style>
+</head>
+<body>
+<div class="desk">
+  <section>
+    <h1>Telemetry pane — Work column, Full</h1>
+    <p class="note">One tab on the panel's bar like any pane (task 118). Three cards: <b>Settings</b> (per session), <b>By model</b> (roll-up), <b>Turns</b> (one row per reply — the model that answered it; children nested). Runtime in its written name; ids in mono as machine text.</p>
+
+    <div class="column" role="region" aria-label="Work">
+      <div class="bar">
+        <span class="tab"><svg viewBox="0 0 24 24"><path d="M4 17l6-5-6-5M12 19h8"/></svg>Terminal</span>
+        <span class="tab"><svg viewBox="0 0 24 24"><path d="M5 3v18M19 3v18M5 12h14"/></svg>Changes <span class="id">3 · +41 −9</span></span>
+        <span class="tab"><svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="9"/><path d="M3 12h18M12 3a14 14 0 010 18"/></svg>Browser</span>
+        <span class="tab" aria-pressed="true"><svg viewBox="0 0 24 24"><path d="M3 12h4l3-8 4 16 3-8h4"/></svg>Telemetry <span class="x">×</span></span>
+        <span class="plus">+</span>
+        <span class="more">⋯</span>
+      </div>
+
+      <div class="pane">
+        <div class="card">
+          <h2>Settings — this session</h2>
+          <div class="settings">
+            <div class="kv"><div class="k">Runtime</div><div class="v">Claude</div><div class="id">claude-acp</div></div>
+            <div class="kv"><div class="k">Model</div><div class="v">Opus</div><div class="id">claude-opus-5</div></div>
+            <div class="kv"><div class="k">Lever</div><div class="v">Medium</div><div class="id">Direct</div></div>
+            <div class="kv"><div class="k">Thinking effort</div><div class="v">high</div><div class="id">thinking_effort</div></div>
+            <div class="kv"><div class="k">Permission gate</div><div class="v">Autonomous</div><div class="id">GOOSE_MODE=auto</div></div>
+            <div class="kv"><div class="k">Context</div><div class="v">64.2k / 200k</div><div class="id">32% of context_limit</div></div>
+            <div class="honest"><i></i>Settings are set once per session. What's recorded per turn is the model that answered it. A turn on Claude · Codex · Cursor · agy is one prompt to that CLI, which makes calls of its own that never show here.</div>
+          </div>
+        </div>
+
+        <div class="card">
+          <h2>By model</h2>
+          <div class="rollup">
+            <div class="h">Model</div><div class="h num">Turns</div><div class="h num">In</div><div class="h num">Out</div><div class="h num">Cost</div>
+            <div class="m">Claude · Opus<span class="id">claude-opus-5 → claude-opus-5-20260814</span></div><div class="num">11</div><div class="num">418k</div><div class="num">12.4k</div><div class="num">$0.94</div>
+            <div class="m">Codex · Astra<span class="id">gpt-6-astra</span></div><div class="num">2</div><div class="num">61k</div><div class="num">3.1k</div><div class="num">—</div>
+                        <div class="m total">Session</div><div class="num total">13</div><div class="num total">479k</div><div class="num total">15.5k</div><div class="num total">$0.94 <span class="id">est.</span></div>
+          </div>
+        </div>
+
+        <div class="card">
+          <h2>Turns</h2>
+          <table>
+            <thead><tr>
+              <th>When</th><th>Who</th><th>Runtime · model</th><th class="n">In</th><th class="n">Out</th><th class="n">Cache</th><th class="n">Time</th><th class="n">Cost</th>
+            </tr></thead>
+            <tbody>
+              <tr>
+                <td>14:02:11</td><td class="who"><span class="dot run"></span>Session</td>
+                <td><span class="rt">Claude · Opus</span><br><span class="id">claude-opus-5 → claude-opus-5-20260814</span></td>
+                <td class="n">41.2k</td><td class="n">1.8k</td><td class="n">—</td><td class="n">18.4s <span class="ttft">· 0.9s</span></td><td class="n">$0.11</td>
+              </tr>
+              <tr class="child">
+                <td>14:01:40</td><td class="who"><span class="dot run"></span><span class="role">Researcher</span></td>
+                <td><span class="rt">Codex · Astra</span><br><span class="id">gpt-6-astra</span></td>
+                <td class="n">—</td><td class="n">—</td><td class="n">—</td><td class="n">running</td><td class="n">—</td>
+              </tr>
+              <tr>
+                <td>13:57:20</td><td class="who"><span class="dot done"></span>Session</td>
+                <td><span class="rt">Claude · Opus</span><br><span class="id">claude-opus-5 → claude-opus-5-20260814</span></td>
+                <td class="n">39.9k</td><td class="n">2.3k</td><td class="n">—</td><td class="n">24.0s <span class="ttft">· 1.2s</span></td><td class="n">$0.12</td>
+              </tr>
+              <tr class="child">
+                <td>13:52:08</td><td class="who"><span class="dot fail"></span><span class="role">Implementer</span></td>
+                <td><span class="rt">Cursor · Grok</span><br><span class="id">cursor-acp · grok-code-fast-2</span></td>
+                <td class="n">—</td><td class="n">—</td><td class="n">—</td><td class="n">failed</td><td class="n">—</td>
+              </tr>
+              <tr>
+                <td>13:51:30</td><td class="who"><span class="dot done"></span>Session</td>
+                <td><span class="rt">Claude · Opus</span><br><span class="id">claude-opus-5 → claude-opus-5-20260814</span></td>
+                <td class="n">37.1k</td><td class="n">0.9k</td><td class="n">—</td><td class="n">9.8s <span class="ttft">· 0.8s</span></td><td class="n">$0.08</td>
+              </tr>
+            </tbody>
+          </table>
+          <div class="foot">
+            <span>13 turns · newest first · Cache and Cost read "—" until the seat reports them</span>
+            <span class="btn">Copy as JSON</span>
+          </div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <aside class="side">
+    <div class="mini">
+      <h3>States (DESIGN.md §Shared component states)</h3>
+      <div class="state"><span class="lbl">Empty</span><span>No turns yet — send a message and the model that answers shows here.</span></div>
+      <div class="state"><span class="lbl">Loading</span><span>Cards in place; the Turns rows a skeleton while the transcript loads.</span></div>
+      <div class="state"><span class="lbl">Partial</span><span class="bar-warn">Cost not reported by Codex — showing tokens only.</span></div>
+      <div class="state"><span class="lbl">Running</span><span>The newest row keeps its <span class="dot run"></span> until the turn's usage lands; tokens read "—".</span></div>
+      <div class="state"><span class="lbl">Error</span><span>A failed child keeps its row: <span class="dot fail"></span> and the adapter's one line, "Open in Agents".</span></div>
+    </div>
+
+    <div class="mini">
+      <h3>What each row reads from</h3>
+      <ul class="spec">
+        <li>One row per assistant message carrying <code>metadata.usage</code> — usage lands once per turn on the last assistant message (<code>agent.rs:345</code>); the other messages of the turn share its <code>inference</code></li>
+        <li>Runtime · model — <code>message.metadata.inference</code> (<code>provider</code>, <code>requestedModel → resolvedModel</code>); the arrow only when they differ</li>
+        <li>In · Out · Cache · Time · Cost — <code>message.metadata.usage</code>; Cache = cacheRead ÷ input, "—" when the seat reports none (unverified for claude-acp); Time = <code>elapsedMs · timeToFirstTokenMs</code></li>
+        <li>Compaction — <code>usage.isCompaction</code> exists on the wire but nothing in the tree sets it; no row until it does</li>
+        <li>Child rows — one per <code>DelegationUpdate</code>: role (<code>source</code>) → runtime · model · status; tokens "—" until A2 fetches the child session</li>
+        <li>Settings — <code>session.provider_name</code>, <code>model_config</code>, the lever's stop, the ACP config options (<code>thinking_effort</code>), <code>goose_mode</code>. Ids and the permission gate show here in mono because Telemetry is a Diagnostics-tier surface — the DESIGN.md row says so</li>
+        <li>By model — group Turns by <code>resolvedModel ?? requestedModel</code>; Session line = <code>tokenState.accumulated*</code></li>
+      </ul>
+    </div>
+
+    <div class="mini">
+      <h3>Open in the mockup</h3>
+      <ul class="spec">
+        <li>"Copy as JSON" vs. "Show raw request" — the raw dialog only has data for API-key seats; hide the link for Claude · Codex · Cursor · agy?</li>
+        <li>Newest first (log) or oldest first (transcript order)?</li>
+        <li>Phone width: cards stack; the Calls table folds to two lines per row (who + model / numbers).</li>
+      </ul>
+    </div>
+  </aside>
+</div>
+</body>
+</html>

@@ -148,10 +148,113 @@ Option B: one pane visible by default, every open pane a tab, the pressed tab th
 
 Each panel owns its tab bar; the bar holds only open panes; + adds one; drag a tab onto a half makes the second panel with an identical bar; a panel whose last tab closes goes. The permanent launchers (task 71) are retired. Order: 117 → 118 → 119 → 120, all on main.
 
+### docs/2026-09-20-work-ledger-plan-v1.md — the Telemetry pane over a work ledger (approved 2026-09-20, user: "ok draft a plan" → "build the tasks")
+
+A + A4 from the research (`docs/2026-09-20-telemetry-pane-research-v1.md`), the PRD `docs/2026-09-20-work-ledger-prd-v1.md`, the prototype `docs/mockups/2026-09-20-work-ledger.html`. Order: 125 ∥ 126 → 127 ∥ 128 → 129 ∥ 130 ∥ 131 → 132 → 133, all on main. Only the user can verify: the hand-counted rows against their own count, the routing-change date, whether the Claude seat reports `cacheReadTokens`.
+
+- 125. Add `accumulated_input_tokens`, `accumulated_output_tokens` and `accumulated_cost` to `SessionMeta` in `crates/goose/src/acp/response_builder.rs` and read them in `sessionInfoToSession` in `ui/desktop/src/acp/sessions.ts`.
+  - status: doing · agent: session [Opus, direct] · worker: medium
+  - card: as the user opening Over time, see a fortnight's tokens and cost without the app loading every transcript, so that the headline is one paged list call
+  - context:
+    - `SessionMeta` at `response_builder.rs:28-47` serializes camelCase; `Session` holds `accumulated_usage: Usage` (`input_tokens`, `output_tokens`) and `accumulated_cost: Option<f64>` (`session_manager.rs:78`); `#[serde(skip_serializing_if = "Option::is_none")]` on the cost like `last_message_at`
+    - `sessions.ts:90-113` reads `meta.createdAt`, `meta.providerId` etc. into `Session`; the new fields land in `accumulated_usage: {input_tokens, output_tokens}` and `accumulated_cost` (`types/session.ts:36-37`), absent → undefined
+    - `_meta` is untyped on the wire (`types.gen.ts:1868`) — no client regen
+  - confirm: `grep -c "accumulated_cost" crates/goose/src/acp/response_builder.rs` → `≥ 2` (untouched: `0`); `grep -c "accumulatedCost" ui/desktop/src/acp/sessions.ts` → `≥ 1` (untouched: `0`); `cargo build -p goose` → exit 0; `cd ui/desktop && pnpm run typecheck` → exit 0
+
+- 126. Add `ui/sidecar/src/ledger.ts` (+ `ledger.test.ts`) with `POST /ledger/append {cwd, event}` and `POST /ledger/read {cwd, since?}` over one JSONL per project, registered in `ui/sidecar/src/index.ts`.
+  - status: doing · agent: session [Opus, direct] · worker: medium
+  - card: as the app, keep one append-only record per project of what the agents did and what became of it, so that every telemetry chart folds the same facts and nothing is derived twice
+  - context:
+    - containment: `cwd` resolved like `/git/*` (`ARCHITECTURE.md` §ui/sidecar — realpath inside the spawn cwd's toplevel or a `.worktrees/` sibling, else 400); the file lives at `Paths`-equivalent `<state>/ledger/<slug>.jsonl` where slug is the toplevel's basename + a short hash, never inside the repo
+    - routes join `{ ...fsRoutes(cwd), ...gitRoutes(cwd), ...runtimesRoutes() }` at `index.ts:79`; the per-launch key gate at `http.ts:150-158` covers them without a change
+    - event shape: `{at: ISO, kind: 'turn'|'worker'|'correction'|'confirm'|'review'|'undo'|'handoff', sessionId, ...}`; `read` returns events with `at > since`, newest last; `append` validates `kind` and `at`, answers 400 otherwise
+    - test: append two events, read all, read since the first's `at` → one; a cwd outside the toplevel → 400
+  - confirm: `cd ui/sidecar && pnpm vitest run ledger` → passes (untouched: no such test file, vitest reports no tests found); `cd ui/sidecar && pnpm run typecheck` → exit 0
+
+- 127. Add `ui/desktop/src/native/ledger.ts` (the sidecar client) and `ui/desktop/src/workspace/panes/telemetry/ledger-events.ts` (+ test) — the pure event builders and one subscriber in `WorkspaceShell.tsx` that appends `turn`, `worker`, `correction`, `review` and `undo` events as they happen.
+  - status: todo · agent: — · worker: high
+  - card: as the user, have every reply, every worker's return and every time the session rewrote a worker's file recorded at the moment it happened, so that Roles and Over time read facts, not reconstructions
+  - context:
+    - `turn`: from an assistant message carrying `metadata.usage` (`types/message.ts:177`, one per turn — `agent.rs:345`) with its `metadata.inference` (`:170`) → `{provider, requestedModel, resolvedModel, inputTokens, outputTokens, cacheReadTokens, cost, costSource, elapsedMs, timeToFirstTokenMs, who: 'session'}`; the snapshot comes from `useAcpChatSessionSnapshot` (`chatSessionStore.ts:18-22`)
+    - `worker`: from `subscribeDelegationUpdates` (`delegations.ts:80`) on `done`/`failed` → `{source, provider, model, status, error, blocked, filesChanged, parentToolCallId}`; `blocked` = the child's return text (the `delegate` tool response in the parent transcript, `getToolResponses` `message.ts:384`, matched by `parentToolCallId`) starts with `BLOCKED` (`implementer.md:24`); `filesChanged` = the paths under the return's `## Files Changed` (`implementer.md:36`)
+    - `correction`: a session `write`/`edit` tool request whose path ∈ any prior `worker` event's `filesChanged` in the same session → `{workerSessionId, path}`; a `shell` call is out (unknowable) — say so in the test
+    - `review`: a message in a review session with a verdict (`verdictOf`, `review-parse.ts:56`) → `{verdict, branch, base}`; `undo`: task 88's Undo applied → `{turnId}` (hook beside `turn-undo.ts`'s apply)
+    - the subscriber is one `useEffect` in the shell keyed by session id; writes are fire-and-forget, a failed append logs once and drops (never blocks the chat)
+    - `src/native` never speaks ACP and `src/workspace` never imports the SDK (`ARCHITECTURE.md` §Invariants): the builders take plain `Message` / `Delegation` values, the shell wires them
+    - test: one turn with three assistant messages → one `turn` event; a worker return text "BLOCKED: …" → `blocked: true`; `## Files Changed` with two paths then an `edit` on one → one `correction`; an edit on a path no worker touched → none
+  - confirm: `cd ui/desktop && pnpm vitest run ledger-events` → passes (untouched: no such test); `cd ui/desktop && pnpm run depcruise` → exit 0 (the boundary contracts, `package.json:36`)
+
+- 128. Add the `telemetry` pane: `PaneId` + `PANE_IDS` in `ui/desktop/src/workspace/pane-store.ts`, `PANE_TITLES` + `PANE_ICONS` (`Activity`) in `WorkspaceShell.tsx`, `workspaceShell.paneTelemetry` in the 17 `ui/desktop/src/i18n/messages/*.json`, and `ui/desktop/src/workspace/panes/telemetry/TelemetryPane.tsx` with the scope seg (**Now · Over time · Roles**), the range seg (**Days · Weeks · Months · Quarters**), the range chip and one `Why.tsx` tooltip wrapper.
+  - status: todo · agent: — · worker: medium
+  - card: as the user, open Telemetry from the panel's + like any pane and switch between now, over time and roles without leaving it, so that the three questions live on one tab
+  - context:
+    - `PaneId` union `pane-store.ts:4-14`, `PANE_IDS` `:16-26`; `PANE_TITLES` `WorkspaceShell.tsx:175-186`, `PANE_ICONS` `:189-200` (lucide, `Activity`); the palette lists panes from `PANE_IDS` (`palette-state.ts:47`) — no edit
+    - i18n: `workspaceShell.paneTelemetry` beside `paneReview` (`en.json:5993`), `defaultMessage: "Telemetry"`, the 16 other locales carry the English string until translated (the repo's pattern for new keys — check `paneReview` in `de.json:5993`); `pnpm run i18n:check` is the gate
+    - the seg buttons are `aria-pressed` toggles (`DESIGN.md` Floating Button Rule: `--shadow-sm` at rest); the last scope is kept per project in `project-storage.ts`; the range seg hides on Now
+    - `Why.tsx`: wraps children, sets `data-why` / `data-from`, one fixed tooltip element at the shell root reading them on hover and focus (keyboard: focusable, Esc hides), the tooltip's first line the wrapped number's text
+    - test ids: `telemetry-scope-<now|time|roles>`, `telemetry-range-<days|weeks|months|quarters>`, `telemetry-range-label`, `telemetry-why` (the tooltip)
+  - confirm: `grep -c "'telemetry'" ui/desktop/src/workspace/pane-store.ts` → `2` (untouched: `0`); `cd ui/desktop && pnpm run i18n:check` → exit 0; `cd ui/desktop && pnpm run typecheck` → exit 0
+
+- 129. Add `telemetry-now.ts` (+ test) and `TelemetryNow.tsx` under `panes/telemetry/`: the Session card and the Turns list for the open session.
+  - status: todo · agent: — · worker: medium
+  - card: as the user mid-session, see what this chat runs on and which model answered each reply, so that "which model with what settings" is answered on the tab
+  - context:
+    - settings: `session.provider_name`, `model_config.model_name`, `model_config.request_params.thinking_effort`, `goose_mode` (`types/session.ts:8-58`), `stopOfSession` (`session-controls.ts:192`), `useSessionConfigOptions` (`sessionConfig.ts:34`), context from `tokenState` (`types/chat.ts:4`); Runtime in its written name (`runtimeLabel`, `session-controls.ts:22`), ids in mono beneath — the DESIGN.md row (task 133) names this the Diagnostics-tier exception
+    - rows: assistant messages carrying `metadata.usage`, newest first; a delegation (`useSessionDelegations`) nests under the turn whose `parentToolCallId` it carries; outcome from the ledger's `correction` / `undo` / `worker.blocked` / `worker.status` for that turn, else `landed`; the newest row while streaming keeps the `info` dot and "—"
+    - Cache = `cacheReadTokens ÷ inputTokens`, "—" when absent; Cost `—` when null, `est.` suffix when `costSource = estimated`
+    - states per the PRD §States (Now)
+    - test ids: `telemetry-now-settings`, `telemetry-now-row` (`[data-outcome]`, `[data-worker]`)
+  - confirm: `cd ui/desktop && pnpm vitest run telemetry-now` → passes (untouched: no such test)
+
+- 130. Add `telemetry-buckets.ts` (+ test) and `TelemetryTime.tsx`: the Over time view — headline (Tokens · Cost · Turns with deltas and sparklines), tokens by model (stacked, morphing between grains), cost per week, share of tokens, quarters, by runtime, top sessions.
+  - status: todo · agent: — · worker: high
+  - card: as the user, see the year's shape and last week's cost by model on one scroll, so that a routing change shows as a colour change in the stack
+  - context:
+    - input: ledger `turn` events (127) for the range and the one before it, plus `acpListSessions` (task 125's totals for the session count and the headline cross-check); grain keys are unique across years — `YYYY-MM-DD`, `YYYY-Www`, `YYYY-MM`, `YYYY-Qn` — with display labels separate (the mockup's collision, PRD criterion 4)
+    - delta = this range vs the same length before it (PRD criterion 5); unpriced turns counted, never $0 (criterion 6); by runtime groups workers under the seat that ran them
+    - charts: inline SVG per the prototype (`docs/mockups/2026-09-20-work-ledger.html` — `drawStack`, `drawLine`, `drawShare`, `drawQuarters`); `rect` positions transition, `prefers-reduced-motion` respected; every mark hoverable through `Why`
+    - colour per seat from `theme-tokens.ts` roles only (`DESIGN.md` §Tokens: runtime identity has no colour role — the legend names the seat in words; the hue is the chart's, not the runtime's)
+    - test: bucket 400 synthetic days into each grain → the last 14 day keys are distinct and ordered; a range with zero events → the empty state value; delta against an empty prior → `null`, never Infinity
+    - test ids: `telemetry-time-headline-<tokens|cost|turns>`, `telemetry-stack`, `telemetry-quarters`
+  - confirm: `cd ui/desktop && pnpm vitest run telemetry-buckets` → passes (untouched: no such test)
+
+- 131. Add `telemetry-roles.ts` (+ test) and `TelemetryRoles.tsx`: routing ribbons (role → seat), the Roles board, clean-done by role per week, with `tasks.md` rows marked hand-counted.
+  - status: todo · agent: — · worker: high
+  - card: as the user paying for three seats, read which seat each role ran on and whether its output survived the session, so that the next `runtimes:` edit is made from numbers
+  - context:
+    - input: ledger `worker`, `correction`, `review` events; `acpSessionChildren` (`sessions.ts:198`) for median time (`createdAt → lastMessageAt`); tokens per run from the child's session totals once task 125 lands, else "—"
+    - board columns and verdict thresholds per PRD journey step 4; Done = status done ÷ runs; Blocked = `worker.blocked`; Corrected = `correction` events per worker; Review PASS = `review` verdicts on the branch the role's worker last touched ÷ reviews, `n/a` when none; Trend = weekly clean-done `(done − blocked − corrected) ÷ runs`
+    - hand-counted rows: `POST /fs/read` of `tasks.md` (the sidecar, contained) → entries with `status: done` and an `agent:` line naming a worker tier (`worker: low|medium|high`), counted as runs; their Corrected from the same file's `§Waiting` "Worker routing evidence" line is not parsed — the row shows runs and the **hand-counted** pill, Corrected "—", until a `correction` event exists for it
+    - ribbons: the prototype's `drawRoles` layout (min node height so labels never collide; a dashed `danger` thread when `worker.fo` — re-roll or fail-over — is set; hover dims the others)
+    - the routing-change marker on the trend: the newest dated row under `AGENTS.md` §Model routing is not readable from the app — the marker's date comes from a `workspace.routingChangedAt` project setting the user sets from the card (a date input), absent → no marker
+    - test: two workers done, one BLOCKED, one corrected → Done 2/2, Blocked 1, Corrected 1, clean-done 0%; thresholds: (clean .85, pass .9) → Effective, (clean .7) → Watch, (corrected ≥ runs/2) → Failing; a `tasks.md` fixture with three done tasks tagged `worker: low` → one hand row, runs 3
+    - test ids: `telemetry-roles-row` (`[data-role][data-verdict][data-hand]`), `telemetry-routing`, `telemetry-role-trend`
+  - confirm: `cd ui/desktop && pnpm vitest run telemetry-roles` → passes (untouched: no such test)
+
+- 132. Add `telemetry-trends.ts` (+ test) and the Trends card at the top of every scope: the three largest movements, written from templates.
+  - status: todo · agent: — · worker: medium
+  - card: as the user opening the pane, read in three lines what moved and why it matters before any chart, so that the numbers below have a headline
+  - context:
+    - candidates, each with a weight and a template: tokens per turn (Δ ratio), the top seat's share of tokens (Δ points), cost per priced turn (Δ ratio), clean-done per role (Δ points, roles with ≥ 4 runs in both ranges), the hand-counted Implementer (fixed weight while any hand row exists); the top three by weight render as bullets, each `Why`-wrapped with its from line; no model call (the PRD's rule)
+    - copy in the prototype's `trends()`; every number in mono (`.n`); the prose is the only sentence-bearing card on the pane (PRD criterion 7)
+    - test: given ranges where only the seat share moved → that bullet first; fewer than two ranges of data → the empty state string; the hand-counted bullet present iff `hand` rows exist
+  - confirm: `cd ui/desktop && pnpm vitest run telemetry-trends` → passes (untouched: no such test)
+
+- 133. Add `ui/desktop/tests/e2e/telemetry-pane.spec.ts` (the walk), the `DESIGN.md` §Vocabulary rows (**Telemetry**, **ledger**, **hand-counted**, **clean-done**, the Diagnostics-tier exception), one `ARCHITECTURE.md` sidecar-line amendment (`/ledger/*`), and the pane's `TELEMETRY_STATES`.
+  - status: todo · agent: — · worker: medium
+  - card: as the next agent, find the pane's words, states and route in the files that own them, so that a PRD citing them has a row to cite
+  - context:
+    - walk: `openPane(page, 'telemetry')` (`fixtures.ts:203`, the + then `workspace-panel-add-telemetry`); the three scope buttons swap views; `telemetry-range-quarters` changes `#stackTitle`'s text to "…per quarter…"; hovering `telemetry-time-headline-tokens` shows `telemetry-why` with two lines; phone project: `scrollWidth <= innerWidth`
+    - `DESIGN.md` §Vocabulary: one row per word, dated 2026-09-20 with the user's words; the Telemetry row states the exception — provider ids and the permission gate show here, in mono, and nowhere else on a default surface; §Shared component states: `TELEMETRY_STATES` (`telemetry-state.ts`: empty · loading · partial · error · ready) with the PRD's lines
+    - `ARCHITECTURE.md` §Modules ui/sidecar: append "Amended 2026-09-20 (task 126): `/ledger/append` and `/ledger/read` — one JSONL per project under the state dir, contained like `/git/*`, never inside the repo" — no diagram edit (native → sidecar is drawn; no new module)
+    - `PRODUCT.md:405` names "flexible panes" without a list — no edit
+  - confirm: `just walk "telemetry pane"` → passes (untouched: no such spec, playwright reports 0 tests); `grep -c "Telemetry" DESIGN.md` → `≥ 3` (untouched: `0`); `grep -c "/ledger" ARCHITECTURE.md` → `≥ 1` (untouched: `0`)
+
 ## Waiting on the user
 
 - Composer row, one call (2026-09-20, task 123): the **Worktree** chip still shows in Easy while it is off (it reads "Worktree", a click starts one — the `worktree` walk relies on it). The mockup's Easy row had no such chip because its session had none. Keep it (one click to a worktree from Easy) or move it into Session controls in Easy — say which.
 - Untracked in the tree, not this session's: `docs/2026-09-20-telemetry-pane-research-v1.md` and `docs/mockups/` (a telemetry pane research map and two HTML mockups, from another session working here). Left alone.
+  - *(2026-09-20, the telemetry session):* those files are this plan's — research, PRD, plan and three mockups; tasks 125–133 above.
 
 - **v0.9 beta candidate (2026-09-20, task 112):** `ui/desktop/out/Goose-darwin-arm64/Goose.app` (561 MB; `Goose.zip` beside it, 215 MB) built by `just make-ui` on main at 55d504325 — release `goose` 1.51.0 from this tree, the sidecar at `Contents/Resources/sidecar`, the Studio theme. Launched once by the session: goosed started from the bundle, the sidecar listened on 7788, the renderer reported ready (`~/Library/Application Support/Goose/logs/main.log` 16:36:29–30). Unsigned — Finder's first open is right-click → Open. The startup update check logs a 404 (no `latest-mac.yml` on the fork's releases) and falls back; harmless, but the auto-updater points at upstream's feed until the fork has its own. Your hand check: a seat listed, Files and Terminal open on a directory, Light on and looked at; then the beta call. The first full run's remaining reds are the five seat-gated walks only (agents pane, artifact pane, review pane, rpi strip, turn undo) plus one flaky Rust test (`bridge_broadcasts_delegate_started_and_done` fails in the batch, passes alone ×3).
 
