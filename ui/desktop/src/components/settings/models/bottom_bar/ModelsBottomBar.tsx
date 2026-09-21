@@ -223,7 +223,10 @@ export default function ModelsBottomBar({
   return (
     <div className="relative flex items-center" ref={dropdownRef}>
       <DropdownMenu open={isModelMenuOpen} onOpenChange={setIsModelMenuOpen}>
-        <DropdownMenuTrigger className="flex items-center hover:cursor-pointer max-w-[180px] md:max-w-[200px] lg:max-w-[380px] min-w-0 text-text-primary/70 hover:text-text-primary transition-colors">
+        <DropdownMenuTrigger
+          data-testid="model-chip"
+          className="flex items-center hover:cursor-pointer max-w-[180px] md:max-w-[200px] lg:max-w-[380px] min-w-0 text-text-primary/70 hover:text-text-primary transition-colors"
+        >
           <div className="flex items-center truncate max-w-[130px] md:max-w-[200px] lg:max-w-[360px] min-w-0">
             <CubeIcon className="mr-1 size-3.5 flex-shrink-0" />
             {isModelLoading ? (

@@ -148,18 +148,6 @@ Option B: one pane visible by default, every open pane a tab, the pressed tab th
 
 Each panel owns its tab bar; the bar holds only open panes; + adds one; drag a tab onto a half makes the second panel with an identical bar; a panel whose last tab closes goes. The permanent launchers (task 71) are retired. Order: 117 → 118 → 119 → 120, all on main.
 
-- 120. `DESIGN.md` §Vocabulary: the tab bar and dock position rows rewritten and dated (per-panel bars, +, ×; the launchers, the fold chevron and `primary` retired with the user's words); the studio screenshot retaken; `PRODUCT.md` §11 flexible panes line amended.
-  - status: doing · agent: session [Opus, direct] · worker: low
-  - confirm: `grep -c "Retired: \*\*launcher" DESIGN.md` → `1` (untouched: `0`)
-
-### docs/2026-09-20-composer-row-plan-v1.md — the composer row (approved 2026-09-20)
-
-Option A of the mockups (https://claude.ai/artifact/F6qa2Z4834pMPhsHuJrqcE): Easy renders lever · folder · attach · send-in-ring; Advanced adds the model chip; cost, extensions and debug move into Session controls; the send disc's ring fills to the most spent limit with the breakdown on hover; the row's glyphs on Heroicons 16 solid. Order: 121 ∥ 122 → 123 → 124. Runs after 119–120 land.
-
-- 124. Walks and documents: `tests/e2e/easy-mode.spec.ts` reads the stop from the lever's `aria-label`/tooltip instead of `workspace-lever-label` text and asserts the Easy row's four controls and the Advanced chip; a new `tests/e2e/usage-ring.spec.ts` (walk `usage ring`): a session with one reply → the ring has `aria-valuenow > 0`, hover opens `usage-breakdown` with the context row, Esc closes, the disc still sends; `studio light` screenshot retaken; `DESIGN.md` §Vocabulary rows **chip** (Easy's four, Advanced's five, dated), **usage ring**, **usage breakdown**; §Iconography: Heroicons 16 solid for the composer row, lucide elsewhere until named; `PRODUCT.md` §11 line on the composer.
-  - status: doing · agent: session [Opus, direct] · worker: medium
-  - confirm: `just walk "easy mode|usage ring|studio light"` → all passed; `grep -c "usage ring" DESIGN.md` → `≥ 1` (untouched: `0`)
-
 ## Waiting on the user
 
 - **v0.9 beta candidate (2026-09-20, task 112):** `ui/desktop/out/Goose-darwin-arm64/Goose.app` (561 MB; `Goose.zip` beside it, 215 MB) built by `just make-ui` on main at 55d504325 — release `goose` 1.51.0 from this tree, the sidecar at `Contents/Resources/sidecar`, the Studio theme. Launched once by the session: goosed started from the bundle, the sidecar listened on 7788, the renderer reported ready (`~/Library/Application Support/Goose/logs/main.log` 16:36:29–30). Unsigned — Finder's first open is right-click → Open. The startup update check logs a 404 (no `latest-mac.yml` on the fork's releases) and falls back; harmless, but the auto-updater points at upstream's feed until the fork has its own. Your hand check: a seat listed, Files and Terminal open on a directory, Light on and looked at; then the beta call. The first full run's remaining reds are the five seat-gated walks only (agents pane, artifact pane, review pane, rpi strip, turn undo) plus one flaky Rust test (`bridge_broadcasts_delegate_started_and_done` fails in the batch, passes alone ×3).

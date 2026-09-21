@@ -25,9 +25,17 @@ test.describe('easy mode', () => {
     await expect(lever).toHaveAttribute('data-stop', 'easy');
     await expect(slider).toHaveAttribute('aria-valuenow', '0');
     await expect(slider).toHaveAttribute('aria-valuetext', 'Easy');
+    // The stop's word is screen-reader-only (task 123): the row stays quiet.
     await expect(lever.locator('[data-testid="workspace-lever-label"]')).toHaveText('Easy');
+    await expect(lever.locator('[data-testid="workspace-lever-label"]')).toHaveClass(/sr-only/);
     // The tooltip names the triple in one line.
     await expect(slider).toHaveAttribute('title', /^Claude · .+ · Direct$/);
+    // Easy's row (task 123): lever, folder, attach, the send disc in its usage ring — and no
+    // model chip, cost, token count, extensions or diagnostics.
+    await expect(goosePage.locator('[data-testid="usage-ring"]')).toHaveCount(1);
+    await expect(goosePage.locator('[data-testid="usage-ring"] .send-disc')).toHaveCount(1);
+    await expect(goosePage.locator('[data-testid="model-chip"]')).toHaveCount(0);
+    await expect(goosePage.getByText(/\/ \d+k$/)).toHaveCount(0);
     await goosePage.screenshot({ path: test.info().outputPath('easy-lever.png') });
 
     // A first prompt typed straight into the Hub, lever untouched, must start on Easy's
@@ -63,6 +71,9 @@ test.describe('easy mode', () => {
       const runtime = goosePage.locator('[data-testid="workspace-runtime"]');
       await expect(runtime).toBeVisible();
       await expect(goosePage.locator('[data-testid="workspace-mode"]')).toBeVisible();
+      // Advanced adds the model chip (task 123); the ring stays on send.
+      await expect(goosePage.locator('[data-testid="model-chip"]')).toHaveCount(1);
+      await expect(goosePage.locator('[data-testid="usage-ring"]')).toHaveCount(1);
       if (hardReachable) {
         await expect(runtime).toHaveAttribute('data-value', 'claude-code');
         await expect(goosePage.locator('[data-testid="workspace-mode"]')).toHaveAttribute(
