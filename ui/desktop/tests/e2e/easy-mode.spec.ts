@@ -43,6 +43,7 @@ test.describe('easy mode', () => {
     await expect(goosePage.locator('[data-testid="workspace-routine"]')).toHaveCount(0);
     await expect(goosePage.locator('[data-testid="workspace-session-controls"]')).toHaveCount(0);
     await expect(goosePage.locator('[data-testid="chat-dictate"]')).toHaveCount(0);
+    await expect(goosePage.getByRole('button', { name: /live voice/i })).toHaveCount(0);
     await goosePage.screenshot({ path: test.info().outputPath('easy-lever.png') });
 
     // A first prompt typed straight into the Hub, lever untouched, must start on Easy's

@@ -1952,7 +1952,9 @@ export default function ChatInput({
           <TooltipContent>Attach file</TooltipContent>
         </Tooltip>
 
-        {liveVoice && (
+        {/* Upstream's live voice (2026-09-21 merge): Advanced's, or Easy's while a call is on
+            (task 140) */}
+        {liveVoice && (workspaceComposer?.ui !== 'easy' || isLiveVoiceActive(liveVoice.phase)) && (
           <LiveVoiceButton
             availability={liveVoice.availability}
             phase={liveVoice.phase}
