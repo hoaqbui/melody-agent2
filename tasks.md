@@ -152,19 +152,8 @@ Each panel owns its tab bar; the bar holds only open panes; + adds one; drag a t
 
 A + A4 from the research (`docs/2026-09-20-telemetry-pane-research-v1.md`), the PRD `docs/2026-09-20-work-ledger-prd-v1.md`, the prototype `docs/mockups/2026-09-20-work-ledger.html`. Order: 125 ∥ 126 → 127 ∥ 128 → 129 ∥ 130 ∥ 131 → 132 → 133, all on main. Only the user can verify: the hand-counted rows against their own count, the routing-change date, whether the Claude seat reports `cacheReadTokens`.
 
-- 128. Add the `telemetry` pane: `PaneId` + `PANE_IDS` in `ui/desktop/src/workspace/pane-store.ts`, `PANE_TITLES` + `PANE_ICONS` (`Activity`) in `WorkspaceShell.tsx`, `workspaceShell.paneTelemetry` in the 17 `ui/desktop/src/i18n/messages/*.json`, and `ui/desktop/src/workspace/panes/telemetry/TelemetryPane.tsx` with the scope seg (**Now · Over time · Roles**), the range seg (**Days · Weeks · Months · Quarters**), the range chip and one `Why.tsx` tooltip wrapper.
-  - status: doing · agent: session [Opus, direct] · worker: medium
-  - card: as the user, open Telemetry from the panel's + like any pane and switch between now, over time and roles without leaving it, so that the three questions live on one tab
-  - context:
-    - `PaneId` union `pane-store.ts:4-14`, `PANE_IDS` `:16-26`; `PANE_TITLES` `WorkspaceShell.tsx:175-186`, `PANE_ICONS` `:189-200` (lucide, `Activity`); the palette lists panes from `PANE_IDS` (`palette-state.ts:47`) — no edit
-    - i18n: `workspaceShell.paneTelemetry` beside `paneReview` (`en.json:5993`), `defaultMessage: "Telemetry"`, the 16 other locales carry the English string until translated (the repo's pattern for new keys — check `paneReview` in `de.json:5993`); `pnpm run i18n:check` is the gate
-    - the seg buttons are `aria-pressed` toggles (`DESIGN.md` Floating Button Rule: `--shadow-sm` at rest); the last scope is kept per project in `project-storage.ts`; the range seg hides on Now
-    - `Why.tsx`: wraps children, sets `data-why` / `data-from`, one fixed tooltip element at the shell root reading them on hover and focus (keyboard: focusable, Esc hides), the tooltip's first line the wrapped number's text
-    - test ids: `telemetry-scope-<now|time|roles>`, `telemetry-range-<days|weeks|months|quarters>`, `telemetry-range-label`, `telemetry-why` (the tooltip)
-  - confirm: `grep -c "'telemetry'" ui/desktop/src/workspace/pane-store.ts` → `2` (untouched: `0`); `cd ui/desktop && pnpm run i18n:check` → exit 0; `cd ui/desktop && pnpm run typecheck` → exit 0
-
 - 129. Add `telemetry-now.ts` (+ test) and `TelemetryNow.tsx` under `panes/telemetry/`: the Session card and the Turns list for the open session.
-  - status: todo · agent: — · worker: medium
+  - status: doing · agent: session [Opus, direct] · worker: medium
   - card: as the user mid-session, see what this chat runs on and which model answered each reply, so that "which model with what settings" is answered on the tab
   - context:
     - settings: `session.provider_name`, `model_config.model_name`, `model_config.request_params.thinking_effort`, `goose_mode` (`types/session.ts:8-58`), `stopOfSession` (`session-controls.ts:192`), `useSessionConfigOptions` (`sessionConfig.ts:34`), context from `tokenState` (`types/chat.ts:4`); Runtime in its written name (`runtimeLabel`, `session-controls.ts:22`), ids in mono beneath — the DESIGN.md row (task 133) names this the Diagnostics-tier exception
@@ -175,7 +164,7 @@ A + A4 from the research (`docs/2026-09-20-telemetry-pane-research-v1.md`), the 
   - confirm: `cd ui/desktop && pnpm vitest run telemetry-now` → passes (untouched: no such test)
 
 - 130. Add `telemetry-buckets.ts` (+ test) and `TelemetryTime.tsx`: the Over time view — headline (Tokens · Cost · Turns with deltas and sparklines), tokens by model (stacked, morphing between grains), cost per week, share of tokens, quarters, by runtime, top sessions.
-  - status: todo · agent: — · worker: high
+  - status: doing · agent: session [Opus, direct] · worker: high
   - card: as the user, see the year's shape and last week's cost by model on one scroll, so that a routing change shows as a colour change in the stack
   - context:
     - input: ledger `turn` events (127) for the range and the one before it, plus `acpListSessions` (task 125's totals for the session count and the headline cross-check); grain keys are unique across years — `YYYY-MM-DD`, `YYYY-Www`, `YYYY-MM`, `YYYY-Qn` — with display labels separate (the mockup's collision, PRD criterion 4)
@@ -187,7 +176,7 @@ A + A4 from the research (`docs/2026-09-20-telemetry-pane-research-v1.md`), the 
   - confirm: `cd ui/desktop && pnpm vitest run telemetry-buckets` → passes (untouched: no such test)
 
 - 131. Add `telemetry-roles.ts` (+ test) and `TelemetryRoles.tsx`: routing ribbons (role → seat), the Roles board, clean-done by role per week, with `tasks.md` rows marked hand-counted.
-  - status: todo · agent: — · worker: high
+  - status: doing · agent: session [Opus, direct] · worker: high
   - card: as the user paying for three seats, read which seat each role ran on and whether its output survived the session, so that the next `runtimes:` edit is made from numbers
   - context:
     - input: ledger `worker`, `correction`, `review` events; `acpSessionChildren` (`sessions.ts:198`) for median time (`createdAt → lastMessageAt`); tokens per run from the child's session totals once task 125 lands, else "—"

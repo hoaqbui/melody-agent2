@@ -6,7 +6,12 @@
 // Routine chip (task 59), a link back from a routine's run to its schedule.
 
 import { useEffect, useState, type ComponentType } from 'react';
-import { Cpu, GitBranch, Repeat, Workflow } from 'lucide-react';
+import {
+  ArrowPathIcon,
+  CodeBracketIcon,
+  CubeIcon,
+  Squares2X2Icon,
+} from '@heroicons/react/16/solid';
 import { defineMessages, useIntl } from '../i18n';
 import { cn } from '../utils';
 import { acpListScheduleRuns } from '../acp/schedules';
@@ -113,7 +118,7 @@ export function Chip({ Icon, name, label, value, status, busy, testId, iconOnly 
       data-testid={testId}
       data-value={value}
     >
-      <Icon className="size-4 shrink-0" />
+      <Icon className="size-3.5 shrink-0" />
       {!iconOnly && (
         <span className="max-w-[120px] truncate group-data-[narrow]:hidden">{label}</span>
       )}
@@ -161,7 +166,7 @@ export function WorktreeChip({ slug, cwd, busy, onToggle }: WorktreeChipProps) {
       data-slug={slug ?? undefined}
       onClick={onToggle}
     >
-      <GitBranch className="size-4 shrink-0" />
+      <CodeBracketIcon className="size-3.5 shrink-0" />
       <span className={cn('max-w-[160px] truncate group-data-[narrow]:hidden', on && 'font-mono')}>
         {on ? worktreeBranch(slug) : name}
       </span>
@@ -211,7 +216,7 @@ export function RoutineChip({ session, onOpen }: RoutineChipProps) {
       data-schedule-id={scheduleId ?? undefined}
       onClick={() => scheduleId && onOpen(scheduleId)}
     >
-      <Repeat className="size-4 shrink-0" />
+      <ArrowPathIcon className="size-3.5 shrink-0" />
       <span className="max-w-[160px] truncate group-data-[narrow]:hidden">
         {intl.formatMessage(i18n.routine, { title })}
       </span>
@@ -254,7 +259,7 @@ export function SessionChips({
     <div className="flex shrink-0 items-center gap-2" data-testid="workspace-session-chips">
       <DropdownMenu>
         <Chip
-          Icon={Cpu}
+          Icon={CubeIcon}
           name={intl.formatMessage(i18n.runtime)}
           label={runtimeLabel}
           value={currentRuntime}
@@ -283,7 +288,7 @@ export function SessionChips({
 
       <DropdownMenu>
         <Chip
-          Icon={Workflow}
+          Icon={Squares2X2Icon}
           name={intl.formatMessage(i18n.mode)}
           label={modeLabel(currentMode)}
           value={currentMode}

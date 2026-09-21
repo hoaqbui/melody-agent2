@@ -11,7 +11,8 @@ export type PaneId =
   | 'markdown'
   | 'agents'
   | 'artifact'
-  | 'review';
+  | 'review'
+  | 'telemetry';
 
 export const PANE_IDS: readonly PaneId[] = [
   'files',
@@ -24,6 +25,7 @@ export const PANE_IDS: readonly PaneId[] = [
   'agents',
   'artifact',
   'review',
+  'telemetry',
 ];
 
 export type LayoutMode = 'desktop' | 'phone';

@@ -1897,14 +1897,20 @@ export default function ChatInput({
                 <TooltipContent>Generate diagnostics bundle</TooltipContent>
               </Tooltip>
             )}
+          </>
+        )}
 
-            {/* Right: attach */}
+        {/* Right: attach — in every row; the quiet gate above hides only the facts */}
+        {!isBottomBarNarrow && (
+          <>
             <Tooltip>
               <TooltipTrigger asChild>
                 <Button
                   type="button"
                   onClick={handleFileSelect}
                   disabled={isFilePickerOpen}
+                  aria-label="Attach file"
+                  data-testid="chat-attach"
                   variant="ghost"
                   size="sm"
                   shape="round"

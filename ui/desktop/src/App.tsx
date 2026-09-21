@@ -49,6 +49,7 @@ import { GitPane } from './workspace/panes/git/GitPane';
 import { MarkdownPane } from './workspace/panes/markdown/MarkdownPane';
 import { AgentsPane } from './workspace/panes/agents/AgentsPane';
 import { ReviewPane } from './workspace/panes/review/ReviewPane';
+import { TelemetryPane } from './workspace/panes/telemetry/TelemetryPane';
 import { ChatProvider, DEFAULT_CHAT_TITLE } from './contexts/ChatContext';
 import LauncherView from './components/LauncherView';
 
@@ -686,30 +687,31 @@ export function AppInner() {
                   <RuntimesGuard>
                     <ChatProvider chat={chat} setChat={setChat} contextKey="hub">
                       <AppLayout>
-                      {/* The chat stays mounted across routes so its streams stay alive;
+                        {/* The chat stays mounted across routes so its streams stay alive;
                           the shell shows it on /pair and hides it elsewhere. */}
-                      <WorkspaceShell
-                        chat={
-                          <ChatSessionsContainer
-                            setChat={setChat}
-                            activeSessions={activeSessions}
-                          />
-                        }
-                        panes={{
-                          files: <FilesPane />,
-                          editor: <EditorPane />,
-                          diff: <DiffPane />,
-                          git: <GitPane />,
-                          browser: <BrowserPane />,
-                          markdown: <MarkdownPane />,
-                          agents: <AgentsPane />,
-                          artifact: <ArtifactPane />,
-                          review: <ReviewPane />,
-                        }}
-                      >
-                        <Outlet />
-                      </WorkspaceShell>
-                    </AppLayout>
+                        <WorkspaceShell
+                          chat={
+                            <ChatSessionsContainer
+                              setChat={setChat}
+                              activeSessions={activeSessions}
+                            />
+                          }
+                          panes={{
+                            files: <FilesPane />,
+                            editor: <EditorPane />,
+                            diff: <DiffPane />,
+                            git: <GitPane />,
+                            browser: <BrowserPane />,
+                            markdown: <MarkdownPane />,
+                            agents: <AgentsPane />,
+                            artifact: <ArtifactPane />,
+                            review: <ReviewPane />,
+                            telemetry: <TelemetryPane />,
+                          }}
+                        >
+                          <Outlet />
+                        </WorkspaceShell>
+                      </AppLayout>
                     </ChatProvider>
                   </RuntimesGuard>
                 </OnboardingGuard>

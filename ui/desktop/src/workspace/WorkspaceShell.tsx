@@ -22,6 +22,7 @@ import {
 } from 'react';
 import { useLocation, useSearchParams } from 'react-router';
 import {
+  Activity,
   BookOpen,
   ClipboardCheck,
   Ellipsis,
@@ -170,6 +171,7 @@ const i18n = defineMessages({
   paneAgents: { id: 'workspaceShell.paneAgents', defaultMessage: 'Agents' },
   paneArtifact: { id: 'workspaceShell.paneArtifact', defaultMessage: 'Artifact' },
   paneReview: { id: 'workspaceShell.paneReview', defaultMessage: 'Review' },
+  paneTelemetry: { id: 'workspaceShell.paneTelemetry', defaultMessage: 'Telemetry' },
   panes: { id: 'workspaceShell.panes', defaultMessage: 'Panes' },
   sessionMenu: { id: 'rail.menu', defaultMessage: 'Session menu' },
   columnSessions: { id: 'workspaceShell.columnSessions', defaultMessage: 'Sessions' },
@@ -189,6 +191,7 @@ const PANE_TITLES = {
   agents: i18n.paneAgents,
   artifact: i18n.paneArtifact,
   review: i18n.paneReview,
+  telemetry: i18n.paneTelemetry,
 } as const;
 
 // DESIGN.md §Iconography: one set, lucide, at upstream's control size.
@@ -203,6 +206,7 @@ const PANE_ICONS: Record<PaneId, ComponentType<{ className?: string }>> = {
   agents: Users,
   artifact: FileText,
   review: ClipboardCheck,
+  telemetry: Activity,
 };
 
 // The code-editor standard (task 40): three panes first on the bar, and the ones that stay

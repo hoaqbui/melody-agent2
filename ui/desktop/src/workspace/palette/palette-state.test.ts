@@ -14,6 +14,7 @@ const mockPanesRecord = {
   agents: { title: 'Agents' },
   artifact: { title: 'Artifact' },
   review: { title: 'Review' },
+  telemetry: { title: 'Telemetry' },
 };
 
 const mockSession: SessionListItem = {
@@ -48,7 +49,7 @@ describe('buildCommands', () => {
     const commands = buildCommands(ctx);
     const paneCommands = commands.filter((c) => c.group === 'panes');
 
-    expect(paneCommands.length).toBe(10);
+    expect(paneCommands.length).toBe(11);
     expect(paneCommands[0].label).toBe('Files');
   });
 

@@ -3,7 +3,6 @@
 // that matches no stop parks the knob on a fourth, read-only label, Custom.
 
 import type { KeyboardEvent, MouseEvent } from 'react';
-import { Gauge } from 'lucide-react';
 import { defineMessages, useIntl } from '../i18n';
 import { cn } from '../utils';
 import type { ProviderDetails } from '../types/providers';
@@ -173,7 +172,9 @@ export function Lever({ stop, providers, canOrchestrate, busy, model, onPick, se
           style={{ left: index * STOP_WIDTH_PX + (STOP_WIDTH_PX - 16) / 2 }}
           data-testid="workspace-lever-knob"
         >
-          <Gauge className="size-3" />
+          {/* A plain handle (user, 2026-09-20): the three dots are the stops, the tooltip
+              names the one under the knob; no glyph to read at 16 px. */}
+          <span aria-hidden className="size-1.5 rounded-chip bg-text-inverse/90" />
         </span>
       </div>
       {/* The stop's word is the tooltip's and the slider's aria-valuetext (task 123): the row

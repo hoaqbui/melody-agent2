@@ -5594,6 +5594,48 @@
   "telemetryConsentPrompt.optOut": {
     "defaultMessage": "Não, obrigado"
   },
+  "telemetryPane.comingNow": {
+    "defaultMessage": "No turns yet — send a message and the model that answers shows here."
+  },
+  "telemetryPane.comingRoles": {
+    "defaultMessage": "No delegated work in this range."
+  },
+  "telemetryPane.comingTime": {
+    "defaultMessage": "No turns in this range — widen it."
+  },
+  "telemetryPane.grainDays": {
+    "defaultMessage": "Days"
+  },
+  "telemetryPane.grainMonths": {
+    "defaultMessage": "Months"
+  },
+  "telemetryPane.grainQuarters": {
+    "defaultMessage": "Quarters"
+  },
+  "telemetryPane.grainWeeks": {
+    "defaultMessage": "Weeks"
+  },
+  "telemetryPane.grainWhy": {
+    "defaultMessage": "The grain of every chart in Over time and Roles. Quarters show the year's shape; Days show what last week cost."
+  },
+  "telemetryPane.noSession": {
+    "defaultMessage": "No session open — Now shows the chat you have open."
+  },
+  "telemetryPane.rangeWhy": {
+    "defaultMessage": "How far back the charts look; every delta compares against the same span before it."
+  },
+  "telemetryPane.scopeNow": {
+    "defaultMessage": "Now"
+  },
+  "telemetryPane.scopeRoles": {
+    "defaultMessage": "Roles"
+  },
+  "telemetryPane.scopeTime": {
+    "defaultMessage": "Over time"
+  },
+  "telemetryPane.scopeWhy": {
+    "defaultMessage": "Now is the open session. Over time is every session on this Mac, bucketed by when its turns landed. Roles is every delegation, judged by what became of its work."
+  },
   "telemetrySettings.configErrorTitle": {
     "defaultMessage": "Erro de Configuração"
   },
@@ -5992,6 +6034,9 @@
   },
   "workspaceShell.paneReview": {
     "defaultMessage": "Review"
+  },
+  "workspaceShell.paneTelemetry": {
+    "defaultMessage": "Telemetry"
   },
   "workspaceShell.paneTerminal": {
     "defaultMessage": "Terminal"
