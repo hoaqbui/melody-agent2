@@ -94,10 +94,16 @@ test.describe('studio light', () => {
       await expect
         .poll(() => send.evaluate((el) => window.getComputedStyle(el).backgroundColor))
         .toBe(rgb('#44c1b8'));
+      // the disc lifts while the pointer is over the composer card, more under the pointer
+      // itself (user, 2026-09-20: never on text arriving)
+      await goosePage.locator('.chat-input-card').first().hover({ position: { x: 20, y: 10 } });
+      await expect
+        .poll(() => send.evaluate((el) => window.getComputedStyle(el).transform))
+        .toMatch(/matrix\(1, 0, 0, 1, 0, -2\)/);
       await send.hover();
       await expect
         .poll(() => send.evaluate((el) => window.getComputedStyle(el).transform))
-        .toMatch(/matrix\(1, 0, 0, 1, 0, -1\)/);
+        .toMatch(/matrix\(1, 0, 0, 1, 0, -3\)/);
 
       // (6) your message is the light-blue floating bubble
       await input.press('Enter');

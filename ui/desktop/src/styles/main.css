@@ -1150,11 +1150,9 @@ pre:has(> code.bg-inline-code) {
     animation: running-halo var(--halo-period) ease-out infinite;
   }
 
-  .send-disc[data-armed='true'] {
-    animation: send-nudge calc(var(--motion-base) + 60ms) var(--ease-g2) 1;
-  }
-
-  /* The one round control is a ghost variant in markup, a filled disc on screen: it floats. */
+  /* The one round control is a ghost variant in markup, a filled disc on screen: it floats.
+     It lifts while the pointer is over the composer card (user, 2026-09-20: not when text
+     arrives — typing should not move anything), a touch more under the pointer itself. */
   .send-disc:not(:disabled) {
     transition:
       transform var(--motion-fast) var(--ease-g2),
@@ -1162,8 +1160,14 @@ pre:has(> code.bg-inline-code) {
       background-color var(--motion-fast) var(--ease-g2);
   }
 
-  .send-disc:not(:disabled):hover {
-    transform: translateY(-1px);
+  .chat-input-card:hover .send-disc:not(:disabled) {
+    transform: translateY(-2px);
+    box-shadow: var(--shadow-md);
+  }
+
+  .send-disc:not(:disabled):hover,
+  .chat-input-card:hover .send-disc:not(:disabled):hover {
+    transform: translateY(-3px);
     box-shadow: var(--shadow-md);
   }
 
@@ -1211,18 +1215,6 @@ pre:has(> code.bg-inline-code) {
   }
   100% {
     box-shadow: 0 0 0 0 rgba(34, 119, 204, 0);
-  }
-}
-
-@keyframes send-nudge {
-  0% {
-    transform: translateY(0);
-  }
-  40% {
-    transform: translateY(-3px);
-  }
-  100% {
-    transform: translateY(0);
   }
 }
 
