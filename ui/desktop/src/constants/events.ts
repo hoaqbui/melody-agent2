@@ -16,4 +16,8 @@ export enum AppEvents {
   INSERT_INPUT_IMAGE = 'insert-input-image',
   RESPONSE_STYLE_CHANGED = 'responseStyleChanged',
   WORKSPACE_UI_CHANGED = 'workspaceUiChanged',
+  // The composer reports the session's accumulated cost to the shell (task 121); the shell
+  // asks the composer to open its diagnostics sheet.
+  SESSION_COST = 'sessionCost',
+  OPEN_DIAGNOSTICS = 'openDiagnostics',
 }

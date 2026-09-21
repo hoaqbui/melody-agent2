@@ -381,7 +381,7 @@
     "defaultMessage": "Set as home"
   },
   "browserPane.share": {
-    "defaultMessage": "Share with agent"
+    "defaultMessage": "Share with agents"
   },
   "browserPane.shareConsole": {
     "defaultMessage": "Console"
@@ -5893,6 +5893,15 @@
   },
   "workspaceShell.commandPalette": {
     "defaultMessage": "Command palette"
+  },
+  "workspaceShell.cost": {
+    "defaultMessage": "Cost"
+  },
+  "workspaceShell.costNone": {
+    "defaultMessage": "—"
+  },
+  "workspaceShell.diagnostics": {
+    "defaultMessage": "Diagnostics"
   },
   "workspaceShell.direct": {
     "defaultMessage": "Direct"

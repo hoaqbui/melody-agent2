@@ -8,7 +8,19 @@ vi.mock('../components/ui/dropdown-menu', () => ({
   DropdownMenu: ({ children }: { children: React.ReactNode }) => <div>{children}</div>,
   DropdownMenuTrigger: ({ children }: { children: React.ReactNode }) => <div>{children}</div>,
   DropdownMenuContent: ({ children }: { children: React.ReactNode }) => <div>{children}</div>,
-  DropdownMenuItem: ({ children }: { children: React.ReactNode }) => <div>{children}</div>,
+  DropdownMenuItem: ({
+    children,
+    onClick,
+    ...rest
+  }: {
+    children: React.ReactNode;
+    onClick?: () => void;
+    'data-testid'?: string;
+  }) => (
+    <div onClick={onClick} data-testid={rest['data-testid']}>
+      {children}
+    </div>
+  ),
   DropdownMenuLabel: ({ children }: { children: React.ReactNode }) => <div>{children}</div>,
   DropdownMenuRadioGroup: ({ children }: { children: React.ReactNode }) => <div>{children}</div>,
   DropdownMenuRadioItem: ({ children }: { children: React.ReactNode }) => <div>{children}</div>,
@@ -64,5 +76,19 @@ describe('SessionControls mode note', () => {
   it('renders no error row when nothing failed', () => {
     renderControls();
     expect(screen.queryByTestId('workspace-config-mode-error')).not.toBeInTheDocument();
+  });
+
+  it('shows the session cost, a dash until a turn lands, and a Diagnostics row when the composer offers one', () => {
+    const onOpenDiagnostics = vi.fn();
+    const { rerender } = render(
+      <SessionControls {...baseProps} cost={null} onOpenDiagnostics={onOpenDiagnostics} />,
+      { wrapper: IntlTestWrapper }
+    );
+    expect(screen.getByTestId('workspace-config-cost')).toHaveTextContent('—');
+    screen.getByTestId('workspace-config-diagnostics').click();
+    expect(onOpenDiagnostics).toHaveBeenCalledTimes(1);
+    rerender(<SessionControls {...baseProps} cost={0.1234} />);
+    expect(screen.getByTestId('workspace-config-cost')).toHaveTextContent('$0.12');
+    expect(screen.queryByTestId('workspace-config-diagnostics')).toBeNull();
   });
 });

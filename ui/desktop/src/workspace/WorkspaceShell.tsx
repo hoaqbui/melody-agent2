@@ -603,6 +603,17 @@ export function WorkspaceShell({ chat, children, panes, paneStore }: WorkspaceSh
   // Task 89: the message a seat's refusal of a mode change returned, shown under the Mode
   // radios; cleared on the next attempt so a later success drops it.
   const [modeError, setModeError] = useState<string | null>(null);
+  // The composer reports the session's accumulated cost (task 121); Session controls shows it.
+  const [sessionCost, setSessionCost] = useState<number | null>(null);
+  useEffect(() => {
+    setSessionCost(null);
+    const onCost = (event: Event) => {
+      const detail = (event as CustomEvent<{ sessionId: string; cost: number | null }>).detail;
+      if (detail.sessionId === sessionId) setSessionCost(detail.cost);
+    };
+    window.addEventListener(AppEvents.SESSION_COST, onCost);
+    return () => window.removeEventListener(AppEvents.SESSION_COST, onCost);
+  }, [sessionId]);
   useEffect(() => {
     window.electron.getSetting('workspace.ui').then(setWorkspaceUi).catch(console.error);
     window.electron.getSetting('workspace.planGate').then(setPlanGate).catch(console.error);
@@ -1254,6 +1265,12 @@ export function WorkspaceShell({ chat, children, panes, paneStore }: WorkspaceSh
             modeError={modeError}
             role={currentMode === 'orchestrate' ? orchestratorRole?.name : undefined}
             extensionsEnabled={extensionsEnabled}
+            cost={sessionCost}
+            onOpenDiagnostics={
+              sessionId
+                ? () => window.dispatchEvent(new CustomEvent(AppEvents.OPEN_DIAGNOSTICS))
+                : undefined
+            }
             busy={busy}
             onSetOption={setConfigOption}
             onOpenFiles={() => store.openPane('files')}
@@ -1274,6 +1291,8 @@ export function WorkspaceShell({ chat, children, panes, paneStore }: WorkspaceSh
       currentStop,
       cwd,
       extensionsEnabled,
+      sessionCost,
+      sessionId,
       handlePlanGateChange,
       modeError,
       openSchedule,
@@ -1598,8 +1617,10 @@ export function WorkspaceShell({ chat, children, panes, paneStore }: WorkspaceSh
         <>
           {seam('work')}
           <section
-            // Below the titlebar's 32 px drag strip, as the sidebar's own spacer keeps its rows.
-            className={cn(column, 'shrink pt-6')}
+            // No headroom (user, 2026-09-20): the tab bar sits at the card's top edge, under
+            // the titlebar's 32 px drag strip, and carries `no-drag` so its tabs still click —
+            // upstream's header controls do the same at top-[14px].
+            className={cn(column, 'shrink')}
             style={{ width: layout.columns.work }}
             tabIndex={-1}
             aria-label={columnLabel('work')}

@@ -28,6 +28,9 @@ const i18n = defineMessages({
     id: 'workspaceShell.extensionsEnabled',
     defaultMessage: '{count, plural, one {# extension} other {# extensions}} enabled',
   },
+  cost: { id: 'workspaceShell.cost', defaultMessage: 'Cost' },
+  costNone: { id: 'workspaceShell.costNone', defaultMessage: '—' },
+  diagnostics: { id: 'workspaceShell.diagnostics', defaultMessage: 'Diagnostics' },
   saveRoutine: { id: 'workspaceShell.saveRoutine', defaultMessage: 'Save as routine…' },
   noSession: { id: 'workspaceShell.routineNoSession', defaultMessage: 'Open a session first' },
   planGate: {
@@ -46,6 +49,9 @@ export interface SessionControlsProps {
   // The orchestrator role's name while the session is Orchestrate.
   role?: string;
   extensionsEnabled: number;
+  // The session's accumulated cost in dollars (task 121); null until a turn has landed.
+  cost?: number | null;
+  onOpenDiagnostics?: () => void;
   busy: boolean;
   onSetOption(configId: string, value: string): void;
   onOpenFiles(): void;
@@ -65,6 +71,8 @@ export function SessionControls({
   modeError,
   role,
   extensionsEnabled,
+  cost,
+  onOpenDiagnostics,
   busy,
   onSetOption,
   onOpenFiles,
@@ -159,7 +167,10 @@ export function SessionControls({
         )}
 
         <DropdownMenuSeparator />
-        <div className="flex items-center justify-between px-2 py-1" data-testid="workspace-config-plan-gate">
+        <div
+          className="flex items-center justify-between px-2 py-1"
+          data-testid="workspace-config-plan-gate"
+        >
           <DropdownMenuLabel className={heading}>
             {intl.formatMessage(i18n.planGate)}
           </DropdownMenuLabel>
@@ -173,6 +184,22 @@ export function SessionControls({
         <DropdownMenuItem data-testid="workspace-extensions" onClick={onOpenExtensions}>
           {intl.formatMessage(i18n.extensions, { count: extensionsEnabled })}
         </DropdownMenuItem>
+        <div
+          className="flex items-center justify-between px-2 py-1.5 text-sm"
+          data-testid="workspace-config-cost"
+        >
+          <span className={heading}>{intl.formatMessage(i18n.cost)}</span>
+          <span className="tabular-nums">
+            {cost === null || cost === undefined
+              ? intl.formatMessage(i18n.costNone)
+              : `$${cost.toFixed(2)}`}
+          </span>
+        </div>
+        {onOpenDiagnostics && (
+          <DropdownMenuItem data-testid="workspace-config-diagnostics" onClick={onOpenDiagnostics}>
+            {intl.formatMessage(i18n.diagnostics)}
+          </DropdownMenuItem>
+        )}
         <DropdownMenuItem
           disabled={!onSaveRoutine}
           title={onSaveRoutine ? undefined : intl.formatMessage(i18n.noSession)}

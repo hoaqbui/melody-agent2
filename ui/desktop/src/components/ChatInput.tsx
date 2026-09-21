@@ -352,6 +352,21 @@ export default function ChatInput({
   const [tokenLimit, setTokenLimit] = useState<number>(TOKEN_LIMIT_DEFAULT);
   const [isTokenLimitLoaded, setIsTokenLimitLoaded] = useState(false);
   const [diagnosticsOpen, setDiagnosticsOpen] = useState(false);
+  // Session controls carries Cost and Diagnostics rows (task 121): the composer reports the
+  // cost it accumulates and opens its sheet when asked.
+  useEffect(() => {
+    if (!sessionId) return;
+    window.dispatchEvent(
+      new CustomEvent(AppEvents.SESSION_COST, {
+        detail: { sessionId, cost: accumulatedCost ?? null },
+      })
+    );
+  }, [sessionId, accumulatedCost]);
+  useEffect(() => {
+    const open = () => setDiagnosticsOpen(true);
+    window.addEventListener(AppEvents.OPEN_DIAGNOSTICS, open);
+    return () => window.removeEventListener(AppEvents.OPEN_DIAGNOSTICS, open);
+  }, []);
   const [workingDirOverride, setWorkingDirOverride] = useState<string | null>(null);
   const currentWorkingDir = workingDirOverride ?? workingDir ?? getInitialWorkingDir();
 

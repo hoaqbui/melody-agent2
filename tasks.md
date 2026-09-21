@@ -156,13 +156,8 @@ Each panel owns its tab bar; the bar holds only open panes; + adds one; drag a t
 
 Option A of the mockups (https://claude.ai/artifact/F6qa2Z4834pMPhsHuJrqcE): Easy renders lever · folder · attach · send-in-ring; Advanced adds the model chip; cost, extensions and debug move into Session controls; the send disc's ring fills to the most spent limit with the breakdown on hover; the row's glyphs on Heroicons 16 solid. Order: 121 ∥ 122 → 123 → 124. Runs after 119–120 land.
 
-- 121. `ui/desktop/src/workspace/SessionControls.tsx`: two rows after the extensions row — **Cost** (`workspace-config-cost`, the session's accumulated cost from `CostTracker`'s inputs, "—" until a turn lands) and **Diagnostics** (`workspace-config-diagnostics`, opens what the bottom row's bug icon opened: `setDiagnosticsOpen(true)` via a callback prop); `SessionControls.test.tsx` gains both.
-  - status: todo · agent: — · worker: low
-  - card: as the user in Advanced, find cost and diagnostics where every other session fact is, so that the composer row can drop them
-  - confirm: `grep -c "workspace-config-cost\|workspace-config-diagnostics" ui/desktop/src/workspace/SessionControls.tsx` → `2` (untouched: `0`); `pnpm vitest run src/workspace/SessionControls` → all passed
-
 - 122. `ui/desktop/src/components/bottom_menu/UsageRing.tsx` (+ `usage-ring.ts` pure, + tests): `mostSpent(limits)` → the highest `used/max` of the context window and any plan limits; `ringState(pct)` → `empty | filling | warm | full | unknown` (warm ≥ 80, full = 100, unknown when no limit); the component wraps children (the send disc) in a 36 px SVG ring (`usage-ring`, `aria-valuenow`, `data-state`), tooltip `used / limit (pct%)`, and on hover/focus a popover above (`usage-breakdown`: Context window bar + "Compacts automatically at N%" + Compact session; per-limit rows with bar and reset time; "Plan limits: not reported by <seat>" when none; See detailed breakdown → `openPane`-free callback to Session controls); Esc closes; Heroicons 16 solid glyphs.
-  - status: todo · agent: — · worker: medium
+  - status: doing · agent: session [Opus, direct] · worker: medium
   - card: as the user, see how much of the window and the plan I have spent on the one control every message touches, and get the full picture on hover
   - context: colours from tokens only — `--color-text-inverse`/teal accent for filling, `warning` for warm, `danger` for full; `@heroicons/react` added with `pnpm add` in `ui/desktop` (the plan's one dependency)
   - confirm: `cd ui/desktop && pnpm vitest run src/components/bottom_menu/usage-ring 2>&1 | grep Tests` → `≥ 8 passed` (untouched: no file); `grep -c "@heroicons/react" ui/desktop/package.json` → `1` (untouched: `0`)
