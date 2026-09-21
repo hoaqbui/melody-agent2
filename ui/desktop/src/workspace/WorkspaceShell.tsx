@@ -1302,68 +1302,71 @@ export function WorkspaceShell({ chat, children, panes, paneStore }: WorkspaceSh
   // One element per change, not per render: the chat input re-renders with its slot.
   const chips = useMemo(
     () =>
-      workspaceUi === undefined ? null : workspaceUi === 'easy' ? (
-        <>
-          <Lever
-            stop={currentStop}
-            providers={providers}
-            canOrchestrate={canOrchestrate}
-            busy={busy}
-            model={sessionModel}
-            onPick={pickStop}
-            seats={seats}
-          />
-          <WorktreeChip
-            slug={worktreeSlug}
-            cwd={sessionCwd}
-            busy={busy}
-            onToggle={toggleWorktree}
-          />
-          <RoutineChip session={session} onOpen={openSchedule} />
-        </>
-      ) : (
-        <>
-          <SessionChips
-            runtimes={runtimeOptions}
-            currentRuntime={currentRuntime}
-            providers={providers}
-            currentMode={currentMode}
-            canOrchestrate={canOrchestrate}
-            busy={busy}
-            status={sessionStatus}
-            onPickRuntime={pickRuntime}
-            onPickMode={pickMode}
-          />
-          <WorktreeChip
-            slug={worktreeSlug}
-            cwd={sessionCwd}
-            busy={busy}
-            onToggle={toggleWorktree}
-          />
-          <SessionControls
-            options={configOptions}
-            cwd={cwd}
-            currentRuntime={currentRuntime}
-            modeError={modeError}
-            role={currentMode === 'orchestrate' ? orchestratorRole?.name : undefined}
-            extensionsEnabled={extensionsEnabled}
-            cost={sessionCost}
-            onOpenDiagnostics={
-              sessionId
-                ? () => window.dispatchEvent(new CustomEvent(AppEvents.OPEN_DIAGNOSTICS))
-                : undefined
+      // Easy is the PRD's four — lever · folder · attach · send (task 140); the worktree
+      // and routine chips are Advanced's.
+      workspaceUi === undefined
+        ? null
+        : workspaceUi === 'easy'
+          ? {
+              left: (
+                <Lever
+                  stop={currentStop}
+                  providers={providers}
+                  canOrchestrate={canOrchestrate}
+                  busy={busy}
+                  model={sessionModel}
+                  onPick={pickStop}
+                  seats={seats}
+                />
+              ),
             }
-            busy={busy}
-            onSetOption={setConfigOption}
-            onOpenFiles={() => store.openPane('files')}
-            onOpenExtensions={() => setView('extensions')}
-            onSaveRoutine={saveRoutine}
-            planGate={planGate}
-            onPlanGateChange={handlePlanGateChange}
-          />
-          <RoutineChip session={session} onOpen={openSchedule} />
-        </>
-      ),
+          : {
+              left: (
+                <>
+                  <SessionChips
+                    runtimes={runtimeOptions}
+                    currentRuntime={currentRuntime}
+                    providers={providers}
+                    currentMode={currentMode}
+                    canOrchestrate={canOrchestrate}
+                    busy={busy}
+                    status={sessionStatus}
+                    onPickRuntime={pickRuntime}
+                    onPickMode={pickMode}
+                  />
+                  <WorktreeChip
+                    slug={worktreeSlug}
+                    cwd={sessionCwd}
+                    busy={busy}
+                    onToggle={toggleWorktree}
+                  />
+                  <RoutineChip session={session} onOpen={openSchedule} />
+                </>
+              ),
+              right: (
+                <SessionControls
+                  options={configOptions}
+                  cwd={cwd}
+                  currentRuntime={currentRuntime}
+                  modeError={modeError}
+                  role={currentMode === 'orchestrate' ? orchestratorRole?.name : undefined}
+                  extensionsEnabled={extensionsEnabled}
+                  cost={sessionCost}
+                  onOpenDiagnostics={
+                    sessionId
+                      ? () => window.dispatchEvent(new CustomEvent(AppEvents.OPEN_DIAGNOSTICS))
+                      : undefined
+                  }
+                  busy={busy}
+                  onSetOption={setConfigOption}
+                  onOpenFiles={() => store.openPane('files')}
+                  onOpenExtensions={() => setView('extensions')}
+                  onSaveRoutine={saveRoutine}
+                  planGate={planGate}
+                  onPlanGateChange={handlePlanGateChange}
+                />
+              ),
+            },
     [
       busy,
       canOrchestrate,

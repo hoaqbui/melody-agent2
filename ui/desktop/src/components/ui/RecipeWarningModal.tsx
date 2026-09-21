@@ -152,7 +152,9 @@ export function RecipeWarningModal({
             <Button variant="outline" onClick={onCancel}>
               {intl.formatMessage(i18n.cancel)}
             </Button>
-            <Button onClick={onConfirm}>{intl.formatMessage(i18n.trustAndExecute)}</Button>
+            <Button onClick={onConfirm} data-testid="recipe-trust">
+              {intl.formatMessage(i18n.trustAndExecute)}
+            </Button>
           </DialogFooter>
         </DialogPrimitive.Content>
       </DialogPortal>

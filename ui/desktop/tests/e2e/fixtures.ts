@@ -334,3 +334,17 @@ export function provisionRoleRepo(): () => void {
     rmSync(scratch, { recursive: true, force: true });
   };
 }
+
+// Upstream asks once per recipe hash before a recipe runs (the consent flow from the
+// 2026-09-21 merge); a project's own role — Reviewer, Orchestrator — is one too. A walk that
+// starts a role session answers it when it shows, and moves on when it does not.
+export async function trustRecipeIfAsked(page: Page): Promise<void> {
+  const trust = page.locator('[data-testid="recipe-trust"]');
+  try {
+    await trust.waitFor({ state: 'visible', timeout: 5000 });
+  } catch {
+    return;
+  }
+  await trust.click();
+  await expect(trust).toHaveCount(0);
+}

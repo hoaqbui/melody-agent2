@@ -1,7 +1,15 @@
 import { execFileSync } from 'child_process';
 import { mkdirSync, readFileSync, writeFileSync } from 'fs';
 import { join } from 'path';
-import { test, expect, emptyDock, openPane, provisionRoleRepo } from './fixtures';
+import {
+  test,
+  expect,
+  emptyDock,
+  openPane,
+  provisionRoleRepo,
+  setAdvancedControls,
+  trustRecipeIfAsked,
+} from './fixtures';
 
 // Task 70: a chat in its own worktree, one committed change on the branch whose defect the
 // plan and tasks.md name, then Review branch… in the Changes pane's worktree row starts a
@@ -41,6 +49,7 @@ test.describe('review branch', () => {
       'No review yet — Review branch… in Changes'
     );
     await emptyDock(goosePage);
+    await setAdvancedControls(goosePage, true);
 
     const chip = goosePage.locator('[data-testid="workspace-worktree"]');
     await expect(chip).toBeVisible({ timeout: 15000 });
@@ -79,6 +88,7 @@ test.describe('review branch', () => {
     const review = goosePage.locator('[data-testid="diff-review"]');
     await expect(review).toHaveText('Review branch…');
     await review.click();
+    await trustRecipeIfAsked(goosePage);
 
     // The pane opens on the new session: the header first, the verdict once the reviewer
     // has replied.

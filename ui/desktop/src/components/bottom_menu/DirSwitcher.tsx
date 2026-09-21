@@ -221,6 +221,7 @@ export const DirSwitcher: React.FC<DirSwitcherProps> = ({
                 className={`z-[100] ${isDirectoryChooserOpen ? 'opacity-50' : 'hover:cursor-pointer hover:text-text-primary'} text-text-primary/70 text-xs flex items-center transition-colors pl-1 [&>svg]:size-4 ${className}`}
                 onClick={handleDirectoryClick}
                 disabled={isDirectoryChooserOpen}
+                data-testid="chat-folder"
               >
                 <FolderIcon className="mr-1 size-3.5 flex-shrink-0" />
                 <div className="max-w-[200px] truncate">

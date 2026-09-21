@@ -108,11 +108,13 @@ test.describe('task board', () => {
 
     // The second session gets its own worktree (task 49): a clean checkout of its own.
     await goto(goosePage, '#/');
+    await setAdvancedControls(goosePage, true);
     const chip = goosePage.locator('[data-testid="workspace-worktree"]');
     await expect(chip).toHaveAttribute('aria-pressed', 'false', { timeout: 15000 });
     await chip.click();
     const slug = (await chip.getAttribute('data-slug')) ?? '';
     expect(slug).toMatch(/^wt-\d{8}-[0-9a-f]{4}$/);
+    await setAdvancedControls(goosePage, false);
     const worktreeSessionId = await sendFromHub(goosePage);
     expect(worktreeSessionId).not.toBe(mainSessionId);
     expect(existsSync(join(scratch, '.worktrees', slug))).toBe(true);

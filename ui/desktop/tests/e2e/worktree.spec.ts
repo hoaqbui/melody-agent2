@@ -2,7 +2,7 @@ import { execFileSync } from 'child_process';
 import { existsSync, mkdtempSync, realpathSync, rmSync, writeFileSync } from 'fs';
 import { tmpdir } from 'os';
 import { join } from 'path';
-import { test, expect, emptyDock, openPane } from './fixtures';
+import { test, expect, emptyDock, openPane, setAdvancedControls } from './fixtures';
 
 // Task 49: the Worktree chip on, a prompt sent from the Hub, and the session runs in
 // `.worktrees/<slug>` — the chip reads `wt/<slug>`, the Terminal's `pwd` ends there, and the
@@ -48,6 +48,8 @@ test.describe('worktree', () => {
       timeout: 15000,
     });
     await goosePage.setViewportSize({ width: 1400, height: 900 });
+    // The chip is Advanced's (task 140).
+    await setAdvancedControls(goosePage, true);
 
     // The toggle, off by default, names the path and the Rust cost once it is on.
     const chip = goosePage.locator('[data-testid="workspace-worktree"]');

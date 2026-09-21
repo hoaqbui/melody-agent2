@@ -48,11 +48,16 @@ import { LiveVoiceButton } from './LiveVoiceButton';
 import type { LiveVoiceAvailabilityResponse_unstable } from '@aaif/goose-acp-client';
 import { isLiveVoiceActive, type LiveVoiceController } from '../liveVoice/useLiveVoice';
 
-// The workspace's session chips (Runtime · Mode), rendered left of the model chip when the
-// shell provides them for this input's session (hidden chats stay mounted and get none);
-// upstream's Hub and chat render nothing here (task 60).
+// The workspace's session chips, rendered when the shell provides them for this input's
+// session (hidden chats stay mounted and get none); upstream's Hub and chat render nothing
+// here (task 60). `left` leads the row (seat · mode · worktree, or the lever); `right`
+// sits with the icon-only controls before attach (Session controls, task 141).
+export interface SessionChipsRow {
+  left: React.ReactNode;
+  right?: React.ReactNode;
+}
 export const SessionChipsSlot = React.createContext<
-  ((sessionId: string | null) => React.ReactNode) | null
+  ((sessionId: string | null) => SessionChipsRow | null) | null
 >(null);
 
 // The workspace's word on what the composer row shows (task 123): Easy keeps the lever, the
@@ -95,10 +100,7 @@ interface PastedImage {
   error?: string;
 }
 
-type ChatInputLiveVoice = Pick<
-  LiveVoiceController,
-  'phase' | 'muted' | 'stop' | 'toggleMute'
-> & {
+type ChatInputLiveVoice = Pick<LiveVoiceController, 'phase' | 'muted' | 'stop' | 'toggleMute'> & {
   availability: LiveVoiceAvailabilityResponse_unstable | null;
   activeInAnotherSession: boolean;
   start: () => Promise<void>;
@@ -400,19 +402,28 @@ export default function ChatInput({
   // Hide non-essential bottom-bar controls when the chat input is narrow.
   // Only the model selector, mic, and send button remain visible.
   const bottomBarRef = useRef<HTMLDivElement>(null);
+  // Two widths: under 480px the facts (cost, tokens, extensions, diagnostics) drop; under
+  // 300px the folder and branch go too. Attach stays in every row (task 138 — a three-column
+  // window at 1200px leaves the bar under 480px, which hid attach on the workspace route).
   const [isBottomBarNarrow, setIsBottomBarNarrow] = useState(false);
+  const [isBottomBarTight, setIsBottomBarTight] = useState(false);
   const sessionChips = useContext(SessionChipsSlot)?.(sessionId);
   const workspaceComposer = useContext(WorkspaceComposerSlot);
   // On the workspace route the row is quiet: cost, tokens, extensions and diagnostics live
   // in Session controls and the ring; the model chip shows in Advanced only.
   const quietRow = workspaceComposer !== null;
-  const showModelChip = workspaceComposer?.ui !== 'easy';
+  // An ACP seat reports `current` for its own default; the chip then shows the model the
+  // last turn resolved to, or nothing (task 141) — Session controls still lists Provider.
+  const seatModel =
+    effectiveModel === 'current' ? (latestInference?.resolvedModel ?? null) : effectiveModel;
+  const showModelChip = workspaceComposer?.ui !== 'easy' && (!quietRow || Boolean(seatModel));
   useEffect(() => {
     const el = bottomBarRef.current;
     if (!el) return;
     const observer = new ResizeObserver((entries) => {
       const width = entries[0]?.contentRect.width ?? 0;
       setIsBottomBarNarrow(width < 480);
+      setIsBottomBarTight(width < 300);
     });
     observer.observe(el);
     return () => observer.disconnect();
@@ -1819,7 +1830,7 @@ export default function ChatInput({
       <div ref={bottomBarRef} className="flex flex-row items-center gap-2 px-3 py-2 relative">
         {sessionChips && (
           <div className="group contents" data-narrow={isBottomBarNarrow || undefined}>
-            {sessionChips}
+            {sessionChips.left}
           </div>
         )}
 
@@ -1831,7 +1842,7 @@ export default function ChatInput({
                 sessionId={sessionId}
                 dropdownRef={dropdownRef}
                 setView={setView}
-                sessionModel={effectiveModel}
+                sessionModel={seatModel ?? effectiveModel}
                 sessionProvider={effectiveProvider}
                 latestInference={latestInference}
                 onModelChanged={setModelOverride}
@@ -1842,7 +1853,7 @@ export default function ChatInput({
         )}
 
         {/* Left: working directory (leaf folder name only) */}
-        {!isBottomBarNarrow && (
+        {!isBottomBarTight && (
           <DirSwitcher
             className=""
             sessionId={sessionId ?? undefined}
@@ -1854,7 +1865,7 @@ export default function ChatInput({
           />
         )}
 
-        {!isBottomBarNarrow && currentWorkingDir && (
+        {!isBottomBarTight && currentWorkingDir && (
           <GitBranchIndicator dir={currentWorkingDir} className="ml-1" />
         )}
 
@@ -1912,36 +1923,34 @@ export default function ChatInput({
           </>
         )}
 
-        {/* Right: attach — in every row; the quiet gate above hides only the facts */}
-        {!isBottomBarNarrow && (
-          <>
-            <Tooltip>
-              <TooltipTrigger asChild>
-                <Button
-                  type="button"
-                  onClick={handleFileSelect}
-                  disabled={isFilePickerOpen}
-                  aria-label="Attach file"
-                  data-testid="chat-attach"
-                  variant="ghost"
-                  size="sm"
-                  shape="round"
-                  className={cn(
-                    'text-text-primary/70 hover:text-text-primary transition-colors',
-                    isFilePickerOpen ? 'opacity-50 cursor-not-allowed' : 'cursor-pointer'
-                  )}
-                >
-                  {workspaceComposer ? (
-                    <PaperClipIcon className="size-4" />
-                  ) : (
-                    <Attach className="w-4 h-4" />
-                  )}
-                </Button>
-              </TooltipTrigger>
-              <TooltipContent>Attach file</TooltipContent>
-            </Tooltip>
-          </>
-        )}
+        {sessionChips?.right}
+
+        {/* Right: attach — in every row; the gates above hide only the facts */}
+        <Tooltip>
+          <TooltipTrigger asChild>
+            <Button
+              type="button"
+              onClick={handleFileSelect}
+              disabled={isFilePickerOpen}
+              aria-label="Attach file"
+              data-testid="chat-attach"
+              variant="ghost"
+              size="sm"
+              shape="round"
+              className={cn(
+                'text-text-primary/70 hover:text-text-primary transition-colors',
+                isFilePickerOpen ? 'opacity-50 cursor-not-allowed' : 'cursor-pointer'
+              )}
+            >
+              {workspaceComposer ? (
+                <PaperClipIcon className="size-4" />
+              ) : (
+                <Attach className="w-4 h-4" />
+              )}
+            </Button>
+          </TooltipTrigger>
+          <TooltipContent>Attach file</TooltipContent>
+        </Tooltip>
 
         {liveVoice && (
           <LiveVoiceButton
@@ -1960,8 +1969,9 @@ export default function ChatInput({
           />
         )}
 
-        {/* Right: mic — ghost icon, no background when idle */}
-        {dictationProvider && (
+        {/* Right: mic — ghost icon, no background when idle; in Easy only while it records
+            (task 140) */}
+        {dictationProvider && (workspaceComposer?.ui !== 'easy' || isRecording) && (
           <Tooltip>
             <TooltipTrigger asChild>
               <Button
@@ -1969,6 +1979,7 @@ export default function ChatInput({
                 variant="ghost"
                 size="sm"
                 shape="round"
+                data-testid="chat-dictate"
                 onClick={() => {
                   if (!isEnabled) return;
                   if (isRecording) {

@@ -9,7 +9,7 @@ import { useEffect, useState, type ComponentType } from 'react';
 import {
   ArrowPathIcon,
   CodeBracketIcon,
-  CubeIcon,
+  CommandLineIcon,
   Squares2X2Icon,
 } from '@heroicons/react/16/solid';
 import { defineMessages, useIntl } from '../i18n';
@@ -259,7 +259,7 @@ export function SessionChips({
     <div className="flex shrink-0 items-center gap-2" data-testid="workspace-session-chips">
       <DropdownMenu>
         <Chip
-          Icon={CubeIcon}
+          Icon={CommandLineIcon}
           name={intl.formatMessage(i18n.runtime)}
           label={runtimeLabel}
           value={currentRuntime}

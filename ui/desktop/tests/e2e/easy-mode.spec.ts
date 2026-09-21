@@ -36,6 +36,13 @@ test.describe('easy mode', () => {
     await expect(goosePage.locator('[data-testid="usage-ring"] .send-disc')).toHaveCount(1);
     await expect(goosePage.locator('[data-testid="model-chip"]')).toHaveCount(0);
     await expect(goosePage.getByText(/\/ \d+k$/)).toHaveCount(0);
+    // Easy is the PRD's four (task 140): no worktree or routine chip, no Session controls.
+    await expect(goosePage.locator('[data-testid="chat-attach"]')).toHaveCount(1);
+    await expect(goosePage.locator('[data-testid="chat-folder"]')).toHaveCount(1);
+    await expect(goosePage.locator('[data-testid="workspace-worktree"]')).toHaveCount(0);
+    await expect(goosePage.locator('[data-testid="workspace-routine"]')).toHaveCount(0);
+    await expect(goosePage.locator('[data-testid="workspace-session-controls"]')).toHaveCount(0);
+    await expect(goosePage.locator('[data-testid="chat-dictate"]')).toHaveCount(0);
     await goosePage.screenshot({ path: test.info().outputPath('easy-lever.png') });
 
     // A first prompt typed straight into the Hub, lever untouched, must start on Easy's
@@ -74,6 +81,39 @@ test.describe('easy mode', () => {
       // Advanced adds the model chip (task 123); the ring stays on send.
       await expect(goosePage.locator('[data-testid="model-chip"]')).toHaveCount(1);
       await expect(goosePage.locator('[data-testid="usage-ring"]')).toHaveCount(1);
+      // Task 141: seat · mode · worktree · folder · branch read in one sans face; the model id
+      // alone is mono (PRD journey 3); Session controls sits with the icon-only controls, after
+      // the folder; no glyph twice — the cube is the model's.
+      await expect(goosePage.locator('[data-testid="workspace-worktree"]')).toHaveCount(1);
+      const faces = await goosePage.evaluate(() => {
+        const face = (selector: string) =>
+          getComputedStyle(document.querySelector(selector)!).fontFamily;
+        return {
+          seat: face('[data-testid="workspace-runtime"]'),
+          folder: face('[data-testid="chat-folder"]'),
+          model: face('[data-testid="model-chip"] span'),
+          controlsAfterFolder: Boolean(
+            document
+              .querySelector('[data-testid="chat-folder"]')!
+              .compareDocumentPosition(
+                document.querySelector('[data-testid="workspace-session-controls"]')!
+              ) & Node.DOCUMENT_POSITION_FOLLOWING
+          ),
+        };
+      });
+      expect(faces.folder).toBe(faces.seat);
+      expect(faces.folder).not.toMatch(/mono/i);
+      expect(faces.model).toMatch(/mono/i);
+      expect(faces.controlsAfterFolder).toBe(true);
+      const seatGlyph = await goosePage
+        .locator('[data-testid="workspace-runtime"] svg path')
+        .first()
+        .getAttribute('d');
+      const modelGlyph = await goosePage
+        .locator('[data-testid="model-chip"] svg path')
+        .first()
+        .getAttribute('d');
+      expect(seatGlyph).not.toBe(modelGlyph);
       if (hardReachable) {
         await expect(runtime).toHaveAttribute('data-value', 'claude-code');
         await expect(goosePage.locator('[data-testid="workspace-mode"]')).toHaveAttribute(

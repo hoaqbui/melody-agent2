@@ -112,6 +112,7 @@ export const GitBranchIndicator: React.FC<{ dir: string; className?: string }> =
             className
           )}
           disabled={switching}
+          data-testid="chat-branch"
         >
           <GitBranch className="mr-1" size={14} />
           <span className="max-w-[100px] truncate whitespace-nowrap">{branch}</span>
