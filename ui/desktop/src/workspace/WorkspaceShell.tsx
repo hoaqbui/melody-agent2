@@ -1610,7 +1610,6 @@ export function WorkspaceShell({ chat, children, panes, paneStore }: WorkspaceSh
               layout={layout}
               store={store}
               chrome={chrome}
-              primary={PRIMARY_PANES}
               renderPane={renderPane}
               trailing={sessionMenu}
             />

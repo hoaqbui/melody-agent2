@@ -5849,6 +5849,9 @@
   "userMessage.undoThisTurn": {
     "defaultMessage": "Undo this turn"
   },
+  "workColumn.add": {
+    "defaultMessage": "Add a tab"
+  },
   "workColumn.bar": {
     "defaultMessage": "Panes"
   },
@@ -5861,14 +5864,11 @@
   "workColumn.closePane": {
     "defaultMessage": "Close {pane}"
   },
+  "workColumn.empty": {
+    "defaultMessage": "No tabs — add one with +"
+  },
   "workColumn.full": {
     "defaultMessage": "Full"
-  },
-  "workColumn.more": {
-    "defaultMessage": "More panes"
-  },
-  "workColumn.position": {
-    "defaultMessage": "Dock position"
   },
   "workColumn.resize": {
     "defaultMessage": "Resize"
