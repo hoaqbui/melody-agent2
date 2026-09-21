@@ -186,13 +186,19 @@ export function dock(layout: PaneLayout, id: PaneId, position: DockPosition): Pa
 }
 
 // The one entry point the launchers, a file pick and a route's ask share: a pane already
-// showing is seen; otherwise it takes the slot it last showed in, else the column when
-// nothing shows, else the bottom half.
+// showing is seen; otherwise it takes the column, parking what showed — one pane at a
+// time unless the user split the column by dragging a tab onto a half (option B,
+// 2026-09-20). A pane that last showed in a half comes back beside its partner only while
+// that partner is still showing in the other half; a lone pane is always Full.
 export function openPane(layout: PaneLayout, id: PaneId): PaneLayout {
   if (layout.mode === 'phone') return show(layout, id);
   if (positionOf(layout, id) !== null) return seen(layout, id);
-  const empty = sameSlots(layout.slots, EMPTY_SLOTS);
-  return dock(layout, id, layout.positions[id] ?? (empty ? 'full' : 'bottom'));
+  const remembered = layout.positions[id];
+  if (remembered && remembered !== 'full') {
+    const other = remembered === 'top' ? 'bottom' : 'top';
+    if (layout.slots[other]) return dock(layout, id, remembered);
+  }
+  return dock(layout, id, 'full');
 }
 
 // A seam drag: the top half takes the share, clamped so neither half disappears.
@@ -203,17 +209,20 @@ export function resize(layout: PaneLayout, size: number): PaneLayout {
   return { ...layout, size: clamped };
 }
 
+// Closing the one pane showing hands the column to the tab before it (a browser's rule),
+// so the column empties only when the last tab closes.
 export function closePane(layout: PaneLayout, id: PaneId): PaneLayout {
   const shown = layout.visible === id ? show(layout, 'chat') : layout;
   if (!shown.tabs.includes(id)) return shown;
   const positions = { ...shown.positions };
   delete positions[id];
-  return {
-    ...shown,
-    tabs: shown.tabs.filter((tab) => tab !== id),
-    slots: settle(without(shown.slots, id)),
-    positions,
-  };
+  const tabs = shown.tabs.filter((tab) => tab !== id);
+  let slots = settle(without(shown.slots, id));
+  if (shown.mode === 'desktop' && sameSlots(slots, EMPTY_SLOTS) && tabs.length > 0) {
+    const index = shown.tabs.indexOf(id);
+    slots = { top: null, bottom: null, full: tabs[Math.max(0, index - 1)] };
+  }
+  return { ...shown, tabs, slots, positions };
 }
 
 export function show(layout: PaneLayout, target: 'chat' | PaneId): PaneLayout {

@@ -25,9 +25,10 @@ import {
 const slotsOf = (layout: PaneLayout) => layout.slots;
 const empty = { top: null, bottom: null, full: null };
 
-// terminal opened first, then diff: terminal in the top half, diff in the bottom.
+// terminal opened first, then diff dragged onto the bottom half: terminal in the top
+// half, diff in the bottom — the split is a drag, never a default (option B, 2026-09-20).
 function twoHalves(): PaneLayout {
-  return openPane(openPane(initialLayout(), 'terminal'), 'diff');
+  return dock(openPane(initialLayout(), 'terminal'), 'diff', 'bottom');
 }
 
 describe('pane-store on the desktop', () => {
@@ -46,19 +47,27 @@ describe('pane-store on the desktop', () => {
     expect(positionOf(layout, 'terminal')).toBe('full');
   });
 
-  it('opens a second pane in the bottom half and moves the full one up', () => {
+  it('opens a second pane full and parks the first, still open', () => {
+    const layout = openPane(openPane(initialLayout(), 'terminal'), 'diff');
+    expect(layout.tabs).toEqual(['terminal', 'diff']);
+    expect(slotsOf(layout)).toEqual({ top: null, bottom: null, full: 'diff' });
+    expect(positionOf(layout, 'terminal')).toBeNull();
+    expect(paneVisible(layout, 'terminal')).toBe(false);
+  });
+
+  it('splits only by a drag onto a half, and moves the full one to the other half', () => {
     const layout = twoHalves();
     expect(layout.tabs).toEqual(['terminal', 'diff']);
     expect(slotsOf(layout)).toEqual({ top: 'terminal', bottom: 'diff', full: null });
     expect(layout.positions).toEqual({ terminal: 'top', diff: 'bottom' });
   });
 
-  it('opens a third pane in the bottom half and parks the one there, still open', () => {
+  it('opens a third pane full over a split, parking both halves', () => {
     const layout = openPane(twoHalves(), 'git');
     expect(layout.tabs).toEqual(['terminal', 'diff', 'git']);
-    expect(slotsOf(layout)).toEqual({ top: 'terminal', bottom: 'git', full: null });
+    expect(slotsOf(layout)).toEqual({ top: null, bottom: null, full: 'git' });
     expect(positionOf(layout, 'diff')).toBeNull();
-    expect(paneVisible(layout, 'diff')).toBe(false);
+    expect(paneVisible(layout, 'terminal')).toBe(false);
   });
 
   it('opens a pane already showing as a no-op', () => {
@@ -75,12 +84,20 @@ describe('pane-store on the desktop', () => {
     expect(dock(layout, 'diff', 'full')).toBe(layout);
   });
 
-  it('brings a parked tab back into the half it last showed in', () => {
+  it('brings a parked tab back beside its partner only while that partner shows in a half', () => {
+    // diff went Full (a header pick before 114, a drag after): terminal is parked; opening
+    // it again takes the column, since nothing shows in the other half.
     const parked = dock(twoHalves(), 'diff', 'full');
-    const back = openPane(parked, 'terminal');
-    expect(slotsOf(back)).toEqual({ top: 'terminal', bottom: 'diff', full: null });
-    const parkedBottom = dock(twoHalves(), 'terminal', 'full');
-    expect(slotsOf(openPane(parkedBottom, 'diff'))).toEqual({
+    expect(slotsOf(openPane(parked, 'terminal'))).toEqual({
+      top: null,
+      bottom: null,
+      full: 'terminal',
+    });
+    // git dragged onto the bottom half parks diff; opening diff again lands it back in the
+    // bottom half it remembers, beside the terminal still showing on top.
+    const swapped = dock(twoHalves(), 'git', 'bottom');
+    expect(slotsOf(swapped)).toEqual({ top: 'terminal', bottom: 'git', full: null });
+    expect(slotsOf(openPane(swapped, 'diff'))).toEqual({
       top: 'terminal',
       bottom: 'diff',
       full: null,
@@ -135,7 +152,7 @@ describe('pane-store on the desktop', () => {
   });
 
   it('closes a half and the other takes the column; closes a parked tab in place', () => {
-    const layout = openPane(twoHalves(), 'git');
+    const layout = dock(twoHalves(), 'git', 'bottom');
     const closedBottom = closePane(layout, 'git');
     expect(closedBottom.tabs).toEqual(['terminal', 'diff']);
     expect(slotsOf(closedBottom)).toEqual({ ...empty, full: 'terminal' });
@@ -147,9 +164,20 @@ describe('pane-store on the desktop', () => {
     expect(slotsOf(closePane(closePane(closedBottom, 'terminal'), 'diff'))).toEqual(empty);
   });
 
-  it('opens the next pane in the bottom half after a close left one full', () => {
+  it('closing the pane showing hands the column to the tab before it', () => {
+    const three = openPane(openPane(openPane(initialLayout(), 'terminal'), 'diff'), 'git');
+    const closedFront = closePane(three, 'git');
+    expect(closedFront.tabs).toEqual(['terminal', 'diff']);
+    expect(slotsOf(closedFront)).toEqual({ ...empty, full: 'diff' });
+    const closedFirst = closePane(openPane(three, 'terminal'), 'terminal');
+    expect(slotsOf(closedFirst)).toEqual({ ...empty, full: 'diff' });
+    expect(slotsOf(closePane(closePane(closedFront, 'diff'), 'terminal'))).toEqual(empty);
+  });
+
+  it('opens the next pane full after a close left one full', () => {
     const layout = openPane(closePane(twoHalves(), 'terminal'), 'files');
-    expect(slotsOf(layout)).toEqual({ top: 'diff', bottom: 'files', full: null });
+    expect(slotsOf(layout)).toEqual({ top: null, bottom: null, full: 'files' });
+    expect(paneVisible(layout, 'diff')).toBe(false);
   });
 });
 
@@ -177,14 +205,14 @@ describe('pane-store on the phone', () => {
     expect(phone.slots).toBe(desktop.slots);
     const back = setMode(show(phone, 'git'), 'desktop');
     expect(back.visible).toBe('chat');
-    expect(slotsOf(back)).toEqual({ top: 'terminal', bottom: 'git', full: null });
+    expect(slotsOf(back)).toEqual({ top: null, bottom: null, full: 'git' });
     expect(back.tabs).toEqual(['terminal', 'diff', 'git']);
   });
 });
 
 describe('restoreDock', () => {
   it('rebuilds a saved column', () => {
-    const before = resize(openPane(twoHalves(), 'git'), 0.3);
+    const before = resize(dock(twoHalves(), 'git', 'bottom'), 0.3);
     const { tabs, slots, size, positions } = before;
     const layout = restoreDock(initialLayout(), { tabs, slots, size, positions });
     expect(layout.tabs).toEqual(tabs);

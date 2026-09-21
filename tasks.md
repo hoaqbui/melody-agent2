@@ -144,13 +144,8 @@ Approved 2026-09-20 (user: "Ok orchestrate it"); pick B of `docs/2026-09-20-prog
 
 Option B: one pane visible by default, every open pane a tab, the pressed tab the visible one; the split survives only as a drag — drop a tab onto the top or bottom half to show two panes, the seam between them as today; the header's three position icons go. Tabs restyle as attached tabs. Order: 113 → 114 → 115 → 116 (walks and DESIGN.md last, all on main).
 
-- 113. `ui/desktop/src/workspace/pane-store.ts`: `openPane` shows the pane Full, replacing the pane in the full slot (that pane stays an open tab, parked) — never into the bottom half by default; `dock(...)` stays for the drag; a remembered `positions[id]` of top/bottom is honoured only when the other half is showing (so a parked half comes back beside its partner, but a lone pane is always Full); `pane-store.test.ts` follows (the "second pane takes the bottom half" cases become "second pane takes the front").
-  - status: doing · agent: session [Opus, direct] · worker: medium
-  - card: as the user, see one pane at a time on the right and switch with tabs, so that the Work column reads like a browser; split only when I drag
-  - confirm: `cd ui/desktop && pnpm vitest run src/workspace/pane-store` → all passed with the amended cases; `grep -c "empty ? 'full' : 'bottom'" ui/desktop/src/workspace/pane-store.ts` → `0` (untouched: `1`)
-
 - 114. `ui/desktop/src/workspace/WorkColumn.tsx` (+ `main.css` `.work-tab`): the header's three position icons (`workspace-dock-positions`) go — the drag targets and the seam stay; the tab strip is attached tabs — 13 px label with the icon, the pressed tab on the panel's own background with no bottom border so it merges into the panel, the others recessed under a hairline the active tab interrupts; Light and Dark through the existing `.work-tab[data-active]` hook; the ⋯ stays at the strip's end.
-  - status: todo · agent: — · worker: medium
+  - status: doing · agent: session [Opus, direct] · worker: medium
   - card: as the user, read the tabs at a glance and see which one owns the panel
   - confirm: `grep -c "workspace-dock-positions" ui/desktop/src/workspace/WorkColumn.tsx` → `0` (untouched: `≥ 1`); `grep -c "workspace-dock-seam" ui/desktop/src/workspace/WorkColumn.tsx` → `≥ 1` (unchanged); `pnpm run typecheck` clean; `pnpm vitest run src/workspace` all passed
 
