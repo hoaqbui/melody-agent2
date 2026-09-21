@@ -56,6 +56,7 @@ export function useChatSession({
   const sessionLoadError = acpSnapshot?.sessionLoadError;
   const tokenState = acpSnapshot?.tokenState ?? initialTokenState;
   const queueProcessingBlocked = acpSnapshot?.pendingCancelPromptAttemptId != null;
+  const hasActiveRun = acpSnapshot?.activeRunId != null;
 
   const snapshotRef = useRef(acpSnapshot);
   snapshotRef.current = acpSnapshot;
@@ -332,6 +333,7 @@ export function useChatSession({
     notifications: notificationsMap,
     pauseQueueOnStop: false,
     queueProcessingBlocked,
+    hasActiveRun,
     onMessageUpdate,
   };
 }

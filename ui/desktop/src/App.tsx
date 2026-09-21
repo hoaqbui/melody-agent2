@@ -13,7 +13,12 @@ import { importNostrSessionFromDeepLink } from './sessionLinks';
 import { ErrorUI } from './components/ErrorBoundary';
 import { ExtensionInstallModal } from './components/ExtensionInstallModal';
 import RecipeParamsModalContainer from './components/RecipeParamsModalContainer';
-import { isRecipeParamsCancelled, isRecipeParameterScopesUnsupported } from './acp/errors';
+import RecipeConsentModalContainer from './components/RecipeConsentModalContainer';
+import {
+  isRecipeDeclined,
+  isRecipeParamsCancelled,
+  isRecipeParameterScopesUnsupported,
+} from './acp/errors';
 import { toast, ToastContainer } from 'react-toastify';
 import AnnouncementModal from './components/AnnouncementModal';
 import TelemetryConsentPrompt from './components/TelemetryConsentPrompt';
@@ -77,6 +82,7 @@ import { trackErrorWithContext } from './utils/analytics';
 import { AppEvents } from './constants/events';
 import { registerPlatformEventHandlers } from './utils/platform_events';
 import { reconnectAcpAfterSystemResume } from './acp/acpConnection';
+import { useLiveVoice, type LiveVoiceController } from './liveVoice/useLiveVoice';
 
 function PageViewTracker() {
   usePageViewTracking();
@@ -84,9 +90,15 @@ function PageViewTracker() {
 }
 
 // Route Components
-const HubRouteWrapper = ({ draftRef }: { draftRef: RefObject<string> }) => {
+const HubRouteWrapper = ({
+  draftRef,
+  liveVoice,
+}: {
+  draftRef: RefObject<string>;
+  liveVoice: LiveVoiceController;
+}) => {
   const setView = useNavigation();
-  return <Hub setView={setView} draftRef={draftRef} />;
+  return <Hub setView={setView} draftRef={draftRef} liveVoice={liveVoice} />;
 };
 
 export function resolveSessionInitialMessage(
@@ -158,7 +170,7 @@ export const PairRouteWrapper = ({
             return prev;
           });
         } catch (error) {
-          if (isRecipeParamsCancelled(error)) {
+          if (isRecipeDeclined(error) || isRecipeParamsCancelled(error)) {
             navigate('/');
             return;
           }
@@ -231,7 +243,15 @@ const SettingsRoute = () => {
     viewOptions.section = sectionFromUrl;
   }
 
-  return <SettingsView onClose={() => navigate('/')} setView={setView} viewOptions={viewOptions} />;
+  const closeSettings = () => {
+    if (location.key === 'default') {
+      navigate('/');
+    } else {
+      navigate(-1);
+    }
+  };
+
+  return <SettingsView onClose={closeSettings} setView={setView} viewOptions={viewOptions} />;
 };
 
 const SessionsRoute = () => {
@@ -292,14 +312,20 @@ const PermissionRoute = () => {
 };
 
 const ConfigureProvidersRoute = () => {
+  const location = useLocation();
   const navigate = useNavigate();
+
+  const closeProviderSettings = () => {
+    if (location.key === 'default') {
+      navigate('/settings', { replace: true, state: { section: 'models' } });
+    } else {
+      navigate(-1);
+    }
+  };
 
   return (
     <div className="w-screen h-screen bg-background-primary">
-      <ProviderSettings
-        onClose={() => navigate('/settings', { state: { section: 'models' } })}
-        isOnboarding={false}
-      />
+      <ProviderSettings onClose={closeProviderSettings} isOnboarding={false} />
     </div>
   );
 };
@@ -343,7 +369,17 @@ export function AppInner() {
   const nostrImportInFlight = useRef<string | null>(null);
 
   const navigate = useNavigate();
+  const location = useLocation();
   const setView = useNavigation();
+  const liveVoice = useLiveVoice();
+  const { activeSessionId: activeLiveVoiceSessionId, stop: stopLiveVoice } = liveVoice;
+
+  useEffect(() => {
+    const hasLiveVoiceEntryPoint = location.pathname === '/' || location.pathname === '/pair';
+    if (!hasLiveVoiceEntryPoint && activeLiveVoiceSessionId) {
+      void stopLiveVoice();
+    }
+  }, [activeLiveVoiceSessionId, location.pathname, stopLiveVoice]);
 
   const [chat, setChat] = useState<ChatType>({
     sessionId: '',
@@ -672,6 +708,7 @@ export function AppInner() {
         pauseOnHover
       />
       <ExtensionInstallModal addExtension={addExtension} setView={setView} />
+      <RecipeConsentModalContainer />
       <RecipeParamsModalContainer />
       <div className="relative w-screen h-screen overflow-hidden bg-background-secondary flex flex-col">
         <div className="titlebar-drag-region" />
@@ -694,6 +731,7 @@ export function AppInner() {
                             <ChatSessionsContainer
                               setChat={setChat}
                               activeSessions={activeSessions}
+                              liveVoice={liveVoice}
                             />
                           }
                           panes={{
@@ -717,7 +755,10 @@ export function AppInner() {
                 </OnboardingGuard>
               }
             >
-              <Route index element={<HubRouteWrapper draftRef={hubDraftRef} />} />
+              <Route
+                index
+                element={<HubRouteWrapper draftRef={hubDraftRef} liveVoice={liveVoice} />}
+              />
               <Route key="runtimes-gate" path="runtimes" element={<RuntimesGate />} />
               <Route
                 path="pair"

@@ -32,6 +32,7 @@ export type ViewOptions = {
   disableAnimation?: boolean;
   initialMessage?: UserInput;
   resumeSessionId?: string;
+  startLiveVoice?: boolean;
   pendingScheduleDeepLink?: string;
   /** A Settings tab or card to open on: what SettingsRoute reads from `?section=` too. */
   section?: string;

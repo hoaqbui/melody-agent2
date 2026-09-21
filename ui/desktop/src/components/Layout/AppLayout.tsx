@@ -42,6 +42,8 @@ const AppLayoutContent: React.FC<AppLayoutProps> = ({ children }) => {
     return () => window.electron.off('fullscreen-change', handler);
   }, [safeIsMacOS]);
 
+  // Upstream's settings-route early return is not taken: Settings renders inside the Chat
+  // column here (task 60), and the columns are WorkspaceShell's.
   const { isNavExpanded, setIsNavExpanded } = useNavigationContext();
 
   const needsTrafficLightInset = safeIsMacOS && !isFullScreen;

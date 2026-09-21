@@ -27,6 +27,7 @@ pub struct GooseSessionNotification {
         "usage_update": "#/$defs/SessionUsageUpdate",
         "status_message": "#/$defs/StatusMessageUpdate",
         "message_usage": "#/$defs/MessageUsageUpdate",
+        "live_voice_interaction_ended": "#/$defs/LiveVoiceInteractionEndedUpdate",
         "delegation_update": "#/$defs/DelegationUpdate"
     }
 }))]
@@ -34,7 +35,22 @@ pub enum GooseSessionUpdate {
     UsageUpdate(SessionUsageUpdate),
     StatusMessage(StatusMessageUpdate),
     MessageUsage(MessageUsageUpdate),
+    LiveVoiceInteractionEnded(LiveVoiceInteractionEndedUpdate),
     DelegationUpdate(DelegationUpdate),
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize, JsonSchema)]
+#[serde(rename_all = "camelCase")]
+pub struct LiveVoiceInteractionEndedUpdate {
+    pub interaction_id: String,
+    pub outcome: LiveVoiceInteractionOutcome,
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize, JsonSchema)]
+#[serde(rename_all = "snake_case")]
+pub enum LiveVoiceInteractionOutcome {
+    Stopped,
+    Failed,
 }
 
 /// A delegation the parent session started, keyed by the child session.
@@ -259,6 +275,33 @@ mod tests {
                         "type": "notice",
                         "message": "Compaction complete"
                     }
+                }
+            })
+        );
+    }
+
+    #[test]
+    fn live_voice_interaction_ended_serializes_to_expected_wire_shape() {
+        let notification = GooseSessionNotification {
+            session_id: "s1".to_string(),
+            update: GooseSessionUpdate::LiveVoiceInteractionEnded(
+                LiveVoiceInteractionEndedUpdate {
+                    interaction_id: "live_opaque".to_string(),
+                    outcome: LiveVoiceInteractionOutcome::Failed,
+                },
+            ),
+        };
+
+        let value = serde_json::to_value(notification).unwrap();
+
+        assert_eq!(
+            value,
+            json!({
+                "sessionId": "s1",
+                "update": {
+                    "sessionUpdate": "live_voice_interaction_ended",
+                    "interactionId": "live_opaque",
+                    "outcome": "failed"
                 }
             })
         );

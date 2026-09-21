@@ -8,6 +8,7 @@ import { maybeHandlePlatformEvent } from '../utils/platform_events';
 import { toolNotificationEvent } from './adapter/toolNotifications';
 import { acpChatSessionActions, acpChatSessionStore } from './chatSessionStore';
 import { applyDelegationUpdate } from './delegations';
+import { publishLiveVoiceInteractionEnded } from './liveVoiceNotifications';
 import { rememberSessionConfigOptions } from './sessionConfig';
 
 export function handleAcpSessionNotification(notification: SessionNotification): Promise<void> {
@@ -56,6 +57,14 @@ export function handleAcpGooseSessionNotification(
   if (notification.update.sessionUpdate === 'delegation_update') {
     applyDelegationUpdate(notification.update);
   }
+  if (notification.update.sessionUpdate === 'live_voice_interaction_ended') {
+    publishLiveVoiceInteractionEnded({
+      sessionId: notification.sessionId,
+      update: notification.update,
+    });
+    return Promise.resolve();
+  }
+
   acpChatSessionActions.applyAcpGooseSessionNotification(notification);
   return Promise.resolve();
 }

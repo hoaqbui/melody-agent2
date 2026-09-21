@@ -99,3 +99,5 @@ gooseselftest/
 /crates/goose-sdk/examples/uniffi/kotlin/build/
 .claude/worktrees/
 .worktrees/
+
+live-in-desktop-design

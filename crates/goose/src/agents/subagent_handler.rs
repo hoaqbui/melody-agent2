@@ -24,7 +24,6 @@ pub type OnMessageCallback = Arc<dyn Fn(&Message) + Send + Sync>;
 #[derive(Serialize)]
 pub struct SubagentPromptContext {
     pub max_turns: usize,
-    pub subagent_id: String,
     pub task_instructions: String,
     pub tool_count: usize,
     pub available_tools: String,
@@ -193,13 +192,19 @@ fn get_agent_messages(params: SubagentRunParams) -> AgentMessagesFuture {
             .apply_recipe_components(recipe.response.clone(), true)
             .await?;
 
+        let max_turns = task_config
+            .max_turns
+            .expect("TaskConfig always sets max_turns");
+        // Upstream tags the first message with the child's id; the fork folds the role body
+        // into it when the provider takes no system prompt (task 24).
+        let user_task = format!("Subagent ID: {session_id}\n\n{user_task}");
         let user_message = first_user_message(
             task_config.provider.accepts_system_prompt(),
             &system_instructions,
             &user_task,
         );
         let subagent_prompt =
-            build_subagent_prompt(&agent, &task_config, &session_id, system_instructions).await?;
+            build_subagent_prompt(&agent, max_turns, &session_id, system_instructions).await?;
         agent.override_system_prompt(subagent_prompt).await;
         let mut conversation = Conversation::new_unvalidated(vec![user_message.clone()]);
 
@@ -290,30 +295,25 @@ fn first_user_message(accepts_system_prompt: bool, role_body: &str, user_task: &
 
 async fn build_subagent_prompt(
     agent: &Agent,
-    task_config: &TaskConfig,
+    max_turns: usize,
     session_id: &str,
     system_instructions: String,
 ) -> Result<String> {
-    let tools: Vec<_> = agent
+    let mut tool_names: Vec<_> = agent
         .list_tools(session_id, None)
         .await
         .into_iter()
         .filter(super::reply_parts::is_tool_visible_to_model)
+        .map(|t| t.name.to_string())
         .collect();
+    tool_names.sort_unstable();
     render_template(
         "subagent_system.md",
         &SubagentPromptContext {
-            max_turns: task_config
-                .max_turns
-                .expect("TaskConfig always sets max_turns"),
-            subagent_id: session_id.to_string(),
+            max_turns,
             task_instructions: system_instructions,
-            tool_count: tools.len(),
-            available_tools: tools
-                .iter()
-                .map(|t| t.name.to_string())
-                .collect::<Vec<_>>()
-                .join(", "),
+            tool_count: tool_names.len(),
+            available_tools: tool_names.join(", "),
         },
     )
     .map_err(|e| anyhow!("Failed to render subagent system prompt: {}", e))

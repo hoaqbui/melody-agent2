@@ -2372,6 +2372,36 @@
   "launcher.placeholder": {
     "defaultMessage": "Pergunte qualquer coisa ao goose..."
   },
+  "liveVoice.connecting": {
+    "defaultMessage": "Connecting Live voice"
+  },
+  "liveVoice.emptyComposerRequired": {
+    "defaultMessage": "Clear the message and attachments to use Live voice"
+  },
+  "liveVoice.error": {
+    "defaultMessage": "Live voice failed. Try again"
+  },
+  "liveVoice.live": {
+    "defaultMessage": "Stop Live voice"
+  },
+  "liveVoice.mute": {
+    "defaultMessage": "Mute microphone"
+  },
+  "liveVoice.returnToActive": {
+    "defaultMessage": "Return to active Live voice"
+  },
+  "liveVoice.stopping": {
+    "defaultMessage": "Stopping Live voice"
+  },
+  "liveVoice.unmute": {
+    "defaultMessage": "Unmute microphone"
+  },
+  "liveVoiceSettings.description": {
+    "defaultMessage": "Tenha uma conversa por voz em tempo real com o Goose"
+  },
+  "liveVoiceSettings.title": {
+    "defaultMessage": "Voz em tempo real"
+  },
   "loadingGoose.compacting": {
     "defaultMessage": "o goose está compactando a conversa..."
   },
@@ -4832,8 +4862,14 @@
   "sessionActionsHeader.copyText": {
     "defaultMessage": "Copiar texto"
   },
+  "sessionActionsHeader.duplicateFailed": {
+    "defaultMessage": "Falha ao duplicar a sessão: {error}"
+  },
   "sessionActionsHeader.duplicateSession": {
     "defaultMessage": "Duplicar sessão"
+  },
+  "sessionActionsHeader.duplicated": {
+    "defaultMessage": "Sessão duplicada"
   },
   "sessionActionsHeader.fullTextTitle": {
     "defaultMessage": "Valor do texto"
@@ -5041,6 +5077,75 @@
   },
   "sessions.toast.updated": {
     "defaultMessage": "Descrição da sessão atualizada com êxito"
+  },
+  "settings.agentLoop.description": {
+    "defaultMessage": "Use o loop do agente baseado em operações. Desative-o para usar o loop legado."
+  },
+  "settings.agentLoop.operations.auto.placeholder": {
+    "defaultMessage": "Automático"
+  },
+  "settings.agentLoop.operations.blockLimit.label": {
+    "defaultMessage": "Limite de bloqueios"
+  },
+  "settings.agentLoop.operations.contextCompaction.description": {
+    "defaultMessage": "Resume o histórico da conversa antes que a janela de contexto fique cheia."
+  },
+  "settings.agentLoop.operations.contextCompaction.title": {
+    "defaultMessage": "Compactação de contexto"
+  },
+  "settings.agentLoop.operations.cutoff.label": {
+    "defaultMessage": "Limite"
+  },
+  "settings.agentLoop.operations.enable": {
+    "defaultMessage": "Ativar {operation}"
+  },
+  "settings.agentLoop.operations.failureTimeout.label": {
+    "defaultMessage": "Tempo limite de falha"
+  },
+  "settings.agentLoop.operations.heading": {
+    "defaultMessage": "Operações configuráveis"
+  },
+  "settings.agentLoop.operations.maxTurns.description": {
+    "defaultMessage": "Interrompe o trabalho autônomo e pergunta ao usuário antes de continuar."
+  },
+  "settings.agentLoop.operations.maxTurns.title": {
+    "defaultMessage": "Máximo de turnos"
+  },
+  "settings.agentLoop.operations.recipeRetry.description": {
+    "defaultMessage": "Executa novamente as verificações da receita quando uma verificação de sucesso configurada falha."
+  },
+  "settings.agentLoop.operations.recipeRetry.title": {
+    "defaultMessage": "Repetir receita"
+  },
+  "settings.agentLoop.operations.retryTimeout.label": {
+    "defaultMessage": "Tempo limite de nova tentativa"
+  },
+  "settings.agentLoop.operations.slashCommands.description": {
+    "defaultMessage": "Reconhece comandos como /compact, /skills e atalhos de receitas."
+  },
+  "settings.agentLoop.operations.slashCommands.title": {
+    "defaultMessage": "Comandos de barra"
+  },
+  "settings.agentLoop.operations.stopHooks.description": {
+    "defaultMessage": "Permite que hooks bloqueiem a conclusão, evitando ciclos de parada infinitos."
+  },
+  "settings.agentLoop.operations.stopHooks.title": {
+    "defaultMessage": "Hooks de parada"
+  },
+  "settings.agentLoop.operations.threshold.label": {
+    "defaultMessage": "Limite %"
+  },
+  "settings.agentLoop.operations.toolPairCompaction.description": {
+    "defaultMessage": "Resume solicitações e respostas antigas de ferramentas para economizar contexto. O limite é automático quando deixado em branco."
+  },
+  "settings.agentLoop.operations.toolPairCompaction.title": {
+    "defaultMessage": "Compactação de pares de ferramentas"
+  },
+  "settings.agentLoop.operations.turns.label": {
+    "defaultMessage": "Turnos"
+  },
+  "settings.agentLoop.title": {
+    "defaultMessage": "Loop do agente"
   },
   "settings.appearance.description": {
     "defaultMessage": "Configure como o goose aparece no seu sistema"
