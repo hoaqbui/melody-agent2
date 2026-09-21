@@ -7,6 +7,7 @@ import { defineMessages, useIntl } from '../../../i18n';
 import { cn } from '../../../utils';
 import { usePaneContext } from '../../pane-context';
 import { TelemetryNow } from './TelemetryNow';
+import { TelemetryRoles } from './TelemetryRoles';
 import { TelemetryTime } from './TelemetryTime';
 import { Why, WhyProvider } from './Why';
 import {
@@ -43,10 +44,6 @@ const i18n = defineMessages({
     id: 'telemetryPane.rangeWhy',
     defaultMessage:
       'How far back the charts look; every delta compares against the same span before it.',
-  },
-  comingRoles: {
-    id: 'telemetryPane.comingRoles',
-    defaultMessage: 'No delegated work in this range.',
   },
 });
 
@@ -98,15 +95,6 @@ function Seg<T extends string>({
   );
 }
 
-// What a scope renders until its task lands (130 Over time · 131 Roles): the PRD's Empty line.
-function Placeholder({ text, testId }: { text: string; testId: string }) {
-  return (
-    <p className="p-4 text-sm text-text-secondary" data-testid={testId}>
-      {text}
-    </p>
-  );
-}
-
 export function TelemetryPane() {
   const intl = useIntl();
   const { cwd } = usePaneContext();
@@ -137,7 +125,7 @@ export function TelemetryPane() {
     ) : scope === 'time' ? (
       <TelemetryTime grain={grain} />
     ) : (
-      <Placeholder text={intl.formatMessage(i18n.comingRoles)} testId="telemetry-roles-empty" />
+      <TelemetryRoles grain={grain} />
     );
 
   return (

@@ -152,21 +152,8 @@ Each panel owns its tab bar; the bar holds only open panes; + adds one; drag a t
 
 A + A4 from the research (`docs/2026-09-20-telemetry-pane-research-v1.md`), the PRD `docs/2026-09-20-work-ledger-prd-v1.md`, the prototype `docs/mockups/2026-09-20-work-ledger.html`. Order: 125 ∥ 126 → 127 ∥ 128 → 129 ∥ 130 ∥ 131 → 132 → 133, all on main. Only the user can verify: the hand-counted rows against their own count, the routing-change date, whether the Claude seat reports `cacheReadTokens`.
 
-- 131. Add `telemetry-roles.ts` (+ test) and `TelemetryRoles.tsx`: routing ribbons (role → seat), the Roles board, clean-done by role per week, with `tasks.md` rows marked hand-counted.
-  - status: doing · agent: session [Opus, direct] · worker: high
-  - card: as the user paying for three seats, read which seat each role ran on and whether its output survived the session, so that the next `runtimes:` edit is made from numbers
-  - context:
-    - input: ledger `worker`, `correction`, `review` events; `acpSessionChildren` (`sessions.ts:198`) for median time (`createdAt → lastMessageAt`); tokens per run from the child's session totals once task 125 lands, else "—"
-    - board columns and verdict thresholds per PRD journey step 4; Done = status done ÷ runs; Blocked = `worker.blocked`; Corrected = `correction` events per worker; Review PASS = `review` verdicts on the branch the role's worker last touched ÷ reviews, `n/a` when none; Trend = weekly clean-done `(done − blocked − corrected) ÷ runs`
-    - hand-counted rows: `POST /fs/read` of `tasks.md` (the sidecar, contained) → entries with `status: done` and an `agent:` line naming a worker tier (`worker: low|medium|high`), counted as runs; their Corrected from the same file's `§Waiting` "Worker routing evidence" line is not parsed — the row shows runs and the **hand-counted** pill, Corrected "—", until a `correction` event exists for it
-    - ribbons: the prototype's `drawRoles` layout (min node height so labels never collide; a dashed `danger` thread when `worker.fo` — re-roll or fail-over — is set; hover dims the others)
-    - the routing-change marker on the trend: the newest dated row under `AGENTS.md` §Model routing is not readable from the app — the marker's date comes from a `workspace.routingChangedAt` project setting the user sets from the card (a date input), absent → no marker
-    - test: two workers done, one BLOCKED, one corrected → Done 2/2, Blocked 1, Corrected 1, clean-done 0%; thresholds: (clean .85, pass .9) → Effective, (clean .7) → Watch, (corrected ≥ runs/2) → Failing; a `tasks.md` fixture with three done tasks tagged `worker: low` → one hand row, runs 3
-    - test ids: `telemetry-roles-row` (`[data-role][data-verdict][data-hand]`), `telemetry-routing`, `telemetry-role-trend`
-  - confirm: `cd ui/desktop && pnpm vitest run telemetry-roles` → passes (untouched: no such test)
-
 - 132. Add `telemetry-trends.ts` (+ test) and the Trends card at the top of every scope: the three largest movements, written from templates.
-  - status: todo · agent: — · worker: medium
+  - status: doing · agent: session [Opus, direct] · worker: medium
   - card: as the user opening the pane, read in three lines what moved and why it matters before any chart, so that the numbers below have a headline
   - context:
     - candidates, each with a weight and a template: tokens per turn (Δ ratio), the top seat's share of tokens (Δ points), cost per priced turn (Δ ratio), clean-done per role (Δ points, roles with ≥ 4 runs in both ranges), the hand-counted Implementer (fixed weight while any hand row exists); the top three by weight render as bullets, each `Why`-wrapped with its from line; no model call (the PRD's rule)
@@ -186,6 +173,9 @@ A + A4 from the research (`docs/2026-09-20-telemetry-pane-research-v1.md`), the 
 
 ## Waiting on the user
 
+- Roles board, two plan-vs-found items (2026-09-20, task 131 — built without them, your call on each):
+  - **Hand-counted rows.** The plan read `status: done` per `worker:` tier from `tasks.md`, but Done is spent — done tasks leave the file in the landing commit, so that count is always ~0; the only record of the 17/17 corrected Haiku diffs is prose in §Waiting and git history. Proposal: a fixed-shape table under a `## Hand counts` heading here (`role · tier · seat · runs · corrected · since`) that you edit and the board reads with the **hand-counted** mark; or leave the board to the wire only. The `hand` flag exists on `RoleRow` (`telemetry-roles.ts`) — nothing fills it yet.
+  - **Review PASS per role.** A worker carries no branch on the wire (`DelegationUpdate` has no worktree field), so "the branch this role's worker last touched" is unknowable. Landed as the range's branch-level PASS rate in every row, the hover saying it is not role-attributed (`passRate`, `telemetry-roles.ts`). Attribution needs either a `branch` on the delegation (a spine touch in `summon.rs`, allowed) or the review event to name the worker — say which, or keep the range rate.
 - **Push (2026-09-20, user: "fork and submit … merge and push"):** the fork exists — https://github.com/hoaqbui/melody-agent2 (public, forked from aaif-goose/goose), added as `origin`. The session's pushes were refused by the permission classifier (both the force-with-lease to `main` and a plain push to a new `melody` branch), so nothing is on GitHub yet. Run one of these yourself:
   - `git push origin main:melody && git push origin melody-v0.9-beta` — our history as a branch beside the fork's `main` (which is upstream's current main, 29 commits newer than our base a23a8cd5); then `gh repo edit hoaqbui/melody-agent2 --default-branch melody` if you want it to open there
   - or `git push --force origin main && git push origin melody-v0.9-beta` — our history *as* the fork's main (upstream's 29 newer commits stay in upstream)
