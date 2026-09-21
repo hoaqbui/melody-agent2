@@ -144,6 +144,28 @@ Approved 2026-09-20 (user: "Ok orchestrate it"); pick B of `docs/2026-09-20-prog
 
 Option B: one pane visible by default, every open pane a tab, the pressed tab the visible one; the split survives only as a drag — drop a tab onto the top or bottom half to show two panes, the seam between them as today; the header's three position icons go. Tabs restyle as attached tabs. Order: 113 → 114 → 115 → 116 (walks and DESIGN.md last, all on main).
 
+### Per-panel tab bars (approved 2026-09-20, user: "1 or 2 tab bar menu … starts off with 1 … add a tab with the + … second tab bar menu is identical to the first" → option A)
+
+Each panel owns its tab bar; the bar holds only open panes; + adds one; drag a tab onto a half makes the second panel with an identical bar; a panel whose last tab closes goes. The permanent launchers (task 71) are retired. Order: 117 → 118 → 119 → 120, all on main.
+
+- 117. `ui/desktop/src/workspace/pane-store.ts`: each slot owns an ordered tab list and its active pane (`panels: { full | top | bottom → { tabs: PaneId[], active: PaneId } }`); `openPane(id)` adds the pane to the active panel's bar (the full or top one) and shows it, or activates it where it already is; `dock(id, half)` moves the tab into that half's panel, creating the panel; `closePane(id)` activates the tab before it or removes an emptied panel (the other takes the column); `restoreDock` reads today's `{tabs, slots, positions}` into one panel; `pane-store.test.ts` follows.
+  - status: doing · agent: session [Opus, direct] · worker: high
+  - card: as the user, see each panel carry its own tabs like a browser window, so that what is open is what the bar shows
+  - confirm: `cd ui/desktop && pnpm vitest run src/workspace/pane-store` → all passed; `grep -c "panels" ui/desktop/src/workspace/pane-store.ts` → `≥ 5` (untouched: `0`)
+
+- 118. `ui/desktop/src/workspace/WorkColumn.tsx`: one tab bar per shown panel — attached tabs (task 114) each with × on hover and the right-click menu, a **+** at the bar's end (`workspace-panel-add`) listing the panes not open in that panel with icon, name and the unseen dot (`workspace-panel-add-<id>`), the ⋯ session menu at the right end of the top or full bar; empty start: one bar with + and ⋯ over an empty-panel hint; the launchers, the fold chevron and `primary` go.
+  - status: todo · agent: — · worker: high
+  - card: as the user, add a tab with + and close it with ×, and read each panel's tabs on its own bar
+  - confirm: `grep -c "workspace-panel-add" ui/desktop/src/workspace/WorkColumn.tsx` → `≥ 2` (untouched: `0`); `grep -c "workspace-pane-overflow" ui/desktop/src/workspace/WorkColumn.tsx` → `0` (untouched: `≥ 2`); `pnpm run typecheck` clean; `pnpm vitest run src/workspace` all passed
+
+- 119. Walks: `tests/e2e/fixtures.ts` `openPane` clicks the active panel's + then `workspace-panel-add-<id>` (a pane already open is clicked on its tab); `emptyDock` closes tabs through their ×; `dock.spec.ts`, `pane-menu.spec.ts`, `session-menu.spec.ts`, `files-pane.spec.ts`, `command-palette.spec.ts` follow; every walk that opens a pane reruns green.
+  - status: todo · agent: — · worker: medium
+  - confirm: `just walk "dock|pane menu|session menu|files pane|command palette|markdown pane|add to chat|diff pane|terminal pane|browser pane|changes bar|studio light"` → all passed
+
+- 120. `DESIGN.md` §Vocabulary: the tab bar and dock position rows rewritten and dated (per-panel bars, +, ×; the launchers, the fold chevron and `primary` retired with the user's words); the studio screenshot retaken; `PRODUCT.md` §11 flexible panes line amended.
+  - status: todo · agent: — · worker: low
+  - confirm: `grep -c "Retired: \*\*launcher" DESIGN.md` → `1` (untouched: `0`)
+
 ## Waiting on the user
 
 - **v0.9 beta candidate (2026-09-20, task 112):** `ui/desktop/out/Goose-darwin-arm64/Goose.app` (561 MB; `Goose.zip` beside it, 215 MB) built by `just make-ui` on main at 55d504325 — release `goose` 1.51.0 from this tree, the sidecar at `Contents/Resources/sidecar`, the Studio theme. Launched once by the session: goosed started from the bundle, the sidecar listened on 7788, the renderer reported ready (`~/Library/Application Support/Goose/logs/main.log` 16:36:29–30). Unsigned — Finder's first open is right-click → Open. The startup update check logs a 404 (no `latest-mac.yml` on the fork's releases) and falls back; harmless, but the auto-updater points at upstream's feed until the fork has its own. Your hand check: a seat listed, Files and Terminal open on a directory, Light on and looked at; then the beta call. The first full run's remaining reds are the five seat-gated walks only (agents pane, artifact pane, review pane, rpi strip, turn undo) plus one flaky Rust test (`bridge_broadcasts_delegate_started_and_done` fails in the batch, passes alone ×3).
