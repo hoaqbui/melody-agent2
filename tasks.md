@@ -157,15 +157,8 @@ A + A4 from the research (`docs/2026-09-20-telemetry-pane-research-v1.md`), the 
 
 One branch, one remote, merged worktrees gone, every open workstream handed to its owner. Order: 134 → 135 → **user pushes** → 136 → 137. The push is the user's (the classifier refuses it from a session).
 
-- 136. Merge `upstream/main` (29 commits, e629eea1d) into main after the push lands: `git merge upstream/main`, conflicts resolved toward the fork's files (the spine deny-list stays untouched — a conflict inside `agents/agent.rs` or `state_machine/` takes upstream's side whole), then `just test-full` and every fork walk green before the merge commit is pushed.
-  - status: doing · agent: session [Opus, direct] · worker: high
-  - card: as the fork, stay 0 commits behind upstream so the next upstream fix is a pull, not an archaeology
-  - context: upstream's 29 include a radix de-duplication in the desktop (#1179x) that may touch `ui/pnpm-lock.yaml` and the dropdown stacking the tab bars rely on — the `dock`, `pane menu` and `session menu` walks are the tell
-    - probed 2026-09-20 on a scratch branch (aborted, main untouched): 31 files conflict — `summon.rs` and `subagent_handler.rs` (the fork's spine touches against upstream's), `acp-schema.json` and the three generated `goose-acp-client` files (regenerate, do not hand-merge), `custom_notifications.rs`, `App.tsx`, `BaseChat.tsx`, `Hub.tsx`, `AppLayout.tsx`, `NavigationPanel.tsx`, `chatNotifications.ts`, `sessions.ts`, `createSession.test.ts`, `.gitignore`, and the 16 locale files (take both sides, then `i18n:extract` and the seed); a half-day with the suite, not an afternoon
-  - confirm: `git rev-list --count main..upstream/main` → `0` (untouched: `29`); `bash scripts/check-spine.sh` → `spine clean`; `just test-full` → the five seat-gated walks the only reds
-
 - 137. Retag and rebuild: `git tag -f melody-v0.9-beta` on the closeout commit (or `melody-v0.9-beta.2` if the user wants the first kept), `just make-ui`, the zip refreshed on the Desktop, `docs/2026-09-20-release-v0.9-beta.md` §Verified on the tag updated with the run; the tag pushed by the user with the branch.
-  - status: todo · agent: — · worker: low
+  - status: doing · agent: session [Opus, direct] · worker: low
   - confirm: `git describe --tags --exact-match HEAD` → the tag; `ls -la ui/desktop/out/Goose-darwin-arm64/Goose.zip` → present
 
 ## Waiting on the user
@@ -174,11 +167,11 @@ One branch, one remote, merged worktrees gone, every open workstream handed to i
 
 - **Push the fork.** The remote is `origin` → https://github.com/hoaqbui/melody-agent2 (public, forked from aaif-goose/goose today). The classifier refuses pushes from a session. Our history as the fork's main:
   `git push --force origin main && git push origin --tags`
-  — or beside upstream's main: `git push origin main:melody && git push origin --tags` then `gh repo edit hoaqbui/melody-agent2 --default-branch melody`. Then say "pushed" and task 136 (the 29-commit upstream merge) runs on that base.
+  — or beside upstream's main: `git push origin main:melody && git push origin --tags` then `gh repo edit hoaqbui/melody-agent2 --default-branch melody`. Pushed 2026-09-20 (93989e47c); the upstream merge (136) is on main since — push again: `git push origin main && git push origin --tags`.
 - **107 — the routing row:** paste the row from `docs/2026-09-20-agents-routing-row-v1.md` into `~/github/agent-workspace/AGENTS.md` §Model routing (the classifier refused the edit); then `python ~/github/agent-workspace/scripts/check-reach.py` → PASS.
 - **33 — the three upstream issues:** parked by you 2026-09-16; say "file them" when the parity fixes have proven out.
 - **88 · 89 · 93 · 96 — the seat:** the Claude seat answered live this afternoon, so these can run now: `just walk "turn undo"` (88), `just walk "approve mode"` (89), then 93 (transcript diff cards) and 96 (the plan-gate walk and ten Hard runs) as tranche 10 — say "run tranche 10".
-- **133 — the telemetry session:** its `ui/desktop/tests/e2e/telemetry-pane.spec.ts` sits untracked in the main checkout; that session commits it. Two sessions in one checkout swept each other's edits today (4ef77d78d) — the second session works in a worktree of its own from here.
+- **133 — the telemetry session:** landed (f7dd58ea5, aff408be5 both on main); it works in `../melody-agent2-telemetry` on `telemetry` from here.
 - **ARCHITECTURE.md sign-off:** one word deletes §Bootstrap Status (task 108 drafted the paragraph).
 - **The look at Light and the four DESIGN.md open decisions** (runtime colour, Esc as pane-close, phone breakpoint, dark canvas off macOS) — one sitting with the app open; tranche 11 waits on it.
 
