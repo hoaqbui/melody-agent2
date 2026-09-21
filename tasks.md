@@ -140,6 +140,29 @@ Approved 2026-09-20 (user: "Ok orchestrate it"); pick B of `docs/2026-09-20-prog
 
 `just test-full` ran end to end for the first time since the 1.98.1 move (24.0 min): clippy green, spine clean, Rust light suite 90/91 (one flaky), sidecar 89, desktop 1231, walks 34 passed / 8 failed. Five of the eight need a live Claude seat (agents pane, artifact pane, review pane, rpi strip, turn undo — tranche 10). The three below are headless. 112 is the user's ask the same turn: a macOS app to try.
 
+### One tabbed panel (approved 2026-09-20, user: "make it only one tabbed panel on the right instead of a top and bottom … tabs easier to read, connect more with the panel like actual tabs"; option A)
+
+Reverts task 71's three dock positions to one slot: every open pane is a tab, the visible one is the pressed tab, no seam, no position controls, no drag-to-half. Tabs restyle as attached tabs. Order: 113 → 114 → 115 → 116 (walks and DESIGN.md last, all on main).
+
+- 113. `ui/desktop/src/workspace/pane-store.ts`: one slot — `Slots` becomes the visible pane id (or null), `DockPosition`, `DOCK_POSITIONS`, `positions`, `dock(...)`, `resize(...)`, `positionOf` go; `openPane` shows the pane, `closePane` shows the next open tab (the previous one if any, else the first), `SavedDock` loads a two-slot record by taking its top (or full) pane; `pane-store.test.ts` follows.
+  - status: doing · agent: session [Opus, direct] · worker: medium
+  - card: as the user, see one pane at a time on the right and switch with tabs, so that the Work column reads like a browser and not a tiling manager
+  - confirm: `grep -c "DockPosition" ui/desktop/src/workspace/pane-store.ts` → `0` (untouched: `≥ 3`); `cd ui/desktop && pnpm vitest run src/workspace/pane-store` → all passed
+
+- 114. `ui/desktop/src/workspace/WorkColumn.tsx` (+ `main.css` `.work-tab`): the position icons, the seam and the drop halves go; the slot is one grid row; the tab strip is attached tabs — 13 px label with the icon, the pressed tab on the panel's own background with no bottom border so it merges into the panel, the others recessed with a hairline under the strip that the active tab interrupts; Light and Dark through the existing `.work-tab[data-active]` hook; the ⋯ stays at the strip's end.
+  - status: todo · agent: — · worker: medium
+  - card: as the user, read the tabs at a glance and see which one owns the panel
+  - confirm: `grep -c "workspace-dock-seam\|workspace-dock-positions" ui/desktop/src/workspace/WorkColumn.tsx` → `0` (untouched: `≥ 2`); `pnpm run typecheck` clean; `pnpm vitest run src/workspace` all passed
+
+- 115. Callers that opened a pane into the bottom half open it as the front tab: `WorkspaceShell.tsx` `openFile` (Files → Editor, Markdown → Edit), `DiffPane.tsx` Open in Editor; `PaneContext`'s `openPane` signature loses any position argument.
+  - status: todo · agent: — · worker: low
+  - card: as the user, click a file and land in the Editor tab with Files one tab away
+  - confirm: `grep -rn "'bottom'" ui/desktop/src/workspace --include='*.ts' --include='*.tsx' | grep -v "side=\|side:" | wc -l` → `0` (untouched: `≥ 3`)
+
+- 116. Walks and documents: `dock.spec.ts` (one slot: open two panes, the second is front, the first a tab; close returns to the other), `files-pane.spec.ts`, `pane-menu.spec.ts`, `markdown-pane.spec.ts`, `add-to-chat.spec.ts`, `diff-pane.spec.ts` drop their `data-position` / seam assertions; `DESIGN.md` §Vocabulary retires **dock position · seam** with a dated line and amends the tab bar row; `studio light` screenshot retaken.
+  - status: todo · agent: — · worker: medium
+  - confirm: `just walk "dock|files pane|pane menu|markdown pane|add to chat|diff pane|studio light"` → all passed; `grep -c "Retired: \*\*dock position" DESIGN.md` → `1` (untouched: `0`)
+
 ## Waiting on the user
 
 - **v0.9 beta candidate (2026-09-20, task 112):** `ui/desktop/out/Goose-darwin-arm64/Goose.app` (561 MB; `Goose.zip` beside it, 215 MB) built by `just make-ui` on main at 55d504325 — release `goose` 1.51.0 from this tree, the sidecar at `Contents/Resources/sidecar`, the Studio theme. Launched once by the session: goosed started from the bundle, the sidecar listened on 7788, the renderer reported ready (`~/Library/Application Support/Goose/logs/main.log` 16:36:29–30). Unsigned — Finder's first open is right-click → Open. The startup update check logs a 404 (no `latest-mac.yml` on the fork's releases) and falls back; harmless, but the auto-updater points at upstream's feed until the fork has its own. Your hand check: a seat listed, Files and Terminal open on a directory, Light on and looked at; then the beta call. The first full run's remaining reds are the five seat-gated walks only (agents pane, artifact pane, review pane, rpi strip, turn undo) plus one flaky Rust test (`bridge_broadcasts_delegate_started_and_done` fails in the batch, passes alone ×3).
