@@ -96,6 +96,20 @@ describe('ledgerRoutes', () => {
     expect(await readLedger(torn)).toHaveLength(1);
   });
 
+  it('outside any repository the spawn cwd is the boundary (the Hub on a home directory)', async () => {
+    const home = path.join(scratch, 'home');
+    await mkdir(path.join(home, 'sub'), { recursive: true });
+    const bare = ledgerRoutes(home, ledgerDir);
+    const read = (await bare['POST /ledger/read']({})) as { file: string; events: unknown[] };
+    expect(read.file).toBe(ledgerFileFor(ledgerDir, home));
+    expect(read.events).toEqual([]);
+    const sub = (await bare['POST /ledger/read']({ cwd: 'sub' })) as { file: string };
+    expect(sub.file).toBe(read.file);
+    await expect(bare['POST /ledger/read']({ cwd: scratch })).rejects.toMatchObject({
+      status: 400,
+    });
+  });
+
   it('two checkouts with the same basename get different files', () => {
     expect(ledgerFileFor(ledgerDir, '/a/repo')).not.toBe(ledgerFileFor(ledgerDir, '/b/repo'));
     expect(path.basename(ledgerFileFor(ledgerDir, '/a/repo'))).toMatch(/^repo-[0-9a-f]{8}\.jsonl$/);

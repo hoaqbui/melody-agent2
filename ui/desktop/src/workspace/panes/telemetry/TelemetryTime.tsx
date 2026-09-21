@@ -39,11 +39,23 @@ import {
 import { GRAIN_SPAN, type Grain } from './telemetry-state';
 import { Why } from './Why';
 
+// One stable default: a fresh closure per render would re-fire every effect that reads it.
+const defaultNow = (): Date => new Date();
+
 const i18n = defineMessages({
   tokens: { id: 'telemetryTime.tokens', defaultMessage: 'Tokens' },
   cost: { id: 'telemetryTime.cost', defaultMessage: 'Cost' },
   turns: { id: 'telemetryTime.turns', defaultMessage: 'Turns' },
-  byModel: { id: 'telemetryTime.byModel', defaultMessage: 'Tokens by model' },
+  byModelDays: { id: 'telemetryTime.byModelDays', defaultMessage: 'Tokens per day, by model' },
+  byModelWeeks: { id: 'telemetryTime.byModelWeeks', defaultMessage: 'Tokens per week, by model' },
+  byModelMonths: {
+    id: 'telemetryTime.byModelMonths',
+    defaultMessage: 'Tokens per month, by model',
+  },
+  byModelQuarters: {
+    id: 'telemetryTime.byModelQuarters',
+    defaultMessage: 'Tokens per quarter, by model',
+  },
   hoverBar: { id: 'telemetryTime.hoverBar', defaultMessage: 'hover a bar' },
   costPerWeek: { id: 'telemetryTime.costPerWeek', defaultMessage: 'Cost per week' },
   share: { id: 'telemetryTime.share', defaultMessage: 'Share of tokens' },
@@ -143,7 +155,7 @@ export function TelemetryTime({
   data,
   error,
   retry,
-  now = () => new Date(),
+  now = defaultNow,
 }: {
   grain: Grain;
   data: TelemetryData | null;
@@ -334,7 +346,16 @@ export function TelemetryTime({
           why="Which model did the work, bucket by bucket. A stack that changes colour is a routing change; one that only grows is scope growth."
           from="inference.resolvedModel per turn · workers under the seat the roll picked"
         >
-          <span data-testid="telemetry-stack-title">{intl.formatMessage(i18n.byModel)}</span>
+          <span data-testid="telemetry-stack-title">
+            {intl.formatMessage(
+              {
+                days: i18n.byModelDays,
+                weeks: i18n.byModelWeeks,
+                months: i18n.byModelMonths,
+                quarters: i18n.byModelQuarters,
+              }[grain]
+            )}
+          </span>
           <span className={small}>{intl.formatMessage(i18n.hoverBar)}</span>
         </Why>
         <StackedBars bars={bars} testId="telemetry-stack" />

@@ -335,10 +335,10 @@ export function BarRow({
       why={why}
       from={from}
       head={typeof label === 'string' ? label : undefined}
-      className="grid grid-cols-[72px_1fr_52px] items-center gap-2 py-[3px] text-xs"
+      className="grid grid-cols-[auto_minmax(24px,1fr)_auto] items-center gap-2 py-[3px] text-xs"
       data-testid={testId}
     >
-      <span className="truncate">{label}</span>
+      <span className="max-w-[72px] truncate">{label}</span>
       <span className="h-2 overflow-hidden rounded-full bg-background-tertiary/60">
         <span
           className="block h-full rounded-full transition-[width] duration-700 ease-out motion-reduce:transition-none"

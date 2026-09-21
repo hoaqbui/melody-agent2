@@ -5780,8 +5780,17 @@
   "telemetrySettings.updateError": {
     "defaultMessage": "Telemetri ayarları güncellenemedi."
   },
-  "telemetryTime.byModel": {
-    "defaultMessage": "Tokens by model"
+  "telemetryTime.byModelDays": {
+    "defaultMessage": "Tokens per day, by model"
+  },
+  "telemetryTime.byModelMonths": {
+    "defaultMessage": "Tokens per month, by model"
+  },
+  "telemetryTime.byModelQuarters": {
+    "defaultMessage": "Tokens per quarter, by model"
+  },
+  "telemetryTime.byModelWeeks": {
+    "defaultMessage": "Tokens per week, by model"
   },
   "telemetryTime.byRuntime": {
     "defaultMessage": "By runtime"

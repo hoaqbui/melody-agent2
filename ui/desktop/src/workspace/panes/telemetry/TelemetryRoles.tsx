@@ -30,6 +30,9 @@ import {
 import { GRAIN_SPAN, type Grain } from './telemetry-state';
 import { Why } from './Why';
 
+// One stable default: a fresh closure per render would re-fire every effect that reads it.
+const defaultNow = (): Date => new Date();
+
 const i18n = defineMessages({
   routing: { id: 'telemetryRoles.routing', defaultMessage: 'Routing — role → seat' },
   hoverRole: { id: 'telemetryRoles.hoverRole', defaultMessage: 'hover a role' },
@@ -413,13 +416,7 @@ async function loadAll(cwd: string, grain: Grain, now: Date): Promise<Loaded> {
   return { events, children };
 }
 
-export function TelemetryRoles({
-  grain,
-  now = () => new Date(),
-}: {
-  grain: Grain;
-  now?: () => Date;
-}) {
+export function TelemetryRoles({ grain, now = defaultNow }: { grain: Grain; now?: () => Date }) {
   const intl = useIntl();
   const { cwd } = usePaneContext();
   const { getProviders } = useConfig();

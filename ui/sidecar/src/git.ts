@@ -7,7 +7,7 @@ import path from 'node:path';
 import { HttpError, type JsonHandler, requireString, requireStringArray } from './http.js';
 
 const MAX_OUTPUT_BYTES = 64 * 1024 * 1024;
-const WORKTREES_DIR = '.worktrees';
+export const WORKTREES_DIR = '.worktrees';
 // The slug lands in a branch name and a path under .worktrees/; anything looser
 // lets a tailnet peer walk out of the directory.
 const SLUG = /^[a-z0-9][a-z0-9-]{0,63}$/;
@@ -103,10 +103,7 @@ export const isInside = (target: string, root: string): boolean =>
 // The sidecar is unauthenticated on the tailnet, so a request cwd may only be
 // the spawn cwd's repository or a sibling worktree of it. realpath first:
 // symlinks and `..` escape a string compare.
-export const requestCwd = async (
-  spawnCwd: string,
-  body: Record<string, unknown>
-): Promise<string> => {
+const requestCwd = async (spawnCwd: string, body: Record<string, unknown>): Promise<string> => {
   if (body.cwd === undefined) return spawnCwd;
   const requested = path.resolve(spawnCwd, requireString(body, 'cwd'));
   let cwd: string;

@@ -13,6 +13,9 @@ import { GRAIN_SPAN, type Grain } from './telemetry-state';
 import { topTrends, trendCandidates } from './telemetry-trends';
 import { Why } from './Why';
 
+// One stable default: a fresh closure per render would re-fire every effect that reads it.
+const defaultNow = (): Date => new Date();
+
 const i18n = defineMessages({
   trends: { id: 'telemetryTrends.title', defaultMessage: 'Trends' },
   vsPrior: { id: 'telemetryTrends.vsPrior', defaultMessage: '{span} vs prior {span}' },
@@ -25,7 +28,7 @@ const i18n = defineMessages({
 export function TelemetryTrends({
   grain,
   data,
-  now = () => new Date(),
+  now = defaultNow,
 }: {
   grain: Grain;
   data: TelemetryData | null;

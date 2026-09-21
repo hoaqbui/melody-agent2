@@ -3,11 +3,11 @@
 // each moment it already knows about; every telemetry chart is a fold over these lines.
 
 import { createHash } from 'node:crypto';
-import { appendFile, mkdir, readFile } from 'node:fs/promises';
+import { appendFile, mkdir, readFile, realpath } from 'node:fs/promises';
 import os from 'node:os';
 import path from 'node:path';
 
-import { requestCwd, toplevelOf } from './git.js';
+import { isInside, toplevelOf, WORKTREES_DIR } from './git.js';
 import { HttpError, type JsonHandler, requireString } from './http.js';
 
 export const EVENT_KINDS = [
@@ -90,9 +90,26 @@ export const ledgerRoutes = (
   spawnCwd: string,
   ledgerDir: string = defaultLedgerDir()
 ): Record<string, JsonHandler> => {
+  // The `/fs/*` boundary: the spawn cwd's repository, or the spawn cwd itself outside any
+  // repository (the Hub on a home directory), or a sibling worktree of it.
   const fileFor = async (body: Record<string, unknown>): Promise<string> => {
-    const cwd = await requestCwd(spawnCwd, body);
-    const toplevel = await toplevelOf(cwd).catch(() => cwd);
+    let toplevel: string;
+    let cwd: string;
+    try {
+      toplevel = await toplevelOf(spawnCwd).catch(() => realpath(spawnCwd));
+      cwd = await realpath(
+        body.cwd === undefined ? spawnCwd : path.resolve(spawnCwd, requireString(body, 'cwd'))
+      );
+    } catch (error) {
+      throw new HttpError(400, `cwd is not usable: ${(error as Error).message}`);
+    }
+    const roots = [toplevel];
+    const parent = path.dirname(toplevel);
+    if (path.basename(parent) === WORKTREES_DIR) roots.push(parent);
+    if (!roots.some((root) => isInside(cwd, root))) {
+      throw new HttpError(400, 'cwd is outside the repository the sidecar was started in');
+    }
+    // A worktree shares its repository's ledger: the work is the project's, whichever checkout.
     return ledgerFileFor(ledgerDir, toplevel);
   };
   return {

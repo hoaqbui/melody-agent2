@@ -152,33 +152,6 @@ Each panel owns its tab bar; the bar holds only open panes; + adds one; drag a t
 
 A + A4 from the research (`docs/2026-09-20-telemetry-pane-research-v1.md`), the PRD `docs/2026-09-20-work-ledger-prd-v1.md`, the prototype `docs/mockups/2026-09-20-work-ledger.html`. Order: 125 ∥ 126 → 127 ∥ 128 → 129 ∥ 130 ∥ 131 → 132 → 133, all on main. Only the user can verify: the hand-counted rows against their own count, the routing-change date, whether the Claude seat reports `cacheReadTokens`.
 
-- 133. Add `ui/desktop/tests/e2e/telemetry-pane.spec.ts` (the walk), the `DESIGN.md` §Vocabulary rows (**Telemetry**, **ledger**, **hand-counted**, **clean-done**, the Diagnostics-tier exception), one `ARCHITECTURE.md` sidecar-line amendment (`/ledger/*`), and the pane's `TELEMETRY_STATES`.
-  - status: doing · agent: session [Opus, direct] · worker: medium
-  - card: as the next agent, find the pane's words, states and route in the files that own them, so that a PRD citing them has a row to cite
-  - context:
-    - walk: `openPane(page, 'telemetry')` (`fixtures.ts:203`, the + then `workspace-panel-add-telemetry`); the three scope buttons swap views; `telemetry-range-quarters` changes `#stackTitle`'s text to "…per quarter…"; hovering `telemetry-time-headline-tokens` shows `telemetry-why` with two lines; phone project: `scrollWidth <= innerWidth`
-    - `DESIGN.md` §Vocabulary: one row per word, dated 2026-09-20 with the user's words; the Telemetry row states the exception — provider ids and the permission gate show here, in mono, and nowhere else on a default surface; §Shared component states: `TELEMETRY_STATES` (`telemetry-state.ts`: empty · loading · partial · error · ready) with the PRD's lines
-    - `ARCHITECTURE.md` §Modules ui/sidecar: append "Amended 2026-09-20 (task 126): `/ledger/append` and `/ledger/read` — one JSONL per project under the state dir, contained like `/git/*`, never inside the repo" — no diagram edit (native → sidecar is drawn; no new module)
-    - `PRODUCT.md:405` names "flexible panes" without a list — no edit
-  - confirm: `just walk "telemetry pane"` → passes (untouched: no such spec, playwright reports 0 tests); `grep -c "Telemetry" DESIGN.md` → `≥ 3` (untouched: `0`); `grep -c "/ledger" ARCHITECTURE.md` → `≥ 1` (untouched: `0`)
-
-### docs/2026-09-20-closeout-plan-v1.md — closeout (approved 2026-09-20)
-
-One branch, one remote, merged worktrees gone, every open workstream handed to its owner. Order: 134 → 135 → **user pushes** → 136 → 137. The push is the user's (the classifier refuses it from a session).
-
-- 135. `tasks.md` §Waiting on the user rewritten as the handoff list — one line each with its command: the push (`git push origin main --force && git push origin --tags`, our history as the fork's main; or `main:melody` to keep upstream's main beside it), 107 (paste `docs/2026-09-20-agents-routing-row-v1.md`), 33 (file when ready), the seat-gated walks (88 · 89 · 93 · 96: `just walk "turn undo|approve mode"` once the seat answers), 133 (the telemetry session: commit its spec, then work in a worktree); the hand-check backlog kept below; `docs/2026-09-20-release-v0.9-beta.md` gains a "since the tag" section (tranche 9, the beta reds, the per-panel bars, the quiet composer, the ring, the hover lift).
-  - status: doing · agent: session [Opus, direct] · worker: low
-  - confirm: `grep -c "git push origin" tasks.md` → `≥ 1`; `grep -c "since the tag" docs/2026-09-20-release-v0.9-beta.md` → `1` (untouched: `0`)
-
-- 136. Merge `upstream/main` (29 commits, e629eea1d) into main after the push lands: `git merge upstream/main`, conflicts resolved toward the fork's files (the spine deny-list stays untouched — a conflict inside `agents/agent.rs` or `state_machine/` takes upstream's side whole), then `just test-full` and every fork walk green before the merge commit is pushed.
-  - status: todo · agent: — · worker: high
-  - card: as the fork, stay 0 commits behind upstream so the next upstream fix is a pull, not an archaeology
-  - context: upstream's 29 include a radix de-duplication in the desktop (#1179x) that may touch `ui/pnpm-lock.yaml` and the dropdown stacking the tab bars rely on — the `dock`, `pane menu` and `session menu` walks are the tell
-  - confirm: `git rev-list --count main..upstream/main` → `0` (untouched: `29`); `bash scripts/check-spine.sh` → `spine clean`; `just test-full` → the five seat-gated walks the only reds
-
-- 137. Retag and rebuild: `git tag -f melody-v0.9-beta` on the closeout commit (or `melody-v0.9-beta.2` if the user wants the first kept), `just make-ui`, the zip refreshed on the Desktop, `docs/2026-09-20-release-v0.9-beta.md` §Verified on the tag updated with the run; the tag pushed by the user with the branch.
-  - status: todo · agent: — · worker: low
-  - confirm: `git describe --tags --exact-match HEAD` → the tag; `ls -la ui/desktop/out/Goose-darwin-arm64/Goose.zip` → present
 
 ## Waiting on the user
 
