@@ -103,7 +103,10 @@ export const isInside = (target: string, root: string): boolean =>
 // The sidecar is unauthenticated on the tailnet, so a request cwd may only be
 // the spawn cwd's repository or a sibling worktree of it. realpath first:
 // symlinks and `..` escape a string compare.
-const requestCwd = async (spawnCwd: string, body: Record<string, unknown>): Promise<string> => {
+export const requestCwd = async (
+  spawnCwd: string,
+  body: Record<string, unknown>
+): Promise<string> => {
   if (body.cwd === undefined) return spawnCwd;
   const requested = path.resolve(spawnCwd, requireString(body, 'cwd'));
   let cwd: string;

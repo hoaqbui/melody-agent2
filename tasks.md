@@ -152,18 +152,8 @@ Each panel owns its tab bar; the bar holds only open panes; + adds one; drag a t
 
 A + A4 from the research (`docs/2026-09-20-telemetry-pane-research-v1.md`), the PRD `docs/2026-09-20-work-ledger-prd-v1.md`, the prototype `docs/mockups/2026-09-20-work-ledger.html`. Order: 125 ∥ 126 → 127 ∥ 128 → 129 ∥ 130 ∥ 131 → 132 → 133, all on main. Only the user can verify: the hand-counted rows against their own count, the routing-change date, whether the Claude seat reports `cacheReadTokens`.
 
-- 126. Add `ui/sidecar/src/ledger.ts` (+ `ledger.test.ts`) with `POST /ledger/append {cwd, event}` and `POST /ledger/read {cwd, since?}` over one JSONL per project, registered in `ui/sidecar/src/index.ts`.
-  - status: doing · agent: session [Opus, direct] · worker: medium
-  - card: as the app, keep one append-only record per project of what the agents did and what became of it, so that every telemetry chart folds the same facts and nothing is derived twice
-  - context:
-    - containment: `cwd` resolved like `/git/*` (`ARCHITECTURE.md` §ui/sidecar — realpath inside the spawn cwd's toplevel or a `.worktrees/` sibling, else 400); the file lives at `Paths`-equivalent `<state>/ledger/<slug>.jsonl` where slug is the toplevel's basename + a short hash, never inside the repo
-    - routes join `{ ...fsRoutes(cwd), ...gitRoutes(cwd), ...runtimesRoutes() }` at `index.ts:79`; the per-launch key gate at `http.ts:150-158` covers them without a change
-    - event shape: `{at: ISO, kind: 'turn'|'worker'|'correction'|'confirm'|'review'|'undo'|'handoff', sessionId, ...}`; `read` returns events with `at > since`, newest last; `append` validates `kind` and `at`, answers 400 otherwise
-    - test: append two events, read all, read since the first's `at` → one; a cwd outside the toplevel → 400
-  - confirm: `cd ui/sidecar && pnpm vitest run ledger` → passes (untouched: no such test file, vitest reports no tests found); `cd ui/sidecar && pnpm run typecheck` → exit 0
-
 - 127. Add `ui/desktop/src/native/ledger.ts` (the sidecar client) and `ui/desktop/src/workspace/panes/telemetry/ledger-events.ts` (+ test) — the pure event builders and one subscriber in `WorkspaceShell.tsx` that appends `turn`, `worker`, `correction`, `review` and `undo` events as they happen.
-  - status: todo · agent: — · worker: high
+  - status: doing · agent: session [Opus, direct] · worker: high
   - card: as the user, have every reply, every worker's return and every time the session rewrote a worker's file recorded at the moment it happened, so that Roles and Over time read facts, not reconstructions
   - context:
     - `turn`: from an assistant message carrying `metadata.usage` (`types/message.ts:177`, one per turn — `agent.rs:345`) with its `metadata.inference` (`:170`) → `{provider, requestedModel, resolvedModel, inputTokens, outputTokens, cacheReadTokens, cost, costSource, elapsedMs, timeToFirstTokenMs, who: 'session'}`; the snapshot comes from `useAcpChatSessionSnapshot` (`chatSessionStore.ts:18-22`)
@@ -176,7 +166,7 @@ A + A4 from the research (`docs/2026-09-20-telemetry-pane-research-v1.md`), the 
   - confirm: `cd ui/desktop && pnpm vitest run ledger-events` → passes (untouched: no such test); `cd ui/desktop && pnpm run depcruise` → exit 0 (the boundary contracts, `package.json:36`)
 
 - 128. Add the `telemetry` pane: `PaneId` + `PANE_IDS` in `ui/desktop/src/workspace/pane-store.ts`, `PANE_TITLES` + `PANE_ICONS` (`Activity`) in `WorkspaceShell.tsx`, `workspaceShell.paneTelemetry` in the 17 `ui/desktop/src/i18n/messages/*.json`, and `ui/desktop/src/workspace/panes/telemetry/TelemetryPane.tsx` with the scope seg (**Now · Over time · Roles**), the range seg (**Days · Weeks · Months · Quarters**), the range chip and one `Why.tsx` tooltip wrapper.
-  - status: todo · agent: — · worker: medium
+  - status: doing · agent: session [Opus, direct] · worker: medium
   - card: as the user, open Telemetry from the panel's + like any pane and switch between now, over time and roles without leaving it, so that the three questions live on one tab
   - context:
     - `PaneId` union `pane-store.ts:4-14`, `PANE_IDS` `:16-26`; `PANE_TITLES` `WorkspaceShell.tsx:175-186`, `PANE_ICONS` `:189-200` (lucide, `Activity`); the palette lists panes from `PANE_IDS` (`palette-state.ts:47`) — no edit
