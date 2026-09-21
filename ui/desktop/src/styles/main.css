@@ -559,6 +559,9 @@ body {
   top: 0;
   left: 0;
   z-index: 50;
+  /* The drag region is geometry Electron reads, not a click target: with the Work column's
+     tab bar at the card's top edge (2026-09-20), clicks pass through to its `no-drag` bar. */
+  pointer-events: none;
 }
 
 .no-drag {

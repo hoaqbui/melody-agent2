@@ -92,6 +92,12 @@ test.describe('changes bar', () => {
     // Go back to Changes pane (or anywhere that shows the bar)
     await openPane(goosePage, 'diff');
 
+    // The bar reads the shared git-status poll (every 30 s): a Discard clicked while it
+    // still says 0 files stashes nothing and never reads Discarded.
+    await expect(goosePage.locator('[data-testid="changes-bar-stats"]')).toHaveText(
+      /^[1-9]\d* files? · /,
+      { timeout: 45000 }
+    );
     const discardButton = goosePage.locator('[data-testid="changes-bar-discard"]');
     await discardButton.click();
 

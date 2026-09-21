@@ -197,29 +197,35 @@ export const test = base.extend<GooseTestFixtures>({
 
 export { expect } from '@playwright/test';
 
-// The Work column's tab bar (task 71): every pane is a tab, Terminal, Changes and Browser
-// first; a narrow bar folds the rest under a chevron, and the ⋯ session menu lists them too.
-// A click opens the pane into the column: full alone, the bottom half beside one.
+// The Work column's tab bars (tasks 117–120): each panel's bar holds only its open panes;
+// + at the bar's end lists the rest. A pane already open is clicked on its tab; a closed
+// one is added through the first bar's +.
 export async function openPane(page: Page, id: string): Promise<void> {
   const button = page.locator(`[data-testid="workspace-pane-button-${id}"]`);
   if ((await button.count()) > 0) {
-    // An open tab can sit scrolled out of the strip once the column holds several panes.
     await button.scrollIntoViewIfNeeded();
     await button.click();
     return;
   }
-  await page.locator('[data-testid="workspace-pane-more"]').click();
-  await page.locator(`[data-testid="workspace-pane-item-${id}"]`).click();
+  await page.locator('[data-testid="workspace-panel-add"]').click();
+  await page.locator(`[data-testid="workspace-panel-add-${id}"]`).click();
+  // The menu animates closed; a click on + before it is gone toggles it shut again.
+  await expect(page.locator('[data-testid="workspace-panel-add-menu"]')).toHaveCount(0);
+  await expect(page.locator(`[data-testid="workspace-pane-button-${id}"]`)).toHaveAttribute(
+    'aria-pressed',
+    'true'
+  );
 }
 
 // The column is remembered per project in the app's own storage, so a walk that counts
-// open tabs first closes whatever an earlier run, or the user, left open.
+// open tabs first closes whatever an earlier run, or the user, left open — through each
+// tab's × (shown on hover, always in the DOM).
 export async function emptyDock(page: Page): Promise<void> {
   const tabs = page.locator('[data-dock-tab]');
   for (;;) {
     const open = await tabs.count();
     if (open === 0) return;
-    await page.locator('[data-testid^="workspace-pane-close-"]').first().click();
+    await page.locator('[data-testid^="workspace-pane-close-"]').first().click({ force: true });
     await expect(tabs).toHaveCount(open - 1);
   }
 }

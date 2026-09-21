@@ -196,6 +196,11 @@ test.describe('command palette', () => {
     await goosePage.keyboard.press('Meta+k');
     const paletteInput = goosePage.locator('[data-testid="palette-input"]');
     await paletteInput.fill('term');
+    // Enter runs the highlighted row: make sure the filter has landed on Terminal first.
+    await expect(goosePage.locator('[aria-selected="true"]')).toHaveAttribute(
+      'data-testid',
+      'palette-item-pane-terminal'
+    );
     await paletteInput.press('Enter');
     const terminalPane = goosePage.locator('[data-testid="workspace-pane-terminal"]');
     await expect(terminalPane).toBeVisible();

@@ -66,7 +66,6 @@ test.describe('dock', () => {
     await expect(terminalPane).toBeHidden();
     await expect(diffTab).toHaveAttribute('aria-pressed', 'true');
     await expect(terminalTab).toHaveAttribute('aria-pressed', 'false');
-    await expect(terminalTab).toHaveAttribute('data-open', 'true');
     await expect(goosePage.locator('[data-testid="workspace-dock-seam"]')).toHaveCount(0);
 
     // A split is a drag: the parked Terminal tab onto the column's top half.
@@ -103,7 +102,6 @@ test.describe('dock', () => {
     await expect(terminalPane).toBeHidden();
     await expect(openTabs).toHaveCount(2);
     await expect(terminalTab).toHaveAttribute('aria-pressed', 'false');
-    await expect(terminalTab).toHaveAttribute('data-open', 'true');
     await expect(seam).toHaveCount(0);
 
     // A plain click on a parked tab takes the column: one pane at a time unless dragged.
@@ -125,18 +123,20 @@ test.describe('dock', () => {
       'aria-current',
       'true'
     );
+    // Top half on the bottom bar's only tab empties that bar: the column folds back to one
+    // panel with Changes active and Terminal a tab beside it (tasks 117–120).
     await menu.locator('[data-testid="workspace-dock-position-top"]').click();
     await expect(menu).toHaveCount(0);
-    await expect(diffPane).toHaveAttribute('data-position', 'top');
-    await expect(terminalPane).toHaveAttribute('data-position', 'bottom');
+    await expect(diffPane).toHaveAttribute('data-position', 'full');
+    await expect(terminalPane).toBeHidden();
+    await expect(openTabs).toHaveCount(2);
     await diffTab.click({ button: 'right' });
     await menu.locator('[data-testid="workspace-tab-close"]').click();
     await expect(menu).toHaveCount(0);
     await expect(diffPane).toHaveCount(0);
     await expect(openTabs).toHaveCount(1);
-    // The closed tab is a launcher again; the one left takes the column.
-    await expect(diffTab).toHaveAttribute('aria-pressed', 'false');
-    await expect(diffTab).toHaveAttribute('data-open', 'false');
+    // The closed tab leaves the bar (tasks 117–120); the one left takes the column.
+    await expect(diffTab).toHaveCount(0);
     await expect(terminalPane).toHaveAttribute('data-position', 'full');
 
     await goosePage.screenshot({

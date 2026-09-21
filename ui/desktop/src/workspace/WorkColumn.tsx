@@ -165,6 +165,11 @@ export function WorkColumn({ layout, store, chrome, renderPane, trailing }: Work
     const target = focusAfterClose.current;
     if (!target) return;
     focusAfterClose.current = null;
+    // Only a keyboard user whose focus left with the closed tab is moved; focus that sits
+    // elsewhere already (a menu, the chat input) stays — a late close animation must not
+    // pull it back and shut an open menu.
+    const active = document.activeElement;
+    if (active && active !== document.body && !rootRef.current?.contains(active)) return;
     (
       rootRef.current?.querySelector<HTMLElement>(
         `[data-testid="workspace-pane-button-${target}"]`
@@ -310,7 +315,7 @@ export function WorkColumn({ layout, store, chrome, renderPane, trailing }: Work
               className={cn(
                 // An attached tab: the pressed one shares the panel's ground and covers the
                 // strip's hairline with its own -1px, so tab and panel read as one surface.
-                'work-tab relative -mb-px h-7 touch-none gap-1.5 rounded-b-none rounded-t-[10px] border border-b-0 border-transparent pl-2.5 pr-7 text-[13px] shadow-none hover:shadow-none',
+                'work-tab relative -mb-px h-7 touch-none gap-1.5 rounded-b-none rounded-t-[10px] border border-b-0 border-transparent pl-2.5 pr-7 has-[>svg]:pl-2.5 has-[>svg]:pr-7 text-[13px] shadow-none hover:shadow-none',
                 showing
                   ? 'border-border-primary bg-background-primary text-text-primary hover:bg-background-primary'
                   : 'text-text-secondary hover:bg-background-primary/60 hover:text-text-primary',
@@ -419,7 +424,7 @@ export function WorkColumn({ layout, store, chrome, renderPane, trailing }: Work
     return (
       <div
         key={`bar-${panel}`}
-        className="flex min-w-0 select-none items-end gap-1 border-b border-border-primary bg-background-secondary px-2 pt-1.5 text-sm touch-none"
+        className="no-drag flex min-w-0 select-none items-end gap-1 border-b border-border-primary bg-background-secondary px-2 pt-1 text-sm touch-none"
         style={{ gridRow: barRow(panel) }}
         role="toolbar"
         aria-label={intl.formatMessage(i18n.bar)}

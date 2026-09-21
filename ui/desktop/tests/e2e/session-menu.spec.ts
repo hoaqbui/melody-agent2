@@ -2,7 +2,7 @@ import { execFileSync } from 'child_process';
 import { existsSync, mkdirSync, mkdtempSync, writeFileSync } from 'fs';
 import { tmpdir } from 'os';
 import { join } from 'path';
-import { test, expect, emptyDock } from './fixtures';
+import { test, expect, emptyDock, openPane } from './fixtures';
 
 // Task 69: the rail's ⋯ is the session's whole menu, laid out as Claude Code desktop's —
 // the groups in order with their shortcuts, and no second ⋯ in the chat header. The rail's
@@ -120,8 +120,12 @@ test.describe('session menu', () => {
     await goosePage.keyboard.press('Escape');
     await expect(menu).toHaveCount(0);
 
-    // An edit on disk dots Changes within one poll; opening the pane clears it.
+    // An edit on disk dots Changes within one poll; opening the pane clears it. Changes is
+    // a parked tab here (open, not showing), so the dot rides on its tab (tasks 117–120).
+    await openPane(goosePage, 'diff');
+    await openPane(goosePage, 'terminal');
     const changes = goosePage.locator('[data-testid="workspace-pane-button-diff"]');
+    await expect(changes).toHaveAttribute('aria-pressed', 'false');
     await expect(changes).toHaveAttribute('data-unseen', 'false');
     writeFileSync(join(scratch, 'notes.md'), `one\nt69 ${stamp}\n`);
     await expect(changes).toHaveAttribute('data-unseen', 'true', { timeout: 45_000 });

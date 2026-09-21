@@ -148,12 +148,8 @@ Option B: one pane visible by default, every open pane a tab, the pressed tab th
 
 Each panel owns its tab bar; the bar holds only open panes; + adds one; drag a tab onto a half makes the second panel with an identical bar; a panel whose last tab closes goes. The permanent launchers (task 71) are retired. Order: 117 → 118 → 119 → 120, all on main.
 
-- 119. Walks: `tests/e2e/fixtures.ts` `openPane` clicks the active panel's + then `workspace-panel-add-<id>` (a pane already open is clicked on its tab); `emptyDock` closes tabs through their ×; `dock.spec.ts`, `pane-menu.spec.ts`, `session-menu.spec.ts`, `files-pane.spec.ts`, `command-palette.spec.ts` follow; every walk that opens a pane reruns green.
-  - status: doing · agent: session [Opus, direct] · worker: medium
-  - confirm: `just walk "dock|pane menu|session menu|files pane|command palette|markdown pane|add to chat|diff pane|terminal pane|browser pane|changes bar|studio light"` → all passed
-
 - 120. `DESIGN.md` §Vocabulary: the tab bar and dock position rows rewritten and dated (per-panel bars, +, ×; the launchers, the fold chevron and `primary` retired with the user's words); the studio screenshot retaken; `PRODUCT.md` §11 flexible panes line amended.
-  - status: todo · agent: — · worker: low
+  - status: doing · agent: session [Opus, direct] · worker: low
   - confirm: `grep -c "Retired: \*\*launcher" DESIGN.md` → `1` (untouched: `0`)
 
 ### docs/2026-09-20-composer-row-plan-v1.md — the composer row (approved 2026-09-20)

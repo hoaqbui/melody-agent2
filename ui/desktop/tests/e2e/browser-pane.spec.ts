@@ -1,4 +1,4 @@
-import { test, expect } from './fixtures';
+import { test, expect, openPane } from './fixtures';
 
 // PRD step 12: the Browser pane is a browser. The sidecar's own /health and /config are
 // loopback pages every run has, so the walk loads one, refreshes, loads the other, steps
@@ -26,7 +26,7 @@ test.describe('browser pane', () => {
         .forEach((key) => window.localStorage.removeItem(key));
     });
 
-    await goosePage.locator('[data-testid="workspace-pane-button-browser"]').click();
+    await openPane(goosePage, 'browser');
     const pane = goosePage.locator('[data-testid="browser-pane"]');
     await expect(pane).toHaveAttribute('data-state', 'empty');
     const address = pane.locator('[data-testid="browser-address"]');
@@ -119,7 +119,7 @@ test.describe('browser pane', () => {
     // A second open right after an item ran: Radix takes the keyboard reliably, the pointer not always.
     await shareButton.focus();
     await shareButton.press('Enter');
-    const consoleOption = goosePage.locator('text=Console');
+    const consoleOption = goosePage.getByRole('menuitem', { name: 'Console' });
     await expect(consoleOption).toBeVisible();
     await consoleOption.click();
     // Console text should appear in the input

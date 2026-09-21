@@ -90,8 +90,8 @@ test.describe('files pane', () => {
     ).toHaveAttribute('aria-pressed', 'true');
     await expect(pane).toBeHidden();
     await expect(goosePage.locator('[data-testid="workspace-pane-button-files"]')).toHaveAttribute(
-      'data-open',
-      'true'
+      'aria-pressed',
+      'false'
     );
 
     await goosePage.screenshot({

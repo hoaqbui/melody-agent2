@@ -60,7 +60,7 @@ const i18n = defineMessages({
   stop: { id: 'browserPane.stop', defaultMessage: 'Stop' },
   address: { id: 'browserPane.address', defaultMessage: 'Address' },
   suggestions: { id: 'browserPane.suggestions', defaultMessage: 'Recently opened' },
-  share: { id: 'browserPane.share', defaultMessage: 'Share with agent' },
+  share: { id: 'browserPane.share', defaultMessage: 'Share with agents' },
   sharePage: { id: 'browserPane.sharePage', defaultMessage: 'Page' },
   shareScreenshot: { id: 'browserPane.shareScreenshot', defaultMessage: 'Screenshot' },
   shareConsole: { id: 'browserPane.shareConsole', defaultMessage: 'Console' },
@@ -492,7 +492,7 @@ export function BrowserPane() {
               data-testid="browser-share"
             >
               <Share className="size-3.5" />
-              <span className="sr-only">{intl.formatMessage(i18n.share)}</span>
+              {intl.formatMessage(i18n.share)}
             </Button>
           </DropdownMenuTrigger>
           <DropdownMenuContent align="end">
