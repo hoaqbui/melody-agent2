@@ -162,6 +162,30 @@ A + A4 from the research (`docs/2026-09-20-telemetry-pane-research-v1.md`), the 
     - `PRODUCT.md:405` names "flexible panes" without a list — no edit
   - confirm: `just walk "telemetry pane"` → passes (untouched: no such spec, playwright reports 0 tests); `grep -c "Telemetry" DESIGN.md` → `≥ 3` (untouched: `0`); `grep -c "/ledger" ARCHITECTURE.md` → `≥ 1` (untouched: `0`)
 
+### docs/2026-09-20-closeout-plan-v1.md — closeout (approved 2026-09-20)
+
+One branch, one remote, merged worktrees gone, every open workstream handed to its owner. Order: 134 → 135 → **user pushes** → 136 → 137. The push is the user's (the classifier refuses it from a session).
+
+- 134. Remove the 22 merged agent worktrees and their branches: `git worktree remove --force .claude/worktrees/agent-*` for each, then `git branch -d` each `worktree-agent-*` (all merged: `-d`, never `-D`), then `git worktree prune`; the 58 GB goes with them.
+  - status: doing · agent: session [Opus, direct] · worker: low
+  - card: as the repository, hold one checkout and one branch, so that the next session cannot land in a stale worktree or sweep another's edits
+  - context: verified before removal — every branch merged into main, every worktree clean, no process with a cwd inside one (2026-09-20)
+  - confirm: `git worktree list | wc -l` → `1` (untouched: `23`); `git branch | wc -l` → `1` (untouched: `23`); `du -sh .claude/worktrees 2>/dev/null` → nothing (untouched: `58G`)
+
+- 135. `tasks.md` §Waiting on the user rewritten as the handoff list — one line each with its command: the push (`git push origin main --force && git push origin --tags`, our history as the fork's main; or `main:melody` to keep upstream's main beside it), 107 (paste `docs/2026-09-20-agents-routing-row-v1.md`), 33 (file when ready), the seat-gated walks (88 · 89 · 93 · 96: `just walk "turn undo|approve mode"` once the seat answers), 133 (the telemetry session: commit its spec, then work in a worktree); the hand-check backlog kept below; `docs/2026-09-20-release-v0.9-beta.md` gains a "since the tag" section (tranche 9, the beta reds, the per-panel bars, the quiet composer, the ring, the hover lift).
+  - status: todo · agent: — · worker: low
+  - confirm: `grep -c "git push origin" tasks.md` → `≥ 1`; `grep -c "since the tag" docs/2026-09-20-release-v0.9-beta.md` → `1` (untouched: `0`)
+
+- 136. Merge `upstream/main` (29 commits, e629eea1d) into main after the push lands: `git merge upstream/main`, conflicts resolved toward the fork's files (the spine deny-list stays untouched — a conflict inside `agents/agent.rs` or `state_machine/` takes upstream's side whole), then `just test-full` and every fork walk green before the merge commit is pushed.
+  - status: todo · agent: — · worker: high
+  - card: as the fork, stay 0 commits behind upstream so the next upstream fix is a pull, not an archaeology
+  - context: upstream's 29 include a radix de-duplication in the desktop (#1179x) that may touch `ui/pnpm-lock.yaml` and the dropdown stacking the tab bars rely on — the `dock`, `pane menu` and `session menu` walks are the tell
+  - confirm: `git rev-list --count main..upstream/main` → `0` (untouched: `29`); `bash scripts/check-spine.sh` → `spine clean`; `just test-full` → the five seat-gated walks the only reds
+
+- 137. Retag and rebuild: `git tag -f melody-v0.9-beta` on the closeout commit (or `melody-v0.9-beta.2` if the user wants the first kept), `just make-ui`, the zip refreshed on the Desktop, `docs/2026-09-20-release-v0.9-beta.md` §Verified on the tag updated with the run; the tag pushed by the user with the branch.
+  - status: todo · agent: — · worker: low
+  - confirm: `git describe --tags --exact-match HEAD` → the tag; `ls -la ui/desktop/out/Goose-darwin-arm64/Goose.zip` → present
+
 ## Waiting on the user
 
 - Roles board, two plan-vs-found items (2026-09-20, task 131 — built without them, your call on each):
