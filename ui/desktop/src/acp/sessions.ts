@@ -30,6 +30,9 @@ interface GooseSessionInfoMeta {
   userSetName?: boolean;
   hasRecipe?: boolean;
   lastMessageSnippet?: string;
+  accumulatedInputTokens?: number;
+  accumulatedOutputTokens?: number;
+  accumulatedCost?: number;
 }
 
 export interface SessionListItem {
@@ -47,6 +50,9 @@ export interface SessionListItem {
   userSetName?: boolean;
   hasRecipe?: boolean;
   sessionType?: Session['session_type'];
+  accumulatedInputTokens?: number;
+  accumulatedOutputTokens?: number;
+  accumulatedCost?: number;
 }
 
 export interface SessionListPage {
@@ -110,6 +116,11 @@ export function sessionInfoToSession(s: SessionInfo, loadMeta: LoadSessionMeta =
     archived_at: meta.archivedAt,
     project_id: meta.projectId,
     provider_name: meta.providerId,
+    accumulated_usage:
+      meta.accumulatedInputTokens !== undefined || meta.accumulatedOutputTokens !== undefined
+        ? { input_tokens: meta.accumulatedInputTokens, output_tokens: meta.accumulatedOutputTokens }
+        : undefined,
+    accumulated_cost: meta.accumulatedCost,
     model_config: modelConfig,
     session_type: meta.sessionType,
     recipe: loadMeta.recipe as Session['recipe'],
@@ -136,6 +147,9 @@ function sessionInfoToListItem(s: SessionInfo): SessionListItem {
     userSetName: meta.userSetName,
     hasRecipe: meta.hasRecipe,
     sessionType: meta.sessionType,
+    accumulatedInputTokens: meta.accumulatedInputTokens,
+    accumulatedOutputTokens: meta.accumulatedOutputTokens,
+    accumulatedCost: meta.accumulatedCost,
   };
 }
 

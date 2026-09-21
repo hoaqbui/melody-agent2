@@ -21,3 +21,5 @@ Dated 2026-09-20. Companion: `docs/2026-09-20-work-ledger-prd-v1.md` (research: 
 ## Tasks
 
 Approved 2026-09-20 (user: "ok draft a plan" → "build the tasks") → moved to `tasks.md` under `### docs/2026-09-20-work-ledger-plan-v1.md`; this section keeps only that pointer.
+
+- 125 landed 2026-09-20: the confirm's `cargo build -p goose` was wrong on this tree (`-p goose` alone loses the `process-wrap` feature `goose-cli` unifies in — fails identically on the untouched tree); the check run was `cargo build -p goose-cli --bin goose` → exit 0.

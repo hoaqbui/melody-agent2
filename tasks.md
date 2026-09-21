@@ -152,15 +152,6 @@ Each panel owns its tab bar; the bar holds only open panes; + adds one; drag a t
 
 A + A4 from the research (`docs/2026-09-20-telemetry-pane-research-v1.md`), the PRD `docs/2026-09-20-work-ledger-prd-v1.md`, the prototype `docs/mockups/2026-09-20-work-ledger.html`. Order: 125 ∥ 126 → 127 ∥ 128 → 129 ∥ 130 ∥ 131 → 132 → 133, all on main. Only the user can verify: the hand-counted rows against their own count, the routing-change date, whether the Claude seat reports `cacheReadTokens`.
 
-- 125. Add `accumulated_input_tokens`, `accumulated_output_tokens` and `accumulated_cost` to `SessionMeta` in `crates/goose/src/acp/response_builder.rs` and read them in `sessionInfoToSession` in `ui/desktop/src/acp/sessions.ts`.
-  - status: doing · agent: session [Opus, direct] · worker: medium
-  - card: as the user opening Over time, see a fortnight's tokens and cost without the app loading every transcript, so that the headline is one paged list call
-  - context:
-    - `SessionMeta` at `response_builder.rs:28-47` serializes camelCase; `Session` holds `accumulated_usage: Usage` (`input_tokens`, `output_tokens`) and `accumulated_cost: Option<f64>` (`session_manager.rs:78`); `#[serde(skip_serializing_if = "Option::is_none")]` on the cost like `last_message_at`
-    - `sessions.ts:90-113` reads `meta.createdAt`, `meta.providerId` etc. into `Session`; the new fields land in `accumulated_usage: {input_tokens, output_tokens}` and `accumulated_cost` (`types/session.ts:36-37`), absent → undefined
-    - `_meta` is untyped on the wire (`types.gen.ts:1868`) — no client regen
-  - confirm: `grep -c "accumulated_cost" crates/goose/src/acp/response_builder.rs` → `≥ 2` (untouched: `0`); `grep -c "accumulatedCost" ui/desktop/src/acp/sessions.ts` → `≥ 1` (untouched: `0`); `cargo build -p goose` → exit 0; `cd ui/desktop && pnpm run typecheck` → exit 0
-
 - 126. Add `ui/sidecar/src/ledger.ts` (+ `ledger.test.ts`) with `POST /ledger/append {cwd, event}` and `POST /ledger/read {cwd, since?}` over one JSONL per project, registered in `ui/sidecar/src/index.ts`.
   - status: doing · agent: session [Opus, direct] · worker: medium
   - card: as the app, keep one append-only record per project of what the agents did and what became of it, so that every telemetry chart folds the same facts and nothing is derived twice

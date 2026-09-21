@@ -45,6 +45,12 @@ struct SessionMeta<'a> {
     model_id: Option<&'a str>,
     #[serde(skip_serializing_if = "Option::is_none")]
     last_message_snippet: Option<&'a str>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    accumulated_input_tokens: Option<i32>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    accumulated_output_tokens: Option<i32>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    accumulated_cost: Option<f64>,
 }
 
 impl<'a> From<&'a Session> for SessionMeta<'a> {
@@ -64,6 +70,9 @@ impl<'a> From<&'a Session> for SessionMeta<'a> {
                 .as_ref()
                 .map(|mc| mc.model_name.as_str()),
             last_message_snippet: session.last_message_snippet.as_deref(),
+            accumulated_input_tokens: session.accumulated_usage.input_tokens,
+            accumulated_output_tokens: session.accumulated_usage.output_tokens,
+            accumulated_cost: session.accumulated_cost,
         }
     }
 }
