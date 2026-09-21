@@ -153,6 +153,21 @@ Each panel owns its tab bar; the bar holds only open panes; + adds one; drag a t
 A + A4 from the research (`docs/2026-09-20-telemetry-pane-research-v1.md`), the PRD `docs/2026-09-20-work-ledger-prd-v1.md`, the prototype `docs/mockups/2026-09-20-work-ledger.html`. Order: 125 ∥ 126 → 127 ∥ 128 → 129 ∥ 130 ∥ 131 → 132 → 133, all on main. Only the user can verify: the hand-counted rows against their own count, the routing-change date, whether the Claude seat reports `cacheReadTokens`.
 
 
+### docs/2026-09-20-closeout-plan-v1.md — closeout (approved 2026-09-20)
+
+One branch, one remote, merged worktrees gone, every open workstream handed to its owner. Order: 134 → 135 → **user pushes** → 136 → 137. The push is the user's (the classifier refuses it from a session).
+
+- 136. Merge `upstream/main` (29 commits, e629eea1d) into main after the push lands: `git merge upstream/main`, conflicts resolved toward the fork's files (the spine deny-list stays untouched — a conflict inside `agents/agent.rs` or `state_machine/` takes upstream's side whole), then `just test-full` and every fork walk green before the merge commit is pushed.
+  - status: todo · agent: — · worker: high
+  - card: as the fork, stay 0 commits behind upstream so the next upstream fix is a pull, not an archaeology
+  - context: upstream's 29 include a radix de-duplication in the desktop (#1179x) that may touch `ui/pnpm-lock.yaml` and the dropdown stacking the tab bars rely on — the `dock`, `pane menu` and `session menu` walks are the tell
+    - probed 2026-09-20 on a scratch branch (aborted, main untouched): 31 files conflict — `summon.rs` and `subagent_handler.rs` (the fork's spine touches against upstream's), `acp-schema.json` and the three generated `goose-acp-client` files (regenerate, do not hand-merge), `custom_notifications.rs`, `App.tsx`, `BaseChat.tsx`, `Hub.tsx`, `AppLayout.tsx`, `NavigationPanel.tsx`, `chatNotifications.ts`, `sessions.ts`, `createSession.test.ts`, `.gitignore`, and the 16 locale files (take both sides, then `i18n:extract` and the seed); a half-day with the suite, not an afternoon
+  - confirm: `git rev-list --count main..upstream/main` → `0` (untouched: `29`); `bash scripts/check-spine.sh` → `spine clean`; `just test-full` → the five seat-gated walks the only reds
+
+- 137. Retag and rebuild: `git tag -f melody-v0.9-beta` on the closeout commit (or `melody-v0.9-beta.2` if the user wants the first kept), `just make-ui`, the zip refreshed on the Desktop, `docs/2026-09-20-release-v0.9-beta.md` §Verified on the tag updated with the run; the tag pushed by the user with the branch.
+  - status: todo · agent: — · worker: low
+  - confirm: `git describe --tags --exact-match HEAD` → the tag; `ls -la ui/desktop/out/Goose-darwin-arm64/Goose.zip` → present
+
 ## Waiting on the user
 
 ### Handoff — one line, one command each (2026-09-20, closeout)
