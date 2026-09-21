@@ -181,7 +181,7 @@ Upstream's easing role `--ease-g2` (`main.css:65`) and, since 2026-09-18 (task 1
 - The "→ <Runtime> from here" divider appears in place; nothing animates in the transcript, the tool rows, or the terminal — text streams and rows appear, that is all.
 - Reduced motion: upstream's global block zeroes every transition (`main.css:380-392`), so an Into motion degrades to a cut; the focus rules in §States still hold, so only the picture is lost.
 
-- Amended 2026-09-20 (user: "have it raise when the mouse hovers over the panel"): the send disc no longer nudges when text arrives (the `send-nudge` keyframes are gone); it lifts 2 px with `--shadow-md` while the pointer is over the composer card and 3 px under the pointer itself; typing moves nothing.
+- Amended 2026-09-20 (user: "when the mouse hovers over the chat panel, raise the prompt"): the composer card rises 3 px to `--shadow-lg` while the pointer is anywhere over the Chat column and settles when it leaves (`--motion-base`); the send disc no longer nudges when text arrives (the `send-nudge` keyframes are gone) and keeps only its own 1 px hover lift; typing moves nothing.
 
 ## Accessibility & input
 

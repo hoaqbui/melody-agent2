@@ -1151,8 +1151,7 @@ pre:has(> code.bg-inline-code) {
   }
 
   /* The one round control is a ghost variant in markup, a filled disc on screen: it floats.
-     It lifts while the pointer is over the composer card (user, 2026-09-20: not when text
-     arrives — typing should not move anything), a touch more under the pointer itself. */
+     Nothing moves when text arrives (user, 2026-09-20). */
   .send-disc:not(:disabled) {
     transition:
       transform var(--motion-fast) var(--ease-g2),
@@ -1160,14 +1159,8 @@ pre:has(> code.bg-inline-code) {
       background-color var(--motion-fast) var(--ease-g2);
   }
 
-  .chat-input-card:hover .send-disc:not(:disabled) {
-    transform: translateY(-2px);
-    box-shadow: var(--shadow-md);
-  }
-
-  .send-disc:not(:disabled):hover,
-  .chat-input-card:hover .send-disc:not(:disabled):hover {
-    transform: translateY(-3px);
+  .send-disc:not(:disabled):hover {
+    transform: translateY(-1px);
     box-shadow: var(--shadow-md);
   }
 
@@ -1195,6 +1188,19 @@ pre:has(> code.bg-inline-code) {
   .user-message-bubble,
   .chat-input-card {
     transition: box-shadow var(--motion-fast) var(--ease-g2);
+  }
+
+  /* The prompt rises while the pointer is over the chat column (user, 2026-09-20: "when the
+     mouse hovers over the chat panel, raise the prompt"), and settles when it leaves. */
+  .chat-input-card {
+    transition:
+      transform var(--motion-base) var(--ease-g2),
+      box-shadow var(--motion-base) var(--ease-g2);
+  }
+
+  .workspace-column[data-column='chat']:hover .chat-input-card {
+    transform: translateY(-3px);
+    box-shadow: var(--shadow-lg);
   }
 
   [data-slot='dropdown-menu-content'][data-state='open'] {

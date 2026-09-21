@@ -94,16 +94,22 @@ test.describe('studio light', () => {
       await expect
         .poll(() => send.evaluate((el) => window.getComputedStyle(el).backgroundColor))
         .toBe(rgb('#44c1b8'));
-      // the disc lifts while the pointer is over the composer card, more under the pointer
-      // itself (user, 2026-09-20: never on text arriving)
-      await goosePage.locator('.chat-input-card').first().hover({ position: { x: 20, y: 10 } });
+      // the prompt rises while the pointer is over the chat column (user, 2026-09-20), and
+      // the disc lifts under the pointer itself; nothing moved when the text arrived
+      await goosePage.locator('[data-testid="workspace-column-sessions"]').hover();
       await expect
-        .poll(() => send.evaluate((el) => window.getComputedStyle(el).transform))
-        .toMatch(/matrix\(1, 0, 0, 1, 0, -2\)/);
+        .poll(() => card.evaluate((el) => window.getComputedStyle(el).transform))
+        .toBe('none');
+      await goosePage
+        .locator('[data-testid="workspace-column-chat"]')
+        .hover({ position: { x: 40, y: 40 } });
+      await expect
+        .poll(() => card.evaluate((el) => window.getComputedStyle(el).transform))
+        .toMatch(/matrix\(1, 0, 0, 1, 0, -3\)/);
       await send.hover();
       await expect
         .poll(() => send.evaluate((el) => window.getComputedStyle(el).transform))
-        .toMatch(/matrix\(1, 0, 0, 1, 0, -3\)/);
+        .toMatch(/matrix\(1, 0, 0, 1, 0, -1\)/);
 
       // (6) your message is the light-blue floating bubble
       await input.press('Enter');
