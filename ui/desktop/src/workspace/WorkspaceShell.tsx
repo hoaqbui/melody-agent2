@@ -83,6 +83,8 @@ import {
 } from '../acp/chatSessionStore';
 import { acpListSessions, type SessionListItem } from '../acp/sessions';
 import { acpListSchedules } from '../acp/schedules';
+import { useSessionDelegations } from '../acp/delegations';
+import { useLedgerWriter } from './panes/telemetry/ledger-writer';
 import { createSession } from '../sessions';
 import { AppEvents } from '../constants/events';
 import { CommandPalette } from './palette/CommandPalette';
@@ -959,6 +961,11 @@ export function WorkspaceShell({ chat, children, panes, paneStore }: WorkspaceSh
       window.clearInterval(timer);
     };
   }, [cwd, isWorkspaceRoute, diffHidden, store]);
+
+  // The work ledger (task 127): every turn, worker return, correction and verdict this session
+  // implies is appended as it appears; the Telemetry pane folds them.
+  const delegations = useSessionDelegations(sessionId);
+  useLedgerWriter(sessionId, cwd, session?.name ?? '', snapshot?.messages, delegations);
 
   // Capture T0 snapshot when a new user message is sent (task 88)
   useEffect(() => {

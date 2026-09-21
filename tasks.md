@@ -152,19 +152,6 @@ Each panel owns its tab bar; the bar holds only open panes; + adds one; drag a t
 
 A + A4 from the research (`docs/2026-09-20-telemetry-pane-research-v1.md`), the PRD `docs/2026-09-20-work-ledger-prd-v1.md`, the prototype `docs/mockups/2026-09-20-work-ledger.html`. Order: 125 ∥ 126 → 127 ∥ 128 → 129 ∥ 130 ∥ 131 → 132 → 133, all on main. Only the user can verify: the hand-counted rows against their own count, the routing-change date, whether the Claude seat reports `cacheReadTokens`.
 
-- 127. Add `ui/desktop/src/native/ledger.ts` (the sidecar client) and `ui/desktop/src/workspace/panes/telemetry/ledger-events.ts` (+ test) — the pure event builders and one subscriber in `WorkspaceShell.tsx` that appends `turn`, `worker`, `correction`, `review` and `undo` events as they happen.
-  - status: doing · agent: session [Opus, direct] · worker: high
-  - card: as the user, have every reply, every worker's return and every time the session rewrote a worker's file recorded at the moment it happened, so that Roles and Over time read facts, not reconstructions
-  - context:
-    - `turn`: from an assistant message carrying `metadata.usage` (`types/message.ts:177`, one per turn — `agent.rs:345`) with its `metadata.inference` (`:170`) → `{provider, requestedModel, resolvedModel, inputTokens, outputTokens, cacheReadTokens, cost, costSource, elapsedMs, timeToFirstTokenMs, who: 'session'}`; the snapshot comes from `useAcpChatSessionSnapshot` (`chatSessionStore.ts:18-22`)
-    - `worker`: from `subscribeDelegationUpdates` (`delegations.ts:80`) on `done`/`failed` → `{source, provider, model, status, error, blocked, filesChanged, parentToolCallId}`; `blocked` = the child's return text (the `delegate` tool response in the parent transcript, `getToolResponses` `message.ts:384`, matched by `parentToolCallId`) starts with `BLOCKED` (`implementer.md:24`); `filesChanged` = the paths under the return's `## Files Changed` (`implementer.md:36`)
-    - `correction`: a session `write`/`edit` tool request whose path ∈ any prior `worker` event's `filesChanged` in the same session → `{workerSessionId, path}`; a `shell` call is out (unknowable) — say so in the test
-    - `review`: a message in a review session with a verdict (`verdictOf`, `review-parse.ts:56`) → `{verdict, branch, base}`; `undo`: task 88's Undo applied → `{turnId}` (hook beside `turn-undo.ts`'s apply)
-    - the subscriber is one `useEffect` in the shell keyed by session id; writes are fire-and-forget, a failed append logs once and drops (never blocks the chat)
-    - `src/native` never speaks ACP and `src/workspace` never imports the SDK (`ARCHITECTURE.md` §Invariants): the builders take plain `Message` / `Delegation` values, the shell wires them
-    - test: one turn with three assistant messages → one `turn` event; a worker return text "BLOCKED: …" → `blocked: true`; `## Files Changed` with two paths then an `edit` on one → one `correction`; an edit on a path no worker touched → none
-  - confirm: `cd ui/desktop && pnpm vitest run ledger-events` → passes (untouched: no such test); `cd ui/desktop && pnpm run depcruise` → exit 0 (the boundary contracts, `package.json:36`)
-
 - 128. Add the `telemetry` pane: `PaneId` + `PANE_IDS` in `ui/desktop/src/workspace/pane-store.ts`, `PANE_TITLES` + `PANE_ICONS` (`Activity`) in `WorkspaceShell.tsx`, `workspaceShell.paneTelemetry` in the 17 `ui/desktop/src/i18n/messages/*.json`, and `ui/desktop/src/workspace/panes/telemetry/TelemetryPane.tsx` with the scope seg (**Now · Over time · Roles**), the range seg (**Days · Weeks · Months · Quarters**), the range chip and one `Why.tsx` tooltip wrapper.
   - status: doing · agent: session [Opus, direct] · worker: medium
   - card: as the user, open Telemetry from the panel's + like any pane and switch between now, over time and roles without leaving it, so that the three questions live on one tab
@@ -233,6 +220,7 @@ A + A4 from the research (`docs/2026-09-20-telemetry-pane-research-v1.md`), the 
 
 ## Waiting on the user
 
+- Task 88's snapshot capture in `WorkspaceShell.tsx` (the T0/T1 effects, ~`:963-1010`) calls `sidecarFetch('http://localhost:61234/git/snapshot', {method, body})` and then `.json()`s the result — `sidecarFetch` takes a route path and a body and already returns parsed JSON (`native/sidecar.ts:297`), so the URL never resolves and no snapshot lands; Undo has nothing to diff (found 2026-09-20 wiring task 127's ledger writer beside it; 88 is another agent's — flagged, not touched).
 - Composer row, one call (2026-09-20, task 123): the **Worktree** chip still shows in Easy while it is off (it reads "Worktree", a click starts one — the `worktree` walk relies on it). The mockup's Easy row had no such chip because its session had none. Keep it (one click to a worktree from Easy) or move it into Session controls in Easy — say which.
 - Untracked in the tree, not this session's: `docs/2026-09-20-telemetry-pane-research-v1.md` and `docs/mockups/` (a telemetry pane research map and two HTML mockups, from another session working here). Left alone.
   - *(2026-09-20, the telemetry session):* those files are this plan's — research, PRD, plan and three mockups; tasks 125–133 above.
