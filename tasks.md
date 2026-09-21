@@ -144,13 +144,8 @@ Approved 2026-09-20 (user: "Ok orchestrate it"); pick B of `docs/2026-09-20-prog
 
 Option B: one pane visible by default, every open pane a tab, the pressed tab the visible one; the split survives only as a drag — drop a tab onto the top or bottom half to show two panes, the seam between them as today; the header's three position icons go. Tabs restyle as attached tabs. Order: 113 → 114 → 115 → 116 (walks and DESIGN.md last, all on main).
 
-- 115. Callers that opened a pane into the bottom half open it as the front tab: `WorkspaceShell.tsx` `openFile` (Files → Editor, Markdown → Edit), `DiffPane.tsx` Open in Editor — they call `openPane(id)` and the store's new default does the rest; any explicit `'bottom'` position argument goes.
-  - status: doing · agent: session [Opus, direct] · worker: low
-  - card: as the user, click a file and land in the Editor tab with Files one tab away
-  - confirm: `grep -rn "'bottom'" ui/desktop/src/workspace/WorkspaceShell.tsx ui/desktop/src/workspace/panes/diff/DiffPane.tsx | grep -v "side" | wc -l` → `0` (count untouched first)
-
 - 116. Walks and documents: `dock.spec.ts` (a second pane opens front and the first is a parked tab; the header icons are gone; the drag to a half still splits and the seam still resizes), `files-pane.spec.ts`, `pane-menu.spec.ts`, `markdown-pane.spec.ts`, `add-to-chat.spec.ts`, `diff-pane.spec.ts` drop their "bottom half" assertions; `DESIGN.md` §Vocabulary amends **dock position** (drag only; the header icons retired, dated) and the tab bar row; `studio light` screenshot retaken.
-  - status: todo · agent: — · worker: medium
+  - status: doing · agent: session [Opus, direct] · worker: medium
   - confirm: `just walk "dock|files pane|pane menu|markdown pane|add to chat|diff pane|studio light"` → all passed; `grep -c "2026-09-20" DESIGN.md` → `≥ 1` (untouched: `0`)
 
 ## Waiting on the user
