@@ -315,13 +315,13 @@ export function TelemetryTime({
         />
         <Headline
           label={intl.formatMessage(i18n.cost)}
-          value={usd(t.cost)}
-          change={delta(t.cost, p.cost)}
+          value={t.unpriced === t.turns ? '—' : usd(t.cost)}
+          change={t.unpriced === t.turns || p.unpriced === p.turns ? null : delta(t.cost, p.cost)}
           span={span}
           sub={`${usd(t.cost / Math.max(1, (model.range.to.getTime() - model.range.from.getTime()) / 864e5))} / day · ${intl.formatMessage(i18n.unpriced, { count: t.unpriced })}`}
           spark={sparkBins.map((b) => b.c)}
           colour="var(--color-text-warning)"
-          why="What the range cost, on the turns that carry a price. The subscription seats report none — their turns are counted, never priced, so this is a floor."
+          why="What the range cost, on the turns that carry a price. The subscription seats report none — their turns are counted, never priced, so this is a floor; — when no turn in the range carried one."
           from="usage.cost where costSource = provider_reported or estimated"
           testId="telemetry-time-headline-cost"
         />
@@ -518,7 +518,9 @@ export function TelemetryTime({
                   <td className="py-1.5 pr-2 text-right font-mono tabular-nums">
                     {fmtK(q.tokens)}
                   </td>
-                  <td className="py-1.5 pr-2 text-right font-mono tabular-nums">{usd(q.cost)}</td>
+                  <td className="py-1.5 pr-2 text-right font-mono tabular-nums">
+                    {q.costPerTurn === null ? '—' : usd(q.cost)}
+                  </td>
                   <td className="py-1.5 pr-2 text-right font-mono tabular-nums">
                     {q.turns.toLocaleString()}
                   </td>

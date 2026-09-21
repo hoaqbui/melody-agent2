@@ -158,7 +158,7 @@ A + A4 from the research (`docs/2026-09-20-telemetry-pane-research-v1.md`), the 
 One branch, one remote, merged worktrees gone, every open workstream handed to its owner. Order: 134 → 135 → **user pushes** → 136 → 137. The push is the user's (the classifier refuses it from a session).
 
 - 136. Merge `upstream/main` (29 commits, e629eea1d) into main after the push lands: `git merge upstream/main`, conflicts resolved toward the fork's files (the spine deny-list stays untouched — a conflict inside `agents/agent.rs` or `state_machine/` takes upstream's side whole), then `just test-full` and every fork walk green before the merge commit is pushed.
-  - status: todo · agent: — · worker: high
+  - status: doing · agent: session [Opus, direct] · worker: high
   - card: as the fork, stay 0 commits behind upstream so the next upstream fix is a pull, not an archaeology
   - context: upstream's 29 include a radix de-duplication in the desktop (#1179x) that may touch `ui/pnpm-lock.yaml` and the dropdown stacking the tab bars rely on — the `dock`, `pane menu` and `session menu` walks are the tell
     - probed 2026-09-20 on a scratch branch (aborted, main untouched): 31 files conflict — `summon.rs` and `subagent_handler.rs` (the fork's spine touches against upstream's), `acp-schema.json` and the three generated `goose-acp-client` files (regenerate, do not hand-merge), `custom_notifications.rs`, `App.tsx`, `BaseChat.tsx`, `Hub.tsx`, `AppLayout.tsx`, `NavigationPanel.tsx`, `chatNotifications.ts`, `sessions.ts`, `createSession.test.ts`, `.gitignore`, and the 16 locale files (take both sides, then `i18n:extract` and the seed); a half-day with the suite, not an afternoon
