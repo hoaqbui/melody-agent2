@@ -17,7 +17,7 @@ let scratch = '';
 const git = (cwd: string, args: string[]) =>
   execFileSync('git', args, { cwd, stdio: 'pipe' }).toString();
 
-test.describe('worktree', () => {
+test.describe('worktree', { tag: '@seat' }, () => {
   test.beforeAll(() => {
     scratch = realpathSync(mkdtempSync(join(tmpdir(), 'goose-worktree-')));
     writeFileSync(join(scratch, 'notes.md'), 'one\ntwo\nthree\n');

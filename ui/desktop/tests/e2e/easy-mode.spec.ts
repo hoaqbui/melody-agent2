@@ -6,7 +6,7 @@ import { test, expect, setAdvancedControls } from './fixtures';
 // Advanced shows the Runtime chip and the Session controls popover, the lever gone; back
 // to Easy the lever sits on the stop the session matches — Hard, or Custom when the
 // adapter lists no Opus model (the stop's model is a match over the adapter's list).
-test.describe('easy mode', () => {
+test.describe('easy mode', { tag: '@seat' }, () => {
   test('starts on the lever, moves to Hard, shows Advanced, comes back', async ({ goosePage }) => {
     const shell = goosePage.locator('[data-testid="workspace-shell"]');
     await expect(shell).toBeVisible({ timeout: 30000 });

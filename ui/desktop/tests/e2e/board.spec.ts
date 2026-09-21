@@ -58,7 +58,7 @@ const createScheduleFromDeeplink = async (page: Page) => {
   await expect(page.locator('#schedule-form')).toHaveCount(0);
 };
 
-test.describe('task board', () => {
+test.describe('task board', { tag: '@seat' }, () => {
   test.setTimeout(420_000);
 
   test.beforeAll(() => {

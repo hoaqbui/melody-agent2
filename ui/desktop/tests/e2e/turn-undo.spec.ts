@@ -13,7 +13,7 @@ const git = (cwd: string, args: string[]) =>
     stdio: 'pipe',
   }).toString();
 
-test.describe('turn undo', () => {
+test.describe('turn undo', { tag: '@seat' }, () => {
   test.setTimeout(120000);
 
   test.beforeAll(() => {

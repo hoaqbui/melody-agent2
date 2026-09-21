@@ -36,7 +36,7 @@ const previousDir = process.env.GOOSE_TEST_DIR;
 let scratch = '';
 let headingLines: number[] = [];
 
-test.describe('markdown pane', () => {
+test.describe('markdown pane', { tag: '@smoke' }, () => {
   test.beforeAll(() => {
     scratch = mkdtempSync(join(tmpdir(), 'goose-markdown-pane-'));
     const built = buildDoc();

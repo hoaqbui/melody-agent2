@@ -23,7 +23,7 @@ let restoreRoles: () => void = () => {};
 const git = (cwd: string, args: string[]) =>
   execFileSync('git', args, { cwd, stdio: 'pipe' }).toString();
 
-test.describe('review branch', () => {
+test.describe('review branch', { tag: '@seat' }, () => {
   test.beforeAll(() => {
     restoreRoles = provisionRoleRepo();
   });

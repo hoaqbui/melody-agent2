@@ -16,7 +16,7 @@ const git = (cwd: string, args: string[]) =>
     }
   ).toString();
 
-test.describe('changes bar', () => {
+test.describe('changes bar', { tag: '@smoke' }, () => {
   test.beforeAll(() => {
     scratch = mkdtempSync(join(tmpdir(), 'goose-changes-bar-'));
     const notes = join(scratch, 'notes.md');

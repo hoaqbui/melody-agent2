@@ -6,7 +6,7 @@ import { test, expect, emptyDock, setAdvancedControls, provisionRoleRepo } from 
 // the Artifact pane on that child. The researcher role rolls its own runtime (agy, then
 // Cursor), so the walk needs those installed beside the orchestrator role in GOOSE_TEST_DIR,
 // as agents-pane and artifact-pane need claude-code.
-test.describe('rpi strip', () => {
+test.describe('rpi strip', { tag: '@seat' }, () => {
   let restoreRoles: () => void = () => {};
   test.beforeAll(() => {
     restoreRoles = provisionRoleRepo();

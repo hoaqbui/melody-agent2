@@ -6,7 +6,7 @@ import { test, expect, setAdvancedControls } from './fixtures';
 // `.agents/agents/orchestrator.md`; when the fixture's cwd has one the Mode pick starts
 // the session, otherwise the walk stays Direct and the Hub starts it. The chips are
 // Advanced's (task 58), so the walk switches there first and hands Easy back at the end.
-test.describe('workspace shell', () => {
+test.describe('workspace shell', { tag: '@seat' }, () => {
   test('picks a runtime and a mode, then gets a reply', async ({ goosePage }) => {
     const shell = goosePage.locator('[data-testid="workspace-shell"]');
     await expect(shell).toBeVisible({ timeout: 30000 });

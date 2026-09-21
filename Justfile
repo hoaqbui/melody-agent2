@@ -222,11 +222,24 @@ fix-bins:
     for l in $(find -L ui/node_modules/.bin ui/desktop/node_modules/.bin ui/sidecar/node_modules/.bin -maxdepth 1 -type f ! -perm -u+x 2>/dev/null); do chmod u+x "$(readlink -f $l)"; done
     test -f ~/.skip-forge-system-check || touch ~/.skip-forge-system-check
 
-# One walk: `just walk "git pane|diff pane"` — the Electron walks a change touches. The ACP
-# client is built once here; each launch then keeps Vite's cache (fixtures.ts, task 139a).
-walk pattern: fix-bins
+# Everything a launch used to rebuild, once per run instead: the ACP client, the sidecar and
+# the compiled locales. Writing into `src/` at launch had Vite reload the renderer a few
+# seconds after its first paint and the walk's page handle died with it (task 139a); each
+# launch is now `electron-forge start` alone on a warm Vite cache.
+walk-prep: fix-bins
     cd ui/desktop && pnpm --filter @aaif/goose-acp-client run build >/dev/null
+    cd ui/desktop && pnpm run build-sidecar >/dev/null && pnpm run i18n:compile >/dev/null
+
+# One walk: `just walk "git pane|diff pane"` — the Electron walks a change touches.
+walk pattern: walk-prep
     cd ui/desktop && pnpm exec playwright test --project=walks -g "{{pattern}}"
+
+# The smoke gate (task 143): the eight seat-free walks tagged `@smoke` — pane menu, files,
+# changes bar, editor, git, three columns, dock, markdown — about four minutes. A task's
+# confirm is this plus the one walk it touches; the `@seat` walks (a live Claude turn each)
+# run only through `test-full`, before a tag.
+smoke: walk-prep
+    cd ui/desktop && pnpm exec playwright test --project=walks --grep @smoke
 
 # Full suite (~25 min): clippy, the spine check, the light suite, every fork walk. Run before a
 # relaunch for the user or at a tranche's end. Only the `walks` project: `chromium` is upstream's
@@ -239,7 +252,7 @@ test-full:
     cargo clippy --all-targets -- -D warnings -A clippy::result_large_err -A clippy::useless_format
     bash scripts/check-spine.sh
     @just test-light
-    cd ui/desktop && pnpm --filter @aaif/goose-acp-client run build >/dev/null
+    @just walk-prep
     cd ui/desktop && pnpm exec playwright test --project=walks
 
 # make GUI with latest binary

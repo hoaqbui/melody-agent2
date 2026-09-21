@@ -26,7 +26,7 @@ const git = (cwd: string, args: string[]) =>
     stdio: 'pipe',
   }).toString();
 
-test.describe('routine', () => {
+test.describe('routine', { tag: '@seat' }, () => {
   test.setTimeout(300_000);
 
   test.beforeAll(() => {

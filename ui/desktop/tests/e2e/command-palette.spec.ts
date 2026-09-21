@@ -5,7 +5,7 @@ import { test, expect } from './fixtures';
 // the ⋯ menu, or (phone width) the search tab on the rail; closed by Esc or running a command;
 // focus returns to what opened it. Terminal lets ⌘K through.
 
-test.describe('command palette', () => {
+test.describe('command palette', { tag: '@seat' }, () => {
   test.setTimeout(120_000);
 
   test('opens with ⌘K, shows groups, filters by typing, closes on selection', async ({

@@ -2,7 +2,7 @@ import { test, expect, emptyDock, openPane, setAdvancedControls } from './fixtur
 
 // PRD step 6: the Terminal tab opens a shell in the session's working directory; `pwd`
 // prints it. The session starts as in workspace-shell.spec.ts, on the ambient runtime.
-test.describe('terminal pane', () => {
+test.describe('terminal pane', { tag: '@seat' }, () => {
   test('opens a shell in the session cwd', async ({ goosePage }) => {
     const shell = goosePage.locator('[data-testid="workspace-shell"]');
     await expect(shell).toBeVisible({ timeout: 30000 });

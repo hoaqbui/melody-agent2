@@ -5,7 +5,7 @@ import { test, expect, emptyDock, openPane } from './fixtures';
 // task 60's floating rail): at the default width the other launchers fold under a chevron
 // and the ⋯ session menu lists them too. A click opens a pane into the column, one at a
 // time (a split is a drag, 2026-09-20). No session is needed: the Hub has the shell.
-test.describe('pane menu', () => {
+test.describe('pane menu', { tag: '@smoke' }, () => {
   test('opens panes from the bar and shows no "Diff"', async ({ goosePage }) => {
     const shell = goosePage.locator('[data-testid="workspace-shell"]');
     await expect(shell).toBeVisible({ timeout: 30000 });

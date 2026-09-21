@@ -14,7 +14,7 @@ import {
 // the child's runtime and the task title; a click opens the child's transcript in place,
 // read-only, and Back returns to the tree. The delegate needs `GOOSE_TEST_DIR` to carry
 // `.agents/agents/spike-echo.md` beside the orchestrator role.
-test.describe('agents pane', () => {
+test.describe('agents pane', { tag: '@seat' }, () => {
   let restoreRoles: () => void = () => {};
   test.beforeAll(() => {
     restoreRoles = provisionRoleRepo();

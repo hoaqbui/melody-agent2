@@ -3,7 +3,7 @@ import { test, expect } from './fixtures';
 // Task 122/124: the send disc's ring shows the most spent limit — the context window after
 // one reply — and hovering it opens the breakdown above the composer; Esc closes it and the
 // disc still sends. Needs a live seat for the one reply.
-test.describe('usage ring', () => {
+test.describe('usage ring', { tag: '@seat' }, () => {
   test('fills after a reply, opens the breakdown on hover, closes on Esc, still sends', async ({
     goosePage,
   }) => {

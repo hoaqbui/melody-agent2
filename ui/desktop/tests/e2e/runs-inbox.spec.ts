@@ -73,7 +73,7 @@ const runScheduleNow = async (page: Page) => {
   await expect(toast).toBeHidden({ timeout: 30000 });
 };
 
-test.describe('runs inbox', () => {
+test.describe('runs inbox', { tag: '@seat' }, () => {
   test.setTimeout(300_000);
 
   test.beforeAll(() => {

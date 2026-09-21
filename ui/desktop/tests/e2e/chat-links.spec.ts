@@ -11,7 +11,7 @@ let restoreRoles: () => void = () => {};
 const git = (cwd: string, args: string[]) =>
   execFileSync('git', args, { cwd, stdio: 'pipe' }).toString();
 
-test.describe('chat links', () => {
+test.describe('chat links', { tag: '@seat' }, () => {
   test.beforeAll(() => {
     restoreRoles = provisionRoleRepo();
   });

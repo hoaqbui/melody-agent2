@@ -16,7 +16,7 @@ async function fits(page: Page) {
   });
 }
 
-test.describe('three columns', () => {
+test.describe('three columns', { tag: '@smoke' }, () => {
   test('lays out Sessions · Chat · Work, resizes on the seam, keeps the width', async ({
     goosePage,
   }) => {

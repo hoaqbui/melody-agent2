@@ -18,7 +18,7 @@ const git = (cwd: string, args: string[]) =>
     { cwd, stdio: 'pipe' }
   ).toString();
 
-test.describe('approve mode', () => {
+test.describe('approve mode', { tag: '@seat' }, () => {
   test.beforeAll(() => {
     scratch = mkdtempSync(join(tmpdir(), 'goose-approve-mode-'));
     git(scratch, ['init', '-q']);

@@ -1,6 +1,6 @@
 import { test, expect } from './fixtures';
 
-test.describe('Loading State', () => {
+test.describe('Loading State', { tag: '@seat' }, () => {
   test('shows a model placeholder while creating a new chat session', async ({ goosePage }) => {
     await goosePage.waitForSelector('[data-testid="chat-input"]', { timeout: 30000 });
 

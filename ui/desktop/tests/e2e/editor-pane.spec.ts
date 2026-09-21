@@ -12,7 +12,7 @@ const previousDir = process.env.GOOSE_TEST_DIR;
 let scratch = '';
 let file = '';
 
-test.describe('editor pane', () => {
+test.describe('editor pane', { tag: '@smoke' }, () => {
   test.beforeAll(() => {
     scratch = mkdtempSync(join(tmpdir(), 'goose-editor-pane-'));
     file = join(scratch, 'notes.md');

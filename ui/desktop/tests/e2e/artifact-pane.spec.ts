@@ -7,7 +7,7 @@ import { test, expect, emptyDock, openPane, provisionRoleRepo } from './fixtures
 // runtime · model in the header — with the worker's last message rendered, Copy puts it on
 // the clipboard and Open transcript navigates the chat to the child session. Needs the
 // orchestrator role in the cwd and the claude runtimes installed, as easy-mode does.
-test.describe('artifact pane', () => {
+test.describe('artifact pane', { tag: '@seat' }, () => {
   let restoreRoles: () => void = () => {};
   test.beforeAll(() => {
     restoreRoles = provisionRoleRepo();

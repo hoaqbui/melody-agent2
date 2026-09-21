@@ -22,7 +22,7 @@ const git = (cwd: string, args: string[]) =>
     stdio: 'pipe',
   }).toString();
 
-test.describe('session menu', () => {
+test.describe('session menu', { tag: '@seat' }, () => {
   test.setTimeout(300_000);
 
   test.beforeAll(() => {

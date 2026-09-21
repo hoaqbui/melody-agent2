@@ -33,7 +33,7 @@ exit 4
 const git = (cwd: string, args: string[]) =>
   execFileSync('git', args, { cwd, stdio: 'pipe' }).toString();
 
-test.describe('git pane', () => {
+test.describe('git pane', { tag: '@smoke' }, () => {
   test.beforeAll(() => {
     scratch = mkdtempSync(join(tmpdir(), 'goose-git-pane-'));
     const file = join(scratch, 'notes.md');

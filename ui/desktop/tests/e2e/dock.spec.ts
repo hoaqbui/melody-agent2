@@ -25,7 +25,7 @@ async function dragTo(page: Page, source: Locator, lifts: string, half: 'top' | 
   await expect(page.locator('[data-testid="workspace-dock-ghost"]')).toHaveCount(0);
 }
 
-test.describe('dock', () => {
+test.describe('dock', { tag: '@smoke' }, () => {
   test('docks panes full, top and bottom from the bar, the header and a drag', async ({
     goosePage,
   }) => {

@@ -43,7 +43,7 @@ const createFilesTestRepo = (): string => {
 // with that file and Files stays a tab (one pane at a time, 2026-09-20). The tree is the window's working
 // directory, so the walk reads the root the pane shows and picks the first rows instead of
 // naming any.
-test.describe('files pane', () => {
+test.describe('files pane', { tag: '@smoke' }, () => {
   test('shows the cwd tree and opens a file in the editor', async ({ goosePage }) => {
     const shell = goosePage.locator('[data-testid="workspace-shell"]');
     await expect(shell).toBeVisible({ timeout: 30000 });
