@@ -10,6 +10,9 @@ import type { Session } from '../../../types/session';
 import { modeOfSession, runtimeLabel, stopOfSession } from '../../session-controls';
 import type { ProviderDetails } from '../../../types/providers';
 import { getToolRequests } from '../../../types/message';
+import { fmtK } from './charts';
+
+export { fmtK };
 
 export interface Setting {
   id: string;
@@ -91,14 +94,6 @@ export function gateWord(mode: Session['goose_mode'] | undefined): string {
       return 'Autonomous';
   }
 }
-
-// 64.2k · 200k · 1.5M — one decimal until the number has three digits before the unit.
-export const fmtK = (v: number): string =>
-  v >= 1e6
-    ? `${(v / 1e6).toFixed(v >= 1e8 ? 0 : 1).replace(/\.0$/, '')}M`
-    : v >= 1e3
-      ? `${(v / 1e3).toFixed(v >= 1e5 ? 0 : 1).replace(/\.0$/, '')}k`
-      : String(Math.round(v));
 
 export const OUTCOMES = ['running', 'landed', 'corrected', 'blocked', 'undone', 'failed'] as const;
 export type Outcome = (typeof OUTCOMES)[number];

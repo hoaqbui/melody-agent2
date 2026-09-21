@@ -152,18 +152,6 @@ Each panel owns its tab bar; the bar holds only open panes; + adds one; drag a t
 
 A + A4 from the research (`docs/2026-09-20-telemetry-pane-research-v1.md`), the PRD `docs/2026-09-20-work-ledger-prd-v1.md`, the prototype `docs/mockups/2026-09-20-work-ledger.html`. Order: 125 ∥ 126 → 127 ∥ 128 → 129 ∥ 130 ∥ 131 → 132 → 133, all on main. Only the user can verify: the hand-counted rows against their own count, the routing-change date, whether the Claude seat reports `cacheReadTokens`.
 
-- 130. Add `telemetry-buckets.ts` (+ test) and `TelemetryTime.tsx`: the Over time view — headline (Tokens · Cost · Turns with deltas and sparklines), tokens by model (stacked, morphing between grains), cost per week, share of tokens, quarters, by runtime, top sessions.
-  - status: doing · agent: session [Opus, direct] · worker: high
-  - card: as the user, see the year's shape and last week's cost by model on one scroll, so that a routing change shows as a colour change in the stack
-  - context:
-    - input: ledger `turn` events (127) for the range and the one before it, plus `acpListSessions` (task 125's totals for the session count and the headline cross-check); grain keys are unique across years — `YYYY-MM-DD`, `YYYY-Www`, `YYYY-MM`, `YYYY-Qn` — with display labels separate (the mockup's collision, PRD criterion 4)
-    - delta = this range vs the same length before it (PRD criterion 5); unpriced turns counted, never $0 (criterion 6); by runtime groups workers under the seat that ran them
-    - charts: inline SVG per the prototype (`docs/mockups/2026-09-20-work-ledger.html` — `drawStack`, `drawLine`, `drawShare`, `drawQuarters`); `rect` positions transition, `prefers-reduced-motion` respected; every mark hoverable through `Why`
-    - colour per seat from `theme-tokens.ts` roles only (`DESIGN.md` §Tokens: runtime identity has no colour role — the legend names the seat in words; the hue is the chart's, not the runtime's)
-    - test: bucket 400 synthetic days into each grain → the last 14 day keys are distinct and ordered; a range with zero events → the empty state value; delta against an empty prior → `null`, never Infinity
-    - test ids: `telemetry-time-headline-<tokens|cost|turns>`, `telemetry-stack`, `telemetry-quarters`
-  - confirm: `cd ui/desktop && pnpm vitest run telemetry-buckets` → passes (untouched: no such test)
-
 - 131. Add `telemetry-roles.ts` (+ test) and `TelemetryRoles.tsx`: routing ribbons (role → seat), the Roles board, clean-done by role per week, with `tasks.md` rows marked hand-counted.
   - status: doing · agent: session [Opus, direct] · worker: high
   - card: as the user paying for three seats, read which seat each role ran on and whether its output survived the session, so that the next `runtimes:` edit is made from numbers

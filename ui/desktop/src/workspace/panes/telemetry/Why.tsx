@@ -32,7 +32,7 @@ interface WhyProps extends HTMLAttributes<HTMLElement> {
   from?: string;
   // The tooltip's first line; the element's own text when omitted.
   head?: string;
-  as?: 'span' | 'div' | 'li' | 'th' | 'td' | 'tr' | 'h2';
+  as?: 'span' | 'div' | 'li' | 'th' | 'td' | 'tr' | 'h2' | 'g';
   // A tab stop — for headline numbers and controls, not for every cell of a table.
   focusable?: boolean;
   children: ReactNode;

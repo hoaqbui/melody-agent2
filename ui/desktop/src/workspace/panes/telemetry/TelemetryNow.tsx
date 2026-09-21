@@ -179,7 +179,7 @@ function Row({ row, providers }: { row: TurnRow; providers: readonly ProviderDet
       </td>
       <td className={cn('whitespace-nowrap py-1.5 pr-2', row.who === 'worker' && 'pl-3')}>
         {row.who === 'worker' ? (
-          <span className="text-text-accent">{row.role}</span>
+          <span className="text-text-info">{row.role}</span>
         ) : (
           intl.formatMessage(i18n.sessionWord)
         )}

@@ -5660,9 +5660,6 @@
   "telemetryPane.comingRoles": {
     "defaultMessage": "No delegated work in this range."
   },
-  "telemetryPane.comingTime": {
-    "defaultMessage": "No turns in this range — widen it."
-  },
   "telemetryPane.grainDays": {
     "defaultMessage": "Days"
   },
@@ -5716,6 +5713,75 @@
   },
   "telemetrySettings.updateError": {
     "defaultMessage": "Telemetrie-Einstellungen konnten nicht aktualisiert werden."
+  },
+  "telemetryTime.byModel": {
+    "defaultMessage": "Tokens by model"
+  },
+  "telemetryTime.byRuntime": {
+    "defaultMessage": "By runtime"
+  },
+  "telemetryTime.cost": {
+    "defaultMessage": "Cost"
+  },
+  "telemetryTime.costPerWeek": {
+    "defaultMessage": "Cost per week"
+  },
+  "telemetryTime.empty": {
+    "defaultMessage": "No turns in this range — widen it."
+  },
+  "telemetryTime.error": {
+    "defaultMessage": "{cause}"
+  },
+  "telemetryTime.hoverBar": {
+    "defaultMessage": "hover a bar"
+  },
+  "telemetryTime.loading": {
+    "defaultMessage": "Reading the ledger…"
+  },
+  "telemetryTime.quarters": {
+    "defaultMessage": "Quarters"
+  },
+  "telemetryTime.retry": {
+    "defaultMessage": "Retry"
+  },
+  "telemetryTime.share": {
+    "defaultMessage": "Share of tokens"
+  },
+  "telemetryTime.thCostPerTurn": {
+    "defaultMessage": "$ / turn"
+  },
+  "telemetryTime.thModel": {
+    "defaultMessage": "Model"
+  },
+  "telemetryTime.thQuarter": {
+    "defaultMessage": "Quarter"
+  },
+  "telemetryTime.thSession": {
+    "defaultMessage": "Session"
+  },
+  "telemetryTime.thSessions": {
+    "defaultMessage": "Sessions"
+  },
+  "telemetryTime.thTokPerTurn": {
+    "defaultMessage": "tok / turn"
+  },
+  "telemetryTime.thTop": {
+    "defaultMessage": "Top model"
+  },
+  "telemetryTime.tokens": {
+    "defaultMessage": "Tokens"
+  },
+  "telemetryTime.topSessions": {
+    "defaultMessage": "Top sessions"
+  },
+  "telemetryTime.turns": {
+    "defaultMessage": "Turns"
+  },
+  "telemetryTime.unpriced": {
+    "defaultMessage": "{count} turns unpriced"
+  },
+  "telemetryTime.vsPrior": {
+    "defaultMessage": "vs prior {span}"
   },
   "terminalPane.ctrl": {
     "defaultMessage": "Ctrl"

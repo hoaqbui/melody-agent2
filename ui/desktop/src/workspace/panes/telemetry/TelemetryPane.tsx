@@ -7,6 +7,7 @@ import { defineMessages, useIntl } from '../../../i18n';
 import { cn } from '../../../utils';
 import { usePaneContext } from '../../pane-context';
 import { TelemetryNow } from './TelemetryNow';
+import { TelemetryTime } from './TelemetryTime';
 import { Why, WhyProvider } from './Why';
 import {
   GRAINS,
@@ -42,10 +43,6 @@ const i18n = defineMessages({
     id: 'telemetryPane.rangeWhy',
     defaultMessage:
       'How far back the charts look; every delta compares against the same span before it.',
-  },
-  comingTime: {
-    id: 'telemetryPane.comingTime',
-    defaultMessage: 'No turns in this range — widen it.',
   },
   comingRoles: {
     id: 'telemetryPane.comingRoles',
@@ -138,7 +135,7 @@ export function TelemetryPane() {
     scope === 'now' ? (
       <TelemetryNow />
     ) : scope === 'time' ? (
-      <Placeholder text={intl.formatMessage(i18n.comingTime)} testId="telemetry-time-empty" />
+      <TelemetryTime grain={grain} />
     ) : (
       <Placeholder text={intl.formatMessage(i18n.comingRoles)} testId="telemetry-roles-empty" />
     );
