@@ -157,10 +157,6 @@ A + A4 from the research (`docs/2026-09-20-telemetry-pane-research-v1.md`), the 
 
 One branch, one remote, merged worktrees gone, every open workstream handed to its owner. Order: 134 → 135 → **user pushes** → 136 → 137. The push is the user's (the classifier refuses it from a session).
 
-- 137. Retag and rebuild: `git tag -f melody-v0.9-beta` on the closeout commit (or `melody-v0.9-beta.2` if the user wants the first kept), `just make-ui`, the zip refreshed on the Desktop, `docs/2026-09-20-release-v0.9-beta.md` §Verified on the tag updated with the run; the tag pushed by the user with the branch.
-  - status: doing · agent: session [Opus, direct] · worker: low
-  - confirm: `git describe --tags --exact-match HEAD` → the tag; `ls -la ui/desktop/out/Goose-darwin-arm64/Goose.zip` → present
-
 ## Waiting on the user
 
 ### Handoff — one line, one command each (2026-09-20, closeout)
@@ -181,6 +177,7 @@ One branch, one remote, merged worktrees gone, every open workstream handed to i
 - Untracked in the tree, not this session's: `docs/2026-09-20-telemetry-pane-research-v1.md` and `docs/mockups/` (a telemetry pane research map and two HTML mockups, from another session working here). Left alone.
   - *(2026-09-20, the telemetry session):* those files are this plan's — research, PRD, plan and three mockups; tasks 125–133 above.
 
+- **v0.9 beta 2 (2026-09-21, task 137):** tag `melody-v0.9-beta.2` on the closeout commit; `ui/desktop/out/Goose-darwin-arm64/Goose.app` rebuilt from it, `~/Desktop/melody-agent2-v0.9-beta.2-darwin-arm64.zip` (215 MB). Push both: `git push origin main && git push origin --tags`.
 - **v0.9 beta candidate (2026-09-20, task 112):** `ui/desktop/out/Goose-darwin-arm64/Goose.app` (561 MB; `Goose.zip` beside it, 215 MB) built by `just make-ui` on main at 55d504325 — release `goose` 1.51.0 from this tree, the sidecar at `Contents/Resources/sidecar`, the Studio theme. Launched once by the session: goosed started from the bundle, the sidecar listened on 7788, the renderer reported ready (`~/Library/Application Support/Goose/logs/main.log` 16:36:29–30). Unsigned — Finder's first open is right-click → Open. The startup update check logs a 404 (no `latest-mac.yml` on the fork's releases) and falls back; harmless, but the auto-updater points at upstream's feed until the fork has its own. Your hand check: a seat listed, Files and Terminal open on a directory, Light on and looked at; then the beta call. The first full run's remaining reds are the five seat-gated walks only (agents pane, artifact pane, review pane, rpi strip, turn undo) plus one flaky Rust test (`bridge_broadcasts_delegate_started_and_done` fails in the batch, passes alone ×3).
 
 - Tranche-end gate (2026-09-19): `just test-full` cannot run green — its first line is `cargo clippy --all-targets -D warnings`, red since the 1.98.1 move (24 pre-existing lints in agents/*). The Playwright set was run directly: the `chromium` project is upstream's suite and needs a Databricks provider and live MCP servers (25 failed, expected here); the fork's `walks` + `phone` projects ran one worker at a time in 38.7 min → 17 passed, 26 failed. Cause of the failures: partway through, the Claude seat answered "Credits exhausted: you've hit your monthly spend limit" (claude.ai/settings/usage) and every walk that needs a live reply failed after that — session menu, easy mode, chat links, command palette and the rest had passed alone within the hour; the six runtimes-gate specs are task 91's known contradiction; the `phone` spec needs the web build served on :3285. Raise the Claude spend limit (or wait for the month), then rerun `pnpm exec playwright test --project=walks --project=phone --workers=1` from `ui/desktop` under the hermit env.
