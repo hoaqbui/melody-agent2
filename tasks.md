@@ -140,28 +140,28 @@ Approved 2026-09-20 (user: "Ok orchestrate it"); pick B of `docs/2026-09-20-prog
 
 `just test-full` ran end to end for the first time since the 1.98.1 move (24.0 min): clippy green, spine clean, Rust light suite 90/91 (one flaky), sidecar 89, desktop 1231, walks 34 passed / 8 failed. Five of the eight need a live Claude seat (agents pane, artifact pane, review pane, rpi strip, turn undo — tranche 10). The three below are headless. 112 is the user's ask the same turn: a macOS app to try.
 
-### One tabbed panel (approved 2026-09-20, user: "make it only one tabbed panel on the right instead of a top and bottom … tabs easier to read, connect more with the panel like actual tabs"; option A)
+### One tabbed panel, split by drag only (approved 2026-09-20, user: "make it only one tabbed panel on the right … tabs easier to read, connect more with the panel like actual tabs" → option B, "actually do B")
 
-Reverts task 71's three dock positions to one slot: every open pane is a tab, the visible one is the pressed tab, no seam, no position controls, no drag-to-half. Tabs restyle as attached tabs. Order: 113 → 114 → 115 → 116 (walks and DESIGN.md last, all on main).
+Option B: one pane visible by default, every open pane a tab, the pressed tab the visible one; the split survives only as a drag — drop a tab onto the top or bottom half to show two panes, the seam between them as today; the header's three position icons go. Tabs restyle as attached tabs. Order: 113 → 114 → 115 → 116 (walks and DESIGN.md last, all on main).
 
-- 113. `ui/desktop/src/workspace/pane-store.ts`: one slot — `Slots` becomes the visible pane id (or null), `DockPosition`, `DOCK_POSITIONS`, `positions`, `dock(...)`, `resize(...)`, `positionOf` go; `openPane` shows the pane, `closePane` shows the next open tab (the previous one if any, else the first), `SavedDock` loads a two-slot record by taking its top (or full) pane; `pane-store.test.ts` follows.
+- 113. `ui/desktop/src/workspace/pane-store.ts`: `openPane` shows the pane Full, replacing the pane in the full slot (that pane stays an open tab, parked) — never into the bottom half by default; `dock(...)` stays for the drag; a remembered `positions[id]` of top/bottom is honoured only when the other half is showing (so a parked half comes back beside its partner, but a lone pane is always Full); `pane-store.test.ts` follows (the "second pane takes the bottom half" cases become "second pane takes the front").
   - status: doing · agent: session [Opus, direct] · worker: medium
-  - card: as the user, see one pane at a time on the right and switch with tabs, so that the Work column reads like a browser and not a tiling manager
-  - confirm: `grep -c "DockPosition" ui/desktop/src/workspace/pane-store.ts` → `0` (untouched: `≥ 3`); `cd ui/desktop && pnpm vitest run src/workspace/pane-store` → all passed
+  - card: as the user, see one pane at a time on the right and switch with tabs, so that the Work column reads like a browser; split only when I drag
+  - confirm: `cd ui/desktop && pnpm vitest run src/workspace/pane-store` → all passed with the amended cases; `grep -c "empty ? 'full' : 'bottom'" ui/desktop/src/workspace/pane-store.ts` → `0` (untouched: `1`)
 
-- 114. `ui/desktop/src/workspace/WorkColumn.tsx` (+ `main.css` `.work-tab`): the position icons, the seam and the drop halves go; the slot is one grid row; the tab strip is attached tabs — 13 px label with the icon, the pressed tab on the panel's own background with no bottom border so it merges into the panel, the others recessed with a hairline under the strip that the active tab interrupts; Light and Dark through the existing `.work-tab[data-active]` hook; the ⋯ stays at the strip's end.
+- 114. `ui/desktop/src/workspace/WorkColumn.tsx` (+ `main.css` `.work-tab`): the header's three position icons (`workspace-dock-positions`) go — the drag targets and the seam stay; the tab strip is attached tabs — 13 px label with the icon, the pressed tab on the panel's own background with no bottom border so it merges into the panel, the others recessed under a hairline the active tab interrupts; Light and Dark through the existing `.work-tab[data-active]` hook; the ⋯ stays at the strip's end.
   - status: todo · agent: — · worker: medium
   - card: as the user, read the tabs at a glance and see which one owns the panel
-  - confirm: `grep -c "workspace-dock-seam\|workspace-dock-positions" ui/desktop/src/workspace/WorkColumn.tsx` → `0` (untouched: `≥ 2`); `pnpm run typecheck` clean; `pnpm vitest run src/workspace` all passed
+  - confirm: `grep -c "workspace-dock-positions" ui/desktop/src/workspace/WorkColumn.tsx` → `0` (untouched: `≥ 1`); `grep -c "workspace-dock-seam" ui/desktop/src/workspace/WorkColumn.tsx` → `≥ 1` (unchanged); `pnpm run typecheck` clean; `pnpm vitest run src/workspace` all passed
 
-- 115. Callers that opened a pane into the bottom half open it as the front tab: `WorkspaceShell.tsx` `openFile` (Files → Editor, Markdown → Edit), `DiffPane.tsx` Open in Editor; `PaneContext`'s `openPane` signature loses any position argument.
+- 115. Callers that opened a pane into the bottom half open it as the front tab: `WorkspaceShell.tsx` `openFile` (Files → Editor, Markdown → Edit), `DiffPane.tsx` Open in Editor — they call `openPane(id)` and the store's new default does the rest; any explicit `'bottom'` position argument goes.
   - status: todo · agent: — · worker: low
   - card: as the user, click a file and land in the Editor tab with Files one tab away
-  - confirm: `grep -rn "'bottom'" ui/desktop/src/workspace --include='*.ts' --include='*.tsx' | grep -v "side=\|side:" | wc -l` → `0` (untouched: `≥ 3`)
+  - confirm: `grep -rn "'bottom'" ui/desktop/src/workspace/WorkspaceShell.tsx ui/desktop/src/workspace/panes/diff/DiffPane.tsx | grep -v "side" | wc -l` → `0` (count untouched first)
 
-- 116. Walks and documents: `dock.spec.ts` (one slot: open two panes, the second is front, the first a tab; close returns to the other), `files-pane.spec.ts`, `pane-menu.spec.ts`, `markdown-pane.spec.ts`, `add-to-chat.spec.ts`, `diff-pane.spec.ts` drop their `data-position` / seam assertions; `DESIGN.md` §Vocabulary retires **dock position · seam** with a dated line and amends the tab bar row; `studio light` screenshot retaken.
+- 116. Walks and documents: `dock.spec.ts` (a second pane opens front and the first is a parked tab; the header icons are gone; the drag to a half still splits and the seam still resizes), `files-pane.spec.ts`, `pane-menu.spec.ts`, `markdown-pane.spec.ts`, `add-to-chat.spec.ts`, `diff-pane.spec.ts` drop their "bottom half" assertions; `DESIGN.md` §Vocabulary amends **dock position** (drag only; the header icons retired, dated) and the tab bar row; `studio light` screenshot retaken.
   - status: todo · agent: — · worker: medium
-  - confirm: `just walk "dock|files pane|pane menu|markdown pane|add to chat|diff pane|studio light"` → all passed; `grep -c "Retired: \*\*dock position" DESIGN.md` → `1` (untouched: `0`)
+  - confirm: `just walk "dock|files pane|pane menu|markdown pane|add to chat|diff pane|studio light"` → all passed; `grep -c "2026-09-20" DESIGN.md` → `≥ 1` (untouched: `0`)
 
 ## Waiting on the user
 
