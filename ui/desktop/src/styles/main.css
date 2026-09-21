@@ -1099,12 +1099,8 @@ pre:has(> code.bg-inline-code) {
   box-shadow: var(--shadow-hairline);
 }
 
-[data-theme='light'] .work-tab[data-active='true'] {
-  background-color: #ffffff;
-  color: #1e1d1a;
-  box-shadow: var(--shadow-sm);
-}
-
+/* Tabs are attached to the panel (2026-09-20): the pressed tab takes the panel's own ground
+   through its classes, so Light adds only the blue icon. */
 [data-theme='light'] .work-tab[data-active='true'] svg {
   color: #2277cc;
 }

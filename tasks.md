@@ -144,13 +144,8 @@ Approved 2026-09-20 (user: "Ok orchestrate it"); pick B of `docs/2026-09-20-prog
 
 Option B: one pane visible by default, every open pane a tab, the pressed tab the visible one; the split survives only as a drag — drop a tab onto the top or bottom half to show two panes, the seam between them as today; the header's three position icons go. Tabs restyle as attached tabs. Order: 113 → 114 → 115 → 116 (walks and DESIGN.md last, all on main).
 
-- 114. `ui/desktop/src/workspace/WorkColumn.tsx` (+ `main.css` `.work-tab`): the header's three position icons (`workspace-dock-positions`) go — the drag targets and the seam stay; the tab strip is attached tabs — 13 px label with the icon, the pressed tab on the panel's own background with no bottom border so it merges into the panel, the others recessed under a hairline the active tab interrupts; Light and Dark through the existing `.work-tab[data-active]` hook; the ⋯ stays at the strip's end.
-  - status: doing · agent: session [Opus, direct] · worker: medium
-  - card: as the user, read the tabs at a glance and see which one owns the panel
-  - confirm: `grep -c "workspace-dock-positions" ui/desktop/src/workspace/WorkColumn.tsx` → `0` (untouched: `≥ 1`); `grep -c "workspace-dock-seam" ui/desktop/src/workspace/WorkColumn.tsx` → `≥ 1` (unchanged); `pnpm run typecheck` clean; `pnpm vitest run src/workspace` all passed
-
 - 115. Callers that opened a pane into the bottom half open it as the front tab: `WorkspaceShell.tsx` `openFile` (Files → Editor, Markdown → Edit), `DiffPane.tsx` Open in Editor — they call `openPane(id)` and the store's new default does the rest; any explicit `'bottom'` position argument goes.
-  - status: todo · agent: — · worker: low
+  - status: doing · agent: session [Opus, direct] · worker: low
   - card: as the user, click a file and land in the Editor tab with Files one tab away
   - confirm: `grep -rn "'bottom'" ui/desktop/src/workspace/WorkspaceShell.tsx ui/desktop/src/workspace/panes/diff/DiffPane.tsx | grep -v "side" | wc -l` → `0` (count untouched first)
 

@@ -43,7 +43,6 @@ const i18n = defineMessages({
   bar: { id: 'workColumn.bar', defaultMessage: 'Panes' },
   more: { id: 'workColumn.more', defaultMessage: 'More panes' },
   unseen: { id: 'workColumn.unseen', defaultMessage: '{pane} — new since you looked' },
-  position: { id: 'workColumn.position', defaultMessage: 'Dock position' },
   full: { id: 'workColumn.full', defaultMessage: 'Full' },
   top: { id: 'workColumn.top', defaultMessage: 'Top half' },
   bottom: { id: 'workColumn.bottom', defaultMessage: 'Bottom half' },
@@ -69,7 +68,6 @@ const POSITION_ICONS: Record<DockPosition, ComponentType<{ className?: string }>
 const POSITION_MESSAGES = { full: i18n.full, top: i18n.top, bottom: i18n.bottom } as const;
 
 // DESIGN.md Floating Button Rule: --shadow-sm at rest, --shadow-md lifted.
-const floating = 'shadow-[var(--shadow-sm)] hover:shadow-[var(--shadow-md)]';
 
 const DRAG_THRESHOLD_PX = 4;
 const SEAM_KEY_STEP = 0.05;
@@ -113,43 +111,6 @@ export function saveDock(project: string, layout: PaneLayout): void {
     positions: layout.positions,
   };
   saveProjectEntry(DOCK_STORAGE_KEY, project, saved);
-}
-
-interface PositionControlProps {
-  id: PaneId;
-  position: DockPosition | null;
-  onDock(id: PaneId, position: DockPosition): void;
-}
-
-// The three-icon control, on the pane's header: the pressed one is where the pane shows.
-function PositionControl({ id, position, onDock }: PositionControlProps) {
-  const intl = useIntl();
-  return (
-    <div
-      role="group"
-      aria-label={intl.formatMessage(i18n.position)}
-      className="flex items-center gap-0.5"
-      data-testid="workspace-dock-positions"
-    >
-      {DOCK_POSITIONS.map((candidate) => {
-        const Icon = POSITION_ICONS[candidate];
-        return (
-          <Button
-            key={candidate}
-            variant="ghost"
-            size="xs"
-            className="w-6 px-0 aria-pressed:bg-background-secondary"
-            aria-label={intl.formatMessage(POSITION_MESSAGES[candidate])}
-            aria-pressed={position === candidate}
-            data-testid={`workspace-dock-position-${candidate}`}
-            onClick={() => onDock(id, candidate)}
-          >
-            <Icon />
-          </Button>
-        );
-      })}
-    </div>
-  );
 }
 
 // The tab in flight: a lifted copy under the pointer (DESIGN.md §Motion).
@@ -347,12 +308,16 @@ export function WorkColumn({
         <Tooltip>
           <TooltipTrigger asChild>
             <Button
-              variant={showing ? 'secondary' : 'ghost'}
+              variant="ghost"
               size="xs"
               className={cn(
-                'work-tab relative touch-none',
-                showing && floating,
-                !isOpen && 'text-text-secondary',
+                // An attached tab: the pressed one shares the panel's ground and covers the
+                // strip's hairline with its own -1px, so tab and panel read as one surface.
+                'work-tab relative -mb-px h-7 touch-none gap-1.5 rounded-b-none rounded-t-[10px] border border-b-0 border-transparent px-2.5 text-[13px] shadow-none hover:shadow-none',
+                showing
+                  ? 'border-border-primary bg-background-primary text-text-primary hover:bg-background-primary'
+                  : 'text-text-secondary hover:bg-background-primary/60 hover:text-text-primary',
+                !isOpen && 'text-text-tertiary',
                 drag?.id === id && 'opacity-50'
               )}
               aria-label={name}
@@ -463,13 +428,13 @@ export function WorkColumn({
       data-dragging={drag ? 'tab' : undefined}
     >
       <div
-        className="flex min-w-0 shrink-0 select-none items-center gap-1 border-b border-border-primary px-2 py-1 text-sm touch-none"
+        className="flex min-w-0 shrink-0 select-none items-end gap-1 border-b border-border-primary bg-background-secondary px-2 pt-1.5 text-sm touch-none"
         role="toolbar"
         aria-label={intl.formatMessage(i18n.bar)}
         aria-orientation="horizontal"
         data-testid="workspace-pane-menu"
       >
-        <div className="flex min-w-0 flex-1 items-center gap-1 overflow-x-auto">
+        <div className="flex min-w-0 flex-1 items-end gap-0.5 overflow-x-auto">
           {shown.map(tab)}
           {folded.length > 0 && (
             <DropdownMenu>
@@ -510,7 +475,7 @@ export function WorkColumn({
       </div>
       <div
         ref={slotsRef}
-        className="relative grid min-h-0 flex-1"
+        className="relative grid min-h-0 flex-1 bg-background-primary"
         style={{ gridTemplateRows: rows }}
         data-testid="workspace-side-panel"
       >
@@ -538,7 +503,6 @@ export function WorkColumn({
               <div className="flex shrink-0 select-none items-center gap-1 px-2 py-0.5 text-xs text-text-secondary">
                 <Icon className="size-3.5" />
                 <span className="min-w-0 flex-1 truncate">{title}</span>
-                <PositionControl id={id} position={position} onDock={store.dock} />
                 <Button
                   variant="ghost"
                   size="xs"
