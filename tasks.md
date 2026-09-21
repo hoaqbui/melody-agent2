@@ -218,6 +218,25 @@ One branch, one remote, merged worktrees gone, every open workstream handed to i
   - card: as the session, run the tag gate in under ten minutes, so that a tag is cheap enough to cut often
   - confirm: `grep -n "workers:" ui/desktop/playwright.config.ts` → `3`; `just test-full` → green in under 12 min
 
+### docs/2026-09-21-sidebar-tabs-prd-plan-v1.md — sidebar tabs (user: "organize this left side … reduce the amount of needed groups. add search and sorting" → option C; plan awaiting approval)
+
+- 148. Pure sidebar logic: `src/workspace/sidebar-sessions.ts` — `repositoryOf` (a `.worktrees/<slug>` cwd folds to its repo and names the slug; `$TMPDIR`, `/var/folders`, `/tmp` → `elsewhere`), `groupByRepository`, `sortSessions` (recent · name · project), `filterSessions` (title and project, case-folded) — with `sidebar-sessions.test.ts`.
+  - status: todo · agent: — · worker: medium
+  - card: as the user, see one heading per repository with worktrees folded under it, so that the list is about my projects and not my checkouts
+  - confirm: `cd ui/desktop && pnpm vitest run src/workspace/sidebar-sessions.test.ts 2>&1 | grep Tests` → `≥ 8 passed` (untouched: no file)
+- 149. The tab strip: `NavigationPanel.tsx` renders **Chats · Library · Automate** as ARIA tabs (roving arrows, the active tab remembered in localStorage) with Settings at the foot; `NAV_ITEMS` gains `tab: 'library' | 'automate'`, loses the `home` and `sessions` rows; Library lists Recipes · Skills · Apps (when on) · Extensions, Automate lists Board · Scheduler.
+  - status: todo · agent: — · worker: medium
+  - card: as the user, find the eleven things the rail offered under three words, so that the first column reads as a way to a conversation
+  - confirm: `grep -c "sidebar-tab-" ui/desktop/src/components/Layout/NavigationPanel.tsx` → `≥ 3` (untouched: `0`); `cd ui/desktop && pnpm run typecheck`
+- 150. The Chats tab: header with **New chat** (`+`, ⌘N), the search field (`/` focuses, Esc clears, "No chats match"), the sort menu (Recent · Name · Project); the list from 148 with the `wt/<slug>` tag on worktree rows, **Elsewhere** last, collapse remembered per group, no heading for a single group; **Show all** → `/sessions`.
+  - status: todo · agent: — · worker: medium
+  - card: as the user, type three letters and see the chat, or flip the order, so that finding yesterday's session is one gesture
+  - confirm: `grep -c "sidebar-search\|sidebar-sort\|sidebar-new-chat" ui/desktop/src/components/Layout/NavigationPanel.tsx` → `≥ 3` (untouched: `0`)
+- 151. The walk and the board: `tests/e2e/sidebar.spec.ts` (`@smoke`, seat-free — the three tabs and their rows, the search empty state, the sort menu, ⌘N); `DESIGN.md` §Vocabulary gains **tab** (the rail's) and **Elsewhere**; i18n extract + the 15 locales seeded.
+  - status: todo · agent: — · worker: low
+  - card: as the next session, know the rail's words and prove them in one launch, so that the rail does not drift back to eleven rows
+  - confirm: `just walk "sidebar"` → 1 passed (untouched: no spec); `cd ui/desktop && pnpm run i18n:check` → green
+
 ## Waiting on the user
 
 ### Handoff — one line, one command each (2026-09-20, closeout; the decisions moved under §Notes and hand checks 2026-09-21)
