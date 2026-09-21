@@ -5,11 +5,9 @@
 import { useEffect, useMemo, useState } from 'react';
 import { defineMessages, useIntl } from '../../../i18n';
 import { useConfig } from '../../../components/ConfigContext';
-import { acpListSessions, type SessionListItem } from '../../../acp/sessions';
-import { readLedger, type LedgerEvent } from '../../../native/ledger';
+import type { TelemetryData } from './telemetry-data';
 import type { ProviderDetails } from '../../../types/providers';
 import { cn } from '../../../utils';
-import { usePaneContext } from '../../pane-context';
 import { runtimeLabel } from '../../session-controls';
 import {
   BarRow,
@@ -71,24 +69,6 @@ const fromList = (t: { fromList: number }): string =>
   t.fromList
     ? ` · ${t.fromList} sessions at session grain (no recorded turns; bucketed by their creation day, turns ≈ messages ÷ 2)`
     : '';
-
-interface Loaded {
-  sessions: SessionListItem[];
-  events: LedgerEvent[];
-}
-
-async function loadAll(cwd: string): Promise<Loaded> {
-  const sessions: SessionListItem[] = [];
-  let cursor: string | null = null;
-  for (let page = 0; page < 40; page++) {
-    const result = await acpListSessions(cursor, { includeAcp: true });
-    sessions.push(...result.sessions);
-    cursor = result.nextCursor;
-    if (!cursor) break;
-  }
-  const events = await readLedger(cwd).catch(() => [] as LedgerEvent[]);
-  return { sessions, events };
-}
 
 function Headline({
   label,
@@ -160,35 +140,24 @@ const usd = (v: number, d = 2): string => `$${v.toFixed(d)}`;
 
 export function TelemetryTime({
   grain,
+  data,
+  error,
+  retry,
   now = () => new Date(),
 }: {
   grain: Grain;
+  data: TelemetryData | null;
+  error: string | null;
+  retry(): void;
   now?: () => Date;
 }) {
   const intl = useIntl();
-  const { cwd } = usePaneContext();
   const { getProviders } = useConfig();
   const [providers, setProviders] = useState<ProviderDetails[]>([]);
   useEffect(() => {
     getProviders(false).then(setProviders);
   }, [getProviders]);
-  const [loaded, setLoaded] = useState<Loaded | null>(null);
-  const [error, setError] = useState<string | null>(null);
-  const [attempt, setAttempt] = useState(0);
-  useEffect(() => {
-    let cancelled = false;
-    setError(null);
-    loadAll(cwd)
-      .then((result) => {
-        if (!cancelled) setLoaded(result);
-      })
-      .catch((cause: unknown) => {
-        if (!cancelled) setError(cause instanceof Error ? cause.message : String(cause));
-      });
-    return () => {
-      cancelled = true;
-    };
-  }, [cwd, attempt]);
+  const loaded = data;
 
   const model = useMemo(() => {
     if (!loaded) return null;
@@ -261,7 +230,7 @@ export function TelemetryTime({
         <button
           type="button"
           className="mt-2 rounded-control bg-background-secondary px-3 py-1 text-xs shadow-[var(--shadow-sm)]"
-          onClick={() => setAttempt((n) => n + 1)}
+          onClick={retry}
         >
           {intl.formatMessage(i18n.retry)}
         </button>

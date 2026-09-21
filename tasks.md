@@ -152,17 +152,8 @@ Each panel owns its tab bar; the bar holds only open panes; + adds one; drag a t
 
 A + A4 from the research (`docs/2026-09-20-telemetry-pane-research-v1.md`), the PRD `docs/2026-09-20-work-ledger-prd-v1.md`, the prototype `docs/mockups/2026-09-20-work-ledger.html`. Order: 125 ∥ 126 → 127 ∥ 128 → 129 ∥ 130 ∥ 131 → 132 → 133, all on main. Only the user can verify: the hand-counted rows against their own count, the routing-change date, whether the Claude seat reports `cacheReadTokens`.
 
-- 132. Add `telemetry-trends.ts` (+ test) and the Trends card at the top of every scope: the three largest movements, written from templates.
-  - status: doing · agent: session [Opus, direct] · worker: medium
-  - card: as the user opening the pane, read in three lines what moved and why it matters before any chart, so that the numbers below have a headline
-  - context:
-    - candidates, each with a weight and a template: tokens per turn (Δ ratio), the top seat's share of tokens (Δ points), cost per priced turn (Δ ratio), clean-done per role (Δ points, roles with ≥ 4 runs in both ranges), the hand-counted Implementer (fixed weight while any hand row exists); the top three by weight render as bullets, each `Why`-wrapped with its from line; no model call (the PRD's rule)
-    - copy in the prototype's `trends()`; every number in mono (`.n`); the prose is the only sentence-bearing card on the pane (PRD criterion 7)
-    - test: given ranges where only the seat share moved → that bullet first; fewer than two ranges of data → the empty state string; the hand-counted bullet present iff `hand` rows exist
-  - confirm: `cd ui/desktop && pnpm vitest run telemetry-trends` → passes (untouched: no such test)
-
 - 133. Add `ui/desktop/tests/e2e/telemetry-pane.spec.ts` (the walk), the `DESIGN.md` §Vocabulary rows (**Telemetry**, **ledger**, **hand-counted**, **clean-done**, the Diagnostics-tier exception), one `ARCHITECTURE.md` sidecar-line amendment (`/ledger/*`), and the pane's `TELEMETRY_STATES`.
-  - status: todo · agent: — · worker: medium
+  - status: doing · agent: session [Opus, direct] · worker: medium
   - card: as the next agent, find the pane's words, states and route in the files that own them, so that a PRD citing them has a row to cite
   - context:
     - walk: `openPane(page, 'telemetry')` (`fixtures.ts:203`, the + then `workspace-panel-add-telemetry`); the three scope buttons swap views; `telemetry-range-quarters` changes `#stackTitle`'s text to "…per quarter…"; hovering `telemetry-time-headline-tokens` shows `telemetry-why` with two lines; phone project: `scrollWidth <= innerWidth`

@@ -9,6 +9,8 @@ import { usePaneContext } from '../../pane-context';
 import { TelemetryNow } from './TelemetryNow';
 import { TelemetryRoles } from './TelemetryRoles';
 import { TelemetryTime } from './TelemetryTime';
+import { TelemetryTrends } from './TelemetryTrends';
+import { useTelemetryData } from './telemetry-data';
 import { Why, WhyProvider } from './Why';
 import {
   GRAINS,
@@ -98,6 +100,7 @@ function Seg<T extends string>({
 export function TelemetryPane() {
   const intl = useIntl();
   const { cwd } = usePaneContext();
+  const { data, error, retry } = useTelemetryData(cwd);
   const [scope, setScope] = useState<Scope>(() => loadScope(cwd));
   const [grain, setGrain] = useState<Grain>(() => loadGrain(cwd));
   useEffect(() => {
@@ -123,7 +126,7 @@ export function TelemetryPane() {
     scope === 'now' ? (
       <TelemetryNow />
     ) : scope === 'time' ? (
-      <TelemetryTime grain={grain} />
+      <TelemetryTime grain={grain} data={data} error={error} retry={retry} />
     ) : (
       <TelemetryRoles grain={grain} />
     );
@@ -177,7 +180,10 @@ export function TelemetryPane() {
             </Why>
           )}
         </div>
-        <div className="min-h-0 flex-1 overflow-auto">{view}</div>
+        <div className="min-h-0 flex-1 overflow-auto">
+          {scope !== 'now' && <TelemetryTrends grain={grain} data={data} />}
+          {view}
+        </div>
       </div>
     </WhyProvider>
   );

@@ -5849,6 +5849,15 @@
   "telemetryTime.vsPrior": {
     "defaultMessage": "vs prior {span}"
   },
+  "telemetryTrends.empty": {
+    "defaultMessage": "No movement yet — two ranges of turns are needed."
+  },
+  "telemetryTrends.title": {
+    "defaultMessage": "Trends"
+  },
+  "telemetryTrends.vsPrior": {
+    "defaultMessage": "{span} vs prior {span}"
+  },
   "terminalPane.ctrl": {
     "defaultMessage": "Ctrl"
   },
