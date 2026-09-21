@@ -99,6 +99,15 @@ export function UsageRing({
     },
     []
   );
+  // Esc closes the breakdown wherever focus sits: a hover opens it without moving focus.
+  useEffect(() => {
+    if (!open) return;
+    const onEscape = (event: globalThis.KeyboardEvent) => {
+      if (event.key === 'Escape') setOpen(false);
+    };
+    document.addEventListener('keydown', onEscape);
+    return () => document.removeEventListener('keydown', onEscape);
+  }, [open]);
   const onKey = (event: KeyboardEvent<HTMLElement>) => {
     if (event.key === 'Escape' && open) {
       event.stopPropagation();

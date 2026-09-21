@@ -5,7 +5,13 @@ import { Dialog, DialogContent } from '../../components/ui/dialog';
 import { Input } from '../../components/ui/input';
 import { Button } from '../../components/ui/button';
 import { cn } from '../../utils';
-import { buildCommands, filterCommands, type Command, type PaletteContext, type PaletteState } from './palette-state';
+import {
+  buildCommands,
+  filterCommands,
+  type Command,
+  type PaletteContext,
+  type PaletteState,
+} from './palette-state';
 
 const i18n = defineMessages({
   placeholder: { id: 'commandPalette.placeholder', defaultMessage: 'Type to search…' },
@@ -63,17 +69,21 @@ function CommandPaletteContent({
     return Array.from(groups.entries()).filter(([_, cmds]) => cmds.length > 0);
   }, [commands]);
 
-  const flat = useMemo(
-    () =>
-      grouped.flatMap(([, cmds]) => cmds),
-    [grouped]
-  );
+  const flat = useMemo(() => grouped.flatMap(([, cmds]) => cmds), [grouped]);
 
   useEffect(() => {
     if (selectedIndex >= flat.length) {
       onSelectedIndexChange(Math.max(0, flat.length - 1));
     }
   }, [flat.length, selectedIndex, onSelectedIndexChange]);
+
+  // The input takes focus after the frame that opened the palette: a menu that closed to
+  // open it (⋯ → Command palette) returns focus to its trigger in that frame, and `autoFocus`
+  // alone loses that race once Radix is deduplicated (upstream #1179x, merged 2026-09-21).
+  useEffect(() => {
+    const frame = requestAnimationFrame(() => inputRef.current?.focus());
+    return () => cancelAnimationFrame(frame);
+  }, []);
 
   useEffect(() => {
     if (listRef.current && selectedIndex >= 0 && selectedIndex < flat.length) {
@@ -131,19 +141,28 @@ function CommandPaletteContent({
         role="listbox"
       >
         {flat.length === 0 && query.trim() && state === 'empty' && (
-          <div className="px-4 py-8 text-center text-sm text-text-secondary" data-testid="palette-empty">
+          <div
+            className="px-4 py-8 text-center text-sm text-text-secondary"
+            data-testid="palette-empty"
+          >
             {intl.formatMessage(i18n.noMatches, { query })}
           </div>
         )}
 
         {flat.length === 0 && !query.trim() && state === 'empty' && (
-          <div className="px-4 py-8 text-center text-sm text-text-secondary" data-testid="palette-empty">
+          <div
+            className="px-4 py-8 text-center text-sm text-text-secondary"
+            data-testid="palette-empty"
+          >
             {intl.formatMessage(i18n.placeholder)}
           </div>
         )}
 
         {state === 'loading' && (
-          <div className="px-4 py-8 text-center text-sm text-text-secondary" data-testid="palette-loading">
+          <div
+            className="px-4 py-8 text-center text-sm text-text-secondary"
+            data-testid="palette-loading"
+          >
             {intl.formatMessage(i18n.loading)}
           </div>
         )}
@@ -174,7 +193,9 @@ function CommandPaletteContent({
                   onMouseEnter={() => onSelectedIndexChange(flatIdx)}
                 >
                   <span className="flex-1 truncate">{cmd.label}</span>
-                  {cmd.hint && <span className="text-xs text-text-secondary truncate">{cmd.hint}</span>}
+                  {cmd.hint && (
+                    <span className="text-xs text-text-secondary truncate">{cmd.hint}</span>
+                  )}
                 </Button>
               );
             })}
@@ -185,7 +206,12 @@ function CommandPaletteContent({
   );
 }
 
-export function CommandPalette({ open, onOpenChange, context, onFocusReturn }: CommandPaletteProps) {
+export function CommandPalette({
+  open,
+  onOpenChange,
+  context,
+  onFocusReturn,
+}: CommandPaletteProps) {
   const [query, setQuery] = useState('');
   const [selectedIndex, setSelectedIndex] = useState(0);
   const [allCommands, setAllCommands] = useState<Command[]>([]);

@@ -4,7 +4,7 @@
 // component over props, so whatever hosts the ⋯ (the floating rail today) renders it inside
 // its own DropdownMenu; the session handlers come from useSessionActions.
 
-import { useEffect, useState, type KeyboardEvent, type MouseEvent } from 'react';
+import { useEffect, useRef, useState, type KeyboardEvent, type MouseEvent } from 'react';
 import {
   Activity,
   AlignJustify,
@@ -171,6 +171,7 @@ export function RailMenu({
   align,
   onClose,
 }: RailMenuProps) {
+  const handedOff = useRef(false);
   const intl = useIntl();
   const [responseStyle, pickResponseStyle] = useResponseStyle();
   const session = actions?.session;
@@ -222,6 +223,13 @@ export function RailMenu({
       className="min-w-56"
       data-testid="workspace-pane-more-menu"
       onKeyDown={onKeyDown}
+      // A row that opens another surface (the palette) keeps the focus it gave away.
+      onCloseAutoFocus={(event) => {
+        if (handedOff.current) {
+          event.preventDefault();
+          handedOff.current = false;
+        }
+      }}
     >
       {panes.map((id) => {
         const { Icon, title } = chrome[id];
@@ -244,6 +252,7 @@ export function RailMenu({
       <DropdownMenuItem
         data-testid="workspace-command-palette"
         onSelect={() => {
+          handedOff.current = true;
           onClose();
           onCommandPalette();
         }}

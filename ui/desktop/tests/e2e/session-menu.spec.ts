@@ -83,6 +83,7 @@ test.describe('session menu', () => {
       'Agents',
       'Artifact',
       'Review',
+      'Telemetry',
       'Command palette⌘K',
       'Background tasks',
       'Open in',
