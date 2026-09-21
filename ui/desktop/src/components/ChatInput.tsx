@@ -1,6 +1,8 @@
 import { AppEvents } from '../constants/events';
 import React, { useRef, useState, useEffect, useMemo, useCallback, useContext } from 'react';
-import { ArrowUp, Bug, ScrollText } from 'lucide-react';
+import { Bug, ScrollText } from 'lucide-react';
+import { ArrowUpIcon, PaperClipIcon } from '@heroicons/react/16/solid';
+import { UsageRing } from './bottom_menu/UsageRing';
 import { Tooltip, TooltipContent, TooltipTrigger } from './ui/Tooltip';
 import { Button } from './ui/button';
 import type { View } from '../utils/navigationUtils';
@@ -49,6 +51,16 @@ import type { NextChatExtensionDraft } from '../utils/nextChatExtensions';
 export const SessionChipsSlot = React.createContext<
   ((sessionId: string | null) => React.ReactNode) | null
 >(null);
+
+// The workspace's word on what the composer row shows (task 123): Easy keeps the lever, the
+// folder, attach and send; Advanced adds the model chip. Null off the workspace route, where
+// upstream's row stands as it is. `seatLabel` names the seat in the usage breakdown.
+export interface WorkspaceComposer {
+  ui: 'easy' | 'advanced';
+  seatLabel: string;
+  openSessionControls(): void;
+}
+export const WorkspaceComposerSlot = React.createContext<WorkspaceComposer | null>(null);
 
 // Where a message's file:line links resolve (task 82): the session's cwd, then its git toplevel.
 export const FileLinkSlot = React.createContext<{ cwd: string; gitToplevel: string } | null>(null);
@@ -375,6 +387,11 @@ export default function ChatInput({
   const bottomBarRef = useRef<HTMLDivElement>(null);
   const [isBottomBarNarrow, setIsBottomBarNarrow] = useState(false);
   const sessionChips = useContext(SessionChipsSlot)?.(sessionId);
+  const workspaceComposer = useContext(WorkspaceComposerSlot);
+  // On the workspace route the row is quiet: cost, tokens, extensions and diagnostics live
+  // in Session controls and the ring; the model chip shows in Advanced only.
+  const quietRow = workspaceComposer !== null;
+  const showModelChip = workspaceComposer?.ui !== 'easy';
   useEffect(() => {
     const el = bottomBarRef.current;
     if (!el) return;
@@ -1795,20 +1812,22 @@ export default function ChatInput({
         )}
 
         {/* Left: model selector */}
-        <Tooltip>
-          <div>
-            <ModelsBottomBar
-              sessionId={sessionId}
-              dropdownRef={dropdownRef}
-              setView={setView}
-              sessionModel={effectiveModel}
-              sessionProvider={effectiveProvider}
-              latestInference={latestInference}
-              onModelChanged={setModelOverride}
-              sessionLoaded={sessionLoaded}
-            />
-          </div>
-        </Tooltip>
+        {showModelChip && (
+          <Tooltip>
+            <div>
+              <ModelsBottomBar
+                sessionId={sessionId}
+                dropdownRef={dropdownRef}
+                setView={setView}
+                sessionModel={effectiveModel}
+                sessionProvider={effectiveProvider}
+                latestInference={latestInference}
+                onModelChanged={setModelOverride}
+                sessionLoaded={sessionLoaded}
+              />
+            </div>
+          </Tooltip>
+        )}
 
         {/* Left: working directory (leaf folder name only) */}
         {!isBottomBarNarrow && (
@@ -1830,7 +1849,7 @@ export default function ChatInput({
         {/* Spacer */}
         <div className="flex-1" />
 
-        {!isBottomBarNarrow && (
+        {!isBottomBarNarrow && !quietRow && (
           <>
             {/* Right: cost tracker (when enabled) */}
             {COST_TRACKING_ENABLED && (
@@ -1894,7 +1913,11 @@ export default function ChatInput({
                     isFilePickerOpen ? 'opacity-50 cursor-not-allowed' : 'cursor-pointer'
                   )}
                 >
-                  <Attach className="w-4 h-4" />
+                  {workspaceComposer ? (
+                    <PaperClipIcon className="size-4" />
+                  ) : (
+                    <Attach className="w-4 h-4" />
+                  )}
                 </Button>
               </TooltipTrigger>
               <TooltipContent>Attach file</TooltipContent>
@@ -1965,24 +1988,42 @@ export default function ChatInput({
           <Tooltip>
             <TooltipTrigger asChild>
               <span>
-                <Button
-                  type="button"
-                  size="sm"
-                  shape="round"
-                  variant="ghost"
-                  disabled={isSubmitButtonDisabled}
-                  data-armed={!isSubmitButtonDisabled}
-                  aria-label={intl.formatMessage(i18n.send)}
-                  onClick={onFormSubmit}
-                  className={cn(
-                    'send-disc bg-background-tertiary',
-                    isSubmitButtonDisabled
-                      ? 'text-text-secondary cursor-not-allowed opacity-60'
-                      : 'text-text-primary hover:bg-background-tertiary/70 hover:cursor-pointer'
-                  )}
-                >
-                  <ArrowUp className="w-4 h-4" strokeWidth={2.25} />
-                </Button>
+                {(() => {
+                  const disc = (
+                    <Button
+                      type="button"
+                      size="sm"
+                      shape="round"
+                      variant="ghost"
+                      disabled={isSubmitButtonDisabled}
+                      data-armed={!isSubmitButtonDisabled}
+                      aria-label={intl.formatMessage(i18n.send)}
+                      onClick={onFormSubmit}
+                      className={cn(
+                        'send-disc bg-background-tertiary',
+                        isSubmitButtonDisabled
+                          ? 'text-text-secondary cursor-not-allowed opacity-60'
+                          : 'text-text-primary hover:bg-background-tertiary/70 hover:cursor-pointer'
+                      )}
+                    >
+                      <ArrowUpIcon className="size-4" />
+                    </Button>
+                  );
+                  return workspaceComposer ? (
+                    <UsageRing
+                      contextTokens={totalTokens || 0}
+                      contextLimit={isTokenLimitLoaded ? tokenLimit : 0}
+                      seatLabel={workspaceComposer.seatLabel}
+                      compactDisabled={!totalTokens || isLoading}
+                      onCompact={() => handleSubmit({ msg: MANUAL_COMPACT_TRIGGER, images: [] })}
+                      onBreakdown={workspaceComposer.openSessionControls}
+                    >
+                      {disc}
+                    </UsageRing>
+                  ) : (
+                    disc
+                  );
+                })()}
               </span>
             </TooltipTrigger>
             <TooltipContent>

@@ -1,5 +1,6 @@
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import { Check, FolderDot, FolderOpen, GitBranch, Plus } from 'lucide-react';
+import { Check, FolderOpen, GitBranch, Plus } from 'lucide-react';
+import { FolderIcon } from '@heroicons/react/16/solid';
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '../ui/Tooltip';
 import { Input } from '../ui/input';
 import {
@@ -221,7 +222,7 @@ export const DirSwitcher: React.FC<DirSwitcherProps> = ({
                 onClick={handleDirectoryClick}
                 disabled={isDirectoryChooserOpen}
               >
-                <FolderDot className="mr-1" size={16} />
+                <FolderIcon className="mr-1 size-3.5 flex-shrink-0" />
                 <div className="max-w-[200px] truncate">
                   {workingDir.replace(/\/+$/, '').split('/').pop() || workingDir}
                 </div>
@@ -291,7 +292,7 @@ export const DirSwitcher: React.FC<DirSwitcherProps> = ({
                     key={`recent-${dir}`}
                     onSelect={() => void handleSelectDirectory(dir)}
                   >
-                    <FolderDot className="mr-2 h-4 w-4 flex-shrink-0" />
+                    <FolderIcon className="mr-2 size-4 flex-shrink-0" />
                     <DirNameLabel dir={dir} />
                   </DropdownMenuItem>
                 ))}

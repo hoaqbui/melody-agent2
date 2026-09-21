@@ -43,7 +43,11 @@ import { useConfig } from '../components/ConfigContext';
 import { useModelAndProvider } from '../components/ModelAndProviderContext';
 import { useNavigationContextSafe } from '../components/Layout/NavigationContext';
 import { Navigation } from '../components/Layout/NavigationPanel';
-import { SessionChipsSlot } from '../components/ChatInput';
+import {
+  SessionChipsSlot,
+  WorkspaceComposerSlot,
+  type WorkspaceComposer,
+} from '../components/ChatInput';
 import { FileLinkSlot } from './file-link-slot';
 import { ChangesBarTarget } from './changes-bar-slot';
 import { NextChat, type NextChatDraft } from '../components/Hub';
@@ -1324,6 +1328,22 @@ export function WorkspaceShell({ chat, children, panes, paneStore }: WorkspaceSh
     (id: string | null) => ((id ?? '') === sessionId ? chips : null),
     [chips, sessionId]
   );
+  // The composer's word (task 123): Easy or Advanced, the seat's name for the usage
+  // breakdown, and a way to its Session controls (the menu's own trigger).
+  const workspaceComposer = useMemo<WorkspaceComposer | null>(
+    () =>
+      isWorkspaceRoute && workspaceUi
+        ? {
+            ui: workspaceUi,
+            seatLabel: runtimeLabel(currentRuntime, providers),
+            openSessionControls: () =>
+              document
+                .querySelector<HTMLElement>('[data-testid="workspace-session-controls"]')
+                ?.click(),
+          }
+        : null,
+    [isWorkspaceRoute, workspaceUi, currentRuntime, providers]
+  );
 
   // ⌘1 · ⌘2 · ⌘3 focus Sessions · Chat · Work; Work with nothing open is the bar's first
   // tab. ⇧⌘F opens Files (the ⋯ menu's shortcut, task 69). ⌘K opens the command palette (task 92).
@@ -1486,27 +1506,29 @@ export function WorkspaceShell({ chat, children, panes, paneStore }: WorkspaceSh
 
   const chatBody = (
     <SessionChipsSlot.Provider value={chipsFor}>
-      <FileLinkSlot.Provider value={fileLinkContext}>
-        <ChangesBarTarget.Provider value={changesBarTarget}>
-          <NextChat.Provider value={nextChat}>
-            <div className="flex min-h-0 min-w-0 flex-1 flex-col">
-              {isWorkspaceRoute && sessionId && (
-                <RpiStrip
-                  sessionId={sessionId}
-                  openArtifact={openArtifact}
-                  chatIdle={chatIdle}
-                  gateOn={planGate}
-                  cwd={cwd}
-                />
-              )}
-              <div className="relative min-h-0 min-w-0 flex-1">
-                {children}
-                <div className={isOnPairRoute ? 'contents' : 'hidden'}>{chat}</div>
+      <WorkspaceComposerSlot.Provider value={workspaceComposer}>
+        <FileLinkSlot.Provider value={fileLinkContext}>
+          <ChangesBarTarget.Provider value={changesBarTarget}>
+            <NextChat.Provider value={nextChat}>
+              <div className="flex min-h-0 min-w-0 flex-1 flex-col">
+                {isWorkspaceRoute && sessionId && (
+                  <RpiStrip
+                    sessionId={sessionId}
+                    openArtifact={openArtifact}
+                    chatIdle={chatIdle}
+                    gateOn={planGate}
+                    cwd={cwd}
+                  />
+                )}
+                <div className="relative min-h-0 min-w-0 flex-1">
+                  {children}
+                  <div className={isOnPairRoute ? 'contents' : 'hidden'}>{chat}</div>
+                </div>
               </div>
-            </div>
-          </NextChat.Provider>
-        </ChangesBarTarget.Provider>
-      </FileLinkSlot.Provider>
+            </NextChat.Provider>
+          </ChangesBarTarget.Provider>
+        </FileLinkSlot.Provider>
+      </WorkspaceComposerSlot.Provider>
     </SessionChipsSlot.Provider>
   );
   const shellAttributes = {

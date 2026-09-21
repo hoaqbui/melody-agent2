@@ -7,7 +7,12 @@ import { Gauge } from 'lucide-react';
 import { defineMessages, useIntl } from '../i18n';
 import { cn } from '../utils';
 import type { ProviderDetails } from '../types/providers';
-import { INSTALL_MESSAGE, MODE_MESSAGES, NO_ORCHESTRATOR_MESSAGE, SIGN_IN_MESSAGE } from './SessionChips';
+import {
+  INSTALL_MESSAGE,
+  MODE_MESSAGES,
+  NO_ORCHESTRATOR_MESSAGE,
+  SIGN_IN_MESSAGE,
+} from './SessionChips';
 import { needsInstall, runtimeLabel, LEVER, STOPS, type Stop } from './session-controls';
 import { seatOfProvider, type SeatStates } from './onboarding/seat-state';
 
@@ -58,9 +63,11 @@ export function Lever({ stop, providers, canOrchestrate, busy, model, onPick, se
   const blocked = (candidate: Stop) => {
     const providerId = LEVER[candidate].provider;
     const seat = seats && seatOfProvider(providerId);
-    return (seat && seats[seat].state === 'install') ||
-           install(candidate) ||
-           (LEVER[candidate].mode === 'orchestrate' && !canOrchestrate);
+    return (
+      (seat && seats[seat].state === 'install') ||
+      install(candidate) ||
+      (LEVER[candidate].mode === 'orchestrate' && !canOrchestrate)
+    );
   };
   const stopLabel = (candidate: Stop) =>
     intl.formatMessage(STOP_MESSAGES[candidate]) + seatSuffix(candidate);
@@ -169,12 +176,9 @@ export function Lever({ stop, providers, canOrchestrate, busy, model, onPick, se
           <Gauge className="size-3" />
         </span>
       </div>
-      {/* Under the knob, and moving with it. */}
-      <span
-        className="absolute bottom-0 -translate-x-1/2 whitespace-nowrap text-[10px] leading-none text-text-secondary transition-[left] duration-150 ease-[var(--ease-g2)] group-data-[narrow]:hidden"
-        style={{ left: index * STOP_WIDTH_PX + STOP_WIDTH_PX / 2 }}
-        data-testid="workspace-lever-label"
-      >
+      {/* The stop's word is the tooltip's and the slider's aria-valuetext (task 123): the row
+          under the composer stays quiet; screen readers still hear it here. */}
+      <span className="sr-only" data-testid="workspace-lever-label">
         {label}
       </span>
     </div>

@@ -156,14 +156,8 @@ Each panel owns its tab bar; the bar holds only open panes; + adds one; drag a t
 
 Option A of the mockups (https://claude.ai/artifact/F6qa2Z4834pMPhsHuJrqcE): Easy renders lever · folder · attach · send-in-ring; Advanced adds the model chip; cost, extensions and debug move into Session controls; the send disc's ring fills to the most spent limit with the breakdown on hover; the row's glyphs on Heroicons 16 solid. Order: 121 ∥ 122 → 123 → 124. Runs after 119–120 land.
 
-- 123. `ui/desktop/src/components/ChatInput.tsx` + `src/workspace/Lever.tsx`: the bottom row reads `data-ui` (a `workspaceUi` value on `SessionChipsSlot`'s context, `'easy' | 'advanced' | null` — null off the workspace route keeps upstream's row as is); on the workspace route Easy renders lever · folder · attach · send-in-ring, Advanced adds the model chip as `cube + mono id` (`ModelsBottomBar` restyled through its className, not rewritten) and keeps the worktree chip; cost, tokens, extensions and debug do not render on the workspace route in either mode; the lever's visible label (`workspace-lever-label`) becomes screen-reader-only, the tooltip unchanged; the row's glyphs (folder, paper clip, arrow up, cube) come from `@heroicons/react/16/solid`.
-  - status: doing · agent: session [Opus, direct] · worker: medium
-  - card: as the user, read a four-control row in Easy and a five-control row in Advanced, so that the composer is as quiet as the tools it stands beside
-  - context: upstream's `isBottomBarNarrow` folding order stays; `send-disc[data-armed]` and the Studio lift stay; the dot the alert popover drew is gone with the counter (the ring is the alert)
-  - confirm: `grep -c "workspace-config-mode\|data-testid=\"usage-ring\"" ui/desktop/src/components/ChatInput.tsx` → `≥ 1` (untouched: `0`); `pnpm run typecheck` clean; `pnpm vitest run src/components/ChatInput src/workspace` all passed
-
 - 124. Walks and documents: `tests/e2e/easy-mode.spec.ts` reads the stop from the lever's `aria-label`/tooltip instead of `workspace-lever-label` text and asserts the Easy row's four controls and the Advanced chip; a new `tests/e2e/usage-ring.spec.ts` (walk `usage ring`): a session with one reply → the ring has `aria-valuenow > 0`, hover opens `usage-breakdown` with the context row, Esc closes, the disc still sends; `studio light` screenshot retaken; `DESIGN.md` §Vocabulary rows **chip** (Easy's four, Advanced's five, dated), **usage ring**, **usage breakdown**; §Iconography: Heroicons 16 solid for the composer row, lucide elsewhere until named; `PRODUCT.md` §11 line on the composer.
-  - status: todo · agent: — · worker: medium
+  - status: doing · agent: session [Opus, direct] · worker: medium
   - confirm: `just walk "easy mode|usage ring|studio light"` → all passed; `grep -c "usage ring" DESIGN.md` → `≥ 1` (untouched: `0`)
 
 ## Waiting on the user
