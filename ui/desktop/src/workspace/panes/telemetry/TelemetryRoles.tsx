@@ -12,7 +12,7 @@ import { cn } from '../../../utils';
 import { usePaneContext } from '../../pane-context';
 import { runtimeLabel } from '../../session-controls';
 import { fmtK, seatColour } from './charts';
-import { rangeEnding } from './telemetry-buckets';
+import { bucketStart, rangeEnding } from './telemetry-buckets';
 import { shortModel } from './telemetry-now';
 import {
   childRecord,
@@ -27,6 +27,7 @@ import {
   type TrendLine,
   type Verdict,
 } from './telemetry-roles';
+import { loadProjectEntry, saveProjectEntry } from '../../project-storage';
 import { GRAIN_SPAN, type Grain } from './telemetry-state';
 import { Why } from './Why';
 
@@ -39,6 +40,12 @@ const i18n = defineMessages({
   roles: { id: 'telemetryRoles.roles', defaultMessage: 'Roles' },
   trend: { id: 'telemetryRoles.trend', defaultMessage: 'Clean-done by role' },
   weekly: { id: 'telemetryRoles.weekly', defaultMessage: 'this quarter · weekly · hover a line' },
+  routingChanged: { id: 'telemetryRoles.routingChanged', defaultMessage: 'routing change' },
+  routingChangedWhy: {
+    id: 'telemetryRoles.routingChangedWhy',
+    defaultMessage:
+      'The day the routing rule changed (AGENTS.md §Model routing) — the app cannot read that file, so you set the date here; the chart marks it so what bends after it is the change working or not.',
+  },
   empty: { id: 'telemetryRoles.empty', defaultMessage: 'No delegated work in this range.' },
   loading: { id: 'telemetryRoles.loading', defaultMessage: 'Reading the ledger…' },
   retry: { id: 'telemetryRoles.retry', defaultMessage: 'Retry' },
@@ -102,6 +109,20 @@ const COLUMN_WHY: Record<string, { why: string; from: string }> = {
     from: 'the columns to the left',
   },
 };
+
+const ROUTING_CHANGE_KEY = 'goose.workspace.telemetry.routingChangedAt';
+
+// The ISO-week index, within the quarter holding `now`, of a date the user typed; null when
+// unset or outside the quarter.
+function markerWeek(date: string, now: Date): number | null {
+  if (!date) return null;
+  const at = new Date(date + 'T12:00:00');
+  if (Number.isNaN(at.getTime())) return null;
+  const q0 = bucketStart('quarters', now);
+  if (at < q0 || at > now) return null;
+  const w0 = bucketStart('weeks', q0);
+  return Math.floor((bucketStart('weeks', at).getTime() - w0.getTime()) / (7 * 864e5));
+}
 
 const PILL: Record<Verdict, string> = {
   effective: 'bg-text-success/15 text-text-success',
@@ -282,7 +303,18 @@ function Ribbons({
   );
 }
 
-function TrendLines({ lines, testId }: { lines: TrendLine[]; testId: string }) {
+function TrendLines({
+  lines,
+  testId,
+  marker,
+  markerLabel,
+}: {
+  lines: TrendLine[];
+  testId: string;
+  // The week index of the routing change, when one is set.
+  marker: number | null;
+  markerLabel: string;
+}) {
   const [hot, setHot] = useState<number | null>(null);
   const W = 640;
   const H = 180;
@@ -329,6 +361,21 @@ function TrendLines({ lines, testId }: { lines: TrendLine[]; testId: string }) {
           </text>
         </g>
       ))}
+      {marker !== null && marker >= 0 && marker < n && (
+        <g data-testid={`${testId}-marker`}>
+          <line
+            x1={x(marker)}
+            x2={x(marker)}
+            y1={T}
+            y2={H - B}
+            stroke="var(--color-text-tertiary)"
+            strokeDasharray="3 3"
+          />
+          <text x={x(marker) + 4} y={T + 9} className="fill-text-tertiary font-mono text-[10px]">
+            {markerLabel}
+          </text>
+        </g>
+      )}
       {(lines[0]?.labels ?? []).map(
         (label, i) =>
           i % 2 === 0 && (
@@ -427,6 +474,15 @@ export function TelemetryRoles({ grain, now = defaultNow }: { grain: Grain; now?
   const [loaded, setLoaded] = useState<Loaded | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [attempt, setAttempt] = useState(0);
+  // The routing change's date, kept per project; the chart marks its week.
+  const [routingChangedAt, setRoutingChangedAt] = useState<string>(() => {
+    const saved = loadProjectEntry(ROUTING_CHANGE_KEY, cwd);
+    return typeof saved === 'string' ? saved : '';
+  });
+  useEffect(() => {
+    const saved = loadProjectEntry(ROUTING_CHANGE_KEY, cwd);
+    setRoutingChangedAt(typeof saved === 'string' ? saved : '');
+  }, [cwd]);
   useEffect(() => {
     let cancelled = false;
     setError(null);
@@ -684,7 +740,34 @@ export function TelemetryRoles({ grain, now = defaultNow }: { grain: Grain; now?
           <span>{intl.formatMessage(i18n.trend)}</span>
           <span className={small}>{intl.formatMessage(i18n.weekly)}</span>
         </Why>
-        <TrendLines lines={model.lines} testId="telemetry-role-trend" />
+        <div className="mb-2 flex items-center gap-2 text-[11px] text-text-tertiary">
+          <Why
+            why={intl.formatMessage(i18n.routingChangedWhy)}
+            from="workspace.telemetry.routingChangedAt · per project"
+            head={intl.formatMessage(i18n.routingChanged)}
+          >
+            <label htmlFor="telemetry-routing-changed">
+              {intl.formatMessage(i18n.routingChanged)}
+            </label>
+          </Why>
+          <input
+            id="telemetry-routing-changed"
+            type="date"
+            value={routingChangedAt}
+            data-testid="telemetry-routing-changed"
+            onChange={(event) => {
+              setRoutingChangedAt(event.target.value);
+              saveProjectEntry(ROUTING_CHANGE_KEY, cwd, event.target.value);
+            }}
+            className="rounded-control bg-background-tertiary/60 px-2 py-0.5 font-mono text-[11px] text-text-secondary outline-none focus-visible:ring-2 focus-visible:ring-ring-primary"
+          />
+        </div>
+        <TrendLines
+          lines={model.lines}
+          testId="telemetry-role-trend"
+          marker={markerWeek(routingChangedAt, now())}
+          markerLabel={intl.formatMessage(i18n.routingChanged)}
+        />
       </section>
     </div>
   );

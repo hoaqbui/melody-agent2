@@ -5711,6 +5711,12 @@
   "telemetryRoles.routing": {
     "defaultMessage": "Routing — role → seat"
   },
+  "telemetryRoles.routingChanged": {
+    "defaultMessage": "routing change"
+  },
+  "telemetryRoles.routingChangedWhy": {
+    "defaultMessage": "The day the routing rule changed (AGENTS.md §Model routing) — the app cannot read that file, so you set the date here; the chart marks it so what bends after it is the change working or not."
+  },
   "telemetryRoles.runs": {
     "defaultMessage": "{count} runs"
   },
