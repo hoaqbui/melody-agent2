@@ -177,7 +177,7 @@ export function TelemetryPane({ views = {} }: { views?: TelemetryViews }) {
         data-grain={grain}
       >
         <div className="flex flex-wrap items-center gap-2 px-3 py-2">
-          <Why why={intl.formatMessage(i18n.scopeWhy)} from="scope" head="">
+          <Why why={intl.formatMessage(i18n.scopeWhy)} from="scope" head="" focusable>
             <Seg
               options={SCOPES}
               value={scope}

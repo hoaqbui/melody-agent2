@@ -46,26 +46,36 @@ export function turnEvents(sessionId: string, messages: readonly Message[]): Tur
   return events;
 }
 
-// The text a tool call returned, read from the response's content blocks.
-export function toolResponseText(messages: readonly Message[], toolCallId: string): string | null {
+// The message holding a tool call's response — its `created` is when the call returned.
+function responseMessage(
+  messages: readonly Message[],
+  toolCallId: string
+): { message: Message; text: string } | null {
   for (const message of messages) {
     for (const response of getToolResponses(message)) {
       if (response.id !== toolCallId) continue;
       const result = response.toolResult as { status?: string; value?: { content?: unknown } };
       const content = result.value?.content;
-      if (!Array.isArray(content)) return '';
-      return content
-        .map((block) =>
-          typeof block === 'object' &&
-          block !== null &&
-          typeof (block as { text?: unknown }).text === 'string'
-            ? (block as { text: string }).text
-            : ''
-        )
-        .join('\n');
+      const text = Array.isArray(content)
+        ? content
+            .map((block) =>
+              typeof block === 'object' &&
+              block !== null &&
+              typeof (block as { text?: unknown }).text === 'string'
+                ? (block as { text: string }).text
+                : ''
+            )
+            .join('\n')
+        : '';
+      return { message, text };
     }
   }
   return null;
+}
+
+// The text a tool call returned, read from the response's content blocks.
+export function toolResponseText(messages: readonly Message[], toolCallId: string): string | null {
+  return responseMessage(messages, toolCallId)?.text ?? null;
 }
 
 // The Implementer's contract (`.agents/agents/implementer.md`): a plan whose assumption failed
@@ -92,16 +102,21 @@ export function parseFilesChanged(text: string | null): string[] {
   return [...paths];
 }
 
+// A live `DelegationUpdate` carries no timestamp: the worker returned when the parent's
+// `delegate` call answered, so its `at` is the message holding that response; a row seeded
+// from the session record keeps its `updatedAt`; otherwise now.
 export function workerEvent(
   sessionId: string,
   delegation: Delegation,
   messages: readonly Message[],
-  at: string = delegation.updatedAt ?? new Date().toISOString()
+  now: () => string = () => new Date().toISOString()
 ): WorkerEvent | null {
   if (delegation.status !== 'done' && delegation.status !== 'failed') return null;
-  const text = delegation.parentToolCallId
-    ? toolResponseText(messages, delegation.parentToolCallId)
+  const answered = delegation.parentToolCallId
+    ? responseMessage(messages, delegation.parentToolCallId)
     : null;
+  const text = answered?.text ?? null;
+  const at = answered ? isoOf(answered.message) : (delegation.updatedAt ?? now());
   return {
     kind: 'worker',
     at,

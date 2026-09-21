@@ -135,9 +135,11 @@ describe('the worker return', () => {
       updatedAt: '2026-09-20T10:00:00.000Z',
     };
     const messages = [
-      msg('assistant', [
-        response('d1', 'BLOCKED: nothing owns the icon map\n## Files Changed\n- `a.ts`'),
-      ]),
+      msg(
+        'assistant',
+        [response('d1', 'BLOCKED: nothing owns the icon map\n## Files Changed\n- `a.ts`')],
+        { created: T0 + 90 }
+      ),
     ];
     const event = workerEvent('s1', delegation, messages);
     expect(event).toMatchObject({
@@ -147,9 +149,34 @@ describe('the worker return', () => {
       status: 'done',
       blocked: true,
       filesChanged: ['a.ts'],
-      at: '2026-09-20T10:00:00.000Z',
+      // when the delegate call answered, not the row's own stamp
+      at: new Date((T0 + 90) * 1000).toISOString(),
     });
     expect(workerEvent('s1', { ...delegation, status: 'running' }, messages)).toBeNull();
+  });
+
+  it('dates a live delegation by its delegate response, so a later session edit counts', () => {
+    const live: Delegation = {
+      subagentSessionId: 'child-2',
+      parentSessionId: 's1',
+      source: 'implementer',
+      title: 'task 2',
+      status: 'done',
+      parentToolCallId: 'd2',
+    };
+    const messages = [
+      msg('assistant', [response('d2', '## Files Changed\n- `src/b.ts`')], { created: T0 }),
+      msg('assistant', [edit('e9', 'src/b.ts')], { created: T0 + 30 }),
+    ];
+    const worker = workerEvent('s1', live, messages, () => '2099-01-01T00:00:00.000Z');
+    expect(worker?.at).toBe(new Date(T0 * 1000).toISOString());
+    expect(correctionEvents('s1', messages, [worker!])).toHaveLength(1);
+    const seeded = workerEvent(
+      's1',
+      { ...live, parentToolCallId: undefined, updatedAt: '2026-09-20T09:00:00.000Z' },
+      messages
+    );
+    expect(seeded?.at).toBe('2026-09-20T09:00:00.000Z');
   });
 });
 

@@ -7,6 +7,7 @@ import {
   useCallback,
   useContext,
   useEffect,
+  useMemo,
   useRef,
   useState,
   type HTMLAttributes,
@@ -32,10 +33,21 @@ interface WhyProps extends HTMLAttributes<HTMLElement> {
   // The tooltip's first line; the element's own text when omitted.
   head?: string;
   as?: 'span' | 'div' | 'li' | 'th' | 'td' | 'tr' | 'h2';
+  // A tab stop — for headline numbers and controls, not for every cell of a table.
+  focusable?: boolean;
   children: ReactNode;
 }
 
-export function Why({ why, from, head, as = 'span', className, children, ...rest }: WhyProps) {
+export function Why({
+  why,
+  from,
+  head,
+  as = 'span',
+  focusable = false,
+  className,
+  children,
+  ...rest
+}: WhyProps) {
   const ctx = useContext(WhyContext);
   const ref = useRef<HTMLElement>(null);
   const show = useCallback(
@@ -52,7 +64,7 @@ export function Why({ why, from, head, as = 'span', className, children, ...rest
       ref={ref as never}
       data-why={why}
       data-from={from}
-      tabIndex={0}
+      tabIndex={focusable ? 0 : undefined}
       className={cn(
         'cursor-help outline-none focus-visible:ring-2 focus-visible:ring-ring-primary',
         className
@@ -88,8 +100,10 @@ export function WhyProvider({ children }: { children: ReactNode }) {
   const width = 300;
   const left = tip ? Math.min(tip.x + 14, window.innerWidth - width - 8) : 0;
   const top = tip ? Math.min(tip.y - 10, window.innerHeight - 120) : 0;
+  // Stable, so a moving pointer re-renders the tooltip alone, never every wrapped cell.
+  const value = useMemo(() => ({ show, hide }), [show, hide]);
   return (
-    <WhyContext.Provider value={{ show, hide }}>
+    <WhyContext.Provider value={value}>
       {children}
       {tip && (
         <div
