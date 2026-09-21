@@ -6,6 +6,7 @@ import {
   getToolResponses,
   type Message,
   type ToolConfirmationData,
+  type ToolConfirmationDiff,
   type ToolResponseMessageContent,
 } from '../types/message';
 import { identifyConsecutiveToolCalls } from '../utils/toolCallChaining';
@@ -14,6 +15,8 @@ export interface ToolRenderState {
   requestId: string;
   response: ToolResponseMessageContent | undefined;
   confirmation: ToolConfirmationData | undefined;
+  // The adapter's edit forwarded beside the confirmation (task 77), when it sent one.
+  confirmationDiff: ToolConfirmationDiff | undefined;
   isPending: boolean;
 }
 
@@ -46,6 +49,7 @@ export function deriveMessageRowContexts(messages: Message[]): MessageRowContext
 
   const toolRequestIds = new Set<string>();
   const firstConfirmationByRequestId = new Map<string, ToolConfirmationData>();
+  const diffByRequestId = new Map<string, ToolConfirmationDiff>();
 
   for (const message of messages) {
     for (const request of getToolRequests(message)) {
@@ -55,6 +59,8 @@ export function deriveMessageRowContexts(messages: Message[]): MessageRowContext
     const confirmation = getAnyToolConfirmationData(message);
     if (confirmation && !firstConfirmationByRequestId.has(confirmation.id)) {
       firstConfirmationByRequestId.set(confirmation.id, confirmation);
+      const diff = getToolConfirmationContent(message)?.diff;
+      if (diff) diffByRequestId.set(confirmation.id, diff);
     }
   }
 
@@ -72,6 +78,7 @@ export function deriveMessageRowContexts(messages: Message[]): MessageRowContext
       requestId: request.id,
       response: latestResponseByRequestId.get(request.id),
       confirmation: firstConfirmationByRequestId.get(request.id),
+      confirmationDiff: diffByRequestId.get(request.id),
       isPending: pendingConfirmationIds.has(request.id),
     }));
 

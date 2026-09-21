@@ -4862,14 +4862,8 @@
   "sessionActionsHeader.copyText": {
     "defaultMessage": "Copia testo"
   },
-  "sessionActionsHeader.duplicateFailed": {
-    "defaultMessage": "Impossibile duplicare la sessione: {error}"
-  },
   "sessionActionsHeader.duplicateSession": {
     "defaultMessage": "Duplica sessione"
-  },
-  "sessionActionsHeader.duplicated": {
-    "defaultMessage": "Sessione duplicata"
   },
   "sessionActionsHeader.fullTextTitle": {
     "defaultMessage": "Valore di testo"
@@ -5236,12 +5230,6 @@
   },
   "settings.language.zhTW": {
     "defaultMessage": "Cinese (tradizionale)"
-  },
-  "settings.legacyAgentLoop.description": {
-    "defaultMessage": "Fall back to the classic agent loop if the new one causes issues"
-  },
-  "settings.legacyAgentLoop.title": {
-    "defaultMessage": "Use Legacy Agent Loop"
   },
   "settings.menuBarIcon.description": {
     "defaultMessage": "Mostra goose nella barra dei menu"
@@ -6418,6 +6406,21 @@
   },
   "workspaceShell.switchFailed": {
     "defaultMessage": "Couldn't switch runtime"
+  },
+  "workspaceShell.turnRedone": {
+    "defaultMessage": "Turn redone"
+  },
+  "workspaceShell.turnUndone": {
+    "defaultMessage": "Turn undone"
+  },
+  "workspaceShell.undoBlocked": {
+    "defaultMessage": "Can't undo this turn"
+  },
+  "workspaceShell.undoBlockedBy": {
+    "defaultMessage": "A later turn changed {file}. Undo that turn first."
+  },
+  "workspaceShell.undoFailed": {
+    "defaultMessage": "Couldn't undo the turn"
   },
   "workspaceShell.workingDir": {
     "defaultMessage": "Working directory"

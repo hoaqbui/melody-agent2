@@ -93,9 +93,13 @@ export interface GitStatusResponse {
 export interface GitDiffRequest extends GitCwdRequest {
   staged?: boolean;
   base?: string;
+  // With `head`, a two-tree diff `base..head` with --binary (turn undo, task 88).
+  head?: string;
   path?: string;
   context?: number;
   numstat?: boolean;
+  // Only --name-status --no-renames: the file set a turn touched.
+  nameStatus?: boolean;
 }
 
 export interface GitDiffResponse {

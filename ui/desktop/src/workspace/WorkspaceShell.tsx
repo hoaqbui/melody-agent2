@@ -58,7 +58,7 @@ import { SessionActionDialogs } from '../components/SessionActionsHeader';
 import { useSessionActions } from '../hooks/useSessionActions';
 import { Tooltip, TooltipContent, TooltipTrigger } from '../components/ui/Tooltip';
 import { cn } from '../utils';
-import { toastError } from '../toasts';
+import { toastError, toastSuccess } from '../toasts';
 import {
   sidecarFetch,
   type GitCwdRequest,
@@ -121,6 +121,8 @@ import {
   loadTurnSnapshots,
   saveTurnSnapshot,
 } from './project-storage';
+import { intersects, laterTurns, parseDiffFileSet, type TurnSnapshots } from './turn-undo';
+import { TurnUndoSlot, type TurnUndoTarget } from './turn-undo-slot';
 import {
   MODE_MESSAGES,
   RoutineChip,
@@ -159,6 +161,14 @@ const i18n = defineMessages({
   startFailed: { id: 'workspaceShell.startFailed', defaultMessage: "Couldn't start session" },
   switchFailed: { id: 'workspaceShell.switchFailed', defaultMessage: "Couldn't switch runtime" },
   modelFailed: { id: 'workspaceShell.modelFailed', defaultMessage: "Couldn't set model" },
+  turnUndone: { id: 'workspaceShell.turnUndone', defaultMessage: 'Turn undone' },
+  turnRedone: { id: 'workspaceShell.turnRedone', defaultMessage: 'Turn redone' },
+  undoBlocked: { id: 'workspaceShell.undoBlocked', defaultMessage: "Can't undo this turn" },
+  undoBlockedBy: {
+    id: 'workspaceShell.undoBlockedBy',
+    defaultMessage: 'A later turn changed {file}. Undo that turn first.',
+  },
+  undoFailed: { id: 'workspaceShell.undoFailed', defaultMessage: "Couldn't undo the turn" },
   optionFailed: { id: 'workspaceShell.optionFailed', defaultMessage: "Couldn't change {option}" },
   paneUnavailable: { id: 'workspaceShell.paneUnavailable', defaultMessage: 'Not available yet' },
   paneFiles: { id: 'workspaceShell.paneFiles', defaultMessage: 'Files' },
@@ -601,6 +611,17 @@ export function WorkspaceShell({ chat, children, panes, paneStore }: WorkspaceSh
   const [seats, setSeats] = useState<SeatStates | undefined>();
 
   const cwd = session?.working_dir ?? getInitialWorkingDir();
+  const [turnSnapshots, setTurnSnapshots] = useState<Record<string, TurnSnapshots>>(() =>
+    loadTurnSnapshots(cwd)
+  );
+  useEffect(() => setTurnSnapshots(loadTurnSnapshots(cwd)), [cwd]);
+  const recordTurnSnapshot = useCallback(
+    (turnId: string, snapshots: TurnSnapshots) => {
+      saveTurnSnapshot(cwd, turnId, snapshots);
+      setTurnSnapshots((current) => ({ ...current, [turnId]: snapshots }));
+    },
+    [cwd]
+  );
   const changesBadge = useChangesBadge(gitStatus, cwd);
   const sessionActions = useSessionActions(session);
   const currentRuntime =
@@ -980,22 +1001,17 @@ export function WorkspaceShell({ chat, children, panes, paneStore }: WorkspaceSh
       const lastMessage = snapshot.messages[currentMessageCount - 1];
       if (lastMessage?.role === 'user' && lastMessage.id) {
         setCurrentTurnId(lastMessage.id);
-        sidecarFetch('http://localhost:61234/git/snapshot', {
-          method: 'POST',
-          body: JSON.stringify({ cwd }),
-        })
-          .then((res) => (res as Response).json() as Promise<{ tree: string }>)
+        // The sidecar's snapshot route, through the keyed client every other pane uses (the
+        // worker had hard-wired a port nothing listens on, so no T0 was ever recorded).
+        sidecarFetch<{ tree: string }>('/git/snapshot', { cwd })
           .then(({ tree }) => {
-            // Store T0; T1 will be captured when streaming ends
-            const snapshots = loadTurnSnapshots(cwd);
-            snapshots[lastMessage.id!] = { start: tree, end: '' };
-            saveTurnSnapshot(cwd, lastMessage.id!, { start: tree, end: '' });
+            recordTurnSnapshot(lastMessage.id!, { start: tree, end: '' });
           })
           .catch(() => {});
       }
       setPrevMessageCount(currentMessageCount);
     }
-  }, [sessionId, snapshot?.messages, cwd, prevMessageCount]);
+  }, [sessionId, snapshot?.messages, cwd, prevMessageCount, recordTurnSnapshot]);
 
   // Capture T1 snapshot when streaming ends (streaming→idle transition)
   useEffect(() => {
@@ -1006,24 +1022,85 @@ export function WorkspaceShell({ chat, children, panes, paneStore }: WorkspaceSh
     const isNowIdle = snapshot.chatState === ChatState.Idle;
 
     if (wasStreaming && isNowIdle) {
-      sidecarFetch('http://localhost:61234/git/snapshot', {
-        method: 'POST',
-        body: JSON.stringify({ cwd }),
-      })
-        .then((res) => (res as Response).json() as Promise<{ tree: string }>)
+      sidecarFetch<{ tree: string }>('/git/snapshot', { cwd })
         .then(({ tree }) => {
-          const snapshots = loadTurnSnapshots(cwd);
-          if (snapshots[currentTurnId]) {
-            snapshots[currentTurnId].end = tree;
-            saveTurnSnapshot(cwd, currentTurnId, snapshots[currentTurnId]);
-          }
+          const started = loadTurnSnapshots(cwd)[currentTurnId];
+          if (started) recordTurnSnapshot(currentTurnId, { ...started, end: tree });
           setCurrentTurnId(null);
         })
         .catch(() => {});
     }
 
     setPrevChatState(snapshot.chatState);
-  }, [sessionId, snapshot?.chatState, currentTurnId, cwd, prevChatState]);
+  }, [sessionId, snapshot?.chatState, currentTurnId, cwd, prevChatState, recordTurnSnapshot]);
+
+  // Undo this turn / Redo (task 88): the turn's T0..T1 diff applied in reverse, refused when a
+  // later turn touched one of the same files — undoing under it would tear that turn's work.
+  const undoTurn = useCallback(
+    async (turnId: string, redo: boolean) => {
+      if (!sessionId) return false;
+      const turn = turnSnapshots[turnId];
+      if (!turn?.start || !turn.end) return false;
+      const messageIds = (snapshot?.messages ?? [])
+        .filter((message) => message.role === 'user' && message.id)
+        .map((message) => message.id!);
+      try {
+        const later = await Promise.all(
+          laterTurns(messageIds, turnId, turnSnapshots).map((id) =>
+            sidecarFetch<GitDiffResponse>('/git/diff', {
+              cwd,
+              base: turnSnapshots[id].start,
+              head: turnSnapshots[id].end,
+              nameStatus: true,
+            })
+          )
+        );
+        const own = await sidecarFetch<GitDiffResponse>('/git/diff', {
+          cwd,
+          base: turn.start,
+          head: turn.end,
+          nameStatus: true,
+        });
+        const clash = intersects(
+          parseDiffFileSet(own.diff),
+          later.map((d) => parseDiffFileSet(d.diff))
+        );
+        if (clash) {
+          toastError({
+            title: intl.formatMessage(i18n.undoBlocked),
+            msg: intl.formatMessage(i18n.undoBlockedBy, { file: clash }),
+          });
+          return false;
+        }
+        const { diff } = await sidecarFetch<GitDiffResponse>('/git/diff', {
+          cwd,
+          base: turn.start,
+          head: turn.end,
+        });
+        if (diff.trim()) await sidecarFetch('/git/apply', { cwd, patch: diff, reverse: !redo });
+        const current = acpChatSessionStore.getSnapshot(sessionId);
+        if (current) {
+          acpChatSessionActions.setMessages(sessionId, [
+            ...current.messages,
+            runtimeDividerMessage(
+              uuidv7(),
+              intl.formatMessage(redo ? i18n.turnRedone : i18n.turnUndone)
+            ),
+          ]);
+        }
+        toastSuccess({ title: intl.formatMessage(redo ? i18n.turnRedone : i18n.turnUndone) });
+        return true;
+      } catch (error) {
+        toastError({ title: intl.formatMessage(i18n.undoFailed), msg: formatAcpError(error) });
+        return false;
+      }
+    },
+    [sessionId, turnSnapshots, snapshot?.messages, cwd, intl]
+  );
+  const turnUndoTarget = useMemo<TurnUndoTarget>(
+    () => ({ snapshotsFor: (turnId) => turnSnapshots[turnId], undo: undoTurn }),
+    [turnSnapshots, undoTurn]
+  );
 
   // The Terminal dot: the session's shell wrote something while its pane was not showing.
   const ptyId = sessionId || 'hub';
@@ -1086,14 +1163,6 @@ export function WorkspaceShell({ chat, children, panes, paneStore }: WorkspaceSh
       );
     }
   }, []);
-  const getTurnSnapshots = useCallback(
-    (turnId: string) => {
-      const snapshots = loadTurnSnapshots(cwd);
-      return snapshots[turnId];
-    },
-    [cwd]
-  );
-
   const paneContext = useMemo<PaneContextValue>(
     () => ({
       cwd,
@@ -1112,7 +1181,6 @@ export function WorkspaceShell({ chat, children, panes, paneStore }: WorkspaceSh
       gitStatus,
       openPane,
       focusCommit,
-      getTurnSnapshots,
     }),
     [
       artifact,
@@ -1121,7 +1189,6 @@ export function WorkspaceShell({ chat, children, panes, paneStore }: WorkspaceSh
       focusCommit,
       insertIntoChat,
       gitStatus,
-      getTurnSnapshots,
       layout.mode,
       line,
       openArtifact,
@@ -1519,25 +1586,27 @@ export function WorkspaceShell({ chat, children, panes, paneStore }: WorkspaceSh
     <SessionChipsSlot.Provider value={chipsFor}>
       <WorkspaceComposerSlot.Provider value={workspaceComposer}>
         <FileLinkSlot.Provider value={fileLinkContext}>
-          <ChangesBarTarget.Provider value={changesBarTarget}>
-            <NextChat.Provider value={nextChat}>
-              <div className="flex min-h-0 min-w-0 flex-1 flex-col">
-                {isWorkspaceRoute && sessionId && (
-                  <RpiStrip
-                    sessionId={sessionId}
-                    openArtifact={openArtifact}
-                    chatIdle={chatIdle}
-                    gateOn={planGate}
-                    cwd={cwd}
-                  />
-                )}
-                <div className="relative min-h-0 min-w-0 flex-1">
-                  {children}
-                  <div className={isOnPairRoute ? 'contents' : 'hidden'}>{chat}</div>
+          <TurnUndoSlot.Provider value={turnUndoTarget}>
+            <ChangesBarTarget.Provider value={changesBarTarget}>
+              <NextChat.Provider value={nextChat}>
+                <div className="flex min-h-0 min-w-0 flex-1 flex-col">
+                  {isWorkspaceRoute && sessionId && (
+                    <RpiStrip
+                      sessionId={sessionId}
+                      openArtifact={openArtifact}
+                      chatIdle={chatIdle}
+                      gateOn={planGate}
+                      cwd={cwd}
+                    />
+                  )}
+                  <div className="relative min-h-0 min-w-0 flex-1">
+                    {children}
+                    <div className={isOnPairRoute ? 'contents' : 'hidden'}>{chat}</div>
+                  </div>
                 </div>
-              </div>
-            </NextChat.Provider>
-          </ChangesBarTarget.Provider>
+              </NextChat.Provider>
+            </ChangesBarTarget.Provider>
+          </TurnUndoSlot.Provider>
         </FileLinkSlot.Provider>
       </WorkspaceComposerSlot.Provider>
     </SessionChipsSlot.Provider>

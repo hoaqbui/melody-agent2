@@ -4862,14 +4862,8 @@
   "sessionActionsHeader.copyText": {
     "defaultMessage": "Sao chép văn bản"
   },
-  "sessionActionsHeader.duplicateFailed": {
-    "defaultMessage": "Không thể nhân bản phiên: {error}"
-  },
   "sessionActionsHeader.duplicateSession": {
     "defaultMessage": "Nhân bản phiên"
-  },
-  "sessionActionsHeader.duplicated": {
-    "defaultMessage": "Đã nhân bản phiên"
   },
   "sessionActionsHeader.fullTextTitle": {
     "defaultMessage": "Giá trị văn bản"
@@ -5236,12 +5230,6 @@
   },
   "settings.language.zhTW": {
     "defaultMessage": "Tiếng Trung (Phồn thể)"
-  },
-  "settings.legacyAgentLoop.description": {
-    "defaultMessage": "Fall back to the classic agent loop if the new one causes issues"
-  },
-  "settings.legacyAgentLoop.title": {
-    "defaultMessage": "Use Legacy Agent Loop"
   },
   "settings.menuBarIcon.description": {
     "defaultMessage": "Hiển thị goose trên thanh menu"
@@ -6418,6 +6406,21 @@
   },
   "workspaceShell.switchFailed": {
     "defaultMessage": "Couldn't switch runtime"
+  },
+  "workspaceShell.turnRedone": {
+    "defaultMessage": "Turn redone"
+  },
+  "workspaceShell.turnUndone": {
+    "defaultMessage": "Turn undone"
+  },
+  "workspaceShell.undoBlocked": {
+    "defaultMessage": "Can't undo this turn"
+  },
+  "workspaceShell.undoBlockedBy": {
+    "defaultMessage": "A later turn changed {file}. Undo that turn first."
+  },
+  "workspaceShell.undoFailed": {
+    "defaultMessage": "Couldn't undo the turn"
   },
   "workspaceShell.workingDir": {
     "defaultMessage": "Working directory"

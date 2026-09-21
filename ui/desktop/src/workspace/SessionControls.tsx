@@ -113,6 +113,9 @@ export function SessionControls({
                   <DropdownMenuRadioItem
                     key={choice.value}
                     value={choice.value}
+                    // The menu stays open: the Mode note below the radios is the answer to
+                    // the pick (task 89), and a second option often follows the first.
+                    onSelect={(event) => event.preventDefault()}
                     data-testid={`workspace-config-${option.id}-${choice.value}`}
                   >
                     {choice.name}

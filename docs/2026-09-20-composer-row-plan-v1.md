@@ -36,3 +36,7 @@ composer's glyphs on Heroicons > one tranche, all on main.
 ## Tasks
 
 Approved 2026-09-20 (user: "plan and orchestrate with tasks") → moved to `tasks.md` under `### docs/2026-09-20-composer-row-plan-v1.md`; this section keeps only that pointer.
+
+## Round 2 (2026-09-21)
+
+The user, on the Advanced row (`Claude · Direct · Worktree · ⚙ · ▣ current · hoaqbui · attach · mic · send`): "the ux is rough". Options given — **A** finish "Easy is quiet" as approved (recommended), **B** two-line row, **C** one seat pill — and A picked. Tasks 140–142 in `tasks.md` under `### Composer row, round 2`.

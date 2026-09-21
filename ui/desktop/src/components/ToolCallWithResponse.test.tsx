@@ -171,4 +171,29 @@ describe('ToolCallWithResponse live output', () => {
       'allow_once'
     );
   });
+
+  // Task 89: the adapter's diff and its own tool name ride into the inline card, the same
+  // body the standalone card renders, under the same testid the approve-mode walk reads.
+  it('renders the adapter tool name and diff inline while approval is pending', () => {
+    render(
+      <ToolCallWithResponse
+        sessionId="session-1"
+        isCancelledMessage={false}
+        toolRequest={toolRequest}
+        isPendingApproval
+        confirmationContent={{
+          id: 'tool-1',
+          toolName: 'Write probe.txt',
+          arguments: { file_path: 'probe.txt' },
+        }}
+        confirmationDiff={{ path: 'probe.txt', oldText: '', newText: 'HELLO\n' }}
+      />,
+      { wrapper: IntlTestWrapper }
+    );
+
+    const card = screen.getByTestId('tool-confirmation');
+    expect(card).toHaveTextContent('Write probe.txt');
+    expect(screen.getByTestId('tool-confirmation-diff')).toHaveTextContent('+HELLO');
+    expect(screen.getByRole('button', { name: 'Deny' })).toBeInTheDocument();
+  });
 });

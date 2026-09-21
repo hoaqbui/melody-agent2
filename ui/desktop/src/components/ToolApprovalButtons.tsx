@@ -50,13 +50,29 @@ const i18n = defineMessages({
   },
 });
 
+// Keyed by the tool call id: once the response lands the store swaps the local request (with
+// its generation) for the persisted confirmation (without), and a key on the generation
+// forgot the decision and re-armed the buttons on a call that had already run (task 89).
+// The generation is kept so a genuinely new request for the same call starts fresh.
 const globalApprovalState = new Map<
   string,
   {
     decision: Permission | null;
     isClicked: boolean;
+    generation: string | undefined;
   }
 >();
+
+function storedApprovalState(
+  id: string,
+  generation: string | undefined,
+  pending: boolean
+): { decision: Permission | null; isClicked: boolean } | undefined {
+  const stored = globalApprovalState.get(id);
+  if (!stored) return undefined;
+  const sameRequest = generation === undefined || stored.generation === generation;
+  return sameRequest || !pending ? stored : undefined;
+}
 
 export interface ToolApprovalData {
   generation?: string;
@@ -70,9 +86,7 @@ export interface ToolApprovalData {
 export default function ToolApprovalButtons({ data }: { data: ToolApprovalData }) {
   const intl = useIntl();
   const { generation, id, toolName, prompt, sessionId, isClicked: initialIsClicked } = data;
-  const approvalStateKey = generation ?? id;
-
-  const storedState = globalApprovalState.get(approvalStateKey);
+  const storedState = storedApprovalState(id, generation, !initialIsClicked);
   const [decision, setDecision] = useState<Permission | null>(storedState?.decision ?? null);
   const [isClicked, setIsClicked] = useState(storedState?.isClicked ?? initialIsClicked ?? false);
   const [approvalError, setApprovalError] = useState<string | null>(null);
@@ -87,7 +101,7 @@ export default function ToolApprovalButtons({ data }: { data: ToolApprovalData }
   };
 
   useEffect(() => {
-    const currentState = globalApprovalState.get(approvalStateKey);
+    const currentState = storedApprovalState(id, generation, !initialIsClicked);
     if (currentState) {
       setDecision(currentState.decision);
       setIsClicked(currentState.isClicked);
@@ -96,11 +110,12 @@ export default function ToolApprovalButtons({ data }: { data: ToolApprovalData }
       setIsClicked(initialIsClicked ?? false);
     }
     setApprovalError(null);
-  }, [approvalStateKey, initialIsClicked]);
+  }, [id, generation, initialIsClicked]);
 
   useEffect(() => {
-    globalApprovalState.set(approvalStateKey, { decision, isClicked });
-  }, [approvalStateKey, decision, isClicked]);
+    if (!decision) return;
+    globalApprovalState.set(id, { decision, isClicked, generation });
+  }, [id, generation, decision, isClicked]);
 
   const handleAction = async (action: Permission) => {
     try {

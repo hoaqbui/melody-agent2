@@ -16,6 +16,7 @@
     "build-sidecar": "pnpm --filter @melody/sidecar run build",
     "bundle-sidecar": "pnpm --filter @melody/sidecar run bundle",
     "start-gui": "pnpm run build-goose-acp-client && pnpm run build-sidecar && pnpm run i18n:compile && electron-forge start",
+    "start-gui:walk": "pnpm run build-sidecar && pnpm run i18n:compile && electron-forge start",
     "start-gui-debug": "pnpm run build-goose-acp-client && pnpm run build-sidecar && pnpm run i18n:compile && electron-forge start -- --inspect=9229",
     "start": "cd ../.. && just run-ui",
     "start:test-error": "GOOSE_TEST_ERROR=true electron-forge start",

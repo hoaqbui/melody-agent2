@@ -169,6 +169,7 @@ function GooseMessage({
                         isPendingApproval={toolState.isPending}
                         append={append}
                         confirmationContent={toolState.confirmation}
+                        confirmationDiff={toolState.confirmationDiff}
                         isApprovalClicked={isApprovalClicked}
                       />
                     </div>

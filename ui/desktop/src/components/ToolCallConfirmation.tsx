@@ -1,4 +1,4 @@
-import type { ActionRequired } from '../types/message';
+import type { ActionRequired, ToolConfirmationData, ToolConfirmationDiff } from '../types/message';
 import { defineMessages, useIntl } from '../i18n';
 import { snakeToTitleCase } from '../utils';
 import { toolConfirmationDiffLines } from '../workspace/panes/diff/unified-diff';
@@ -26,31 +26,31 @@ function formatToolName(fullName: string): string {
   return snakeToTitleCase(shortName);
 }
 
-type ToolConfirmationData = Extract<ActionRequired['data'], { actionType: 'toolConfirmation' }>;
-
-interface ToolConfirmationProps {
+interface ToolConfirmationBodyProps {
   sessionId: string;
   isClicked: boolean;
-  actionRequiredContent: ActionRequired & { type: 'actionRequired' };
+  data: ToolConfirmationData;
+  diff?: ToolConfirmationDiff;
+  // Inside a tool row the arguments already show above the body.
+  showArguments: boolean;
 }
 
-export default function ToolConfirmation({
+// The approval itself — title, prompt, the adapter's diff or the arguments, the buttons —
+// shared by the standalone card and the inline tool row so both paths read the same.
+export function ToolConfirmationBody({
   sessionId,
   isClicked,
-  actionRequiredContent,
-}: ToolConfirmationProps) {
+  data,
+  diff,
+  showArguments,
+}: ToolConfirmationBodyProps) {
   const intl = useIntl();
-  const data = actionRequiredContent.data as ToolConfirmationData;
   const { generation, id, toolName, arguments: toolArguments, prompt } = data;
-  const diff = actionRequiredContent.diff;
   const displayName = formatToolName(toolName);
   const diffLines = diff ? toolConfirmationDiffLines(diff.oldText, diff.newText) : [];
 
   return (
-    <div
-      className="ask-card goose-message-content bg-background-primary border border-border-primary rounded-2xl overflow-hidden"
-      data-testid="tool-confirmation"
-    >
+    <>
       <div className="bg-background-secondary px-4 py-2 text-text-primary">
         {diff
           ? displayName
@@ -83,12 +83,41 @@ export default function ToolConfirmation({
             ))}
           </pre>
         ) : (
-          <ToolCallArguments args={toolArguments as Record<string, ToolCallArgumentValue>} />
+          showArguments && (
+            <ToolCallArguments args={toolArguments as Record<string, ToolCallArgumentValue>} />
+          )
         )}
         <ToolApprovalButtons
           data={{ generation, id, toolName, prompt: prompt ?? undefined, sessionId, isClicked }}
         />
       </div>
+    </>
+  );
+}
+
+interface ToolConfirmationProps {
+  sessionId: string;
+  isClicked: boolean;
+  actionRequiredContent: ActionRequired & { type: 'actionRequired' };
+}
+
+export default function ToolConfirmation({
+  sessionId,
+  isClicked,
+  actionRequiredContent,
+}: ToolConfirmationProps) {
+  return (
+    <div
+      className="ask-card goose-message-content bg-background-primary border border-border-primary rounded-2xl overflow-hidden"
+      data-testid="tool-confirmation"
+    >
+      <ToolConfirmationBody
+        sessionId={sessionId}
+        isClicked={isClicked}
+        data={actionRequiredContent.data as ToolConfirmationData}
+        diff={actionRequiredContent.diff}
+        showArguments
+      />
     </div>
   );
 }

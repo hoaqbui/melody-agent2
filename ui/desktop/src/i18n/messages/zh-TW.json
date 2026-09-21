@@ -4862,14 +4862,8 @@
   "sessionActionsHeader.copyText": {
     "defaultMessage": "複製文字"
   },
-  "sessionActionsHeader.duplicateFailed": {
-    "defaultMessage": "複製工作階段失敗：{error}"
-  },
   "sessionActionsHeader.duplicateSession": {
     "defaultMessage": "複製工作階段"
-  },
-  "sessionActionsHeader.duplicated": {
-    "defaultMessage": "工作階段已複製"
   },
   "sessionActionsHeader.fullTextTitle": {
     "defaultMessage": "文字值"
@@ -5236,12 +5230,6 @@
   },
   "settings.language.zhTW": {
     "defaultMessage": "中文（繁體）"
-  },
-  "settings.legacyAgentLoop.description": {
-    "defaultMessage": "Fall back to the classic agent loop if the new one causes issues"
-  },
-  "settings.legacyAgentLoop.title": {
-    "defaultMessage": "Use Legacy Agent Loop"
   },
   "settings.menuBarIcon.description": {
     "defaultMessage": "在選單列中顯示 goose"
@@ -6418,6 +6406,21 @@
   },
   "workspaceShell.switchFailed": {
     "defaultMessage": "Couldn't switch runtime"
+  },
+  "workspaceShell.turnRedone": {
+    "defaultMessage": "Turn redone"
+  },
+  "workspaceShell.turnUndone": {
+    "defaultMessage": "Turn undone"
+  },
+  "workspaceShell.undoBlocked": {
+    "defaultMessage": "Can't undo this turn"
+  },
+  "workspaceShell.undoBlockedBy": {
+    "defaultMessage": "A later turn changed {file}. Undo that turn first."
+  },
+  "workspaceShell.undoFailed": {
+    "defaultMessage": "Couldn't undo the turn"
   },
   "workspaceShell.workingDir": {
     "defaultMessage": "Working directory"

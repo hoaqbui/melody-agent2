@@ -1,4 +1,4 @@
-import { memo, useCallback, useEffect, useRef, useState } from 'react';
+import { memo, useCallback, useContext, useEffect, useRef, useState } from 'react';
 import ImagePreview from './ImagePreview';
 import MarkdownContent from './MarkdownContent';
 import {
@@ -14,7 +14,7 @@ import Close from './icons/Close';
 import Edit from './icons/Edit';
 import { Button } from './ui/button';
 import { defineMessages, useIntl } from '../i18n';
-import { usePaneContextSafe } from '../workspace/pane-context';
+import { TurnUndoSlot } from '../workspace/turn-undo-slot';
 
 const i18n = defineMessages({
   editPlaceholder: {
@@ -104,10 +104,9 @@ interface UserMessageProps {
     editType: 'fork' | 'edit',
     retainedImages: ImageData[]
   ) => void;
-  onTurnUndo?: (turnId: string, isRedo: boolean) => void;
 }
 
-function UserMessage({ message, onMessageUpdate, onTurnUndo }: UserMessageProps) {
+function UserMessage({ message, onMessageUpdate }: UserMessageProps) {
   const intl = useIntl();
   const contentRef = useRef<HTMLDivElement | null>(null);
   const textareaRef = useRef<HTMLTextAreaElement>(null);
@@ -124,7 +123,7 @@ function UserMessage({ message, onMessageUpdate, onTurnUndo }: UserMessageProps)
   const messageImages: ImageData[] = imageDataFromMessage(message);
 
   const [removedImageIndices, setRemovedImageIndices] = useState<Set<number>>(new Set());
-  const paneContext = usePaneContextSafe();
+  const turnUndo = useContext(TurnUndoSlot);
 
   useEffect(() => {
     if (!isEditing) {
@@ -243,13 +242,14 @@ function UserMessage({ message, onMessageUpdate, onTurnUndo }: UserMessageProps)
   }, [editContent, isEditing]);
 
   const handleTurnUndo = useCallback(() => {
-    if (!onTurnUndo || !message.id) return;
-    onTurnUndo(message.id, isRedo);
-    setIsRedo(!isRedo);
-  }, [onTurnUndo, message.id, isRedo]);
+    if (!turnUndo || !message.id) return;
+    void turnUndo.undo(message.id, isRedo).then((applied) => {
+      if (applied) setIsRedo((redo) => !redo);
+    });
+  }, [turnUndo, message.id, isRedo]);
 
   const shouldShowUndoButton =
-    paneContext && message.role === 'user' && message.id && paneContext.getTurnSnapshots(message.id);
+    message.role === 'user' && message.id && turnUndo?.snapshotsFor(message.id);
 
   return (
     <div className="w-full mt-[16px] opacity-0 animate-[appear_150ms_ease-in_forwards]">
@@ -379,8 +379,16 @@ function UserMessage({ message, onMessageUpdate, onTurnUndo }: UserMessageProps)
                         onClick={handleTurnUndo}
                         data-testid="turn-undo"
                         className="flex items-center gap-1 text-xs text-text-secondary hover:cursor-pointer hover:text-text-primary transition-all duration-200 opacity-0 group-hover:opacity-100 -translate-y-4 group-hover:translate-y-0 focus:outline-none focus:ring-2 focus:ring-blue-400 focus:ring-opacity-50 rounded"
-                        title={isRedo ? intl.formatMessage(i18n.redoThisTurn) : intl.formatMessage(i18n.undoThisTurn)}
-                        aria-label={isRedo ? intl.formatMessage(i18n.redoThisTurn) : intl.formatMessage(i18n.undoThisTurn)}
+                        title={
+                          isRedo
+                            ? intl.formatMessage(i18n.redoThisTurn)
+                            : intl.formatMessage(i18n.undoThisTurn)
+                        }
+                        aria-label={
+                          isRedo
+                            ? intl.formatMessage(i18n.redoThisTurn)
+                            : intl.formatMessage(i18n.undoThisTurn)
+                        }
                       >
                         <span>
                           {isRedo

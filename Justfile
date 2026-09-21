@@ -222,8 +222,10 @@ fix-bins:
     for l in $(find -L ui/node_modules/.bin ui/desktop/node_modules/.bin ui/sidecar/node_modules/.bin -maxdepth 1 -type f ! -perm -u+x 2>/dev/null); do chmod u+x "$(readlink -f $l)"; done
     test -f ~/.skip-forge-system-check || touch ~/.skip-forge-system-check
 
-# One walk: `just walk "git pane|diff pane"` — the Electron walks a change touches.
+# One walk: `just walk "git pane|diff pane"` — the Electron walks a change touches. The ACP
+# client is built once here; each launch then keeps Vite's cache (fixtures.ts, task 139a).
 walk pattern: fix-bins
+    cd ui/desktop && pnpm --filter @aaif/goose-acp-client run build >/dev/null
     cd ui/desktop && pnpm exec playwright test --project=walks -g "{{pattern}}"
 
 # Full suite (~25 min): clippy, the spine check, the light suite, every fork walk. Run before a
@@ -237,6 +239,7 @@ test-full:
     cargo clippy --all-targets -- -D warnings -A clippy::result_large_err -A clippy::useless_format
     bash scripts/check-spine.sh
     @just test-light
+    cd ui/desktop && pnpm --filter @aaif/goose-acp-client run build >/dev/null
     cd ui/desktop && pnpm exec playwright test --project=walks
 
 # make GUI with latest binary

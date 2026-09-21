@@ -11,6 +11,7 @@ import {
   NotificationEvent,
   LiveOutputNotificationParams,
   ToolConfirmationData,
+  ToolConfirmationDiff,
 } from '../types/message';
 import { cn, snakeToTitleCase } from '../utils';
 import { ChevronRight, ExternalLink } from 'lucide-react';
@@ -19,7 +20,7 @@ import type { CallToolResult } from '@modelcontextprotocol/sdk/types.js';
 import type { ContentBlock } from '../types/message';
 
 import McpAppRenderer from './McpApps/McpAppRenderer';
-import ToolApprovalButtons from './ToolApprovalButtons';
+import { ToolConfirmationBody } from './ToolCallConfirmation';
 import { defineMessages, useIntl } from '../i18n';
 
 type LoadingStatus = 'loading' | 'success' | 'error';
@@ -110,6 +111,7 @@ interface ToolCallWithResponseProps {
   isPendingApproval: boolean;
   append?: (value: string) => void;
   confirmationContent?: ToolConfirmationData;
+  confirmationDiff?: ToolConfirmationDiff;
   isApprovalClicked?: boolean;
 }
 
@@ -238,6 +240,7 @@ export default function ToolCallWithResponse({
   isPendingApproval,
   append,
   confirmationContent,
+  confirmationDiff,
   isApprovalClicked,
 }: ToolCallWithResponseProps) {
   // Handle both the wrapped ToolResult format and the unwrapped format
@@ -257,14 +260,17 @@ export default function ToolCallWithResponse({
 
   const shouldShowMcpContent = !isPendingApproval;
 
-  const showInlineApproval = isPendingApproval && confirmationContent && sessionId;
+  // The card stays once decided, reading "<tool> · Denied once" like the standalone card.
+  const showInlineApproval =
+    (isPendingApproval || isApprovalClicked) && confirmationContent && sessionId;
 
   return (
     <>
       <div
+        data-tool-call-id={toolRequest.id}
         className={cn(
           'tool-row w-full text-sm font-sans rounded-lg overflow-hidden border',
-          showInlineApproval ? 'border-amber-500/50 bg-amber-50/5' : 'border-border-primary'
+          isPendingApproval ? 'border-amber-500/50 bg-amber-50/5' : 'border-border-primary'
         )}
       >
         <ToolCallView
@@ -276,26 +282,20 @@ export default function ToolCallWithResponse({
             isStreamingMessage,
           }}
         />
-        {/* Inline approval UI */}
         {showInlineApproval && (
-          <div className="border-t border-amber-500/30">
-            {confirmationContent.prompt && (
-              <div className="px-4 py-2 text-sm text-amber-600 dark:text-amber-400 bg-amber-50/10">
-                {confirmationContent.prompt}
-              </div>
-            )}
-            <div className="px-4 pb-2">
-              <ToolApprovalButtons
-                data={{
-                  generation: confirmationContent.generation,
-                  id: confirmationContent.id,
-                  toolName: confirmationContent.toolName,
-                  prompt: confirmationContent.prompt ?? undefined,
-                  sessionId,
-                  isClicked: isApprovalClicked,
-                }}
-              />
-            </div>
+          <div
+            className="border-t border-amber-500/30"
+            data-testid="tool-confirmation"
+            data-tool-call-id={confirmationContent.id}
+            data-generation={confirmationContent.generation}
+          >
+            <ToolConfirmationBody
+              sessionId={sessionId}
+              isClicked={Boolean(isApprovalClicked)}
+              data={confirmationContent}
+              diff={confirmationDiff}
+              showArguments={false}
+            />
           </div>
         )}
       </div>
