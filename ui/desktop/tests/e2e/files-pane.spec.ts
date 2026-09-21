@@ -39,8 +39,8 @@ const createFilesTestRepo = (): string => {
   return scratch;
 };
 
-// PRD step 4: open Files, see the cwd tree, click a file → the Editor pane opens in the
-// bottom half under Files (task 71) with that file. The tree is the window's working
+// PRD step 4: open Files, see the cwd tree, click a file → the Editor pane takes the column
+// with that file and Files stays a tab (one pane at a time, 2026-09-20). The tree is the window's working
 // directory, so the walk reads the root the pane shows and picks the first rows instead of
 // naming any.
 test.describe('files pane', () => {
@@ -81,13 +81,18 @@ test.describe('files pane', () => {
     const editor = goosePage.locator('[data-testid="workspace-pane-editor"]');
     await expect(editor).toBeVisible();
     await expect(editor.locator('[data-testid="workspace-editor-file"]')).toContainText(filePath);
-    await expect(editor).toHaveAttribute('data-position', 'bottom');
+    // The Editor takes the column and Files is one tab away (one pane at a time, 2026-09-20).
+    await expect(editor).toHaveAttribute('data-position', 'full');
     await expect(
       goosePage.locator(
         '[data-testid="workspace-side-tab-editor"] [data-testid="workspace-pane-button-editor"]'
       )
     ).toHaveAttribute('aria-pressed', 'true');
-    await expect(pane).toBeVisible();
+    await expect(pane).toBeHidden();
+    await expect(goosePage.locator('[data-testid="workspace-pane-button-files"]')).toHaveAttribute(
+      'data-open',
+      'true'
+    );
 
     await goosePage.screenshot({
       path: test.info().outputPath('files-pane.png'),
@@ -167,10 +172,13 @@ test.describe('files pane', () => {
         await expect(nameInput).toBeFocused();
         await nameInput.type('test.ts');
         await nameInput.press('Enter');
-        const testRow = goosePage.locator('[data-testid="files-row"][data-path*="test.ts"]');
-        await expect(testRow).toBeVisible();
+        // The new file opens in the Editor, which takes the column (one pane at a time,
+        // 2026-09-20); Files is one tab away for the rest of the walk.
         const editor = goosePage.locator('[data-testid="workspace-pane-editor"]');
         await expect(editor).toBeVisible();
+        await openPane(goosePage, 'files');
+        const testRow = goosePage.locator('[data-testid="files-row"][data-path*="test.ts"]');
+        await expect(testRow).toBeVisible();
 
         // Test 5: Rename
         await testRow.click({ button: 'right' });
@@ -180,10 +188,13 @@ test.describe('files pane', () => {
         await renameInput.fill('');
         await renameInput.type('renamed.ts');
         await renameInput.press('Enter');
-        const renamedRow = goosePage.locator('[data-testid="files-row"][data-path*="renamed.ts"]');
-        await expect(renamedRow).toBeVisible();
+        // The rename re-opens the file, so the Editor takes the column showing the new name;
+        // Files comes back to the front for the row.
         const editorFile = goosePage.locator('[data-testid="workspace-editor-file"]');
         await expect(editorFile).toContainText('renamed.ts');
+        await openPane(goosePage, 'files');
+        const renamedRow = goosePage.locator('[data-testid="files-row"][data-path*="renamed.ts"]');
+        await expect(renamedRow).toBeVisible();
 
         // Test 6: Delete with Undo
         await renamedRow.click({ button: 'right' });

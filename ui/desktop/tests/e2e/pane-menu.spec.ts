@@ -3,8 +3,8 @@ import { test, expect, emptyDock } from './fixtures';
 // Task 40: the pane menu in the code-editor standard — Terminal, Changes, Browser one click
 // away and the rest under ⋯ — on the Work column's permanent tab bar (task 71, which retired
 // task 60's floating rail): at the default width the other launchers fold under a chevron
-// and the ⋯ session menu lists them too. A click opens a pane into the column: full alone,
-// the bottom half beside one. No session is needed: the Hub has the shell.
+// and the ⋯ session menu lists them too. A click opens a pane into the column, one at a
+// time (a split is a drag, 2026-09-20). No session is needed: the Hub has the shell.
 test.describe('pane menu', () => {
   test('opens panes from the bar and shows no "Diff"', async ({ goosePage }) => {
     const shell = goosePage.locator('[data-testid="workspace-shell"]');
@@ -43,15 +43,16 @@ test.describe('pane menu', () => {
     await expect(item).toHaveText('Markdown');
     await item.click();
     await expect(goosePage.locator('[data-testid="workspace-pane-more-menu"]')).toHaveCount(0);
-    // Markdown takes the bottom half; Terminal keeps the top, both pressed, and the opened
-    // tab joins the bar.
+    // Markdown takes the column and parks Terminal (one pane at a time, 2026-09-20); the
+    // opened tab joins the bar pressed, Terminal's stays open but not pressed.
     const markdown = side.locator('[data-testid="workspace-pane-markdown"]');
     await expect(markdown).toBeVisible();
-    await expect(markdown).toHaveAttribute('data-position', 'bottom');
+    await expect(markdown).toHaveAttribute('data-position', 'full');
     await expect(
       goosePage.locator('[data-testid="workspace-pane-button-markdown"]')
     ).toHaveAttribute('aria-pressed', 'true');
-    await expect(terminal).toHaveAttribute('aria-pressed', 'true');
+    await expect(terminal).toHaveAttribute('aria-pressed', 'false');
+    await expect(terminal).toHaveAttribute('data-open', 'true');
 
     // The chevron lists what the bar has no room for; Browser is a tab, so it opens in
     // place and parks Markdown — still open, its tab there.
@@ -62,7 +63,7 @@ test.describe('pane menu', () => {
     await browser.click();
     const opened = side.locator('[data-testid="workspace-pane-browser"]');
     await expect(opened).toBeVisible();
-    await expect(opened).toHaveAttribute('data-position', 'bottom');
+    await expect(opened).toHaveAttribute('data-position', 'full');
     await expect(opened.locator('[data-testid="browser-pane"]')).toBeVisible();
     await expect(markdown).toBeHidden();
     await expect(

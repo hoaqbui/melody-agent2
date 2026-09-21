@@ -64,7 +64,9 @@ test.describe('add to chat', () => {
     await editorAdd.click();
     await expect(chatInput).toHaveValue(/```notes\.md:1-2\none\ntwo\n```/);
 
-    // Step 2: Markdown — a selected sentence of doc.md, header without lines.
+    // Step 2: Markdown — a selected sentence of doc.md, header without lines. The Editor took
+    // the column when notes.md opened, so Files comes back to the front first.
+    await openPane(goosePage, 'files');
     await files.locator('[data-testid="files-row"][data-path$="/doc.md"]').click();
     await openPane(goosePage, 'markdown');
     const markdown = goosePage.locator('[data-testid="markdown-pane"]');

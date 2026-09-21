@@ -52,22 +52,29 @@ test.describe('dock', () => {
     await expect(terminalPane).toBeVisible();
     await expect(terminalPane).toHaveAttribute('data-position', 'full');
     await expect(terminalTab).toHaveAttribute('aria-pressed', 'true');
-    await expect(
-      terminalPane.locator('[data-testid="workspace-dock-position-full"]')
-    ).toHaveAttribute('aria-pressed', 'true');
+    // Option B (2026-09-20): no position icons on the header — a split is a drag.
+    await expect(terminalPane.locator('[data-testid="workspace-dock-positions"]')).toHaveCount(0);
     await goosePage.screenshot({ path: test.info().outputPath('dock-full.png'), fullPage: true });
     if (process.env.T71_SHOTS) {
       await goosePage.screenshot({ path: join(process.env.T71_SHOTS, 'bar-full.png') });
     }
 
-    // A second pane takes the bottom half; the full one moves up.
+    // A second pane takes the column; the first is parked — still open, its tab not pressed.
     await openPane(goosePage, 'diff');
     await expect(openTabs).toHaveCount(2);
+    await expect(diffPane).toHaveAttribute('data-position', 'full');
+    await expect(terminalPane).toBeHidden();
+    await expect(diffTab).toHaveAttribute('aria-pressed', 'true');
+    await expect(terminalTab).toHaveAttribute('aria-pressed', 'false');
+    await expect(terminalTab).toHaveAttribute('data-open', 'true');
+    await expect(goosePage.locator('[data-testid="workspace-dock-seam"]')).toHaveCount(0);
+
+    // A split is a drag: the parked Terminal tab onto the column's top half.
+    await dragTo(goosePage, terminalTab, 'Terminal', 'top');
     await expect(terminalPane).toHaveAttribute('data-position', 'top');
     await expect(diffPane).toHaveAttribute('data-position', 'bottom');
     await expect(terminalPane).toBeVisible();
     await expect(diffPane).toBeVisible();
-    await expect(diffTab).toHaveAttribute('aria-pressed', 'true');
     // The seam between them resizes from the keyboard too (DESIGN.md §Accessibility).
     // The split persists per project, so the walk moves from wherever the seam is.
     const seam = goosePage.locator('[data-testid="workspace-dock-seam"]');
@@ -86,8 +93,12 @@ test.describe('dock', () => {
       await goosePage.screenshot({ path: join(process.env.T71_SHOTS, 'bar-top-bottom.png') });
     }
 
-    // Changes Full from its header: Terminal is parked — still open, its tab not pressed.
-    await diffPane.locator('[data-testid="workspace-dock-position-full"]').click();
+    // Changes Full from the tab menu (the keyboard's way to a position): Terminal is
+    // parked — still open, its tab not pressed — and the seam goes with the split.
+    await diffTab.click({ button: 'right' });
+    const menu = goosePage.locator('[data-testid="workspace-tab-menu"]');
+    await expect(menu).toBeVisible();
+    await menu.locator('[data-testid="workspace-dock-position-full"]').click();
     await expect(diffPane).toHaveAttribute('data-position', 'full');
     await expect(terminalPane).toBeHidden();
     await expect(openTabs).toHaveCount(2);
@@ -95,23 +106,20 @@ test.describe('dock', () => {
     await expect(terminalTab).toHaveAttribute('data-open', 'true');
     await expect(seam).toHaveCount(0);
 
-    // A plain click on a parked tab brings it back into the half it last showed in.
+    // A plain click on a parked tab takes the column: one pane at a time unless dragged.
     await terminalTab.click();
-    await expect(terminalPane).toHaveAttribute('data-position', 'top');
-    await expect(diffPane).toHaveAttribute('data-position', 'bottom');
+    await expect(terminalPane).toHaveAttribute('data-position', 'full');
+    await expect(diffPane).toBeHidden();
 
-    // Park it again, then drag its tab onto the column's top half: both halves again.
-    await diffPane.locator('[data-testid="workspace-dock-position-full"]').click();
-    await expect(terminalPane).toBeHidden();
-    await dragTo(goosePage, terminalTab, 'Terminal', 'top');
+    // Drag Changes onto the bottom half: both halves again.
+    await dragTo(goosePage, diffTab, 'Changes', 'bottom');
     await expect(terminalPane).toHaveAttribute('data-position', 'top');
     await expect(diffPane).toHaveAttribute('data-position', 'bottom');
     await expect(terminalPane).toBeVisible();
     await expect(diffPane).toBeVisible();
 
-    // The tab's right-click menu: the same three positions and Close.
+    // The tab's right-click menu: the three positions and Close.
     await diffTab.click({ button: 'right' });
-    const menu = goosePage.locator('[data-testid="workspace-tab-menu"]');
     await expect(menu).toBeVisible();
     await expect(menu.locator('[data-testid="workspace-dock-position-bottom"]')).toHaveAttribute(
       'aria-current',
