@@ -157,6 +157,18 @@ A + A4 from the research (`docs/2026-09-20-telemetry-pane-research-v1.md`), the 
 
 One branch, one remote, merged worktrees gone, every open workstream handed to its owner. Order: 134 → 135 → **user pushes** → 136 → 137. The push is the user's (the classifier refuses it from a session).
 
+### Beta follow-ups (approved 2026-09-21, user: "approved" on the recommendation)
+
+- 138. Attach on the workspace route: find the second cause hiding the composer's attach button in Easy and Advanced (the quiet gate was lifted in 4ef77d78d; the `easy mode` walk still read zero `chat-attach` — suspect `isBottomBarNarrow` at the Chat column's width, or the button's `!isBottomBarNarrow` fragment), fix it, and add the `chat-attach` count-1 assertion back to `easy-mode.spec.ts`.
+  - status: todo · agent: — · worker: medium
+  - card: as the user, attach a file from the composer on the workspace route, so that the beta's chat has the one control every chat has
+  - confirm: `grep -c 'chat-attach' ui/desktop/tests/e2e/easy-mode.spec.ts` → `≥ 1` (untouched: `0`); `just walk "easy mode"` → 1 passed
+
+- 139. Three flaky spots in the harness: (a) the first walk after a source change dies with "Target page, context or browser has been closed" during launch — the fixture retries the CDP connect once when the page closes within the first 10 s; (b) `command-palette.spec.ts` "Terminal pane lets ⌘K through" depends on the dock a previous test left — it calls `emptyDock` first; (c) `bridge_broadcasts_delegate_started_and_done` fails only in the batch — find the shared state (a static, a port, an env var) with `--test-threads=1` vs default and isolate it.
+  - status: todo · agent: — · worker: medium
+  - card: as the session, trust a red walk on the first run, so that every red is a finding and not a rerun
+  - confirm: `for i in 1 2 3; do just walk "dock"; done` → 3 × 1 passed; `just walk "command palette"` → 7 passed twice in a row; `cargo test -p goose --lib -- session_bridge summon scheduler` → `0 failed` three times
+
 ## Waiting on the user
 
 ### Handoff — one line, one command each (2026-09-20, closeout)
