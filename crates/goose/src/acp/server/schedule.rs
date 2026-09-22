@@ -429,7 +429,6 @@ mod tests {
     fn scheduler_disabled_server(root: &Path) -> AcpServer {
         AcpServer::new(AcpServerFactoryConfig {
             builtins: AcpBuiltinSelection::default(),
-            data_dir: root.join("data"),
             config_dir: root.join("config"),
             goose_platform: GoosePlatform::GooseCli,
             additional_source_roots: Vec::new(),
