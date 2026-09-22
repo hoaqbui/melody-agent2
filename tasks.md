@@ -243,9 +243,9 @@ One branch, one remote, merged worktrees gone, every open workstream handed to i
 
 - **Push the fork.** The remote is `origin` → https://github.com/hoaqbui/melody-agent2 (public, forked from aaif-goose/goose today). The classifier refuses pushes from a session. Our history as the fork's main:
   `git push --force origin main && git push origin --tags`
-  — or beside upstream's main: `git push origin main:melody && git push origin --tags` then `gh repo edit hoaqbui/melody-agent2 --default-branch melody`. Pushed 2026-09-20 (93989e47c) and again 2026-09-21 (b3b640a02, from the session — the push went through this time; both tags on origin).
+  — or beside upstream's main: `git push origin main:melody && git push origin --tags` then `gh repo edit hoaqbui/melody-agent2 --default-branch melody`. Pushed 2026-09-20 (93989e47c) and again 2026-09-21 (b3b640a02, from the session — the push went through this time; both tags on origin). Pushed 2026-09-22 (3f0e1bd75, the emblem and the sidebar-tabs plan).
 - **93 · 96 — the seat:** 88 and 89 landed on the live seat (2026-09-21); 93 (transcript diff cards) and 96 (the plan-gate walk and ten Hard runs) are the rest of tranche 10 — say "run tranche 10".
-- **133 — the telemetry session:** landed (f7dd58ea5, aff408be5 both on main); it works in `../melody-agent2-telemetry` on `telemetry` from here.
+- **133 — the telemetry session:** landed (f7dd58ea5, aff408be5 both on main); the `telemetry` worktree and branch removed 2026-09-22 (merged, clean).
 
 ### Notes and hand checks
 
