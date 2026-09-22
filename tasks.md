@@ -218,7 +218,7 @@ One branch, one remote, merged worktrees gone, every open workstream handed to i
   - card: as the session, run the tag gate in under ten minutes, so that a tag is cheap enough to cut often
   - confirm: `grep -n "workers:" ui/desktop/playwright.config.ts` → `3`; `just test-full` → green in under 12 min
 
-### docs/2026-09-21-sidebar-tabs-prd-plan-v1.md — sidebar tabs (user: "organize this left side … reduce the amount of needed groups. add search and sorting" → option C; plan awaiting approval)
+### docs/2026-09-21-sidebar-tabs-prd-plan-v1.md — sidebar tabs (user: "organize this left side … reduce the amount of needed groups. add search and sorting" → option C → three mockups → "c1" 2026-09-22; approved)
 
 - 148. Pure sidebar logic: `src/workspace/sidebar-sessions.ts` — `repositoryOf` (a `.worktrees/<slug>` cwd folds to its repo and names the slug; `$TMPDIR`, `/var/folders`, `/tmp` → `elsewhere`), `groupByRepository`, `sortSessions` (recent · name · project), `filterSessions` (title and project, case-folded) — with `sidebar-sessions.test.ts`.
   - status: todo · agent: — · worker: medium

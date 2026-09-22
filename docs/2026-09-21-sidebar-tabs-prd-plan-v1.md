@@ -71,7 +71,13 @@ upstream's Session History page itself; the walks' sessions in the list (task 14
   menu — `tests/e2e/sidebar.spec.ts`, tagged `@smoke`. Grouping and sorting are unit-tested.
 - `DESIGN.md` §Vocabulary: **tab** (rail), **Elsewhere**; i18n extract + seed.
 
+## Mockups
+
+Three takes on C, 2026-09-22: https://claude.ai/artifact/2qqzGXfxNM8UmHS7hvHt9j — C1 (segmented
+tabs on top, one heading per repo, worktrees folded with a `wt/` tag), C2 (icon rail), C3
+(bottom tabs, repo chips, flat by day). User: **C1** — the plan above as written.
+
 ## Tasks
 
-Approved → `tasks.md` under `### docs/2026-09-21-sidebar-tabs-prd-plan-v1.md`; this section
-keeps only that pointer.
+Approved 2026-09-22 (user: "c1") → `tasks.md` under `### docs/2026-09-21-sidebar-tabs-prd-plan-v1.md`;
+this section keeps only that pointer.
