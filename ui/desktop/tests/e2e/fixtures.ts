@@ -1,7 +1,19 @@
 import { test as base, expect, Page, Browser, chromium } from '@playwright/test';
 import { exec, execFileSync, spawn, ChildProcess } from 'child_process';
-import { cpSync, mkdirSync, mkdtempSync, realpathSync, rmSync, writeFileSync } from 'fs';
-import { tmpdir } from 'os';
+import {
+  copyFileSync,
+  cpSync,
+  existsSync,
+  mkdirSync,
+  mkdtempSync,
+  readdirSync,
+  realpathSync,
+  rmSync,
+  statSync,
+  symlinkSync,
+  writeFileSync,
+} from 'fs';
+import { homedir, tmpdir } from 'os';
 import { join } from 'path';
 import { promisify } from 'util';
 
@@ -55,6 +67,41 @@ async function freeDebugPort(port: number): Promise<void> {
   throw new Error(`Debug port ${port} could not be freed`);
 }
 
+// The walks' own profile (task 147): goosed's config, data and state under one root
+// (`GOOSE_PATH_ROOT`) and Electron's userData beside them, so a walk never writes where the
+// user's running app reads — its sessions stayed in the user's sidebar, and two Electron
+// instances on one profile closed windows. `config.yaml` is a copy (a walk may change a
+// mode); everything else under `~/.config/goose` — the seats' OAuth caches, recipes, tls —
+// and `~/.agents` are links, so the seats sign in as the user.
+function prepareWalkProfile(): { pathRoot: string; userData: string } {
+  const root = join(tmpdir(), 'goose-walks-profile');
+  const config = join(root, 'config');
+  for (const dir of [config, join(root, 'data'), join(root, 'state')]) {
+    mkdirSync(dir, { recursive: true });
+  }
+  const userConfig = join(homedir(), '.config', 'goose');
+  if (existsSync(userConfig)) {
+    for (const entry of readdirSync(userConfig)) {
+      const source = join(userConfig, entry);
+      const target = join(config, entry);
+      if (entry === 'config.yaml') {
+        if (!existsSync(target) || statSync(source).mtimeMs > statSync(target).mtimeMs) {
+          copyFileSync(source, target);
+        }
+      } else if (!existsSync(target)) {
+        symlinkSync(source, target);
+      }
+    }
+  }
+  const agents = join(homedir(), '.agents');
+  if (existsSync(agents) && !existsSync(join(root, '.agents'))) {
+    symlinkSync(agents, join(root, '.agents'));
+  }
+  // Electron's profile is per launch: the dock, the theme and Local Storage otherwise leak
+  // from one test into the next (a Files tab from the last test in this test's column).
+  return { pathRoot: root, userData: mkdtempSync(join(root, 'userData-')) };
+}
+
 // Start the electron-forge process with Playwright remote debugging enabled, detached so the
 // whole group can be killed together. GOOSE_TEST_DIR opens the window on that directory
 // instead of the user's most recent one (task 58). `start-gui:walk` keeps Vite's dependency
@@ -62,8 +109,9 @@ async function freeDebugPort(port: number): Promise<void> {
 // reloads the renderer 4–5s in (task 139a).
 async function launchApp(
   debugPort: number
-): Promise<{ appProcess: ChildProcess; rendererReady: Promise<void> }> {
+): Promise<{ appProcess: ChildProcess; rendererReady: Promise<void>; userData: string }> {
   const testDir = process.env.GOOSE_TEST_DIR;
+  const profile = prepareWalkProfile();
   const appArgs = ['run', 'start-gui:walk', ...(testDir ? ['--', '--dir', testDir] : [])];
   const appProcess = spawn('pnpm', appArgs, {
     cwd: join(__dirname, '../..'),
@@ -77,6 +125,8 @@ async function launchApp(
       ENABLE_PLAYWRIGHT: 'true',
       PLAYWRIGHT_DEBUG_PORT: debugPort.toString(),
       RUST_LOG: 'info',
+      GOOSE_PATH_ROOT: profile.pathRoot,
+      GOOSE_USER_DATA: profile.userData,
     },
   });
   const rendererReady = new Promise<void>((resolve) => {
@@ -89,7 +139,7 @@ async function launchApp(
     appProcess.stderr?.on('data', (data) => console.log('App stderr:', data.toString()));
   }
   console.log(`Waiting for Electron app to start on port ${debugPort}...`);
-  return { appProcess, rendererReady };
+  return { appProcess, rendererReady, userData: profile.userData };
 }
 
 // The app's first window, loaded and with React mounted.
@@ -194,6 +244,7 @@ export const test = base.extend<GooseTestFixtures>({
       let appProcess: ChildProcess | null = null;
       let browser: Browser | null = null;
       let debugPort = 0;
+      let userData: string | null = null;
 
       try {
         // Assign a unique debug port for this test to enable parallel execution
@@ -213,6 +264,7 @@ export const test = base.extend<GooseTestFixtures>({
           await freeDebugPort(debugPort);
           const started = await launchApp(debugPort);
           appProcess = started.appProcess;
+          userData = started.userData;
           try {
             browser = await connectToApp(debugPort, started.rendererReady);
             page = await readyPage(browser);
@@ -247,6 +299,7 @@ export const test = base.extend<GooseTestFixtures>({
 
         await killApp(appProcess);
         await freeDebugPort(debugPort);
+        if (userData) rmSync(userData, { recursive: true, force: true });
         console.log('Cleaned up app process');
       }
     },

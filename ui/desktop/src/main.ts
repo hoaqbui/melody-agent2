@@ -186,6 +186,13 @@ function translateMenuLabels(items: MenuItem[]): void {
   }
 }
 
+// A walk's app keeps its own Electron profile (task 147): the dev app under test and the
+// user's running app otherwise share Local Storage, the dock and the theme.
+if (process.env.GOOSE_USER_DATA && path.isAbsolute(process.env.GOOSE_USER_DATA)) {
+  app.setPath('userData', process.env.GOOSE_USER_DATA);
+  app.setPath('sessionData', process.env.GOOSE_USER_DATA);
+}
+
 // Settings management
 const SETTINGS_FILE = path.join(app.getPath('userData'), 'settings.json');
 const STARTUP_LOGS_DIR = path.join(app.getPath('userData'), 'logs', 'startup');
