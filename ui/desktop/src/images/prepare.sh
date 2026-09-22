@@ -1,27 +1,49 @@
 #!/usr/bin/env sh
+# Renders every raster from glyph.svg, glyph-update.svg and icon.svg.
+# macOS only: qlmanage rasterises the SVGs (ImageMagick is not assumed), iconutil builds the .icns,
+# and the .ico is packed by the python at the end.
+set -e
+cd "$(dirname "$0")"
 
-# Create template icons for the menu bar
-convert -background none -resize 22x22 glyph.svg iconTemplate.png
-convert -background none -resize 44x44 glyph.svg iconTemplate@2x.png
+render() { # render <svg> <size> <out.png>
+  qlmanage -t -s "$2" -o . "$1" >/dev/null 2>&1
+  mv "$1.png" "$3"
+}
 
-# Create main application icons from icon.svg
-convert -background none -resize 1024x1024 icon.svg icon.png
-convert -background none -resize 2048x2048 icon.svg icon@2x.png
+# Template icons for the menu bar (and the variant with the update dot)
+render glyph.svg 22 iconTemplate.png
+render glyph.svg 44 iconTemplate@2x.png
+render glyph-update.svg 22 iconTemplateUpdate.png
+render glyph-update.svg 44 iconTemplateUpdate@2x.png
 
-# Create Windows icon (ico) with multiple sizes
-convert icon.svg -background none -define icon:auto-resize=256,128,64,48,32,16 icon.ico
+# Main application icons from icon.svg
+render icon.svg 1024 icon.png
+render icon.svg 2048 icon@2x.png
+render icon.svg 512 icon-512.png
 
-# Create macOS icon set (icns)
+# macOS icon set (icns)
 mkdir -p icon.iconset
-convert -background none -resize 16x16 icon.svg icon.iconset/icon_16x16.png
-convert -background none -resize 32x32 icon.svg icon.iconset/icon_16x16@2x.png
-convert -background none -resize 32x32 icon.svg icon.iconset/icon_32x32.png
-convert -background none -resize 64x64 icon.svg icon.iconset/icon_32x32@2x.png
-convert -background none -resize 128x128 icon.svg icon.iconset/icon_128x128.png
-convert -background none -resize 256x256 icon.svg icon.iconset/icon_128x128@2x.png
-convert -background none -resize 256x256 icon.svg icon.iconset/icon_256x256.png
-convert -background none -resize 512x512 icon.svg icon.iconset/icon_256x256@2x.png
-convert -background none -resize 512x512 icon.svg icon.iconset/icon_512x512.png
-convert -background none -resize 1024x1024 icon.svg icon.iconset/icon_512x512@2x.png
+for s in 16 32 128 256 512; do
+  render icon.svg "$s" "icon.iconset/icon_${s}x${s}.png"
+  render icon.svg "$((s * 2))" "icon.iconset/icon_${s}x${s}@2x.png"
+done
 iconutil -c icns icon.iconset
 rm -rf icon.iconset
+
+# Windows icon (ico): PNG-compressed entries, one per size
+mkdir -p ico
+for s in 16 32 48 64 128 256; do render icon.svg "$s" "ico/$s.png"; done
+python3 - <<'PY'
+import struct, pathlib
+sizes = [16, 32, 48, 64, 128, 256]
+pngs = [pathlib.Path(f"ico/{s}.png").read_bytes() for s in sizes]
+header = struct.pack("<HHH", 0, 1, len(sizes))
+offset = 6 + 16 * len(sizes)
+entries, body = b"", b""
+for s, png in zip(sizes, pngs):
+    entries += struct.pack("<BBBBHHII", s % 256, s % 256, 0, 0, 1, 32, len(png), offset)
+    body += png
+    offset += len(png)
+pathlib.Path("icon.ico").write_bytes(header + entries + body)
+PY
+rm -rf ico
