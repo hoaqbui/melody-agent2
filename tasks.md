@@ -222,19 +222,23 @@ One branch, one remote, merged worktrees gone, every open workstream handed to i
 ### docs/2026-09-21-sidebar-tabs-prd-plan-v1.md — sidebar tabs (user: "organize this left side … reduce the amount of needed groups. add search and sorting" → option C → three mockups → "c1", then "wait, c3" 2026-09-22; approved as C3)
 
 - 148. Pure sidebar logic: `src/workspace/sidebar-sessions.ts` — `repositoryOf` (a `.worktrees/<slug>` cwd folds to its repo and names the slug; `$TMPDIR`, `/var/folders`, `/tmp` → `elsewhere`), `repoChips` (All first with the total, one per repo with its count, Elsewhere last), `dayOf` (Today · Yesterday · weekday within the week · date), `groupByDay`, `sortSessions` (recent · name · project), `filterSessions` (`{repo, query}` on title, repo and slug, case-folded) — with `sidebar-sessions.test.ts`.
-  - status: todo · agent: — · worker: medium
+  - status: done · agent: session · worker: medium
+    - 2026-09-22 (session): `sidebar-sessions.ts` + 10 tests (repositoryOf, tempRoots, repoChips with leaf disambiguation, filterSessions, sortSessions, dayOf/groupByDay); `pnpm vitest run src/workspace/sidebar-sessions.test.ts` → 10 passed
   - card: as the user, press one repo and see its chats by day with worktrees folded in, so that the list is about my projects and not my checkouts
   - confirm: `cd ui/desktop && pnpm vitest run src/workspace/sidebar-sessions.test.ts 2>&1 | grep Tests` → `≥ 10 passed` (untouched: no file)
 - 149. The bottom tab bar: `NavigationPanel.tsx` renders **Chats · Library · Automate · Settings** as ARIA tabs at the rail's foot (icon over label, the active one in the accent, roving arrows, the tab remembered in localStorage); `NAV_ITEMS` gains `tab: 'library' | 'automate'`, loses the `home` and `sessions` rows; Library lists Recipes · Skills · Apps (when on) · Extensions, Automate lists Board · Scheduler with the summary card when its data is there.
-  - status: todo · agent: — · worker: medium
+  - status: done · agent: session · worker: medium
+    - 2026-09-22 (session): `NavigationPanel.tsx` renders the four ARIA tabs at the foot (roving arrows, `sidebar-tab` remembered; Settings a route, selected while on it); `NAV_ITEMS` carries `tab`, `home` and `sessions` left the rows (`NEW_CHAT_PATH`, `SESSION_HISTORY_PATH`); the Automate summary card is not built — its data (routines' next run, the board's counts) has no rail-side source yet, left for the sitting. Typecheck 0, eslint 0
   - card: as the user, find the eleven things the rail offered under four words at the bottom, so that the column above is the conversation list and nothing else
   - confirm: `grep -c "sidebar-tab-" ui/desktop/src/components/Layout/NavigationPanel.tsx` → `≥ 4` (untouched: `0`); `cd ui/desktop && pnpm run typecheck`
 - 150. The Chats panel: search first with **New chat** (`+`, ⌘N) beside it (`/` focuses, Esc clears, "No chats match"); the repo chip row (All · repos · Elsewhere with counts, pressed chip remembered, scrolls sideways); the day-grouped flat list (title + time + unread dot, a meta line with the repo and `· wt/<slug>`), the sort control on the first heading (Recent · Name · Project; Name and Project drop the day headings); **Show all** → `/sessions`.
-  - status: todo · agent: — · worker: medium
+  - status: done · agent: session · worker: medium
+    - 2026-09-22 (session): search (`/` focuses, Esc clears, `sidebar-no-match`), `+` New chat and ⌘N, the chip row (All · repos · Elsewhere with counts, hidden when there is only All, pressed chip and sort remembered), day headings with the sort `<select>` on the first, the row's meta line with the repo and `· wt/<slug>`, Show all → `/sessions`. Runs: `just walk "sidebar"` → 1 passed; the screenshot matched mockup C3
   - card: as the user, type three letters or press a repo and see the chat, so that finding yesterday's session is one gesture
   - confirm: `grep -c "sidebar-search\|sidebar-sort\|sidebar-new-chat\|sidebar-chip-all" ui/desktop/src/components/Layout/NavigationPanel.tsx` → `≥ 4` (untouched: `0`)
 - 151. The walk and the board: `tests/e2e/sidebar.spec.ts` (`@smoke`, seat-free — the four tabs and their panels, the search empty state, the All chip, the sort control, ⌘N); `DESIGN.md` §Vocabulary gains **tab bar** (the rail's), **repo chip** and **Elsewhere**; i18n extract + the 15 locales seeded.
-  - status: todo · agent: — · worker: low
+  - status: done · agent: session · worker: low
+    - 2026-09-22 (session): `sidebar.spec.ts` tagged `@smoke` covers both profile states (sessions or none); DESIGN.md §Vocabulary gained the tab bar row; 18 strings extracted and seeded, i18n:check green. Runs: `just smoke` → 10 passed (3.0 min, the sidebar walk in it); `session menu|three columns|studio light` → 3 passed; full desktop unit suite green; eslint 0
   - card: as the next session, know the rail's words and prove them in one launch, so that the rail does not drift back to eleven rows
   - confirm: `just walk "sidebar"` → 1 passed (untouched: no spec); `cd ui/desktop && pnpm run i18n:check` → green
 

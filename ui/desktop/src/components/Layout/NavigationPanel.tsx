@@ -1,15 +1,27 @@
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useLocation } from 'react-router';
-import { AudioLines, ChevronDown, ChevronRight } from 'lucide-react';
+import {
+  AudioLines,
+  Clock,
+  LibraryBig,
+  MessageSquare,
+  Plus,
+  Search,
+  Settings,
+  X,
+} from 'lucide-react';
 import { motion } from 'framer-motion';
 import { useNavigationContext } from './NavigationContext';
 import { useConfig } from '../ConfigContext';
 import { useNavigationSessions } from '../../hooks/useNavigationSessions';
 import {
   NAV_ITEMS,
+  NEW_CHAT_PATH,
+  SESSION_HISTORY_PATH,
   SETTINGS_NAV_ITEM,
   getNavItemLabel,
   type NavItem,
+  type SidebarTab,
 } from '../../hooks/useNavigationItems';
 import { AppEvents } from '../../constants/events';
 import { InlineEditText } from '../common/InlineEditText';
@@ -18,7 +30,17 @@ import { acpRenameSession, type SessionListItem } from '../../acp/sessions';
 import { Tooltip, TooltipContent, TooltipTrigger } from '../ui/Tooltip';
 import { formatMessageTimestamp } from '../../utils/timeUtils';
 import { cn } from '../../utils';
-import type { ProjectGroup } from '../../utils/projectSessions';
+import {
+  ALL,
+  ELSEWHERE,
+  filterSessions,
+  groupByDay,
+  repoChips,
+  repositoryOf,
+  sortSessions,
+  tempRoots,
+  type SortMode,
+} from '../../workspace/sidebar-sessions';
 import { defineMessages, useIntl } from '../../i18n';
 import { markSessionRead, useUnreadSessions } from '../../notifications';
 
@@ -38,6 +60,24 @@ const i18n = defineMessages({
     id: 'navigationPanel.noChats',
     defaultMessage: 'No recent chats',
   },
+  noMatch: { id: 'navigationPanel.noMatch', defaultMessage: 'No chats match' },
+  searchPlaceholder: { id: 'navigationPanel.searchPlaceholder', defaultMessage: 'Search chats' },
+  searchLabel: { id: 'navigationPanel.searchLabel', defaultMessage: 'Search chats (/)' },
+  clearSearch: { id: 'navigationPanel.clearSearch', defaultMessage: 'Clear search' },
+  newChat: { id: 'navigationPanel.newChat', defaultMessage: 'New chat (⌘N)' },
+  showAll: { id: 'navigationPanel.showAll', defaultMessage: 'Show all' },
+  tabChats: { id: 'navigationPanel.tabChats', defaultMessage: 'Chats' },
+  tabLibrary: { id: 'navigationPanel.tabLibrary', defaultMessage: 'Library' },
+  tabAutomate: { id: 'navigationPanel.tabAutomate', defaultMessage: 'Automate' },
+  tabSettings: { id: 'navigationPanel.tabSettings', defaultMessage: 'Settings' },
+  chipAll: { id: 'navigationPanel.chipAll', defaultMessage: 'All' },
+  chipElsewhere: { id: 'navigationPanel.chipElsewhere', defaultMessage: 'Elsewhere' },
+  sortLabel: { id: 'navigationPanel.sortLabel', defaultMessage: 'Sort chats' },
+  sortRecent: { id: 'navigationPanel.sortRecent', defaultMessage: 'Recent' },
+  sortName: { id: 'navigationPanel.sortName', defaultMessage: 'Name' },
+  sortProject: { id: 'navigationPanel.sortProject', defaultMessage: 'Project' },
+  dayToday: { id: 'navigationPanel.dayToday', defaultMessage: 'Today' },
+  dayYesterday: { id: 'navigationPanel.dayYesterday', defaultMessage: 'Yesterday' },
   untitledSession: {
     id: 'navigationPanel.untitledSession',
     defaultMessage: 'Untitled session',
@@ -115,6 +155,9 @@ const NavRow: React.FC<NavRowProps> = ({ item, active, onClick }) => {
 
 interface SessionRowProps {
   session: SessionListItem;
+  // The row's second line (task 150): the repo, and the worktree slug when it has one.
+  repoLabel: string;
+  slug: string | null;
   active: boolean;
   isLiveVoiceActive: boolean;
   status: SessionStatus | undefined;
@@ -122,6 +165,26 @@ interface SessionRowProps {
   finishedUnread: boolean;
   onClick: () => void;
   onRenamed: () => void;
+}
+
+const TAB_KEY = 'sidebar-tab';
+const REPO_KEY = 'sidebar-repo';
+const SORT_KEY = 'sidebar-sort';
+
+function readStored(key: string): string | null {
+  try {
+    return window.localStorage.getItem(key);
+  } catch {
+    return null;
+  }
+}
+
+function writeStored(key: string, value: string): void {
+  try {
+    window.localStorage.setItem(key, value);
+  } catch {
+    // Storage disabled: the choice lives for this window.
+  }
 }
 
 const formatTimestamp = (value?: string): string | null => {
@@ -173,6 +236,8 @@ const SessionTooltipContent: React.FC<SessionTooltipContentProps> = ({ session, 
 
 const SessionRow: React.FC<SessionRowProps> = ({
   session,
+  repoLabel,
+  slug,
   active,
   isLiveVoiceActive,
   status,
@@ -201,38 +266,52 @@ const SessionRow: React.FC<SessionRowProps> = ({
         <div
           onClick={() => !isEditing && onClick()}
           data-active={active}
+          data-testid={`sidebar-session-${session.id}`}
           className={cn(
-            'session-row flex items-center gap-2 px-3 py-1.5 rounded-full cursor-pointer text-sm',
+            'session-row flex flex-col gap-0.5 px-3 py-1.5 rounded-lg cursor-pointer text-sm',
             'hover:bg-background-tertiary/60 transition-colors',
             active && 'bg-background-tertiary'
           )}
         >
-          <InlineEditText
-            value={session.name}
-            onSave={async (newName) => {
-              await acpRenameSession(session.id, newName);
-              window.dispatchEvent(
-                new CustomEvent(AppEvents.SESSION_RENAMED, {
-                  detail: { sessionId: session.id, newName, userInitiated: true },
-                })
-              );
-              onRenamed();
-            }}
-            placeholder={intl.formatMessage(i18n.untitledSession)}
-            disabled={isStreaming}
-            singleClickEdit={false}
-            className="truncate text-text-primary flex-1 !px-0 !py-0 hover:bg-transparent"
-            editClassName="!text-sm"
-            onEditStart={() => setIsEditing(true)}
-            onEditEnd={() => setIsEditing(false)}
-          />
-          {isLiveVoiceActive && (
-            <AudioLines
-              className="w-3.5 h-3.5 flex-shrink-0 text-blue-500"
-              aria-label={intl.formatMessage(i18n.returnToActiveLiveVoice)}
+          <div className="flex items-center gap-2">
+            <InlineEditText
+              value={session.name}
+              onSave={async (newName) => {
+                await acpRenameSession(session.id, newName);
+                window.dispatchEvent(
+                  new CustomEvent(AppEvents.SESSION_RENAMED, {
+                    detail: { sessionId: session.id, newName, userInitiated: true },
+                  })
+                );
+                onRenamed();
+              }}
+              placeholder={intl.formatMessage(i18n.untitledSession)}
+              disabled={isStreaming}
+              singleClickEdit={false}
+              className="truncate text-text-primary flex-1 !px-0 !py-0 hover:bg-transparent"
+              editClassName="!text-sm"
+              onEditStart={() => setIsEditing(true)}
+              onEditEnd={() => setIsEditing(false)}
             />
-          )}
-          <SessionIndicators isStreaming={isStreaming} hasUnread={hasUnread} hasError={hasError} />
+            {isLiveVoiceActive && (
+              <AudioLines
+                className="w-3.5 h-3.5 flex-shrink-0 text-blue-500"
+                aria-label={intl.formatMessage(i18n.returnToActiveLiveVoice)}
+              />
+            )}
+            <SessionIndicators
+              isStreaming={isStreaming}
+              hasUnread={hasUnread}
+              hasError={hasError}
+            />
+            <span className="text-xs text-text-tertiary whitespace-nowrap">
+              {formatTimestamp(session.lastMessageAt ?? session.updatedAt)}
+            </span>
+          </div>
+          <div className="flex items-center gap-1 text-xs text-text-tertiary truncate">
+            <span className="truncate">{repoLabel}</span>
+            {slug && <span className="font-mono">· wt/{slug}</span>}
+          </div>
         </div>
       </TooltipTrigger>
       <TooltipContent side="right" align="start" className="max-w-xs text-left">
@@ -264,14 +343,8 @@ export const Navigation: React.FC<{
 
   const isActive = useCallback((path: string) => location.pathname === path, [location.pathname]);
 
-  const {
-    recentSessions,
-    recentSessionsByProject,
-    activeSessionId,
-    fetchSessions,
-    handleNavClick,
-    handleSessionClick,
-  } = useNavigationSessions();
+  const { recentSessions, activeSessionId, fetchSessions, handleNavClick, handleSessionClick } =
+    useNavigationSessions();
 
   const [sessionStatuses, setSessionStatuses] = useState<Map<string, SessionStatus>>(new Map());
   const unreadSessions = useUnreadSessions();
@@ -317,22 +390,122 @@ export const Navigation: React.FC<{
     }
   }, [isNavExpanded, fetchSessions]);
 
-  const [isChatsExpanded, setIsChatsExpanded] = useState(true);
-  const [collapsedProjects, setCollapsedProjects] = useState<Set<string>>(new Set());
-
-  const toggleProjectCollapsed = useCallback((path: string) => {
-    setCollapsedProjects((prev) => {
-      const next = new Set(prev);
-      if (next.has(path)) {
-        next.delete(path);
-      } else {
-        next.add(path);
+  // The rail's tab (task 149), remembered; Settings is a route and reads active from it.
+  const [tab, setTab] = useState<SidebarTab>(() => {
+    try {
+      const saved = window.localStorage.getItem(TAB_KEY);
+      return saved === 'library' || saved === 'automate' ? saved : 'chats';
+    } catch {
+      return 'chats';
+    }
+  });
+  const pickTab = useCallback(
+    (next: SidebarTab) => {
+      if (next === 'settings') {
+        handleNavClick(SETTINGS_NAV_ITEM.path);
+        return;
       }
-      return next;
-    });
+      setTab(next);
+      try {
+        window.localStorage.setItem(TAB_KEY, next);
+      } catch {
+        // Storage disabled: the tab lives for this window.
+      }
+    },
+    [handleNavClick]
+  );
+  const activeTab: SidebarTab = isActive(SETTINGS_NAV_ITEM.path) ? 'settings' : tab;
+  const tabRefs = useRef<Map<SidebarTab, HTMLButtonElement>>(new Map());
+  const onTabKey = useCallback((event: React.KeyboardEvent, current: SidebarTab) => {
+    const order: SidebarTab[] = ['chats', 'library', 'automate', 'settings'];
+    const step = event.key === 'ArrowRight' ? 1 : event.key === 'ArrowLeft' ? -1 : 0;
+    if (!step) return;
+    event.preventDefault();
+    const next = order[(order.indexOf(current) + step + order.length) % order.length];
+    tabRefs.current.get(next)?.focus();
   }, []);
 
+  // The Chats panel (task 150): search, the pressed repo chip, the sort, all remembered but
+  // the search.
+  const [query, setQuery] = useState('');
+  const [repo, setRepo] = useState<string>(() => readStored(REPO_KEY) ?? ALL);
+  const [sort, setSort] = useState<SortMode>(() => {
+    const saved = readStored(SORT_KEY);
+    return saved === 'name' || saved === 'project' ? saved : 'recent';
+  });
+  const searchRef = useRef<HTMLInputElement>(null);
+  // macOS's $TMPDIR sits under /var/folders, one of the built-in roots.
+  const roots = useMemo(() => tempRoots(), []);
+  const chips = useMemo(() => repoChips(recentSessions, roots), [recentSessions, roots]);
+  const repoKey = chips.some((chip) => chip.key === repo) ? repo : ALL;
+  const listed = useMemo(
+    () =>
+      sortSessions(filterSessions(recentSessions, { repo: repoKey, query }, roots), sort, roots),
+    [recentSessions, repoKey, query, sort, roots]
+  );
+  const days = useMemo(
+    () =>
+      sort === 'recent'
+        ? groupByDay(listed, Date.now(), intl.locale)
+        : [{ label: '', sessions: listed }],
+    [listed, sort, intl.locale]
+  );
+
+  // `/` focuses the search from anywhere in the rail's window, ⌘N starts a chat.
+  useEffect(() => {
+    const onKey = (event: KeyboardEvent) => {
+      const target = event.target as HTMLElement | null;
+      const typing =
+        target instanceof HTMLInputElement ||
+        target instanceof HTMLTextAreaElement ||
+        target?.isContentEditable;
+      if ((event.metaKey || event.ctrlKey) && !event.shiftKey && event.key.toLowerCase() === 'n') {
+        event.preventDefault();
+        handleNavClick(NEW_CHAT_PATH);
+        return;
+      }
+      if (event.key === '/' && !typing && !event.metaKey && !event.ctrlKey && !event.altKey) {
+        event.preventDefault();
+        pickTab('chats');
+        requestAnimationFrame(() => searchRef.current?.focus());
+      }
+    };
+    window.addEventListener('keydown', onKey);
+    return () => window.removeEventListener('keydown', onKey);
+  }, [handleNavClick, pickTab]);
+
   if (!isNavExpanded) return null;
+
+  const dayLabel = (label: string) =>
+    label === 'Today'
+      ? intl.formatMessage(i18n.dayToday)
+      : label === 'Yesterday'
+        ? intl.formatMessage(i18n.dayYesterday)
+        : label;
+  const chipLabel = (chip: { key: string; label: string }) =>
+    chip.key === ALL
+      ? intl.formatMessage(i18n.chipAll)
+      : chip.key === ELSEWHERE
+        ? intl.formatMessage(i18n.chipElsewhere)
+        : chip.label;
+  const rows = (items: NavItem[]) => (
+    <div className="px-2 flex flex-col gap-0.5">
+      {items.map((item) => (
+        <NavRow
+          key={item.id}
+          item={item}
+          active={isActive(item.path)}
+          onClick={() => handleNavClick(item.path)}
+        />
+      ))}
+    </div>
+  );
+  const tabs: { id: SidebarTab; label: string; Icon: typeof MessageSquare }[] = [
+    { id: 'chats', label: intl.formatMessage(i18n.tabChats), Icon: MessageSquare },
+    { id: 'library', label: intl.formatMessage(i18n.tabLibrary), Icon: LibraryBig },
+    { id: 'automate', label: intl.formatMessage(i18n.tabAutomate), Icon: Clock },
+    { id: 'settings', label: intl.formatMessage(i18n.tabSettings), Icon: Settings },
+  ];
 
   return (
     <motion.div
@@ -343,102 +516,210 @@ export const Navigation: React.FC<{
       exit={{ opacity: 0 }}
       transition={{ duration: 0.15 }}
       className={cn('bg-background-primary outline-none flex flex-col h-full', className)}
+      data-testid="sidebar"
+      data-tab={activeTab}
     >
       <div className="h-[48px] no-drag" />
 
-      <div className="px-2 flex flex-col gap-0.5">
-        {visibleItems.map((item) => (
-          <NavRow
-            key={item.id}
-            item={item}
-            active={isActive(item.path)}
-            onClick={() => handleNavClick(item.path)}
-          />
-        ))}
-      </div>
+      {activeTab === 'chats' || activeTab === 'settings' ? (
+        <div role="tabpanel" id="sidebar-panel-chats" className="flex-1 min-h-0 flex flex-col">
+          <div className="flex items-center gap-1.5 px-3 pb-2">
+            <label className="flex items-center gap-2 flex-1 min-w-0 h-8 px-2.5 rounded-lg border border-border-secondary bg-background-primary text-text-tertiary focus-within:border-border-primary">
+              <Search className="w-3.5 h-3.5 flex-shrink-0" />
+              <input
+                ref={searchRef}
+                type="search"
+                value={query}
+                onChange={(event) => setQuery(event.target.value)}
+                onKeyDown={(event) => {
+                  if (event.key === 'Escape') {
+                    setQuery('');
+                    event.currentTarget.blur();
+                  }
+                }}
+                placeholder={intl.formatMessage(i18n.searchPlaceholder)}
+                aria-label={intl.formatMessage(i18n.searchLabel)}
+                data-testid="sidebar-search"
+                className="w-full min-w-0 bg-transparent text-sm text-text-primary outline-none placeholder:text-text-tertiary"
+              />
+              {query && (
+                <button
+                  type="button"
+                  onClick={() => setQuery('')}
+                  aria-label={intl.formatMessage(i18n.clearSearch)}
+                  className="text-text-tertiary hover:text-text-primary"
+                >
+                  <X className="w-3.5 h-3.5" />
+                </button>
+              )}
+            </label>
+            <button
+              type="button"
+              onClick={() => handleNavClick(NEW_CHAT_PATH)}
+              aria-label={intl.formatMessage(i18n.newChat)}
+              title={intl.formatMessage(i18n.newChat)}
+              data-testid="sidebar-new-chat"
+              className="w-8 h-8 flex-shrink-0 flex items-center justify-center rounded-lg border border-border-secondary text-text-primary hover:bg-background-tertiary/60"
+            >
+              <Plus className="w-4 h-4" />
+            </button>
+          </div>
 
-      <div className="flex-1 min-h-0 flex flex-col mt-3">
-        <button
-          onClick={() => setIsChatsExpanded((v) => !v)}
-          className="flex items-center gap-1 px-4 py-1 text-xs font-semibold uppercase tracking-wider text-text-secondary hover:text-text-primary transition-colors self-start"
-        >
-          {isChatsExpanded ? (
-            <ChevronDown className="w-3 h-3" />
-          ) : (
-            <ChevronRight className="w-3 h-3" />
+          {chips.length > 2 && (
+            <div
+              className="flex gap-1.5 px-3 pb-2 overflow-x-auto [scrollbar-width:none]"
+              role="group"
+            >
+              {chips.map((chip) => {
+                const pressed = chip.key === repoKey;
+                const testKey = chip.key === ALL || chip.key === ELSEWHERE ? chip.key : chip.label;
+                return (
+                  <button
+                    key={chip.key}
+                    type="button"
+                    aria-pressed={pressed}
+                    onClick={() => {
+                      setRepo(chip.key);
+                      writeStored(REPO_KEY, chip.key);
+                    }}
+                    data-testid={`sidebar-chip-${testKey}`}
+                    className={cn(
+                      'h-6 px-2.5 rounded-full border text-xs font-medium whitespace-nowrap transition-colors',
+                      pressed
+                        ? 'border-background-inverse bg-background-inverse text-text-inverse'
+                        : 'border-border-secondary text-text-secondary hover:text-text-primary'
+                    )}
+                  >
+                    {chipLabel(chip)}
+                    <span className={cn('ml-1', pressed ? 'opacity-80' : 'text-text-tertiary')}>
+                      {chip.count}
+                    </span>
+                  </button>
+                );
+              })}
+            </div>
           )}
-          <span>{intl.formatMessage(i18n.chats)}</span>
-        </button>
-        {isChatsExpanded && (
-          <div className="flex-1 min-h-0 overflow-y-auto px-2 pb-2 mt-1">
+
+          <div className="flex-1 min-h-0 overflow-y-auto px-2 pb-2">
             {recentSessions.length === 0 ? (
               <div className="px-3 py-2 text-xs text-text-secondary">
                 {intl.formatMessage(i18n.noChats)}
               </div>
-            ) : recentSessionsByProject.length > 1 ? (
-              recentSessionsByProject.map((group: ProjectGroup) => {
-                const isCollapsed = collapsedProjects.has(group.path);
-                return (
-                  <React.Fragment key={group.path}>
-                    <button
-                      onClick={() => toggleProjectCollapsed(group.path)}
-                      aria-expanded={!isCollapsed}
-                      className="flex items-center gap-1 w-full px-3 pt-2 pb-0.5 text-[10px] uppercase tracking-wider text-text-tertiary hover:text-text-secondary transition-colors"
-                      title={group.path}
-                    >
-                      {isCollapsed ? (
-                        <ChevronRight className="w-3 h-3 flex-shrink-0" />
-                      ) : (
-                        <ChevronDown className="w-3 h-3 flex-shrink-0" />
-                      )}
-                      <span className="truncate">{group.label}</span>
-                    </button>
-                    {!isCollapsed &&
-                      group.sessions.map((session) => (
-                        <SessionRow
-                          key={session.id}
-                          session={session}
-                          active={session.id === activeSessionId}
-                          isLiveVoiceActive={session.id === activeLiveVoiceSessionId}
-                          status={sessionStatuses.get(session.id)}
-                          finishedUnread={unreadSessions.has(session.id)}
-                          onClick={() => {
-                            clearUnread(session.id);
-                            handleSessionClick(session.id);
-                          }}
-                          onRenamed={fetchSessions}
-                        />
-                      ))}
-                  </React.Fragment>
-                );
-              })
+            ) : listed.length === 0 ? (
+              <div className="px-3 py-2 text-xs text-text-secondary" data-testid="sidebar-no-match">
+                {intl.formatMessage(i18n.noMatch)}
+              </div>
             ) : (
-              recentSessions.map((session) => (
-                <SessionRow
-                  key={session.id}
-                  session={session}
-                  active={session.id === activeSessionId}
-                  isLiveVoiceActive={session.id === activeLiveVoiceSessionId}
-                  status={sessionStatuses.get(session.id)}
-                  finishedUnread={unreadSessions.has(session.id)}
-                  onClick={() => {
-                    clearUnread(session.id);
-                    handleSessionClick(session.id);
-                  }}
-                  onRenamed={fetchSessions}
-                />
+              days.map((day, index) => (
+                <React.Fragment key={day.label || 'flat'}>
+                  <div
+                    className="flex items-center justify-between px-3 pt-2 pb-0.5"
+                    data-testid={day.label ? `sidebar-day-${day.label}` : undefined}
+                  >
+                    <span className="text-[10px] font-semibold uppercase tracking-wider text-text-tertiary">
+                      {dayLabel(day.label)}
+                    </span>
+                    {index === 0 && (
+                      <select
+                        value={sort}
+                        onChange={(event) => {
+                          const next = event.target.value as SortMode;
+                          setSort(next);
+                          writeStored(SORT_KEY, next);
+                        }}
+                        aria-label={intl.formatMessage(i18n.sortLabel)}
+                        data-testid="sidebar-sort"
+                        className="bg-transparent text-[11px] text-text-secondary outline-none cursor-pointer"
+                      >
+                        <option value="recent">{intl.formatMessage(i18n.sortRecent)}</option>
+                        <option value="name">{intl.formatMessage(i18n.sortName)}</option>
+                        <option value="project">{intl.formatMessage(i18n.sortProject)}</option>
+                      </select>
+                    )}
+                  </div>
+                  {day.sessions.map((session) => {
+                    const where = repositoryOf(session.workingDir, roots);
+                    return (
+                      <SessionRow
+                        key={session.id}
+                        session={session}
+                        repoLabel={
+                          where.key === ELSEWHERE
+                            ? intl.formatMessage(i18n.chipElsewhere)
+                            : where.label
+                        }
+                        slug={where.slug}
+                        active={session.id === activeSessionId}
+                        isLiveVoiceActive={session.id === activeLiveVoiceSessionId}
+                        status={sessionStatuses.get(session.id)}
+                        finishedUnread={unreadSessions.has(session.id)}
+                        onClick={() => {
+                          clearUnread(session.id);
+                          handleSessionClick(session.id);
+                        }}
+                        onRenamed={fetchSessions}
+                      />
+                    );
+                  })}
+                </React.Fragment>
               ))
             )}
+            {recentSessions.length > 0 && (
+              <button
+                type="button"
+                onClick={() => handleNavClick(SESSION_HISTORY_PATH)}
+                data-testid="sidebar-show-all"
+                className="w-full text-left px-3 py-2 text-xs text-text-secondary hover:text-text-primary"
+              >
+                {intl.formatMessage(i18n.showAll)}
+              </button>
+            )}
           </div>
-        )}
-      </div>
+        </div>
+      ) : (
+        <div
+          role="tabpanel"
+          id={`sidebar-panel-${activeTab}`}
+          className="flex-1 min-h-0 overflow-y-auto"
+        >
+          {rows(visibleItems.filter((item) => item.tab === activeTab))}
+        </div>
+      )}
 
-      <div className="px-2 pt-2 pb-2 border-t border-border-secondary">
-        <NavRow
-          item={SETTINGS_NAV_ITEM}
-          active={isActive(SETTINGS_NAV_ITEM.path)}
-          onClick={() => handleNavClick(SETTINGS_NAV_ITEM.path)}
-        />
+      <div
+        role="tablist"
+        aria-label={intl.formatMessage(i18n.chats)}
+        className="flex border-t border-border-secondary px-1.5 py-0.5"
+        data-testid="sidebar-tabs"
+      >
+        {tabs.map(({ id, label, Icon }) => {
+          const selected = activeTab === id;
+          return (
+            <button
+              key={id}
+              ref={(el) => {
+                if (el) tabRefs.current.set(id, el);
+              }}
+              type="button"
+              role="tab"
+              aria-selected={selected}
+              aria-controls={id === 'settings' ? undefined : `sidebar-panel-${id}`}
+              tabIndex={selected ? 0 : -1}
+              onClick={() => pickTab(id)}
+              onKeyDown={(event) => onTabKey(event, id)}
+              data-testid={`sidebar-tab-${id}`}
+              className={cn(
+                'flex-1 flex flex-col items-center gap-0.5 py-2 rounded-lg text-[10px] font-semibold transition-colors no-drag',
+                selected
+                  ? 'text-text-primary bg-background-tertiary'
+                  : 'text-text-secondary hover:text-text-primary'
+              )}
+            >
+              <Icon className="w-[18px] h-[18px]" />
+              {label}
+            </button>
+          );
+        })}
       </div>
     </motion.div>
   );

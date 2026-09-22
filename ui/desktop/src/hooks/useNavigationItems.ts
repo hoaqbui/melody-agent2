@@ -12,29 +12,50 @@ import {
 import type { LucideIcon } from 'lucide-react';
 import { defineMessages, type IntlShape, type MessageDescriptor } from 'react-intl';
 
+// The rail's tab a row lives under (task 149): Chats holds the list, Settings is a route.
+export type SidebarTab = 'chats' | 'library' | 'automate' | 'settings';
+
 export interface NavItem {
   id: string;
   path: string;
   label: string;
   icon: LucideIcon;
+  tab: 'library' | 'automate';
   getTag?: () => string;
   tagAlign?: 'left' | 'right';
 }
 
-/** Top-level nav items (excluding Settings which is pinned to the bottom). */
+export const NEW_CHAT_PATH = '/';
+export const SESSION_HISTORY_PATH = '/sessions';
+
+/** The rows under the Library and Automate tabs; New chat and Session History are the
+ *  Chats tab's own controls, Settings the fourth tab. */
 export const NAV_ITEMS: NavItem[] = [
-  { id: 'home', path: '/', label: 'New Chat', icon: MessageSquarePlus },
-  { id: 'recipes', path: '/recipes', label: 'Recipes', icon: FileText },
-  { id: 'skills', path: '/skills', label: 'Skills', icon: Zap },
-  { id: 'apps', path: '/apps', label: 'Apps', icon: AppWindow },
-  { id: 'scheduler', path: '/schedules', label: 'Scheduler', icon: Clock },
-  { id: 'extensions', path: '/extensions', label: 'Extensions', icon: Puzzle },
-  { id: 'board', path: '/board', label: 'Board', icon: Kanban },
-  { id: 'sessions', path: '/sessions', label: 'Session History', icon: History },
+  { id: 'recipes', path: '/recipes', label: 'Recipes', icon: FileText, tab: 'library' },
+  { id: 'skills', path: '/skills', label: 'Skills', icon: Zap, tab: 'library' },
+  { id: 'apps', path: '/apps', label: 'Apps', icon: AppWindow, tab: 'library' },
+  { id: 'extensions', path: '/extensions', label: 'Extensions', icon: Puzzle, tab: 'library' },
+  { id: 'board', path: '/board', label: 'Board', icon: Kanban, tab: 'automate' },
+  { id: 'scheduler', path: '/schedules', label: 'Scheduler', icon: Clock, tab: 'automate' },
 ];
 
+export const HOME_NAV_ITEM: NavItem = {
+  id: 'home',
+  path: NEW_CHAT_PATH,
+  label: 'New Chat',
+  icon: MessageSquarePlus,
+  tab: 'library',
+};
+export const SESSIONS_NAV_ITEM: NavItem = {
+  id: 'sessions',
+  path: SESSION_HISTORY_PATH,
+  label: 'Session History',
+  icon: History,
+  tab: 'library',
+};
+
 /** Settings is rendered separately, pinned to the bottom of the sidebar. */
-export const SETTINGS_NAV_ITEM: NavItem = {
+export const SETTINGS_NAV_ITEM: Omit<NavItem, 'tab'> = {
   id: 'settings',
   path: '/settings',
   label: 'Settings',

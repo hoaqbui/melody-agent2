@@ -3050,6 +3050,21 @@
   "navigationPanel.chats": {
     "defaultMessage": "चैट"
   },
+  "navigationPanel.chipAll": {
+    "defaultMessage": "All"
+  },
+  "navigationPanel.chipElsewhere": {
+    "defaultMessage": "Elsewhere"
+  },
+  "navigationPanel.clearSearch": {
+    "defaultMessage": "Clear search"
+  },
+  "navigationPanel.dayToday": {
+    "defaultMessage": "Today"
+  },
+  "navigationPanel.dayYesterday": {
+    "defaultMessage": "Yesterday"
+  },
   "navigationPanel.metaCreated": {
     "defaultMessage": "बनाया गया"
   },
@@ -3065,8 +3080,35 @@
   "navigationPanel.metaUpdated": {
     "defaultMessage": "अपडेट किया गया"
   },
+  "navigationPanel.newChat": {
+    "defaultMessage": "New chat (⌘N)"
+  },
   "navigationPanel.noChats": {
     "defaultMessage": "कोई हालिया चैट नहीं"
+  },
+  "navigationPanel.noMatch": {
+    "defaultMessage": "No chats match"
+  },
+  "navigationPanel.searchLabel": {
+    "defaultMessage": "Search chats (/)"
+  },
+  "navigationPanel.searchPlaceholder": {
+    "defaultMessage": "Search chats"
+  },
+  "navigationPanel.showAll": {
+    "defaultMessage": "Show all"
+  },
+  "navigationPanel.sortLabel": {
+    "defaultMessage": "Sort chats"
+  },
+  "navigationPanel.sortName": {
+    "defaultMessage": "Name"
+  },
+  "navigationPanel.sortProject": {
+    "defaultMessage": "Project"
+  },
+  "navigationPanel.sortRecent": {
+    "defaultMessage": "Recent"
   },
   "navigationPanel.statusError": {
     "defaultMessage": "त्रुटि"
@@ -3079,6 +3121,18 @@
   },
   "navigationPanel.statusUnread": {
     "defaultMessage": "अपठित गतिविधि"
+  },
+  "navigationPanel.tabAutomate": {
+    "defaultMessage": "Automate"
+  },
+  "navigationPanel.tabChats": {
+    "defaultMessage": "Chats"
+  },
+  "navigationPanel.tabLibrary": {
+    "defaultMessage": "Library"
+  },
+  "navigationPanel.tabSettings": {
+    "defaultMessage": "Settings"
   },
   "navigationPanel.untitledSession": {
     "defaultMessage": "शीर्षकहीन सत्र"
