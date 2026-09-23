@@ -308,7 +308,7 @@ Order: 198 → 200 (199 runs beside M1b); 197 done 2026-09-23 (one server-owned 
 
 
 - 198. The server owns each run; a load re-attaches to it without gaps (181, step 2)
-  - status: todo · agent: — · worker: high
+  - status: doing · agent: claude-session-2026-09-23 · worker: high
   - card: as the user, I want a long reply to keep coming after my laptop sleeps or the Wi-Fi drops, so that Melody's long turns are never lost (FURPS R · MoSCoW Must)
   - context: plan §The change, bullets 2–5; `acp/server.rs:2409`, `:2251`, `:266`, `:2373`; `load_session.rs:392-467`; tests on the duplex harness `tests/acp_fixtures/mod.rs:332`, `acp_fixtures/server.rs:236`
   - confirm: `cargo test -p goose --test acp_server_test task181_reconnect` → 2 passed, one per agent loop (connection A drops after BEFORE; B loads and gets the prefix once, then AFTER and the end; one turn persisted; `Arc::ptr_eq` on the agent) — today the run is cancelled
