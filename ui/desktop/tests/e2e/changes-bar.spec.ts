@@ -66,6 +66,10 @@ test.describe('changes bar', { tag: '@smoke' }, () => {
     const notesRow = goosePage.locator('[data-testid="diff-file"][data-path="notes.md"]');
     await expect(notesRow).toBeVisible();
 
+    await expect(notesRow).toHaveAttribute('aria-pressed', 'true');
+    const diffView = goosePage.locator('[data-testid="diff-view"]');
+    await expect(diffView).toBeVisible();
+
     // Step 4: Click Accept all → Git pane opens, files staged, commit box focused
     const acceptAllButton = goosePage.locator('[data-testid="changes-bar-accept"]');
     await acceptAllButton.click();

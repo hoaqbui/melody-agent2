@@ -79,8 +79,18 @@ export function presetDiffBase(base: DiffBase): void {
   liveStores.forEach((store) => store.setBase(base));
 }
 
+// Review opens Changes and names the file in one click, so a path preset before the pane
+// mounts waits for the store the pane creates.
+let pendingPath: string | null = null;
+
+export function presetDiffPath(path: string): void {
+  if (liveStores.size === 0) pendingPath = path;
+  liveStores.forEach((store) => store.select(path));
+}
+
 export function createDiffStore(initial: DiffSelection = INITIAL_SELECTION): DiffStore {
-  let state = initial;
+  let state = pendingPath ? { ...initial, path: pendingPath } : initial;
+  pendingPath = null;
   const listeners = new Set<() => void>();
   const apply = (next: Partial<DiffSelection>) => {
     const merged = { ...state, ...next };

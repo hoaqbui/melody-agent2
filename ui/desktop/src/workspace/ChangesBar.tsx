@@ -3,6 +3,7 @@ import { useContext } from 'react';
 import { ChangesBarTarget, type ChangesBarTargetValue } from './changes-bar-slot';
 import { parseNumstat, aggregateStats, type ChangesBarContext } from './changes-bar';
 import { sidecarFetch } from '../native/sidecar';
+import { presetDiffPath } from './panes/diff/diff-store';
 import { Button } from '../components/ui/button';
 import { defineMessages, useIntl } from '../i18n';
 
@@ -86,6 +87,9 @@ export function ChangesBar({ paneContext }: { paneContext: ChangesBarTargetValue
   }, [paneContext.gitStatus, paneContext.cwd]);
 
   const handleReview = () => {
+    if (context.stats && context.stats.entries.length > 0) {
+      presetDiffPath(context.stats.entries[0].path);
+    }
     paneContext.openPane('diff');
   };
 
