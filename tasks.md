@@ -300,6 +300,17 @@ Order: 184 (migration) → 183 (identity); 185 ∥ 186 ∥ 187 ∥ 189 ∥ 190 �
     - ARCHITECTURE.md §Modules › components (amended 2026-09-22): the UI is Melody's own, upstream UI is not tracked
   - confirm: `cd ui/desktop && find src tests -iname "*goose*" | grep -viE "gooseServe|gooseAcpClient|gooseSessionNotifications|Goosehints|src/bin/goose" | wc -l && pnpm run typecheck && pnpm run lint:check && pnpm exec vitest run` → 0 (6 today), typecheck 0, lint and i18n green, unit tests pass
 
+- 195. Publish Melody builds as GitHub releases on `hoaqbui/melody-agent2` and point the updater at them: `ui/desktop/src/utils/autoUpdater.ts`, `ui/desktop/src/utils/githubUpdater.ts`, `ui/desktop/src/updates.ts`, `Justfile`.
+  - status: todo · agent: — · worker: medium
+  - card: as the user, I want an installed Melody to pull down my own builds so that a new build reaches the app without a manual copy (user, 2026-09-22: "is there a way where I can run a build, and it pulls down releases?" → option A → "let's add A to tasks for now")
+  - context:
+    - the updater's two paths: electron-updater first (`autoUpdater.ts:343-351`, feed `aaif-goose/goose`), which needs an Apple-signed app and fails on ad-hoc builds; then the GitHub fallback (`autoUpdater.ts:123-195`, `githubUpdater.ts:458-460`, `:556-584`) that downloads `<bundleName>.zip` and swaps the running `.app` (`:229-240`) — the fallback is the path an unsigned fork uses
+    - point both at `hoaqbui/melody-agent2`; `bundleName` already defaults to Melody (task 183); `UPDATES_ENABLED` back to true (task 185 turned it off)
+    - a release needs a version above the installed one — the app carries upstream's 1.52.0 (`ui/desktop/package.json`); a Melody version scheme is part of this task
+    - a `just release-melody` recipe: bump the version, `just make-ui`, `gh release create v<version> ui/desktop/out/Melody-darwin-arm64/Melody.zip`; publishing is outward-facing, so each release runs on the user's word
+    - the fork has no releases today (`gh release list --repo hoaqbui/melody-agent2` → empty, 2026-09-22)
+  - confirm: `cd ui/desktop && grep -c "hoaqbui" src/utils/autoUpdater.ts src/utils/githubUpdater.ts && grep -c "UPDATES_ENABLED = true" src/updates.ts && grep -c "^release-melody" ../../Justfile && pnpm run typecheck` → each ≥ 1 (0 today), typecheck 0; then one published release that an older installed Melody offers and installs (the user's hand check)
+
 ## Waiting on the user
 
 - 192 — after Melody.app launches: your theme, layout and workspace are kept; the app menu shows Settings…; the microphone prompt names Melody; Browser pane logins survived or not; `goose://` links open Melody (move or delete `ui/desktop/out/Goose-darwin-arm64/Goose.app` if they open Goose); then say whether `~/Library/Application Support/Goose` can go.
