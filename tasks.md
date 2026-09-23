@@ -271,7 +271,7 @@ Order: 154 (above) ∥ 155–157 (mockups, session) ∥ wave 1 (158 · 160 · 16
 Order: 184 (migration) → 183 (identity); 185 ∥ 186 ∥ 187 ∥ 189 ∥ 190 ∥ 191 on disjoint files; 188 after 187; 192 last; 193 waits on the user's pick. Commits stage only the task's paths (`Lever.tsx` is the user's, uncommitted).
 
 - 192. Build and launch `Melody.app` with `just make-ui`, and run the smoke walks.
-  - status: todo · agent: — · worker: medium
+  - status: doing · agent: session · worker: medium
   - blocked-by: 183–191
   - card: as the user, I want the packaged app rebuilt and proven so that the rename is real, not
     a diff
