@@ -3,6 +3,7 @@
 // that matches no stop parks the knob on a fourth, read-only label, Custom.
 
 import type { KeyboardEvent, MouseEvent } from 'react';
+import { useState } from 'react';
 import { defineMessages, useIntl } from '../i18n';
 import { cn } from '../utils';
 import type { ProviderDetails } from '../types/providers';
@@ -21,6 +22,21 @@ const i18n = defineMessages({
   medium: { id: 'workspaceShell.stopMedium', defaultMessage: 'Medium' },
   hard: { id: 'workspaceShell.stopHard', defaultMessage: 'Hard' },
   custom: { id: 'workspaceShell.stopCustom', defaultMessage: 'Custom' },
+  easyDescription: {
+    id: 'workspaceShell.stopEasyDescription',
+    defaultMessage: 'Easy — Sonnet, direct',
+  },
+  mediumDescription: {
+    id: 'workspaceShell.stopMediumDescription',
+    defaultMessage: 'Medium — Opus, direct',
+  },
+  hardTitle: { id: 'workspaceShell.stopHardTitle', defaultMessage: 'Hard — Claude leads a team' },
+  hardDescription: {
+    id: 'workspaceShell.stopHardDescription',
+    defaultMessage:
+      'Claude Opus orchestrates; agy researches, Codex plans and reviews, Sonnet implements. You see each worker in Agents.',
+  },
+  hardTeam: { id: 'workspaceShell.stopHardTeam', defaultMessage: 'team' },
 });
 
 export const STOP_MESSAGES = { easy: i18n.easy, medium: i18n.medium, hard: i18n.hard } as const;
@@ -42,6 +58,9 @@ const STOP_WIDTH_PX = 36;
 
 export function Lever({ stop, providers, canOrchestrate, busy, model, onPick, seats }: LeverProps) {
   const intl = useIntl();
+  const [showCard, setShowCard] = useState(false);
+  const [touchTimer, setTouchTimer] = useState<ReturnType<typeof setTimeout> | null>(null);
+
   const index = stop === 'custom' ? STOPS.length : STOPS.indexOf(stop);
   const install = (candidate: Stop) => needsInstall(LEVER[candidate].provider, providers);
   const seatSuffix = (candidate: Stop): string => {
@@ -86,6 +105,31 @@ export function Lever({ stop, providers, canOrchestrate, busy, model, onPick, se
         ? intl.formatMessage(NO_ORCHESTRATOR_MESSAGE)
         : summaryOf(candidate);
 
+  const stopDescription = (candidate: Stop): string => {
+    switch (candidate) {
+      case 'easy':
+        return intl.formatMessage(i18n.easyDescription);
+      case 'medium':
+        return intl.formatMessage(i18n.mediumDescription);
+      case 'hard':
+        return intl.formatMessage(i18n.hardTitle);
+    }
+  };
+
+  const stopCardDescription = (candidate: Stop): string => {
+    switch (candidate) {
+      case 'hard':
+        return intl.formatMessage(i18n.hardDescription);
+      default:
+        return '';
+    }
+  };
+
+  const cardOtherStops = (candidate: Stop): string =>
+    STOPS.filter((other) => other !== candidate)
+      .map(stopDescription)
+      .join(' · ');
+
   const pick = (candidate: Stop) => {
     if (busy || candidate === stop || blocked(candidate)) return;
     onPick(candidate);
@@ -115,9 +159,36 @@ export function Lever({ stop, providers, canOrchestrate, busy, model, onPick, se
     pick(STOPS[target]);
   };
 
+  const handleMouseEnter = () => setShowCard(true);
+  const handleMouseLeave = () => {
+    setShowCard(false);
+    if (touchTimer) {
+      clearTimeout(touchTimer);
+      setTouchTimer(null);
+    }
+  };
+  const handleFocus = () => setShowCard(true);
+  const handleBlur = () => {
+    setShowCard(false);
+    if (touchTimer) {
+      clearTimeout(touchTimer);
+      setTouchTimer(null);
+    }
+  };
+  const handleTouchStart = () => {
+    const timer = setTimeout(() => setShowCard(true), 500);
+    setTouchTimer(timer);
+  };
+  const handleTouchEnd = () => {
+    if (touchTimer) {
+      clearTimeout(touchTimer);
+      setTouchTimer(null);
+    }
+  };
+
   return (
     <div
-      className="relative shrink-0 pb-3 group-data-[narrow]:pb-0"
+      className="relative shrink-0 pb-3 group-data-[narrow]:pb-0 flex items-center gap-2"
       data-testid="workspace-lever"
       data-stop={stop}
     >
@@ -137,7 +208,25 @@ export function Lever({ stop, providers, canOrchestrate, busy, model, onPick, se
         )}
         onClick={click}
         onKeyDown={key}
+        onMouseEnter={handleMouseEnter}
+        onMouseLeave={handleMouseLeave}
+        onFocus={handleFocus}
+        onBlur={handleBlur}
+        onTouchStart={handleTouchStart}
+        onTouchEnd={handleTouchEnd}
       >
+        {showCard && stop !== 'custom' && (
+          <div
+            className="absolute bottom-full left-0 mb-2.5 w-72 rounded-lg bg-text-primary text-background-primary shadow-lg z-10 p-3"
+            data-testid="workspace-lever-card"
+          >
+            <div className="font-semibold text-sm mb-1">{stopDescription(stop)}</div>
+            {stopCardDescription(stop) && (
+              <div className="text-sm mb-1">{stopCardDescription(stop)}</div>
+            )}
+            <div className="text-xs text-background-secondary/80">{cardOtherStops(stop)}</div>
+          </div>
+        )}
         {STOPS.map((candidate) => (
           <span
             key={candidate}
@@ -177,10 +266,22 @@ export function Lever({ stop, providers, canOrchestrate, busy, model, onPick, se
           <span aria-hidden className="size-1.5 rounded-chip bg-text-inverse/90" />
         </span>
       </div>
-      {/* The stop's word is the tooltip's and the slider's aria-valuetext (task 123): the row
-          under the composer stays quiet; screen readers still hear it here. */}
-      <span className="sr-only" data-testid="workspace-lever-label">
-        {label}
+      <span
+        className="text-sm font-semibold text-text-primary whitespace-nowrap"
+        data-testid="workspace-lever-label"
+      >
+        {stop === 'hard' ? (
+          <>
+            {intl.formatMessage(STOP_MESSAGES.hard)}{' '}
+            <span className="font-normal text-text-secondary">
+              · {intl.formatMessage(i18n.hardTeam)}
+            </span>
+          </>
+        ) : stop === 'custom' ? (
+          intl.formatMessage(i18n.custom)
+        ) : (
+          intl.formatMessage(STOP_MESSAGES[stop])
+        )}
       </span>
     </div>
   );

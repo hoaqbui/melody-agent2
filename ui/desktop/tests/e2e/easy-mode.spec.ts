@@ -25,9 +25,9 @@ test.describe('easy mode', { tag: '@seat' }, () => {
     await expect(lever).toHaveAttribute('data-stop', 'easy');
     await expect(slider).toHaveAttribute('aria-valuenow', '0');
     await expect(slider).toHaveAttribute('aria-valuetext', 'Easy');
-    // The stop's word is screen-reader-only (task 123): the row stays quiet.
+    // The stop's word is visible beside the lever (task 164, option B).
     await expect(lever.locator('[data-testid="workspace-lever-label"]')).toHaveText('Easy');
-    await expect(lever.locator('[data-testid="workspace-lever-label"]')).toHaveClass(/sr-only/);
+    await expect(lever.locator('[data-testid="workspace-lever-label"]')).toBeVisible();
     // The tooltip names the triple in one line.
     await expect(slider).toHaveAttribute('title', /^Claude · .+ · Direct$/);
     // Easy's row (task 123): lever, folder, attach, the send disc in its usage ring — and no
