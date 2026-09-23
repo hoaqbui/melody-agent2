@@ -270,46 +270,13 @@ Order: 152 → 139 b/c → 145 → 153 (needs the merged tree; a spine patch). 1
 
 ### docs/2026-09-22-ux-must-should-plan-v1.md — UX Must + Should (approved 2026-09-22, user: "queue those all up in a plan with tasks, and orchestrate" → "focus on must and shoulds")
 
-Order: 154 (above) ∥ 155–157 (mockups, session) ∥ wave 1 (158 · 160 · 161 · 162 · 163 · 170 · 173 · 174 · 175 · 179, disjoint files; 180 session) → 159 · 169 · 172 → 93 (above, after 158) → user picks → 164–168 · 171 → 176 last. Two calls made under "orchestrate" that were the user's: 179 resolves the sidebar spec-vs-rule as the spec, 174 picks "Describe a task…". Workers per AGENTS.md chain; the session reruns every confirm. Evidence: `docs/2026-09-22-ux-pass-research-v1.md`, screenshots in `docs/2026-09-22-ux-pass/`.
+Order: 154 (above) ∥ 155–157 (mockups, session) ∥ wave 1 (158 · 160 · 161 · 162 · 163 · 170 · 173 · 174 · 175 · 179, disjoint files; 180 session) → 159 · 169 · 172 → 93 (above, after 158) → user picks → 164–168 · 171 → 176 last. Mockups for the pick: `docs/mockups/2026-09-22-lever-words.html` (164), `-turn-failure.html` (165), `-states-sheet.html` (166–168, 171). Two calls made under "orchestrate" that were the user's: 179 resolves the sidebar spec-vs-rule as the spec, 174 picks "Describe a task…". Workers per AGENTS.md chain; the session reruns every confirm. Evidence: `docs/2026-09-22-ux-pass-research-v1.md`, screenshots in `docs/2026-09-22-ux-pass/`.
 
-- 155. Mockup sheet `docs/mockups/2026-09-22-lever-words.html`: the Easy composer row at 1440 and 390 wide, three options for showing the lever's stop words (A words under the three stops · B the current stop's word beside the knob · C words until the first sent turn, then quiet), each naming what Hard does ("Claude orchestrates Codex, agy, Grok").
-  - status: doing · agent: session · worker: — (session; design)
-  - card: as a first-run user, know what the three dots do and that Hard means a team, so that I can choose orchestration at all (research Must 7; `01-first-paint.png`)
-  - context: reverses task 123's sr-only word (`Lever.tsx:182`) — the point of the sheet; Studio light tokens from `theme-tokens.ts` `lightColorTokens`; pattern `docs/mockups/2026-09-20-telemetry-pane.html`
-  - confirm: `grep -c 'data-option=' docs/mockups/2026-09-22-lever-words.html` → `3` (untouched: no file)
-- 156. Mockup sheet `docs/mockups/2026-09-22-turn-failure.html`: a failed turn in the transcript (today a toast "Couldn't send message", `useChatSession.ts:102`) as an inline card with Retry, and the quota states — seat quota closed with fail-over ("Codex quota closed → Grok from here", building on the runtime divider at `WorkspaceShell.tsx:838`) and without (a reset time, Switch runtime); two options each.
-  - status: doing · agent: session · worker: — (session; design)
-  - card: as the user, see why a turn stopped and have the next step one click away, so that a failure is not a dead end (research Must 5; `PRODUCT.md` §13 fail-over)
-  - confirm: `grep -c 'data-option=' docs/mockups/2026-09-22-turn-failure.html` → `≥ 4` (untouched: no file)
-- 157. States sheet `docs/mockups/2026-09-22-states-sheet.html`: the Changes bar in dirty · staged · committed · discarded (and Accept's two readings: "Stage all" vs a one-step "Commit" with the drafted message inline); a sidebar row "needs you" beside streaming · unread · error, with the notification's words; a sidebar search result matched in the transcript, with its snippet.
-  - status: doing · agent: session · worker: — (session; design)
-  - card: as the user, read the tree's state and which session waits on me at a glance, so that nothing stalls silently (research Must 3, 4; Should search)
-  - context: the `warning` "waiting" dot already exists for Agents rows (`DESIGN.md` §Typography, task 28) — reuse, don't invent
-  - confirm: `grep -c 'data-state=' docs/mockups/2026-09-22-states-sheet.html` → `≥ 8` (untouched: no file)
-- 158. Keep the adapter's later title and input on a tool row: in `ui/desktop/src/acp/adapter/tools.ts` `applyToolCallUpdate`, when a `tool_call_update` carries `title` or `rawInput` and the toolRequest exists, update its `toolCall.value.name` / `arguments` (today only `applyToolCall` sets them, from the first, pre-input notification); one test in `acp/__tests__/sessionNotificationAdapter.test.ts`.
-  - status: doing · agent: session → haiku worker · worker: medium
-  - card: as the user, read which file an Edit touched and which command ran on the row itself, so that I can tell what the agent did without opening it (research Must 2; `09-turn-done.png` rows read "Edit", "Terminal")
-  - context: first find the layer that drops the later title: record the ACP notifications the desktop receives during one Edit (`sessionNotificationAdapter.ts:73`). If no later `tool_call_update` with a title arrives, the fix is in `crates/goose/src/acp/` (a spine patch: `worker: high`, one Rust test instead of the vitest). "Read file" is neither a string the npx copy of claude-agent-acp builds nor one in `crates/goose/src`, so the spawned adapter version is unconfirmed
-    - claude-agent-acp titles `Edit ${displayPath}` / the command once input streams (`tools.js`, `title: displayPath ? \`Edit ${displayPath}\` : "Edit"`); the row's label is `getToolLabelContent` (`ToolCallWithResponse.tsx:764`) over `toolCall.name`; do not reorder or duplicate rows
-  - confirm: `cd ui/desktop && pnpm vitest run src/acp/__tests__/sessionNotificationAdapter.test.ts -t "later title"` → `1 passed` (untouched: no test matches)
 - 159. Review opens Changes on the first changed file: `ChangesBar.tsx` `handleReview` presets the first entry's path (`diff-store.ts`, task 93 adds `presetDiffPath` — land a minimal one here if 93 has not) so `DiffPane` shows its diff, not "Select a file to see its changes".
   - status: todo · agent: — · worker: medium
   - card: as the user, see the diff one click after the turn, so that reviewing is not a hunt (research Must 3; `11-review-diff.png`)
   - context: add one assertion to `tests/e2e/changes-bar.spec.ts` after the Review click: the notes.md row is selected and the diff body is visible
   - confirm: `just walk "changes bar"` → `1 passed` (untouched: fails on the new assertion)
-- 160. The Runs inbox's Accept includes new files: `components/schedule/runs/runs-state.ts` `acceptPaths` takes untracked paths from `/git/status` as well as `/git/diff`, and `RunsInbox.tsx:181` passes both; one test in `runs-state.test.ts`.
-  - status: doing · agent: session → haiku worker · worker: low
-  - card: as the user, accept a run that only created files, so that new files are not a dead end (`tasks.md` §Notes "Accept commits tracked changes only"; research Must 3)
-  - confirm: `cd ui/desktop && pnpm vitest run src/components/schedule/runs/runs-state.test.ts -t "untracked"` → `1 passed` (untouched: no test matches)
-- 161. Esc mid-tool-call no longer disables Commit: `GitPane.tsx:271` reads `running` as the chat streaming and `hasToolCallInProgress(messages)` (`git-state.ts:37`), so an orphaned request from a stopped turn no longer counts once the chat is idle; the predicate moves into `git-state.ts` with one test (an unanswered request, chat idle → not running).
-  - status: doing · agent: session → haiku worker · worker: low
-  - card: as the user, commit after I stopped a turn, so that stopping work does not lock the loop (`tasks.md` §Notes "Esc mid-tool-call leaves Git's Commit disabled"; research Must 3)
-  - confirm: `cd ui/desktop && pnpm vitest run src/workspace/panes/git/git-state.test.ts -t "chat idle"` → `1 passed` (untouched: no test matches)
-- 162. The `/` and `@` popover is never clipped: `components/MentionPopover.tsx:612` renders through `createPortal(…, document.body)` — its `fixed` box is contained today by the composer card's `backdrop-filter` (`main.css` glass on `.chat-input-card`); one test that the popover's parent is `document.body`.
-  - status: doing · agent: session → haiku worker · worker: medium
-  - card: as a first-run user, see the whole command and file list when I type `/` or `@` on the Hub, so that the first thing I try works (research Must 6; `05-at-mention.png`)
-  - context: the session screenshots the Hub with `@` after the confirm, as the before/after pair
-  - confirm: `cd ui/desktop && pnpm vitest run src/components -t "popover portal"` → `1 passed` (untouched: no test matches)
 - 163. The Runtimes gate tells the truth: in `workspace/onboarding/RuntimesGate.tsx:40-46,124-132`, agy's `signInCmd` becomes the command `agy --help` names for signing in (read it, never guessed; if agy has none, the row shows the sentence as text and the button is hidden), and each Install opens the vendor's own page — Codex's `codex.withexo.com` goes.
   - status: doing · agent: session → haiku worker · worker: low
   - card: as a new user, have Install and Sign in do what they say, so that setting up a seat does not type prose into my shell (research Must 8)
@@ -339,10 +306,6 @@ Order: 154 (above) ∥ 155–157 (mockups, session) ∥ wave 1 (158 · 160 · 16
   - status: todo · agent: — · worker: medium
   - card: as the user, get another answer without retyping, so that a weak reply is one click from a better one (Should; parity)
   - confirm: `cd ui/desktop && pnpm vitest run src/components -t "regenerate"` → `1 passed` (untouched: no test matches)
-- 170. Copy a reply that has tool calls: `components/GooseMessage.tsx:135` shows the copy link when the reply has any text part, copying the text parts only; one test.
-  - status: doing · agent: session → haiku worker · worker: low
-  - card: as the user, copy what the agent said even when it also ran tools, so that the answer is not stuck on screen (Should)
-  - confirm: `cd ui/desktop && pnpm vitest run src/components -t "copy with tool calls"` → `1 passed` (untouched: no test matches)
 - 171. One search over titles and transcripts per 157's pick: the sidebar search (`workspace/sidebar-sessions.ts:131`) also asks `acpListSessions(…, { keyword })` (`SessionListView.tsx:407`, transcript match in `session_manager.rs:364`) and merges, deduped by id, with the snippet the sheet picks.
   - status: blocked — waits on the user's pick from 157 · agent: — · worker: medium
   - card: as the user, find a session by something said in it, so that I do not need to remember its title (Should)
@@ -352,11 +315,6 @@ Order: 154 (above) ∥ 155–157 (mockups, session) ∥ wave 1 (158 · 160 · 16
   - card: as the user, push without opening a PR, so that sharing a branch is one click (Should)
   - context: extend `tests/e2e/git-pane.spec.ts` with a local bare remote (`git init --bare`) as `origin`; the walk pushes and reads the remote's ref
   - confirm: `just walk "git pane"` → `1 passed` with the push step (untouched: fails on it)
-- 173. Revise… focuses the composer: `workspace/rpi-strip/RpiStrip.tsx:106` and `workspace/panes/artifact/ArtifactPane.tsx:146` query `[data-testid="chat-input"]` (the textarea's id, `ChatInput.tsx:1677`).
-  - status: doing · agent: session → haiku worker · worker: low
-  - card: as the user revising a plan, type straight away, so that Revise… means revise (Should)
-  - context: from: `'[data-testid="chat-input-field"]'` / to: `'[data-testid="chat-input"]'` (both files)
-  - confirm: `grep -rc 'chat-input-field' ui/desktop/src | grep -v ':0$' | wc -l` → `0` (untouched: `2`)
 - 174. The Hub invites a task: when the chat has no messages, the composer placeholder reads "Describe a task…"; with history it keeps `keyboardShortcuts.ts:18`'s "⌘↑/⌘↓ to navigate messages"; i18n extracted.
   - status: doing · agent: session → haiku worker · worker: low
   - card: as a first-run user, be told what to type, so that the Hub's one input says what it is for (Should; `01-first-paint.png`)

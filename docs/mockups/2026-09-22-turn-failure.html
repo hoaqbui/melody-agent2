@@ -1,0 +1,125 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>Turn failure — mockup</title>
+<style>
+  /* Studio light (theme-tokens.ts lightColorTokens). Task 156 — research Must 5.
+     Today: a toast "Couldn't send message" (useChatSession.ts:102), no Retry; no quota UI. */
+  :root {
+    --page:#fff; --insp:#f8f7f3; --side:#f1efe9; --t1:#1e1d1a; --t2:#5a5851; --t3:#6f6c64;
+    --hair:#e3dfd6; --teal:#0b7a72; --info:#2277cc; --tint:#f3f8fd; --danger:#c23b3b; --warn:#fbbf24; --warnt:#d9a012; --ok:#2f8f5b;
+    --shadow-sm:0 1px 2px rgba(30,29,26,.08),0 1px 1px rgba(30,29,26,.04);
+    --shadow-md:0 6px 20px rgba(30,29,26,.10),0 2px 6px rgba(30,29,26,.06);
+  }
+  * { box-sizing:border-box; }
+  body { margin:0; background:var(--side); color:var(--t1); font:13px/1.5 -apple-system,"Inter",system-ui,sans-serif; padding:28px 16px 48px; }
+  main { max-width:1180px; margin:0 auto; }
+  h1 { font-size:18px; margin:0 0 4px; }
+  h2 { font-size:14px; margin:26px 0 10px; }
+  .lede { color:var(--t2); margin:0 0 18px; max-width:780px; }
+  .pair { display:grid; grid-template-columns:1fr 1fr; gap:18px; }
+  @media (max-width:900px){ .pair{ grid-template-columns:1fr; } }
+  .option { background:var(--page); border-radius:18px; box-shadow:var(--shadow-md); padding:18px 20px 20px; }
+  .option.rec { outline:2px solid var(--teal); }
+  .tag { font-size:11px; font-weight:600; letter-spacing:.06em; color:var(--teal); text-transform:uppercase; }
+  .rec .tag:after { content:" · recommended"; }
+  .option > b { display:block; font-size:14.5px; margin:2px 0 4px; }
+  .why { color:var(--t2); margin:0 0 14px; font-size:12.5px; }
+  .chat { background:var(--page); border:1px solid var(--hair); border-radius:14px; padding:16px 16px 12px; display:grid; gap:10px; }
+  .you { justify-self:end; background:var(--tint); border-radius:14px; padding:8px 12px; max-width:80%; box-shadow:var(--shadow-sm); }
+  .tool { background:var(--tint); border-radius:10px; padding:7px 10px; display:flex; align-items:center; gap:8px; box-shadow:var(--shadow-sm); font-size:12.5px; }
+  .tool .ok { width:7px; height:7px; border-radius:50%; background:var(--ok); }
+  .reply { color:var(--t1); }
+  .card { border-radius:12px; padding:11px 12px; display:grid; gap:6px; border:1px solid var(--hair); background:var(--page); box-shadow:var(--shadow-sm); }
+  .card .head { display:flex; align-items:center; gap:8px; font-weight:600; }
+  .card .head i { width:8px; height:8px; border-radius:50%; flex:none; }
+  .card.err .head i { background:var(--danger); }
+  .card.quota .head i { background:var(--warn); }
+  .card .body { color:var(--t2); font-size:12.5px; }
+  .card .detail { font-family:ui-monospace,"SF Mono",Menlo,monospace; font-size:11.5px; color:var(--t3); background:var(--insp); border-radius:8px; padding:6px 8px; }
+  .acts { display:flex; gap:8px; flex-wrap:wrap; }
+  .btn { display:inline-flex; align-items:center; gap:6px; height:28px; padding:0 12px; border-radius:999px; font-size:12.5px; font-weight:500; box-shadow:var(--shadow-sm); background:var(--page); border:1px solid var(--hair); color:var(--t1); }
+  .btn.primary { background:var(--teal); color:#fff; border-color:var(--teal); }
+  .btn.ghost { box-shadow:none; border-color:transparent; color:var(--t2); }
+  .inline { display:flex; align-items:center; gap:8px; color:var(--danger); font-size:12.5px; }
+  .inline a { color:var(--info); text-decoration:none; font-weight:500; }
+  .divider { display:flex; align-items:center; gap:10px; color:var(--t3); font-size:11.5px; }
+  .divider:before, .divider:after { content:""; flex:1; height:1px; background:var(--hair); }
+  .divider b { color:var(--t1); font-weight:600; }
+  .composer { border-radius:14px; box-shadow:var(--shadow-md); padding:10px 12px; color:var(--t3); display:flex; align-items:center; gap:8px; }
+  .composer .ring { margin-left:auto; width:28px; height:28px; border-radius:50%; border:3px solid #fde7a8; border-top-color:var(--warn); }
+  .strip { display:flex; align-items:center; gap:8px; background:#fff8e1; border-radius:10px; padding:7px 10px; font-size:12px; color:var(--t2); }
+  .strip i { width:7px; height:7px; border-radius:50%; background:var(--warn); }
+  .strip b { color:var(--t1); }
+  .strip .btn { height:24px; margin-left:auto; }
+  footer { color:var(--t3); font-size:12px; margin-top:20px; max-width:860px; }
+</style>
+</head>
+<body>
+<main>
+  <h1>When a turn fails</h1>
+  <p class="lede">Today a failed turn is a toast that disappears ("Couldn't send message"). There's no Retry, and nothing shows a rate limit or a closed quota window, although <code>PRODUCT.md</code> §13 promises fail-over. Two states, two options each.</p>
+
+  <h2>1 · The turn failed (network, adapter crash, auth expired)</h2>
+  <div class="pair">
+    <section class="option rec" data-option="1A">
+      <span class="tag">Option 1A</span><b>A card in the transcript, where the reply would have been</b>
+      <p class="why">It stays until you act, it says what failed and what to do, and Retry re-sends the same prompt. When the cause is auth, the first button is "Sign in" instead.</p>
+      <div class="chat">
+        <div class="you">Add sorting to the media browser</div>
+        <div class="tool"><span class="ok"></span>Read src/media/Browser.tsx</div>
+        <div class="card err" data-state="turn-failed">
+          <div class="head"><i></i>The turn stopped: Claude didn't answer</div>
+          <div class="body">The connection to claude-agent-acp closed after 41 s. Nothing was changed after the last step above.</div>
+          <div class="detail">ECONNRESET · claude-code · claude-sonnet-5 · 4:44 PM</div>
+          <div class="acts"><span class="btn primary">Retry</span><span class="btn">Switch runtime…</span><span class="btn ghost">Copy details</span></div>
+        </div>
+        <div class="composer">Describe a task…</div>
+      </div>
+    </section>
+    <section class="option" data-option="1B">
+      <span class="tag">Option 1B</span><b>One line under the last message</b>
+      <p class="why">Quieter: a single red line with a Retry link, and details on hover. It takes less space but is easy to miss when you come back to a long transcript.</p>
+      <div class="chat">
+        <div class="you">Add sorting to the media browser</div>
+        <div class="tool"><span class="ok"></span>Read src/media/Browser.tsx</div>
+        <div class="inline" data-state="turn-failed-inline">● The turn stopped: connection closed · <a>Retry</a> · <a>Details</a></div>
+        <div class="composer">Describe a task…</div>
+      </div>
+    </section>
+  </div>
+
+  <h2>2 · A seat's quota window closed</h2>
+  <div class="pair">
+    <section class="option rec" data-option="2A">
+      <span class="tag">Option 2A</span><b>Fail-over shown as a divider; no fail-over shown as a card</b>
+      <p class="why">If the role file has a backup, the work moves on and the transcript records it with the runtime divider that already exists for a manual switch (<code>WorkspaceShell.tsx:838</code>). If there's no backup, you get a card with the reset time and a choice.</p>
+      <div class="chat">
+        <div class="you">Review the plan</div>
+        <div class="divider" data-state="quota-failover"><span>Codex quota closed until 6:10 PM</span><b>→ Grok from here</b></div>
+        <div class="reply">Reviewing the plan against the brief… </div>
+        <div class="card quota" data-state="quota-stopped">
+          <div class="head"><i></i>Claude's 5-hour window is used up</div>
+          <div class="body">It resets at 9:40 PM. This is a Direct session, so no backup seat takes over on its own.</div>
+          <div class="acts"><span class="btn primary">Continue on Grok</span><span class="btn">Retry at 9:40 PM</span><span class="btn ghost">Details</span></div>
+        </div>
+      </div>
+    </section>
+    <section class="option" data-option="2B">
+      <span class="tag">Option 2B</span><b>A strip above the composer, plus the usage ring turning amber</b>
+      <p class="why">Quota is about the session, not one message, so it lives on the composer until the window reopens. The ring on the send button turns amber near the limit. It doesn't say which turn failed over.</p>
+      <div class="chat">
+        <div class="you">Review the plan</div>
+        <div class="reply">Reviewing the plan against the brief… </div>
+        <div class="strip" data-state="quota-strip"><i></i><b>Codex</b> quota closed until 6:10 PM — review is running on Grok<span class="btn">Details</span></div>
+        <div class="composer">Describe a task… <span class="ring" title="94% of the 5-hour window"></span></div>
+      </div>
+    </section>
+  </div>
+
+  <footer>Recommendation: 1A + 2A. A failure belongs at the point in the transcript where it happened, and a fail-over should be recorded the way a manual switch already is, so the Agents view and the transcript agree on who did each step. Build note (task 165): read first which error each adapter actually sends on a closed window. The quota half ships only for seats that report one; the others get 1A's generic card.</footer>
+</main>
+</body>
+</html>

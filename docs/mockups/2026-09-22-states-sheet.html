@@ -1,0 +1,174 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>States sheet — mockup</title>
+<style>
+  /* Studio light (theme-tokens.ts lightColorTokens). Task 157 — research Must 3, Must 4, Should (search).
+     Dots per DESIGN.md: info = running, success = done, danger = failed, warning = waiting; a dot is never alone. */
+  :root {
+    --page:#fff; --insp:#f8f7f3; --side:#f1efe9; --t1:#1e1d1a; --t2:#5a5851; --t3:#6f6c64;
+    --hair:#e3dfd6; --teal:#0b7a72; --info:#2277cc; --tint:#f3f8fd; --danger:#c23b3b; --warn:#fbbf24; --warnt:#b7860b; --ok:#2f8f5b;
+    --shadow-sm:0 1px 2px rgba(30,29,26,.08),0 1px 1px rgba(30,29,26,.04);
+    --shadow-md:0 6px 20px rgba(30,29,26,.10),0 2px 6px rgba(30,29,26,.06);
+    --mono:ui-monospace,"SF Mono",Menlo,monospace;
+  }
+  * { box-sizing:border-box; }
+  body { margin:0; background:var(--side); color:var(--t1); font:13px/1.5 -apple-system,"Inter",system-ui,sans-serif; padding:28px 16px 48px; }
+  main { max-width:1180px; margin:0 auto; }
+  h1 { font-size:18px; margin:0 0 4px; }
+  h2 { font-size:15px; margin:28px 0 4px; }
+  .lede, .why { color:var(--t2); max-width:820px; }
+  .lede { margin:0 0 10px; }
+  .why { margin:0 0 12px; font-size:12.5px; }
+  .grid { display:grid; grid-template-columns:repeat(2,1fr); gap:14px; }
+  @media (max-width:900px){ .grid{ grid-template-columns:1fr; } }
+  .cell { background:var(--page); border-radius:16px; box-shadow:var(--shadow-md); padding:14px 16px 16px; }
+  .cell h3 { margin:0 0 2px; font-size:12px; letter-spacing:.05em; text-transform:uppercase; color:var(--teal); }
+  .cell p { margin:0 0 10px; color:var(--t2); font-size:12.5px; }
+  .composer { border-radius:14px; box-shadow:var(--shadow-md); background:var(--page); overflow:hidden; }
+  .bar { display:flex; align-items:center; gap:8px; padding:9px 12px; border-bottom:1px solid var(--hair); flex-wrap:wrap; }
+  .bar .stat { font-size:12.5px; color:var(--t1); }
+  .bar .stat .add { color:var(--ok); font-family:var(--mono); font-size:12px; }
+  .bar .stat .del { color:var(--danger); font-family:var(--mono); font-size:12px; }
+  .bar .state { display:inline-flex; align-items:center; gap:6px; font-size:12.5px; }
+  .bar .state i { width:7px; height:7px; border-radius:50%; }
+  .btn { display:inline-flex; align-items:center; height:26px; padding:0 11px; border-radius:999px; font-size:12px; font-weight:500; box-shadow:var(--shadow-sm); background:var(--page); border:1px solid var(--hair); color:var(--t1); white-space:nowrap; }
+  .btn.primary { background:var(--teal); color:#fff; border-color:var(--teal); }
+  .btn.ghost { box-shadow:none; border-color:transparent; color:var(--t2); }
+  .msg { flex:1 1 220px; min-width:180px; height:26px; border:1px solid var(--hair); border-radius:8px; padding:3px 8px; font-size:12px; color:var(--t1); background:var(--insp); }
+  .input { padding:12px 14px; color:var(--t3); font-size:12.5px; }
+  .gone { padding:10px 12px; color:var(--t3); font-size:12px; border:1px dashed var(--hair); border-radius:10px; }
+  .variant { display:grid; grid-template-columns:1fr 1fr; gap:14px; }
+  @media (max-width:900px){ .variant{ grid-template-columns:1fr; } }
+  .rec { outline:2px solid var(--teal); }
+  .rec h3:after { content:" · recommended"; }
+  /* sidebar */
+  .side { background:var(--side); border-radius:14px; padding:10px; width:100%; max-width:300px; }
+  .day { font-size:10.5px; letter-spacing:.06em; color:var(--t3); text-transform:uppercase; margin:4px 8px 6px; }
+  .row { display:grid; grid-template-columns:1fr auto; gap:0 8px; padding:7px 9px; border-radius:10px; }
+  .row.cur { background:var(--page); box-shadow:var(--shadow-sm); }
+  .row .t { font-size:12.5px; font-weight:500; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
+  .row .r { display:flex; align-items:center; gap:6px; font-size:11px; color:var(--t3); }
+  .row .sub { font-size:11px; color:var(--t3); }
+  .row .r i { width:7px; height:7px; border-radius:50%; }
+  .row .word { font-size:11px; font-weight:600; }
+  .row.wait { background:#fffaeb; box-shadow:inset 0 0 0 1px #f6e2a6; }
+  .row.wait .word { color:var(--warnt); }
+  .notif { width:100%; max-width:340px; background:rgba(246,246,246,.96); border-radius:14px; box-shadow:var(--shadow-md); padding:10px 12px; display:grid; grid-template-columns:28px 1fr; gap:4px 10px; font-size:12px; }
+  .notif .ic { width:28px; height:28px; border-radius:7px; background:#fff; display:grid; place-items:center; box-shadow:var(--shadow-sm); }
+  .notif .ic svg { width:16px; height:16px; }
+  .notif b { font-size:12.5px; }
+  .notif .who { color:var(--t3); font-size:11px; }
+  /* search */
+  .search { display:flex; align-items:center; gap:6px; background:var(--page); border-radius:10px; padding:6px 10px; border:1px solid var(--hair); margin-bottom:8px; font-size:12.5px; }
+  .search svg { width:14px; height:14px; fill:var(--t3); }
+  .snip { grid-column:1 / -1; font-size:11.5px; color:var(--t2); margin-top:3px; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
+  .snip mark { background:#fde9a8; color:var(--t1); border-radius:3px; padding:0 1px; }
+  .snip .who { color:var(--t3); }
+  .src { font-size:10px; color:var(--t3); border:1px solid var(--hair); border-radius:999px; padding:0 6px; }
+  footer { color:var(--t3); font-size:12px; margin-top:22px; max-width:880px; }
+</style>
+</head>
+<body>
+<main>
+  <h1>States sheet</h1>
+  <p class="lede">Three places where the screen should say what state things are in and doesn't today: the Changes bar after Accept and after a commit, which session is waiting on you, and search that finds what was said in a session.</p>
+
+  <!-- 1. Changes bar -->
+  <h2>1 · The Changes bar</h2>
+  <p class="why">Today: after "Accept all" (which only stages) and after the commit, the bar reads "0 files · +0 −0" with Review, Accept all and Discard still live (<code>14-after-commit.png</code>). It hides only when the 30 s status poll comes back clean.</p>
+  <div class="grid">
+    <div class="cell" data-state="bar-dirty">
+      <h3>Dirty · after a turn</h3>
+      <p>Unchanged from today, except that Accept names what it does.</p>
+      <div class="composer"><div class="bar"><span class="stat">2 files · <span class="add">+14</span> <span class="del">−3</span></span><span class="btn">Review</span><span class="btn primary">Commit…</span><span class="btn ghost">Discard</span></div><div class="input">⌘↑/⌘↓ to navigate messages</div></div>
+    </div>
+    <div class="cell" data-state="bar-staged">
+      <h3>Staged, not committed</h3>
+      <p>Replaces "0 files · +0 −0". Staged work is still uncommitted, so the bar stays and says so.</p>
+      <div class="composer"><div class="bar"><span class="state"><i style="background:var(--warn)"></i>2 files staged · not committed</span><span class="btn primary">Commit…</span><span class="btn ghost">Unstage</span></div><div class="input">⌘↑/⌘↓ to navigate messages</div></div>
+    </div>
+    <div class="cell" data-state="bar-committed">
+      <h3>Committed</h3>
+      <p>Shows for 6 s after the commit, then the bar goes. It never waits for the poll.</p>
+      <div class="composer"><div class="bar"><span class="state"><i style="background:var(--ok)"></i>Committed <span style="font-family:var(--mono);font-size:12px;color:var(--t2)">ac7e317</span> · greet: template literal, default name</span><span class="btn ghost">Undo</span><span class="btn">Push</span></div><div class="input">⌘↑/⌘↓ to navigate messages</div></div>
+    </div>
+    <div class="cell" data-state="bar-discarded">
+      <h3>Discarded</h3>
+      <p>Today's "Discarded · Undo", unchanged.</p>
+      <div class="composer"><div class="bar"><span class="state"><i style="background:var(--t3)"></i>Discarded 2 files</span><span class="btn">Undo</span></div><div class="input">⌘↑/⌘↓ to navigate messages</div></div>
+    </div>
+  </div>
+
+  <h2 style="font-size:14px">What "Commit…" does: two readings</h2>
+  <div class="variant">
+    <div class="cell rec" data-state="accept-inline" data-option="1A">
+      <h3>1A · Commit inline on the bar</h3>
+      <p>Commit… opens the message on the bar, pre-filled from the turn's reply (task 168); Enter stages everything shown and commits. The Git pane is for partial staging.</p>
+      <div class="composer"><div class="bar"><span class="stat">2 files · <span class="add">+14</span> <span class="del">−3</span></span><input class="msg" value="greet: template literal, default name to 'world'" /><span class="btn primary">Commit</span><span class="btn ghost">Cancel</span></div><div class="input">⌘↑/⌘↓ to navigate messages</div></div>
+    </div>
+    <div class="cell" data-state="accept-stage" data-option="1B">
+      <h3>1B · "Stage all", then the Git pane</h3>
+      <p>Today's behaviour, named honestly: the button says Stage all, opens Git with the drafted message focused, and the bar moves to "staged · not committed".</p>
+      <div class="composer"><div class="bar"><span class="stat">2 files · <span class="add">+14</span> <span class="del">−3</span></span><span class="btn">Review</span><span class="btn primary">Stage all</span><span class="btn ghost">Discard</span></div><div class="input">⌘↑/⌘↓ to navigate messages</div></div>
+    </div>
+  </div>
+
+  <!-- 2. Needs you -->
+  <h2>2 · A session that needs you</h2>
+  <p class="why">Today a row is streaming, unread, error or idle (<code>NavigationPanel.tsx:248</code>). A tool approval in a background session has no state and no notification, so the session sits there.</p>
+  <div class="grid">
+    <div class="cell" data-state="row-needs-you">
+      <h3>The row</h3>
+      <p>Warning dot plus the word "Needs you", on an amber tint so it stands out among streaming rows. It sorts to the top of Today until answered.</p>
+      <div class="side">
+        <div class="day">Today</div>
+        <div class="row wait"><span class="t">Add sorting to the media browser</span><span class="r"><i style="background:var(--warn)"></i><span class="word">Needs you</span></span><span class="sub">melody-agent2 · wt/sort</span></div>
+        <div class="row cur"><span class="t">In greet.js, make greet()…</span><span class="r"><i style="background:var(--info)"></i>Working</span><span class="sub">melody-agent2</span></div>
+        <div class="row"><span class="t">Review the plan</span><span class="r"><i style="background:var(--ok)"></i>4:12 PM</span><span class="sub">compo</span></div>
+        <div class="row"><span class="t">Fix the flaky walk</span><span class="r"><i style="background:var(--danger)"></i>Failed</span><span class="sub">melody-agent2</span></div>
+      </div>
+    </div>
+    <div class="cell" data-state="notif-needs-you">
+      <h3>The notification</h3>
+      <p>Sent only when no Goose window has focus, like today's turn-finished one. Clicking it opens the session at the approval card.</p>
+      <div class="notif">
+        <span class="ic"><svg viewBox="0 0 24 24"><rect x="3" y="4" width="4" height="16" rx="2" transform="rotate(45 5 12)" fill="#1e1d1a"/><rect x="10" y="4" width="4" height="16" rx="2" transform="rotate(45 12 12)" fill="#1e1d1a"/><rect x="17" y="4" width="4" height="16" rx="2" transform="rotate(45 19 12)" fill="#1e1d1a"/></svg></span>
+        <div><b>Needs your approval</b><div>Codex wants to run <span style="font-family:var(--mono)">pnpm install</span></div><div class="who">Add sorting to the media browser · melody-agent2</div></div>
+      </div>
+      <p style="margin-top:12px">Several at once collapse into one: "3 sessions need you".</p>
+    </div>
+  </div>
+
+  <!-- 3. Search -->
+  <h2>3 · Search that finds what was said</h2>
+  <p class="why">Today the sidebar matches titles and repos only (<code>sidebar-sessions.ts:131</code>), and Show all matches transcripts only. One box does both: title matches first, then transcript matches with the line that matched.</p>
+  <div class="grid">
+    <div class="cell" data-state="search-results">
+      <h3>Results for "debounce"</h3>
+      <p>A transcript match shows its snippet and who said it. Title matches carry no snippet.</p>
+      <div class="side">
+        <div class="search"><svg viewBox="0 0 16 16"><path d="M7 2a5 5 0 1 0 3 9l3 3 1-1-3-3a5 5 0 0 0-4-8Zm0 1.5a3.5 3.5 0 1 1 0 7 3.5 3.5 0 0 1 0-7Z"/></svg>debounce</div>
+        <div class="day">Titles</div>
+        <div class="row"><span class="t">Debounce the search box</span><span class="r">Sep 19</span><span class="sub">melody-agent2</span></div>
+        <div class="day">In the conversation</div>
+        <div class="row"><span class="t">Sidebar tabs C3</span><span class="r"><span class="src">transcript</span></span><span class="snip"><span class="who">Claude:</span> …the filter re-runs on every key, so <mark>debounce</mark> it at 150 ms before…</span></div>
+        <div class="row"><span class="t">Files pane filter</span><span class="r"><span class="src">transcript</span></span><span class="snip"><span class="who">You:</span> can we <mark>debounce</mark> the tree filter?</span></div>
+      </div>
+    </div>
+    <div class="cell" data-state="search-empty">
+      <h3>Nothing found</h3>
+      <p>Says where it looked.</p>
+      <div class="side">
+        <div class="search"><svg viewBox="0 0 16 16"><path d="M7 2a5 5 0 1 0 3 9l3 3 1-1-3-3a5 5 0 0 0-4-8Zm0 1.5a3.5 3.5 0 1 1 0 7 3.5 3.5 0 0 1 0-7Z"/></svg>zzz-nothing</div>
+        <div class="gone">No chats match "zzz-nothing" in titles or conversations.</div>
+      </div>
+    </div>
+  </div>
+
+  <footer>Recommendations: the four bar states as drawn; Commit inline (1A), because it's the one-action wrap-up and the Git pane stays the place for partial staging; the "Needs you" row and notification as drawn, reusing Agents' warning dot; search with both groups. Pick 1A or 1B, and flag any state that reads wrong.</footer>
+</main>
+</body>
+</html>

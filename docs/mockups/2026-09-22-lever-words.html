@@ -1,0 +1,185 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>Lever words — mockup</title>
+<style>
+  /* Studio light (theme-tokens.ts lightColorTokens): page #fff · inspector #f8f7f3 · sidebar #f1efe9;
+     ink #1e1d1a / #5a5851 / #6f6c64; hairline #e3dfd6; accent teal #0b7a72 (send disc #44c1b8);
+     info #2277cc; warning #fbbf24. Task 155 — research Must 7. */
+  :root {
+    --page:#fff; --insp:#f8f7f3; --side:#f1efe9; --t1:#1e1d1a; --t2:#5a5851; --t3:#6f6c64;
+    --hair:#e3dfd6; --teal:#0b7a72; --disc:#44c1b8; --info:#2277cc; --warn:#fbbf24;
+    --shadow-sm:0 1px 2px rgba(30,29,26,.08),0 1px 1px rgba(30,29,26,.04);
+    --shadow-md:0 6px 20px rgba(30,29,26,.10),0 2px 6px rgba(30,29,26,.06);
+    --shadow-lg:0 14px 40px rgba(30,29,26,.14);
+  }
+  * { box-sizing:border-box; }
+  body { margin:0; background:var(--side); color:var(--t1); font:13px/1.45 -apple-system,"Inter",system-ui,sans-serif; padding:28px 16px 48px; }
+  main { max-width:1180px; margin:0 auto; }
+  h1 { font-size:18px; margin:0 0 4px; }
+  .lede { color:var(--t2); margin:0 0 22px; max-width:760px; }
+  .option { background:var(--page); border-radius:18px; box-shadow:var(--shadow-md); padding:20px 22px 24px; margin-bottom:22px; }
+  .option > header { display:flex; align-items:baseline; gap:12px; margin-bottom:4px; }
+  .option > header b { font-size:15px; }
+  .tag { font-size:11px; font-weight:600; letter-spacing:.06em; color:var(--teal); text-transform:uppercase; }
+  .why { color:var(--t2); margin:0 0 16px; max-width:820px; }
+  .frames { display:grid; grid-template-columns:1fr 360px; gap:22px; align-items:start; }
+  @media (max-width:900px){ .frames{ grid-template-columns:1fr; } }
+  .frame-label { font-size:11px; color:var(--t3); margin:0 0 6px; }
+  .hub { background:var(--page); border:1px solid var(--hair); border-radius:14px; padding:26px 22px; }
+  .phone { max-width:360px; }
+  .composer { background:var(--page); border-radius:16px; box-shadow:var(--shadow-md); padding:14px 16px 12px; }
+  .ph { color:var(--t3); margin:2px 0 18px; }
+  .row { display:flex; align-items:center; gap:10px; flex-wrap:wrap; }
+  .chip { display:inline-flex; align-items:center; gap:5px; color:var(--t2); font-size:12px; }
+  .chip svg { width:14px; height:14px; fill:currentColor; }
+  .spacer { flex:1; }
+  .disc { width:34px; height:34px; border-radius:50%; background:var(--page); box-shadow:var(--shadow-sm); display:grid; place-items:center; border:2px solid #d9efec; }
+  .disc svg { width:16px; height:16px; fill:var(--t3); }
+  .clip svg { width:16px; height:16px; fill:var(--t3); }
+  /* The lever */
+  .lever { position:relative; display:inline-flex; align-items:center; background:var(--insp); border-radius:999px; box-shadow:inset 0 1px 2px rgba(30,29,26,.08); padding:3px; gap:2px; }
+  .stop { position:relative; display:inline-flex; align-items:center; justify-content:center; gap:6px; height:26px; padding:0 10px; border-radius:999px; color:var(--t3); font-size:12px; font-weight:500; white-space:nowrap; }
+  .stop i { width:5px; height:5px; border-radius:50%; background:currentColor; opacity:.7; }
+  .stop[aria-checked="true"] { background:var(--page); color:var(--t1); box-shadow:var(--shadow-sm); }
+  .stop[aria-checked="true"] i { width:8px; height:8px; background:var(--teal); opacity:1; }
+  .stop .team { display:inline-flex; margin-left:2px; }
+  .stop .team span { width:14px; height:14px; border-radius:50%; border:1.5px solid var(--page); margin-left:-4px; font-size:8px; color:#fff; display:grid; place-items:center; font-weight:700; }
+  .dotonly .stop { width:30px; padding:0; }
+  .below { display:inline-grid; grid-template-columns:repeat(3,auto); column-gap:2px; }
+  .below .cap { font-size:10.5px; color:var(--t3); text-align:center; margin-top:3px; }
+  .below .cap.on { color:var(--t1); font-weight:600; }
+  .beside { font-size:12px; color:var(--t1); font-weight:600; }
+  .beside small { font-weight:400; color:var(--t2); }
+  .tip { position:absolute; left:0; bottom:calc(100% + 10px); width:280px; background:var(--t1); color:#fff; border-radius:10px; padding:10px 12px; font-size:12px; box-shadow:var(--shadow-lg); z-index:2; }
+  .tip b { display:block; margin-bottom:2px; }
+  .tip .seats { color:#cfcac0; margin-top:4px; }
+  .tip:after { content:""; position:absolute; left:26px; top:100%; border:6px solid transparent; border-top-color:var(--t1); }
+  .hint { display:inline-flex; align-items:center; gap:6px; font-size:11.5px; color:var(--t2); background:#fff8e1; border-radius:999px; padding:3px 10px 3px 8px; }
+  .hint i { width:6px; height:6px; border-radius:50%; background:var(--warn); }
+  .steps { display:grid; grid-template-columns:repeat(2,1fr); gap:14px; }
+  .note { font-size:12px; color:var(--t2); margin-top:12px; }
+  .note b { color:var(--t1); }
+  .rec { border:2px solid var(--teal); }
+  .rec .tag:after { content:" · recommended"; }
+  footer { color:var(--t3); font-size:12px; margin-top:8px; }
+</style>
+</head>
+<body>
+<main>
+  <h1>The lever's words</h1>
+  <p class="lede">Today Easy's lever is three unlabelled dots (<code>Lever.tsx:182</code>: the word is <code>sr-only</code>, task 123), and nothing on screen says the third stop means "Claude orchestrates a team". Three ways to say it. Each keeps Easy's row quiet: the lever, the folder, attach, send.</p>
+
+  <!-- A -->
+  <section class="option" data-option="A">
+    <header><span class="tag">Option A</span><b>Words on the stops</b></header>
+    <p class="why">The lever becomes a three-segment control: Easy · Medium · Hard, always visible. Hard carries a small stack of the seats it uses. It reads at a glance and costs about 150 px of row width. At phone width it falls back to the current stop's word only.</p>
+    <div class="frames">
+      <div>
+        <p class="frame-label">Hub · 1440</p>
+        <div class="hub"><div class="composer">
+          <p class="ph">Describe a task…</p>
+          <div class="row">
+            <span class="lever" role="radiogroup" aria-label="Effort">
+              <span class="stop" role="radio" aria-checked="false"><i></i>Easy</span>
+              <span class="stop" role="radio" aria-checked="false"><i></i>Medium</span>
+              <span class="stop" role="radio" aria-checked="true"><i></i>Hard
+                <span class="team"><span style="background:#c96442">C</span><span style="background:#10a37f">X</span><span style="background:#4285f4">G</span></span></span>
+            </span>
+            <span class="chip"><svg viewBox="0 0 16 16"><path d="M2 4.5A1.5 1.5 0 0 1 3.5 3h3l1.5 1.5h4.5A1.5 1.5 0 0 1 14 6v5.5A1.5 1.5 0 0 1 12.5 13h-9A1.5 1.5 0 0 1 2 11.5v-7Z"/></svg>melody-agent2</span>
+            <span class="spacer"></span>
+            <span class="clip"><svg viewBox="0 0 16 16"><path d="M10.5 3.5 5 9a1.5 1.5 0 0 0 2.1 2.1L12.3 6a3 3 0 0 0-4.2-4.2L2.9 7a4.5 4.5 0 0 0 6.4 6.4l3.2-3.2-1-1-3.2 3.2A3.1 3.1 0 1 1 3.9 8L9.1 2.8a1.6 1.6 0 1 1 2.2 2.2L6.1 10.1a.1.1 0 0 1-.1-.1L11.5 4.5Z"/></svg></span>
+            <span class="disc"><svg viewBox="0 0 16 16"><path d="M8 2.5 3.5 7l1 1L7.3 5.2V13h1.4V5.2L11.5 8l1-1Z"/></svg></span>
+          </div>
+        </div></div>
+      </div>
+      <div>
+        <p class="frame-label">Phone · 390</p>
+        <div class="hub phone"><div class="composer">
+          <p class="ph">Describe a task…</p>
+          <div class="row">
+            <span class="lever dotonly"><span class="stop" aria-checked="false"><i></i></span><span class="stop" aria-checked="false"><i></i></span><span class="stop" aria-checked="true"><i></i></span></span>
+            <span class="beside">Hard</span>
+            <span class="spacer"></span>
+            <span class="disc"><svg viewBox="0 0 16 16"><path d="M8 2.5 3.5 7l1 1L7.3 5.2V13h1.4V5.2L11.5 8l1-1Z"/></svg></span>
+          </div>
+        </div></div>
+      </div>
+    </div>
+  </section>
+
+  <!-- B -->
+  <section class="option rec" data-option="B">
+    <header><span class="tag">Option B</span><b>The current stop's word beside the knob, with what it does on hover</b></header>
+    <p class="why">The dots stay; the one word for the current stop sits beside them in ink. Hover or focus shows a card that says what the stop does and which seats run: for Hard, "Claude orchestrates · agy researches · Codex plans and reviews · Sonnet implements". That's the smallest change from today's quiet row, and it reads the same at phone width.</p>
+    <div class="frames">
+      <div>
+        <p class="frame-label">Hub · 1440 · hovering the lever on Hard</p>
+        <div class="hub" style="padding-top:110px"><div class="composer">
+          <p class="ph">Describe a task…</p>
+          <div class="row">
+            <span class="lever dotonly" style="position:relative">
+              <span class="tip"><b>Hard — Claude leads a team</b>Claude Opus orchestrates; agy researches, Codex plans and reviews, Sonnet implements. You see each worker in Agents.<div class="seats">Easy — Sonnet, direct · Medium — Opus, direct</div></span>
+              <span class="stop" aria-checked="false"><i></i></span><span class="stop" aria-checked="false"><i></i></span><span class="stop" aria-checked="true"><i></i></span>
+            </span>
+            <span class="beside">Hard <small>· team</small></span>
+            <span class="chip"><svg viewBox="0 0 16 16"><path d="M2 4.5A1.5 1.5 0 0 1 3.5 3h3l1.5 1.5h4.5A1.5 1.5 0 0 1 14 6v5.5A1.5 1.5 0 0 1 12.5 13h-9A1.5 1.5 0 0 1 2 11.5v-7Z"/></svg>melody-agent2</span>
+            <span class="spacer"></span>
+            <span class="clip"><svg viewBox="0 0 16 16"><path d="M10.5 3.5 5 9a1.5 1.5 0 0 0 2.1 2.1L12.3 6a3 3 0 0 0-4.2-4.2L2.9 7a4.5 4.5 0 0 0 6.4 6.4l3.2-3.2-1-1-3.2 3.2A3.1 3.1 0 1 1 3.9 8L9.1 2.8a1.6 1.6 0 1 1 2.2 2.2L6.1 10.1a.1.1 0 0 1-.1-.1L11.5 4.5Z"/></svg></span>
+            <span class="disc"><svg viewBox="0 0 16 16"><path d="M8 2.5 3.5 7l1 1L7.3 5.2V13h1.4V5.2L11.5 8l1-1Z"/></svg></span>
+          </div>
+        </div></div>
+      </div>
+      <div>
+        <p class="frame-label">Phone · 390 · Easy</p>
+        <div class="hub phone"><div class="composer">
+          <p class="ph">Describe a task…</p>
+          <div class="row">
+            <span class="lever dotonly"><span class="stop" aria-checked="true"><i></i></span><span class="stop" aria-checked="false"><i></i></span><span class="stop" aria-checked="false"><i></i></span></span>
+            <span class="beside">Easy</span>
+            <span class="spacer"></span>
+            <span class="disc"><svg viewBox="0 0 16 16"><path d="M8 2.5 3.5 7l1 1L7.3 5.2V13h1.4V5.2L11.5 8l1-1Z"/></svg></span>
+          </div>
+        </div></div>
+        <p class="note">On a touch screen, a long press opens the same card.</p>
+      </div>
+    </div>
+  </section>
+
+  <!-- C -->
+  <section class="option" data-option="C">
+    <header><span class="tag">Option C</span><b>Words until your first turn, then quiet</b></header>
+    <p class="why">A new user sees A's labelled lever and a one-line hint under the composer: "Hard = Claude leads a team of agents". After the first sent turn it collapses to today's dots, remembered per install. It teaches once, then keeps task 123's quiet row. The cost: someone returning after a week sees dots again.</p>
+    <div class="steps">
+      <div>
+        <p class="frame-label">1 · first launch</p>
+        <div class="hub"><div class="composer">
+          <p class="ph">Describe a task…</p>
+          <div class="row">
+            <span class="lever"><span class="stop" aria-checked="true"><i></i>Easy</span><span class="stop" aria-checked="false"><i></i>Medium</span><span class="stop" aria-checked="false"><i></i>Hard</span></span>
+            <span class="spacer"></span>
+            <span class="disc"><svg viewBox="0 0 16 16"><path d="M8 2.5 3.5 7l1 1L7.3 5.2V13h1.4V5.2L11.5 8l1-1Z"/></svg></span>
+          </div>
+        </div>
+        <p class="note"><span class="hint"><i></i>Hard = Claude leads a team of agents — research, plan, implement, review</span></p></div>
+      </div>
+      <div>
+        <p class="frame-label">2 · after the first turn</p>
+        <div class="hub"><div class="composer">
+          <p class="ph">⌘↑/⌘↓ to navigate messages</p>
+          <div class="row">
+            <span class="lever dotonly"><span class="stop" aria-checked="true"><i></i></span><span class="stop" aria-checked="false"><i></i></span><span class="stop" aria-checked="false"><i></i></span></span>
+            <span class="spacer"></span>
+            <span class="disc"><svg viewBox="0 0 16 16"><path d="M8 2.5 3.5 7l1 1L7.3 5.2V13h1.4V5.2L11.5 8l1-1Z"/></svg></span>
+          </div>
+        </div></div>
+      </div>
+    </div>
+  </section>
+
+  <footer>Recommendation: B. It changes the row the least, the word never goes away, and the hover card is the only place the seats need naming. A is clearest but reopens task 123's row-width decision; C re-hides the word from anyone who returns later. Pick A, B or C.</footer>
+</main>
+</body>
+</html>
