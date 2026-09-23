@@ -256,6 +256,7 @@ Order: 154 (above) ∥ 155–157 (mockups, session) ∥ wave 1 (158 · 160 · 16
   - card: as the user, keep a long orchestrated turn's answer when my laptop sleeps or the connection blips, so that a reconnect is not a lost turn
   - context: options from 154 — (b) share one `AgentManager` across ACP connections as `active_runs` is (`server_factory.rs:87-89`), keeping `--roam`'s per-connection cwd, and re-attach a load to an in-flight run (`load_session.rs:461-483`); (c) the desktop skips `restoreSession` for a session with an active run (stops the duplicate agents, does not recover the stream). (b) is a spine change and an upstream issue; a plan gate first
   - confirm: a walk that starts a Hard turn with a 60 s delegate, calls `reconnectAcpAfterSystemResume()` from the page mid-turn, and still sees the orchestrator's reply → 1 passed (untouched: the reply never lands)
+  - 2026-09-23 (session): now M0-b of `docs/2026-09-23-melody-program-plan-v2.md` — option (b), after 196; Melody's long turns depend on it. Codex's plan review adds to the confirm: the session has one agent after the reconnect (a log line counted, not assumed)
 
 - 177. The fork's own roles start without upstream's "New Recipe Warning": `CreateSessionOptions` (`ui/desktop/src/sessions.ts:28`) gains `trustedRole: boolean` (default false); `ensureRecipeConsent` (`sessions.ts:95`) returns before the prompt when it is set; the three app-started role sessions pass it — Hard's orchestrator (`WorkspaceShell.tsx:800`, `:1565`) and Review branch… (`panes/review/review-session.ts:105`). Recipes from the library, deeplinks and anything else still ask.
   - status: blocked — reverted before commit (session, 2026-09-22): the user's yes rested on my framing that these roles "ship in the repo"; they are read from whatever folder is open (`WorkspaceShell.tsx:1564` `orchestratorRole` ← the project's `.agents/agents/orchestrator.md`), so a cloned repo's author would run instructions with no consent. Upstream already asks once per recipe hash, so a real user sees it once per role version; the repeats were fresh walk profiles, which `trustRecipeIfAsked` answers. Waits on the user: drop 177 (recommended), or narrow it to role files whose hash matches the fork's canonical `.agents/agents` · agent: — · worker: low
@@ -299,6 +300,18 @@ Order: 184 (migration) → 183 (identity); 185 ∥ 186 ∥ 187 ∥ 189 ∥ 190 �
     - a `just release-melody` recipe: bump the version, `just make-ui`, `gh release create v<version> ui/desktop/out/Melody-darwin-arm64/Melody.zip`; publishing is outward-facing, so each release runs on the user's word
     - the fork has no releases today (`gh release list --repo hoaqbui/melody-agent2` → empty, 2026-09-22)
   - confirm: `cd ui/desktop && grep -c "hoaqbui" src/utils/autoUpdater.ts src/utils/githubUpdater.ts && grep -c "UPDATES_ENABLED = true" src/updates.ts && grep -c "^release-melody" ../../Justfile && pnpm run typecheck` → each ≥ 1 (0 today), typecheck 0; then one published release that an older installed Melody offers and installs (the user's hand check)
+
+### docs/2026-09-23-melody-program-plan-v2.md — Melody, the main agent: M0 (approved 2026-09-23, user: "approved and start ochestrating")
+
+Order: 196 → 181 (181's own plan gate first, written from 196's run). M1a is planned at M0's gate. Research: `docs/2026-09-23-melody-main-agent-research-v1.md`; design: `docs/mockups/2026-09-22-melody-visual-design.html`.
+
+- 196. Re-prove task 154 on today's main: a synchronous delegate from a `claude-code` orchestrator returns after more than 60 s, and the desktop's RPI walk passes end to end
+  - status: doing · agent: claude-session-2026-09-23 · worker: —
+  - card: as the user, I want a delegated worker's answer to reach the orchestrator however long it runs, so that Melody can hand work to managers and workers (user, 2026-09-23: "fix first, before tranche 1")
+  - context:
+    - fixed by 154 (`2f7a4010f`): the bridge's 5-min timeout reaches Claude Code as `request_timeout_ms` (`crates/goose/src/providers/claude_code.rs:559-565`); child stderr logs at info (`crates/goose/src/acp/provider.rs:1581`)
+    - needs a signed-in Claude seat (real model calls); run walks between worker waves (§Notes)
+  - confirm: `cd $(mktemp -d) && mkdir -p .agents && cp -R <repo>/.agents/agents .agents/ && GOOSE_RUNTIME_ROLL_SEED=0 GOOSE_PROVIDER=claude-code GOOSE_MODEL=claude-opus-5 goose run --no-session -t "Delegate exactly once to the researcher role with instructions 'Run the shell command: sleep 100. After it finishes reply with exactly SLEPT.', then reply with what the delegate returned, verbatim, and DONE"` → output contains `SLEPT` (fails with `The operation timed out` if the ~60 s cap is back); `just walk "rpi strip"` → 1 passed
 
 ## Waiting on the user
 

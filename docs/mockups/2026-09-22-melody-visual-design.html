@@ -579,9 +579,14 @@
   .strip .sbtn svg { width:16px; height:16px; fill:currentColor; }
   .strip .sbtn:hover { background:var(--bg-page); color:var(--t1); } .strip .sbtn.on { color:var(--focus); }
   .strip .sdiv { width:28px; height:1px; background:var(--hair); flex:none; }
+  .row.melody-row { grid-template-columns:16px 1fr auto; } .row.melody-row .title { font-weight:600; }
   .strip .s.on { box-shadow:var(--shadow-sm), inset 0 0 0 1px var(--focus-edge), inset 0 0 0 3px var(--focus); }
   .set-nav .back { color:var(--t2); font-size:12px; padding:6px 10px; margin-bottom:4px; }
   .set-nav .back:hover { color:var(--t1); background:var(--bg-page); box-shadow:none; }
+  /* Decided 2026-09-23: teal tint on Melody's tab; teal for progress and "on". */
+  .col-melody { background:color-mix(in srgb, var(--focus) 6%, var(--bg-2)); }
+  .sw-t.on { background:var(--focus); }
+  .usage { background:conic-gradient(var(--focus) 0 62%, var(--hair) 62% 100%); }
 </style>
 </head>
 <body class="t-light" id="body">
@@ -1055,16 +1060,16 @@ canvas.scale(scale, scale); <span class="c">// crisp on retina</span></pre></div
     </table>
   </section>
   <section id="open">
-    <h2>20 · Decisions — what's still open, and what's settled</h2>
+    <h2>20 · Decisions — all settled 2026-09-23</h2>
     <table class="ref">
-      <tr><th>#</th><th>Still open</th><th>Recommended</th><th>Alternative</th></tr>
-      <tr><td>1</td><td>The word for work waiting on you</td><td><b>Needs you</b> everywhere, replacing the Board's <b>Needs review</b> (one word per concept)</td><td>Keep Needs review for changes that aren't committed yet, and Needs you only for questions</td></tr>
-      <tr><td>2</td><td>Melody's own session in the list</td><td>Not listed; the pin is her row</td><td>Pinned at the top of Today</td></tr>
-      <tr><td>3</td><td>Phone rail order</td><td>Melody · Chat · panes</td><td>Chat first, as today, with Melody second</td></tr>
-      <tr><td>4</td><td>More colour</td><td>A faint teal tint on Melody's tab; the pin's count amber when something needs you; progress and "on" in teal</td><td>A colour per runtime or per repository</td></tr>
-      <tr><td>5</td><td>Naming a new friend</td><td>Melody proposes a musical name when she first works in a repository; you can rename it</td><td>You name each one</td></tr>
+      <tr><th>#</th><th>Question</th><th>Decided 2026-09-23 (user)</th></tr>
+      <tr><td>1</td><td>The word for work waiting on you</td><td><b>Needs you</b> everywhere, replacing the Board's <b>Needs review</b></td></tr>
+      <tr><td>2</td><td>Melody's own session in the list</td><td>Pinned at the top of Today, as well as her pin above</td></tr>
+      <tr><td>3</td><td>Phone tab order</td><td>Melody · Chat · panes</td></tr>
+      <tr><td>4</td><td>More colour</td><td>Yes: a faint teal tint on Melody's tab; teal for progress and "on" (usage ring, progress bars, switches); a colour per runtime (palette to be designed, avoiding teal, amber, green, red and blue). No: the amber count on the pin</td></tr>
+      <tr><td>5</td><td>Naming a new friend</td><td>Melody proposes an unused musical name and mark, says so in her feed, and you can rename it</td></tr>
     </table>
-    <div class="note" style="margin-top:12px"><b>Settled.</b> Three panels, edge to edge (2026-09-22) · Work is two tabbed panels; Melody is a tab, bottom panel by default · friends: Harmony, Tempo, Chord, one per repository · ink language, teal = focus + activity, amber = needs you, blue = links, green/red = outcomes · hover = lift + 4 px outline in the item's own colour · Type A, Icon A · the lever retired · motion picks locked (§16) · the session menu ⋯ sits beside the Work toggle in every header, so it stays reachable while Work is collapsed (from the 2026-09-23 UX review).</div>
+    <div class="note" style="margin-top:12px"><b>Also settled.</b> Three panels, edge to edge · Work is two tabbed panels; Melody is a tab, bottom panel by default · friends are real manager sessions, one per repository: Harmony, Tempo, Chord · ink language · hover = lift + 4 px outline in the item's own colour · Type A, Icon A · the lever retired · motion picks locked (§16) · the ⋯ session menu sits beside the Work toggle in every header.</div>
   </section>
   <section id="settings">
     <h2>21 · Settings — the route, every category</h2>
@@ -1118,7 +1123,8 @@ const sessionsCol = (opts={}) => {
   const rows = ROWS.filter(r => !repo || r[4] === repo);
   let lastDay = '', list = '';
   for (const [day, st, title, time, rp, by, extra=''] of rows) {
-    if (day !== lastDay) { list += `<div class="day">${day}${lastDay ? '' : '<span class="sort">Recent ▾</span>'}</div>`; lastDay = day; }
+    if (day !== lastDay.replace('·', '')) { list += `<div class="day">${day}${lastDay ? '' : '<span class="sort">Recent ▾</span>'}</div>`; lastDay = day; }
+    if (day === 'Today' && !lastDay.startsWith('Today·') && !repo) { list += `<button class="row melody-row" title="Melody — pinned">${E('sm')}<span class="title">Melody</span><span class="time">pinned</span><span class="meta"><span>6 sessions · 1 needs you</span></span></button>`; lastDay = 'Today·'; }
     list += row(st, title, time, rp, by, (title === current && !opts.friend ? 'on ' : '') + extra);
   }
   const chip = (name, n) => `<span class="chip ${(name === 'All' ? !repo : repo === name) ? 'on' : ''}">${name} <span class="n">${n}</span></span>`;
