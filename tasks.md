@@ -266,6 +266,11 @@ Order: 152 → 139 b/c → 145 → 153 (needs the merged tree; a spine patch). 1
 
 Order: 154 (above) ∥ 155–157 (mockups, session) ∥ wave 1 (158 · 160 · 161 · 162 · 163 · 170 · 173 · 174 · 175 · 179, disjoint files; 180 session) → 159 · 169 · 172 → 93 (above, after 158) → user picks → 164–168 · 171 → 176 last. Mockups for the pick: `docs/mockups/2026-09-22-lever-words.html` (164), `-turn-failure.html` (165), `-states-sheet.html` (166–168, 171). Two calls made under "orchestrate" that were the user's: 179 resolves the sidebar spec-vs-rule as the spec, 174 picks "Describe a task…". Workers per AGENTS.md chain; the session reruns every confirm. Evidence: `docs/2026-09-22-ux-pass-research-v1.md`, screenshots in `docs/2026-09-22-ux-pass/`.
 
+- 158b. Reopened 2026-09-22 (session): 158 fixed the renderer (`acp/adapter/tools.ts`, ab3291e1d, unit test green) but the live rows still read "Edit" / "Read file" — the loss is a layer down. goose's ACP provider stores an external seat's tool call with the adapter's first title and `"arguments":{}` (the walk profile's sessions.db, session `20260923_3`): `SessionUpdate::ToolCall` emits `ToolCallStart` at once (`crates/goose/src/acp/provider.rs` ~1340) and `ToolCallUpdate` keeps only `raw_output`/`content`, dropping `title`, `raw_input`, `locations` (~1358). Also: the server sends every tool call to the desktop as `ToolKind::default()` (`acp/server/tool_calls/conversion.rs:152`), so `goose.acp.kind` never reaches the renderer (task 93 reads goose's flattened diff text instead).
+  - status: doing · agent: session → sonnet worker · worker: high
+  - card: as the user, read which file an Edit touched and which command ran on the row itself (research Must 2)
+  - context: fix in `provider.rs` — the toolRequest carries the latest title and raw input the adapter sent (defer the start until input arrives, or another approach that keeps the approval card); a spine patch, one Rust test
+  - confirm: `cargo test -p goose --lib acp::provider` → `0 failed` with the new test; `just walk "transcript diff"` → 1 passed and its screenshot's rows read "Edit notes.md" (untouched: "Edit")
 - 164. Lever words per 155's pick: `workspace/Lever.tsx`, `tests/e2e/easy-mode.spec.ts` (its sr-only assertion changes with the pick).
   - status: blocked — waits on the user's pick from 155 · agent: — · worker: medium
   - card: as in 155
