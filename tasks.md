@@ -388,19 +388,6 @@ Order: 184 (migration) → 183 (identity); 185 ∥ 186 ∥ 187 ∥ 189 ∥ 190 �
     - parity: prompts are shared by both agent-loop paths; no loop code changes
   - confirm: `source bin/activate-hermit && cargo fmt --check && cargo test -p goose prompt_manager 2>&1 | grep "test result" && grep -rc "called Melody" crates/goose/src/prompts/system.md` → fmt clean, `ok`, 0 failed; 1
 
-- 191. Record the name in `DESIGN.md`.
-  - status: doing · agent: session (worker: claude -p haiku) · worker: low
-  - card: as the next agent, I want the product name recorded so that no new copy says Goose
-  - context:
-    - §Iconography's sentence "The product name, `Goose.app` and upstream's goose animations …
-      were not the mark's and were left as they are" gains: "Amended 2026-09-22 (user: 'rename and
-      rebrand everything to be Melody'): the product name is **Melody** — `productName`,
-      `Melody.app`, bundle ID `com.melody.desktop`; `goose` stays wherever it names a real thing
-      (`.goosehints`, `goose://`, `GOOSE_*`, the `goose` CLI, the backend's folders)."
-    - add a vocabulary row: "the product | **Melody**, always capitalised; never goose in copy
-      except the names above | Melody | `productName`, `appBundleId`"
-  - confirm: `grep -c "com.melody.desktop" DESIGN.md` → ≥ 1
-
 - 192. Build and launch `Melody.app` with `just make-ui`, and run the smoke walks.
   - status: todo · agent: — · worker: medium
   - blocked-by: 183–191
