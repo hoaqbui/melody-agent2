@@ -273,7 +273,7 @@ Order: 184 (migration) → 183 (identity); 185 ∥ 186 ∥ 187 ∥ 189 ∥ 190 �
 - 183. Rename the app's packaging identity in `ui/desktop/package.json`, `ui/desktop/forge.config.ts`,
      `ui/desktop/forge.{deb,rpm}.desktop`, `ui/desktop/vite.main.config.mts`, `ui/desktop/index.html`,
      `ui/desktop/public/manifest.webmanifest` and `justfile`.
-  - status: todo · agent: — · worker: low
+  - status: doing · agent: session (worker: claude -p haiku) · worker: low
   - blocked-by: 184 (a launch under the new name before the migration exists creates `.../Melody`
     and the copy is then skipped for good)
   - card: as the user, I want the dock, window and installer to say Melody so that the app I run
@@ -292,7 +292,7 @@ Order: 184 (migration) → 183 (identity); 185 ∥ 186 ∥ 187 ∥ 189 ∥ 190 �
 
 - 185. Rename the main process's words and turn the updater off in `ui/desktop/src/main.ts`,
      `ui/desktop/src/utils/autoUpdater.ts` and `ui/desktop/src/updates.ts`.
-  - status: todo · agent: — · worker: low
+  - status: doing · agent: session (worker: claude -p haiku) · worker: low
   - card: as the user, I want the menus, dialogs, notifications and tray to say Melody, and no
     upstream release offered, so that nothing names or installs the wrong app
   - context:
@@ -310,7 +310,7 @@ Order: 184 (migration) → 183 (identity); 185 ∥ 186 ∥ 187 ∥ 189 ∥ 190 �
   - confirm: `cd ui/desktop && grep -cE "['\`][^'\`]*\bGoose\b" src/main.ts src/utils/autoUpdater.ts; grep -c "UPDATES_ENABLED = false" src/updates.ts; pnpm run typecheck` → main.ts 0, autoUpdater.ts 0 (13 today), 1, typecheck 0
 
 - 188. Carry the rename into the 15 other locales under `ui/desktop/src/i18n/messages/`.
-  - status: todo · agent: — · worker: medium
+  - status: doing · agent: session (worker: claude -p haiku) · worker: medium
   - blocked-by: 187
   - card: as a user reading another language, I want the product named Melody there too so that
     the name does not depend on the locale
