@@ -2,6 +2,8 @@ import type { RequestPermissionRequest, RequestPermissionResponse } from '@agent
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import {
   cancelAcpPermissionRequestsForSession,
+  getAwaitingApprovalDetail,
+  getAwaitingApprovalSessions,
   requestAcpPermission,
   resolveAcpPermissionRequest,
 } from '../permissionRequests';
@@ -176,5 +178,62 @@ describe('ACP permission requests', () => {
       true
     );
     await expect(secondResponse).resolves.toMatchObject({ outcome: { outcome: 'selected' } });
+  });
+
+  it('marks a session awaiting approval until resolved', async () => {
+    expect(getAwaitingApprovalSessions().has('session-1')).toBe(false);
+    const response = requestAcpPermission(permissionRequest('session-1', 'tool-1'));
+    const generation = appliedGeneration();
+    expect(getAwaitingApprovalSessions().has('session-1')).toBe(true);
+
+    resolveAcpPermissionRequest('session-1', 'tool-1', generation, 'allow_once');
+    await response;
+    expect(getAwaitingApprovalSessions().has('session-1')).toBe(false);
+  });
+
+  it('clears the awaiting approval mark for a session that cancels instead of resolving', async () => {
+    const response = requestAcpPermission(permissionRequest('session-1', 'tool-1'));
+    expect(getAwaitingApprovalSessions().has('session-1')).toBe(true);
+
+    cancelAcpPermissionRequestsForSession('session-1');
+    await response;
+    expect(getAwaitingApprovalSessions().has('session-1')).toBe(false);
+  });
+
+  it('keeps a second session awaiting approval independently of the first', async () => {
+    requestAcpPermission(permissionRequest('session-1', 'tool-1'));
+    const secondResponse = requestAcpPermission(permissionRequest('session-2', 'tool-2'));
+    const secondGeneration = appliedGeneration(1);
+    expect([...getAwaitingApprovalSessions()].sort()).toEqual(['session-1', 'session-2']);
+
+    resolveAcpPermissionRequest('session-2', 'tool-2', secondGeneration, 'allow_once');
+    await secondResponse;
+    expect([...getAwaitingApprovalSessions()]).toEqual(['session-1']);
+
+    cancelAcpPermissionRequestsForSession('session-1');
+  });
+
+  it('names the pending tool and, when the raw input carries one, its command', () => {
+    requestAcpPermission(permissionRequest('session-1', 'tool-1'));
+    expect(getAwaitingApprovalDetail('session-1')).toEqual({
+      toolTitle: 'Read file',
+      command: undefined,
+    });
+
+    cancelAcpPermissionRequestsForSession('session-1');
+    requestAcpPermission({
+      ...permissionRequest('session-1', 'tool-2'),
+      toolCall: {
+        ...permissionRequest('session-1', 'tool-2').toolCall,
+        title: 'Run command',
+        rawInput: { command: 'pnpm install' },
+      },
+    });
+    expect(getAwaitingApprovalDetail('session-1')).toEqual({
+      toolTitle: 'Run command',
+      command: 'pnpm install',
+    });
+
+    cancelAcpPermissionRequestsForSession('session-1');
   });
 });

@@ -1,3 +1,4 @@
+import { useSyncExternalStore } from 'react';
 import type { RequestPermissionRequest, RequestPermissionResponse } from '@agentclientprotocol/sdk';
 import type { Permission } from '../types/permissions';
 import { acpChatSessionActions, acpPermissionUserInputRequestId } from './chatSessionStore';
@@ -10,6 +11,62 @@ interface PendingPermissionRequest {
 }
 
 const pendingRequests = new Map<string, PendingPermissionRequest>();
+
+// Which sessions have an outstanding permission request, across every window (task 167):
+// the sidebar's "Needs you" row and the background notification both read this instead of
+// a window-scoped chat state, so a session that isn't mounted here still shows as waiting.
+const awaitingListeners = new Set<() => void>();
+let awaitingSessionIds: ReadonlySet<string> = new Set();
+
+function recomputeAwaiting(): void {
+  const next = new Set<string>();
+  for (const pending of pendingRequests.values()) next.add(pending.request.sessionId);
+  awaitingSessionIds = next;
+  for (const listener of awaitingListeners) listener();
+}
+
+export function getAwaitingApprovalSessions(): ReadonlySet<string> {
+  return awaitingSessionIds;
+}
+
+export function subscribeAwaitingApprovalSessions(listener: () => void): () => void {
+  awaitingListeners.add(listener);
+  return () => {
+    awaitingListeners.delete(listener);
+  };
+}
+
+export function useAwaitingApprovalSessions(): ReadonlySet<string> {
+  return useSyncExternalStore(
+    subscribeAwaitingApprovalSessions,
+    getAwaitingApprovalSessions,
+    getAwaitingApprovalSessions
+  );
+}
+
+export interface AwaitingApprovalDetail {
+  toolTitle: string;
+  command?: string;
+}
+
+// The oldest still-pending request for the session: what the notification names.
+export function getAwaitingApprovalDetail(sessionId: string): AwaitingApprovalDetail | undefined {
+  for (const pending of pendingRequests.values()) {
+    if (pending.request.sessionId === sessionId) {
+      return {
+        toolTitle: pending.request.toolCall.title ?? pending.request.toolCall.toolCallId,
+        command: commandFromRawInput(pending.request.toolCall.rawInput),
+      };
+    }
+  }
+  return undefined;
+}
+
+function commandFromRawInput(rawInput: unknown): string | undefined {
+  if (!rawInput || typeof rawInput !== 'object') return undefined;
+  const command = (rawInput as Record<string, unknown>).command;
+  return typeof command === 'string' ? command : undefined;
+}
 
 export async function requestAcpPermission(
   request: RequestPermissionRequest
@@ -26,6 +83,7 @@ export async function requestAcpPermission(
       request,
     };
     pendingRequests.set(key, { ...permissionRequest, resolve });
+    recomputeAwaiting();
     acpChatSessionActions.applyPermissionRequest(permissionRequest);
   });
 }
@@ -43,6 +101,7 @@ export function resolveAcpPermissionRequest(
   }
 
   pendingRequests.delete(key);
+  recomputeAwaiting();
   acpChatSessionActions.resolveUserInputRequest(
     sessionId,
     acpPermissionUserInputRequestId(toolCallId)
@@ -52,9 +111,11 @@ export function resolveAcpPermissionRequest(
 }
 
 export function cancelAcpPermissionRequestsForSession(sessionId: string): void {
+  let changed = false;
   for (const [key, pending] of pendingRequests) {
     if (pending.request.sessionId === sessionId) {
       pendingRequests.delete(key);
+      changed = true;
       acpChatSessionActions.cancelPermissionRequest(
         sessionId,
         pending.request.toolCall.toolCallId,
@@ -63,6 +124,7 @@ export function cancelAcpPermissionRequestsForSession(sessionId: string): void {
       pending.resolve(cancelledPermissionResponse());
     }
   }
+  if (changed) recomputeAwaiting();
 }
 
 function permissionResponseForAction(

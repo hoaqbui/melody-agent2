@@ -6,10 +6,12 @@ import {
   dayOf,
   filterSessions,
   groupByDay,
+  mergeSearchResults,
   repoChips,
   repositoryOf,
   sortSessions,
   tempRoots,
+  withAwaitingFirst,
 } from './sidebar-sessions';
 
 const NOW = new Date('2026-09-22T15:00:00').getTime();
@@ -130,6 +132,40 @@ describe('sortSessions', () => {
       '2',
       '6',
     ]);
+  });
+});
+
+describe('withAwaitingFirst', () => {
+  it('moves a session awaiting approval to the front, stable otherwise', () => {
+    expect(withAwaitingFirst(sessions, new Set(['5'])).map((s) => s.id)).toEqual([
+      '5',
+      '1',
+      '2',
+      '3',
+      '4',
+      '6',
+    ]);
+  });
+
+  it('leaves the order untouched when nothing is awaiting approval', () => {
+    expect(withAwaitingFirst(sessions, new Set()).map((s) => s.id)).toEqual(
+      sessions.map((s) => s.id)
+    );
+  });
+});
+
+describe('mergeSearchResults', () => {
+  it('keeps title matches first and drops transcript matches already among them', () => {
+    const titles = [sessions[0], sessions[1]]; // ids 1, 2
+    const transcripts = [sessions[1], sessions[2]]; // ids 2, 3
+    expect(mergeSearchResults(titles, transcripts)).toEqual({
+      titles: [sessions[0], sessions[1]],
+      transcripts: [sessions[2]],
+    });
+  });
+
+  it('says there is nothing to merge when both are empty', () => {
+    expect(mergeSearchResults([], [])).toEqual({ titles: [], transcripts: [] });
   });
 });
 

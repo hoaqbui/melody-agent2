@@ -184,6 +184,79 @@ describe('finish notifications', () => {
     expect(off).toHaveBeenCalledWith('notification-click', handler);
   });
 
+  it('notifies when a session gains a pending approval while no window is focused', async () => {
+    const { stop } = await load();
+    const { requestAcpPermission, cancelAcpPermissionRequestsForSession } =
+      await import('./acp/permissionRequests');
+
+    void requestAcpPermission({
+      sessionId: 'sess-1',
+      options: [{ optionId: 'allow-once', name: 'Allow once', kind: 'allow_once' }],
+      toolCall: {
+        toolCallId: 'tool-1',
+        title: 'Run command',
+        rawInput: { command: 'pnpm install' },
+      },
+    });
+    await vi.advanceTimersByTimeAsync(2000);
+
+    expect(showNotification).toHaveBeenCalledWith({
+      title: 'Needs your approval',
+      body: 'Run command wants to run pnpm install',
+      route: '/pair?resumeSessionId=sess-1',
+    });
+
+    cancelAcpPermissionRequestsForSession('sess-1');
+    stop();
+  });
+
+  it('collapses several sessions awaiting approval into one notification', async () => {
+    const { stop } = await load();
+    const { requestAcpPermission, cancelAcpPermissionRequestsForSession } =
+      await import('./acp/permissionRequests');
+
+    void requestAcpPermission({
+      sessionId: 'sess-1',
+      options: [],
+      toolCall: { toolCallId: 'tool-1', title: 'Read file' },
+    });
+    await vi.advanceTimersByTimeAsync(200);
+    void requestAcpPermission({
+      sessionId: 'sess-2',
+      options: [],
+      toolCall: { toolCallId: 'tool-2', title: 'Read file' },
+    });
+    await vi.advanceTimersByTimeAsync(2000);
+
+    expect(showNotification).toHaveBeenCalledTimes(1);
+    expect(showNotification).toHaveBeenCalledWith(
+      expect.objectContaining({ title: '2 sessions need you' })
+    );
+
+    cancelAcpPermissionRequestsForSession('sess-1');
+    cancelAcpPermissionRequestsForSession('sess-2');
+    stop();
+  });
+
+  it('stays quiet for approvals already pending when the window starts watching', async () => {
+    vi.resetModules();
+    const permissionRequests = await import('./acp/permissionRequests');
+    void permissionRequests.requestAcpPermission({
+      sessionId: 'sess-1',
+      options: [],
+      toolCall: { toolCallId: 'tool-1', title: 'Read file' },
+    });
+
+    const notifications = await import('./notifications');
+    const stop = notifications.startNotifications({ intl, navigate });
+    await vi.advanceTimersByTimeAsync(2000);
+
+    expect(showNotification).not.toHaveBeenCalled();
+
+    permissionRequests.cancelAcpPermissionRequestsForSession('sess-1');
+    stop();
+  });
+
   it('reads a session back and forgets it in storage', async () => {
     window.localStorage.setItem('goose.unreadSessions', JSON.stringify(['a', 'b']));
     const { getUnreadSessions, markSessionRead, stop } = await load();

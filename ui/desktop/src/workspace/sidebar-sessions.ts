@@ -138,6 +138,16 @@ export function filterSessions(
   });
 }
 
+// A session this window is waiting on floats to the front of its day group (task 167),
+// stable otherwise so it never crosses into a different day.
+export function withAwaitingFirst(
+  sessions: readonly SessionListItem[],
+  awaiting: ReadonlySet<string>
+): SessionListItem[] {
+  if (awaiting.size === 0) return [...sessions];
+  return [...sessions].sort((a, b) => Number(awaiting.has(b.id)) - Number(awaiting.has(a.id)));
+}
+
 export function sortSessions(
   sessions: readonly SessionListItem[],
   mode: SortMode,
@@ -176,6 +186,25 @@ export function dayOf(at: number, now: number, locale = 'en'): string {
   const date = new Date(at);
   if (days < 7) return date.toLocaleDateString(locale, { weekday: 'long' });
   return date.toLocaleDateString(locale, { month: 'short', day: 'numeric' });
+}
+
+// One box for both title and transcript matches (task 171): the local title/repo filter's
+// matches ("Titles") first, then whatever the server's keyword search found in message text
+// ("In the conversation"), deduped by id so a session matching both stays in Titles.
+export interface SearchGroups {
+  titles: SessionListItem[];
+  transcripts: SessionListItem[];
+}
+
+export function mergeSearchResults(
+  titleMatches: readonly SessionListItem[],
+  transcriptMatches: readonly SessionListItem[]
+): SearchGroups {
+  const seen = new Set(titleMatches.map((session) => session.id));
+  return {
+    titles: [...titleMatches],
+    transcripts: transcriptMatches.filter((session) => !seen.has(session.id)),
+  };
 }
 
 // Sessions already in recency order, cut into day groups in that order.

@@ -12,6 +12,11 @@ import type { IntlShape } from 'react-intl';
 import type { DelegationUpdate, ScheduleRunDto } from '@aaif/goose-acp-client';
 import { defineMessages } from './i18n';
 import { subscribeDelegationUpdates } from './acp/delegations';
+import {
+  getAwaitingApprovalDetail,
+  getAwaitingApprovalSessions,
+  subscribeAwaitingApprovalSessions,
+} from './acp/permissionRequests';
 import { getScheduleRuns, subscribeScheduleRuns } from './acp/runsPoll';
 import { worktreeBranch, worktreeSlugOf } from './workspace/worktree';
 
@@ -45,12 +50,25 @@ const i18n = defineMessages({
     id: 'notifications.burst.tasks',
     defaultMessage: '{count, plural, one {# task finished} other {# tasks finished}}',
   },
+  approvalTitle: { id: 'notifications.approval.title', defaultMessage: 'Needs your approval' },
+  approvalBody: {
+    id: 'notifications.approval.body',
+    defaultMessage: '{tool} wants to run {command}',
+  },
+  approvalBodyNoCommand: {
+    id: 'notifications.approval.bodyNoCommand',
+    defaultMessage: '{tool} needs your approval',
+  },
+  sessionsNeedYou: {
+    id: 'notifications.burst.approvals',
+    defaultMessage: '{count, plural, one {# session needs you} other {# sessions need you}}',
+  },
 });
 
 export const COALESCE_MS = 2_000;
 export const UNREAD_STORAGE_KEY = 'goose.unreadSessions';
 
-export type FinishKind = 'turn' | 'worker' | 'run';
+export type FinishKind = 'turn' | 'worker' | 'run' | 'approval';
 
 export interface Finish {
   kind: FinishKind;
@@ -136,7 +154,9 @@ function burstTitle(finishes: readonly Finish[]): string {
       ? i18n.workersFinished
       : kinds.size === 1 && kinds.has('run')
         ? i18n.runsFinished
-        : i18n.tasksFinished;
+        : kinds.size === 1 && kinds.has('approval')
+          ? i18n.sessionsNeedYou
+          : i18n.tasksFinished;
   return format(message, { count: finishes.length });
 }
 
@@ -226,6 +246,34 @@ function onScheduleRuns(): void {
   knownRunOutcomes = next;
 }
 
+// A session gaining a pending tool approval (task 167), seeded without firing so opening a
+// window with approvals already waiting stays quiet — like the runs baseline above.
+let knownAwaitingApprovals: ReadonlySet<string> | null = null;
+
+function onAwaitingApprovalChange(): void {
+  const next = getAwaitingApprovalSessions();
+  if (knownAwaitingApprovals !== null) {
+    for (const sessionId of next) {
+      if (!knownAwaitingApprovals.has(sessionId)) recordFinish(approvalFinish(sessionId));
+    }
+  }
+  knownAwaitingApprovals = next;
+}
+
+function approvalFinish(sessionId: string): Finish {
+  const detail = getAwaitingApprovalDetail(sessionId);
+  const body = detail?.command
+    ? format(i18n.approvalBody, { tool: detail.toolTitle, command: detail.command })
+    : format(i18n.approvalBodyNoCommand, { tool: detail?.toolTitle ?? '' });
+  return {
+    kind: 'approval',
+    sessionId,
+    title: format(i18n.approvalTitle),
+    body,
+    route: sessionRoute(sessionId),
+  };
+}
+
 function runFinish(run: ScheduleRunDto): Finish {
   const status = run.outcome?.status;
   const title = format(
@@ -261,11 +309,14 @@ export function startNotifications(input: {
   window.electron.on('notification-click', onClick);
   const unsubscribeDelegations = subscribeDelegationUpdates(onDelegationUpdate);
   const unsubscribeRuns = subscribeScheduleRuns(onScheduleRuns);
+  const unsubscribeApprovals = subscribeAwaitingApprovalSessions(onAwaitingApprovalChange);
   onScheduleRuns();
+  onAwaitingApprovalChange();
   return () => {
     window.electron.off('notification-click', onClick);
     unsubscribeDelegations();
     unsubscribeRuns();
+    unsubscribeApprovals();
     intl = null;
   };
 }

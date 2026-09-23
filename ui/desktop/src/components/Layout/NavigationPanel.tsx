@@ -1,6 +1,7 @@
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useLocation } from 'react-router';
 import {
+  AlertTriangle,
   AudioLines,
   Clock,
   LibraryBig,
@@ -26,7 +27,8 @@ import {
 import { AppEvents } from '../../constants/events';
 import { InlineEditText } from '../common/InlineEditText';
 import { SessionIndicators } from '../SessionIndicators';
-import { acpRenameSession, type SessionListItem } from '../../acp/sessions';
+import { acpListSessions, acpRenameSession, type SessionListItem } from '../../acp/sessions';
+import { useAwaitingApprovalSessions } from '../../acp/permissionRequests';
 import { Tooltip, TooltipContent, TooltipTrigger } from '../ui/Tooltip';
 import { formatMessageTimestamp } from '../../utils/timeUtils';
 import { cn } from '../../utils';
@@ -35,10 +37,13 @@ import {
   ELSEWHERE,
   filterSessions,
   groupByDay,
+  mergeSearchResults,
   repoChips,
   repositoryOf,
   sortSessions,
   tempRoots,
+  withAwaitingFirst,
+  type DayGroup,
   type SortMode,
 } from '../../workspace/sidebar-sessions';
 import { defineMessages, useIntl } from '../../i18n';
@@ -61,6 +66,15 @@ const i18n = defineMessages({
     defaultMessage: 'No recent chats',
   },
   noMatch: { id: 'navigationPanel.noMatch', defaultMessage: 'No chats match' },
+  searchEmpty: {
+    id: 'navigationPanel.searchEmpty',
+    defaultMessage: 'No chats match "{query}" in titles or conversations.',
+  },
+  searchTitlesGroup: { id: 'navigationPanel.searchTitlesGroup', defaultMessage: 'Titles' },
+  searchTranscriptGroup: {
+    id: 'navigationPanel.searchTranscriptGroup',
+    defaultMessage: 'In the conversation',
+  },
   searchPlaceholder: { id: 'navigationPanel.searchPlaceholder', defaultMessage: 'Search chats' },
   searchLabel: { id: 'navigationPanel.searchLabel', defaultMessage: 'Search chats (/)' },
   clearSearch: { id: 'navigationPanel.clearSearch', defaultMessage: 'Clear search' },
@@ -118,6 +132,14 @@ const i18n = defineMessages({
     id: 'navigationPanel.statusIdle',
     defaultMessage: 'Idle',
   },
+  statusNeedsYou: {
+    id: 'navigationPanel.statusNeedsYou',
+    defaultMessage: 'Needs your approval',
+  },
+  needsYou: {
+    id: 'navigationPanel.needsYou',
+    defaultMessage: 'Needs you',
+  },
   returnToActiveLiveVoice: {
     id: 'liveVoice.returnToActive',
     defaultMessage: 'Return to active Live voice',
@@ -163,6 +185,8 @@ interface SessionRowProps {
   status: SessionStatus | undefined;
   // Finished while no window was focused (task 68); outlives the window, unlike `status`.
   finishedUnread: boolean;
+  // A tool call is waiting on this session, in any window (task 167).
+  awaitingApproval: boolean;
   onClick: () => void;
   onRenamed: () => void;
 }
@@ -170,6 +194,20 @@ interface SessionRowProps {
 const TAB_KEY = 'sidebar-tab';
 const REPO_KEY = 'sidebar-repo';
 const SORT_KEY = 'sidebar-sort';
+// Search groups (task 171): title matches first, then the server's transcript matches.
+// Untranslated on purpose — `dayLabel` translates them, `data-testid` stays on the raw value
+// like the day headings' own 'Today'/'Yesterday' already do.
+const TITLES_GROUP = 'Titles';
+const TRANSCRIPT_GROUP = 'In the conversation';
+
+function useDebouncedValue<T>(value: T, delayMs: number): T {
+  const [debounced, setDebounced] = useState(value);
+  useEffect(() => {
+    const handle = setTimeout(() => setDebounced(value), delayMs);
+    return () => window.clearTimeout(handle);
+  }, [value, delayMs]);
+  return debounced;
+}
 
 function readStored(key: string): string | null {
   try {
@@ -242,6 +280,7 @@ const SessionRow: React.FC<SessionRowProps> = ({
   isLiveVoiceActive,
   status,
   finishedUnread,
+  awaitingApproval,
   onClick,
   onRenamed,
 }) => {
@@ -252,13 +291,15 @@ const SessionRow: React.FC<SessionRowProps> = ({
   const hasError = status?.streamState === 'error';
   const hasUnread = (status?.hasUnreadActivity ?? false) || finishedUnread;
 
-  const statusLabel = isStreaming
-    ? intl.formatMessage(i18n.statusStreaming)
-    : hasError
-      ? intl.formatMessage(i18n.statusError)
-      : hasUnread
-        ? intl.formatMessage(i18n.statusUnread)
-        : intl.formatMessage(i18n.statusIdle);
+  const statusLabel = awaitingApproval
+    ? intl.formatMessage(i18n.statusNeedsYou)
+    : isStreaming
+      ? intl.formatMessage(i18n.statusStreaming)
+      : hasError
+        ? intl.formatMessage(i18n.statusError)
+        : hasUnread
+          ? intl.formatMessage(i18n.statusUnread)
+          : intl.formatMessage(i18n.statusIdle);
 
   return (
     <Tooltip open={tooltipOpen && !isEditing} onOpenChange={setTooltipOpen} delayDuration={400}>
@@ -266,10 +307,13 @@ const SessionRow: React.FC<SessionRowProps> = ({
         <div
           onClick={() => !isEditing && onClick()}
           data-active={active}
+          data-awaiting={awaitingApproval}
           data-testid={`sidebar-session-${session.id}`}
           className={cn(
             'session-row flex flex-col gap-0.5 px-3 py-1.5 rounded-lg cursor-pointer text-sm',
             'hover:bg-background-tertiary/60 transition-colors',
+            awaitingApproval &&
+              'bg-amber-50/80 dark:bg-amber-900/20 ring-1 ring-inset ring-amber-200/70 dark:ring-amber-800/40',
             active && 'bg-background-tertiary'
           )}
         >
@@ -299,14 +343,27 @@ const SessionRow: React.FC<SessionRowProps> = ({
                 aria-label={intl.formatMessage(i18n.returnToActiveLiveVoice)}
               />
             )}
-            <SessionIndicators
-              isStreaming={isStreaming}
-              hasUnread={hasUnread}
-              hasError={hasError}
-            />
-            <span className="text-xs text-text-tertiary whitespace-nowrap">
-              {formatTimestamp(session.lastMessageAt ?? session.updatedAt)}
-            </span>
+            {awaitingApproval ? (
+              <AlertTriangle
+                className="w-3.5 h-3.5 flex-shrink-0 text-amber-500"
+                aria-label={intl.formatMessage(i18n.statusNeedsYou)}
+              />
+            ) : (
+              <SessionIndicators
+                isStreaming={isStreaming}
+                hasUnread={hasUnread}
+                hasError={hasError}
+              />
+            )}
+            {awaitingApproval ? (
+              <span className="text-xs font-medium text-amber-700 dark:text-amber-300 whitespace-nowrap">
+                {intl.formatMessage(i18n.needsYou)}
+              </span>
+            ) : (
+              <span className="text-xs text-text-tertiary whitespace-nowrap">
+                {formatTimestamp(session.lastMessageAt ?? session.updatedAt)}
+              </span>
+            )}
           </div>
           <div className="flex items-center gap-1 text-xs text-text-tertiary truncate">
             <span className="truncate">{repoLabel}</span>
@@ -348,6 +405,7 @@ export const Navigation: React.FC<{
 
   const [sessionStatuses, setSessionStatuses] = useState<Map<string, SessionStatus>>(new Map());
   const unreadSessions = useUnreadSessions();
+  const awaitingApproval = useAwaitingApprovalSessions();
 
   useEffect(() => {
     const handleStatusUpdate = (event: Event) => {
@@ -443,13 +501,58 @@ export const Navigation: React.FC<{
       sortSessions(filterSessions(recentSessions, { repo: repoKey, query }, roots), sort, roots),
     [recentSessions, repoKey, query, sort, roots]
   );
-  const days = useMemo(
-    () =>
-      sort === 'recent'
-        ? groupByDay(listed, Date.now(), intl.locale)
-        : [{ label: '', sessions: listed }],
-    [listed, sort, intl.locale]
-  );
+
+  // The transcript half of search (task 171): debounced, asks the server for a keyword
+  // match in message text. Titles stay local — `listed` above already has them, bounded to
+  // the recent sessions this sidebar keeps.
+  const searching = query.trim().length > 0;
+  const debouncedQuery = useDebouncedValue(query, 250);
+  const [transcriptMatches, setTranscriptMatches] = useState<SessionListItem[]>([]);
+  const searchGenerationRef = useRef(0);
+  useEffect(() => {
+    const keyword = debouncedQuery.trim();
+    if (!keyword) {
+      setTranscriptMatches([]);
+      return;
+    }
+    const generation = ++searchGenerationRef.current;
+    acpListSessions(undefined, { keyword, includeAcp: false })
+      .then((page) => {
+        if (searchGenerationRef.current === generation) setTranscriptMatches(page.sessions);
+      })
+      .catch((error) => {
+        console.error('Failed to search session transcripts:', error);
+        if (searchGenerationRef.current === generation) setTranscriptMatches([]);
+      });
+  }, [debouncedQuery]);
+
+  const searchGroups = useMemo((): DayGroup[] => {
+    if (!searching) return [];
+    const inRepo =
+      repoKey === ALL
+        ? transcriptMatches
+        : transcriptMatches.filter(
+            (session) => repositoryOf(session.workingDir, roots).key === repoKey
+          );
+    const merged = mergeSearchResults(listed, inRepo);
+    const groups: DayGroup[] = [];
+    if (merged.titles.length > 0) groups.push({ label: TITLES_GROUP, sessions: merged.titles });
+    if (merged.transcripts.length > 0) {
+      groups.push({ label: TRANSCRIPT_GROUP, sessions: merged.transcripts });
+    }
+    return groups;
+  }, [searching, listed, transcriptMatches, repoKey, roots]);
+
+  const days = useMemo(() => {
+    if (searching) return searchGroups;
+    if (sort !== 'recent') return [{ label: '', sessions: listed }];
+    return groupByDay(listed, Date.now(), intl.locale).map((day) => ({
+      ...day,
+      sessions: withAwaitingFirst(day.sessions, awaitingApproval),
+    }));
+  }, [searching, searchGroups, sort, listed, intl.locale, awaitingApproval]);
+
+  const searchEmpty = searching && searchGroups.length === 0;
 
   // `/` focuses the search from anywhere in the rail's window, ⌘N starts a chat.
   useEffect(() => {
@@ -481,7 +584,11 @@ export const Navigation: React.FC<{
       ? intl.formatMessage(i18n.dayToday)
       : label === 'Yesterday'
         ? intl.formatMessage(i18n.dayYesterday)
-        : label;
+        : label === TITLES_GROUP
+          ? intl.formatMessage(i18n.searchTitlesGroup)
+          : label === TRANSCRIPT_GROUP
+            ? intl.formatMessage(i18n.searchTranscriptGroup)
+            : label;
   const chipLabel = (chip: { key: string; label: string }) =>
     chip.key === ALL
       ? intl.formatMessage(i18n.chipAll)
@@ -605,9 +712,11 @@ export const Navigation: React.FC<{
               <div className="px-3 py-2 text-xs text-text-secondary">
                 {intl.formatMessage(i18n.noChats)}
               </div>
-            ) : listed.length === 0 ? (
+            ) : (searching ? searchEmpty : listed.length === 0) ? (
               <div className="px-3 py-2 text-xs text-text-secondary" data-testid="sidebar-no-match">
-                {intl.formatMessage(i18n.noMatch)}
+                {searching
+                  ? intl.formatMessage(i18n.searchEmpty, { query: query.trim() })
+                  : intl.formatMessage(i18n.noMatch)}
               </div>
             ) : (
               days.map((day, index) => (
@@ -619,7 +728,7 @@ export const Navigation: React.FC<{
                     <span className="text-[10px] font-semibold uppercase tracking-wider text-text-tertiary">
                       {dayLabel(day.label)}
                     </span>
-                    {index === 0 && (
+                    {index === 0 && !searching && (
                       <select
                         value={sort}
                         onChange={(event) => {
@@ -653,6 +762,7 @@ export const Navigation: React.FC<{
                         isLiveVoiceActive={session.id === activeLiveVoiceSessionId}
                         status={sessionStatuses.get(session.id)}
                         finishedUnread={unreadSessions.has(session.id)}
+                        awaitingApproval={awaitingApproval.has(session.id)}
                         onClick={() => {
                           clearUnread(session.id);
                           handleSessionClick(session.id);

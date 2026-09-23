@@ -256,26 +256,6 @@ Order: 152 → 139 b/c → 145 → 153 (needs the merged tree; a spine patch). 1
 
 Order: 154 (above) ∥ 155–157 (mockups, session) ∥ wave 1 (158 · 160 · 161 · 162 · 163 · 170 · 173 · 174 · 175 · 179, disjoint files; 180 session) → 159 · 169 · 172 → 93 (above, after 158) → user picks → 164–168 · 171 → 176 last. Mockups for the pick: `docs/mockups/2026-09-22-lever-words.html` (164), `-turn-failure.html` (165), `-states-sheet.html` (166–168, 171). Two calls made under "orchestrate" that were the user's: 179 resolves the sidebar spec-vs-rule as the spec, 174 picks "Describe a task…". Workers per AGENTS.md chain; the session reruns every confirm. Evidence: `docs/2026-09-22-ux-pass-research-v1.md`, screenshots in `docs/2026-09-22-ux-pass/`.
 
-- 166. Changes bar states per 157's pick: `workspace/ChangesBar.tsx` — staged work shows as staged with Commit, a clean tree hides the bar on the next status read (not "0 files · +0 −0", `14-after-commit.png`), Accept's label matches what it does; `DESIGN.md:111` corrected to match.
-  - status: doing · agent: session → sonnet worker · worker: medium
-  - card: as the user, trust the bar's words, so that I know whether my work is committed (research Must 3)
-  - context: user picked **1A** (2026-09-22): Commit… opens the message on the bar, prefilled by 168's draft; Enter stages everything the bar shows and commits; staged-not-committed, committed (6 s, sha + subject, Undo · Push), discarded states per `docs/mockups/2026-09-22-states-sheet.html` §1; the Git pane stays the place for partial staging
-  - confirm: `just walk "changes bar"` → `1 passed` with the staged and committed steps added (untouched: fails on them)
-- 167. "Needs you" across sessions per 157's pick: `acp/permissionRequests.ts:14` marks the session awaiting until resolved; `components/Layout/NavigationPanel.tsx:248-259` shows it; `notifications.ts` fires "needs your approval" when no window is focused.
-  - status: doing · agent: session → sonnet worker · worker: high
-  - card: as the user running several sessions, see which one waits on me, so that an approval never stalls unseen (research Must 4)
-  - context: states sheet §2 as drawn: warning dot + "Needs you" on an amber tint, sorted to the top of Today until answered; notification "Needs your approval" · the tool and command · session · repo, sent only when no window has focus, several collapse to "N sessions need you"
-  - confirm: `cd ui/desktop && pnpm vitest run src -t "awaiting approval"` → `≥ 2 passed` (the row state and the notification; untouched: no test matches)
-- 168. A drafted commit message (lands with 166; moot as a separate prefill if 157's pick makes Accept a one-step commit with the draft inline): when Accept or the Changes flow focuses the commit box and it is empty, `GitPane.tsx` prefills it from the last assistant reply's first sentence (≤ 72 characters, a leading "Done —" dropped), editable, never committed without the click; the draft is a pure function beside `git-state.ts` with one test.
-  - status: doing · agent: session → sonnet worker · worker: medium
-  - card: as the user, commit with one click after reading the diff, so that wrapping up is not typing (Should; `DESIGN.md:111` promised it)
-  - context: user picked 1A — the draft fills the bar's inline message (166), and the Git pane's box when it opens empty
-  - confirm: `cd ui/desktop && pnpm vitest run src/workspace/panes/git -t "draft"` → `≥ 1 passed` (untouched: no test matches)
-- 171. One search over titles and transcripts per 157's pick: the sidebar search (`workspace/sidebar-sessions.ts:131`) also asks `acpListSessions(…, { keyword })` (`SessionListView.tsx:407`, transcript match in `session_manager.rs:364`) and merges, deduped by id, with the snippet the sheet picks.
-  - status: doing · agent: session → sonnet worker · worker: medium
-  - card: as the user, find a session by something said in it, so that I do not need to remember its title (Should)
-  - context: states sheet §3 as drawn (no separate pick): Titles group, then "In the conversation" with the snippet and who said it; the empty state names both places
-  - confirm: `just walk "sidebar"` → `1 passed` with a transcript-only match step (untouched: fails on it)
 - 176. A keyboard-only walk: `tests/e2e/keyboard.spec.ts` (`@seat`) — type a task on the Hub, Enter, reach Review, the diff, the commit box and Commit with keys only, and name each place focus is lost.
   - status: todo · agent: — · worker: medium
   - card: as a keyboard user, finish the loop without a mouse (Should; `DESIGN.md` §Accessibility)
