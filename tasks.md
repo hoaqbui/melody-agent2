@@ -463,6 +463,17 @@ Order: 184 (migration) → 183 (identity); 185 ∥ 186 ∥ 187 ∥ 189 ∥ 190 �
     - uses: `FlyingBird` in `LoadingGoose.tsx:46`, `McpAppRenderer.tsx:1001`; `Geese` in `CreateEditRecipeModal.tsx:500`; `Rain` in `GooseLogo.tsx:39`
   - confirm: `cd ui/desktop && grep -rlE "<(FlyingBird|Geese|Rain)\\b" src | wc -l && pnpm run typecheck` → 0 files (4 today), typecheck 0
 
+- 194. Rename the Goose-named UI code in `ui/desktop/src` and `ui/desktop/tests` to Melody: components, files, hooks, i18n message keys, CSS classes, test ids and the `goose-app` package name.
+  - status: blocked · agent: — · worker: medium
+  - blocked: 192 lands first (the rename moves files the in-flight tasks edit); then an inventory — every Goose identifier sorted into rename vs keep — goes to the user before any edit (owner: session, then user)
+  - card: as the next person reading the code, I want the UI's names to be Melody's so that the code and the product are one thing (user, 2026-09-22: "consider this a full ui/ux fork of goose" → "Rename UI code too")
+  - context:
+    - baseline 2026-09-22: 17 Goose-named files or folders under `src` and `tests` (e.g. `components/GooseSidebar/`, `GooseMessage.tsx`, `LoadingGoose.tsx`, `icons/Goose.tsx`), 119 distinct identifiers matching /goose/i in `src`
+    - keep, because they name a real goose thing or stored data: `gooseServe*` and `src/bin/goose` (the `goose serve` process), `gooseAcpClient` and `@aaif/goose-acp-client` (generated from the crates), `Goosehints*` (`.goosehints`), `goose://`, `GOOSE_*`, `persist:goose` (renaming orphans the renderer's localStorage)
+    - i18n key renames move every locale's key in the same commit; `i18n:check` must stay green
+    - ARCHITECTURE.md §Modules › components (amended 2026-09-22): the UI is Melody's own, upstream UI is not tracked
+  - confirm: `cd ui/desktop && find src tests -iname "*goose*" | grep -viE "gooseServe|gooseAcpClient|gooseSessionNotifications|Goosehints|src/bin/goose" | wc -l && pnpm run typecheck && pnpm run lint:check && pnpm exec vitest run` → 0 (6 today), typecheck 0, lint and i18n green, unit tests pass
+
 ## Waiting on the user
 
 - 192 — after Melody.app launches: your theme, layout and workspace are kept; the app menu shows Settings…; the microphone prompt names Melody; Browser pane logins survived or not; `goose://` links open Melody (move or delete `ui/desktop/out/Goose-darwin-arm64/Goose.app` if they open Goose); then say whether `~/Library/Application Support/Goose` can go.
