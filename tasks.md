@@ -267,20 +267,24 @@ Order: 154 (above) ∥ 155–157 (mockups, session) ∥ wave 1 (158 · 160 · 16
   - context: user picked **1A + 2A** (2026-09-22): a failed turn is a card in the transcript where the reply would have been — what failed in one line, the detail (error code · provider · model · time) in mono, Retry (re-sends the last prompt through the edit path, as task 169's Regenerate does) · Switch runtime… · Copy details; an auth cause puts Sign in first. Quota: with a backup seat the transcript records the fail-over as the runtime divider (`WorkspaceShell.tsx:838` pattern: "Codex quota closed until 6:10 PM → Grok from here"); without one, a card with the reset time and Continue on <backup> · Retry at <time> · Details. Mockup: `docs/mockups/2026-09-22-turn-failure.html` §1A, §2A. The quota half ships only for seats whose error says quota/rate-limit — record what each adapter sends first
   - confirm: `cd ui/desktop && pnpm vitest run src/hooks -t "failed turn"` → `≥ 1 passed` (untouched: no test matches)
 - 166. Changes bar states per 157's pick: `workspace/ChangesBar.tsx` — staged work shows as staged with Commit, a clean tree hides the bar on the next status read (not "0 files · +0 −0", `14-after-commit.png`), Accept's label matches what it does; `DESIGN.md:111` corrected to match.
-  - status: blocked — waits on the user's pick from 157 · agent: — · worker: medium
+  - status: todo · agent: — · worker: medium
   - card: as the user, trust the bar's words, so that I know whether my work is committed (research Must 3)
+  - context: user picked **1A** (2026-09-22): Commit… opens the message on the bar, prefilled by 168's draft; Enter stages everything the bar shows and commits; staged-not-committed, committed (6 s, sha + subject, Undo · Push), discarded states per `docs/mockups/2026-09-22-states-sheet.html` §1; the Git pane stays the place for partial staging
   - confirm: `just walk "changes bar"` → `1 passed` with the staged and committed steps added (untouched: fails on them)
 - 167. "Needs you" across sessions per 157's pick: `acp/permissionRequests.ts:14` marks the session awaiting until resolved; `components/Layout/NavigationPanel.tsx:248-259` shows it; `notifications.ts` fires "needs your approval" when no window is focused.
-  - status: blocked — waits on the user's pick from 157 · agent: — · worker: high
+  - status: todo · agent: — · worker: high
   - card: as the user running several sessions, see which one waits on me, so that an approval never stalls unseen (research Must 4)
+  - context: states sheet §2 as drawn: warning dot + "Needs you" on an amber tint, sorted to the top of Today until answered; notification "Needs your approval" · the tool and command · session · repo, sent only when no window has focus, several collapse to "N sessions need you"
   - confirm: `cd ui/desktop && pnpm vitest run src -t "awaiting approval"` → `≥ 2 passed` (the row state and the notification; untouched: no test matches)
 - 168. A drafted commit message (lands with 166; moot as a separate prefill if 157's pick makes Accept a one-step commit with the draft inline): when Accept or the Changes flow focuses the commit box and it is empty, `GitPane.tsx` prefills it from the last assistant reply's first sentence (≤ 72 characters, a leading "Done —" dropped), editable, never committed without the click; the draft is a pure function beside `git-state.ts` with one test.
-  - status: blocked — waits on the user's pick from 157 (with 166) · agent: — · worker: medium
+  - status: todo · agent: — · worker: medium
   - card: as the user, commit with one click after reading the diff, so that wrapping up is not typing (Should; `DESIGN.md:111` promised it)
+  - context: user picked 1A — the draft fills the bar's inline message (166), and the Git pane's box when it opens empty
   - confirm: `cd ui/desktop && pnpm vitest run src/workspace/panes/git -t "draft"` → `≥ 1 passed` (untouched: no test matches)
 - 171. One search over titles and transcripts per 157's pick: the sidebar search (`workspace/sidebar-sessions.ts:131`) also asks `acpListSessions(…, { keyword })` (`SessionListView.tsx:407`, transcript match in `session_manager.rs:364`) and merges, deduped by id, with the snippet the sheet picks.
-  - status: blocked — waits on the user's pick from 157 · agent: — · worker: medium
+  - status: todo · agent: — · worker: medium
   - card: as the user, find a session by something said in it, so that I do not need to remember its title (Should)
+  - context: states sheet §3 as drawn (no separate pick): Titles group, then "In the conversation" with the snippet and who said it; the empty state names both places
   - confirm: `just walk "sidebar"` → `1 passed` with a transcript-only match step (untouched: fails on it)
 - 176. A keyboard-only walk: `tests/e2e/keyboard.spec.ts` (`@seat`) — type a task on the Hub, Enter, reach Review, the diff, the commit box and Commit with keys only, and name each place focus is lost.
   - status: todo · agent: — · worker: medium
@@ -292,6 +296,15 @@ Order: 154 (above) ∥ 155–157 (mockups, session) ∥ wave 1 (158 · 160 · 16
   - card: as the user, keep a long orchestrated turn's answer when my laptop sleeps or the connection blips, so that a reconnect is not a lost turn
   - context: options from 154 — (b) share one `AgentManager` across ACP connections as `active_runs` is (`server_factory.rs:87-89`), keeping `--roam`'s per-connection cwd, and re-attach a load to an in-flight run (`load_session.rs:461-483`); (c) the desktop skips `restoreSession` for a session with an active run (stops the duplicate agents, does not recover the stream). (b) is a spine change and an upstream issue; a plan gate first
   - confirm: a walk that starts a Hard turn with a 60 s delegate, calls `reconnectAcpAfterSystemResume()` from the page mid-turn, and still sees the orchestrator's reply → 1 passed (untouched: the reply never lands)
+
+- 177. The fork's own roles start without upstream's "New Recipe Warning": `CreateSessionOptions` (`ui/desktop/src/sessions.ts:28`) gains `trustedRole: boolean` (default false); `ensureRecipeConsent` (`sessions.ts:95`) returns before the prompt when it is set; the three app-started role sessions pass it — Hard's orchestrator (`WorkspaceShell.tsx:800`, `:1565`) and Review branch… (`panes/review/review-session.ts:105`). Recipes from the library, deeplinks and anything else still ask.
+  - status: todo · agent: — · worker: low
+  - card: as a first-run user, start Hard without a security prompt about a file that ships in my repo (user: yes, 2026-09-22; `tasks.md` §Notes recipe consent)
+  - confirm: `grep -c "trustedRole: true" ui/desktop/src/workspace/WorkspaceShell.tsx ui/desktop/src/workspace/panes/review/review-session.ts | grep -v ':0$' | wc -l` → `2` (untouched: `0`); `just walk "rpi strip"` → 1 passed with `trustRecipeIfAsked` finding no dialog (log line)
+- 178. A routine never stalls on an approval: a scheduled run whose recipe carries `Approve` or `SmartApprove` runs as `Auto` (`crates/goose/src/scheduler.rs:1157`; `Chat` stays `Chat`); the Save as routine sheet (`ui/desktop/src/workspace/routine/RoutineSheet.tsx:178-180`) shows the mode it will run with; one Rust unit test.
+  - status: todo · agent: — · worker: low
+  - card: as the user, have a routine finish while I am away — its worktree and the Runs inbox are the review, not a prompt no one answers (user: yes, 2026-09-22; `tasks.md` §Notes routine mode)
+  - confirm: `cargo test -p goose --lib scheduler -- routine_mode` → `≥ 1 passed` (untouched: no test matches)
 
 ## Waiting on the user
 
@@ -305,7 +318,6 @@ Order: 154 (above) ∥ 155–157 (mockups, session) ∥ wave 1 (158 · 160 · 16
 - **Upstream merge 2026-09-22:** 9 commits (ACP SDK 1.5 on both sides, recipe parameter limits, provider fixes) merged on main with three conflicts (the SDK version, the lockfile, `schedule.rs`'s factory config losing `data_dir`); behind it: cargo build, ACP schema regenerated (no drift), typecheck 0, eslint 0, 1350 desktop + 97 sidecar + 93 Rust light, `just smoke` 9 passed (2.6 min), `approve mode` + `usage ring` 2 passed.
 - **133 — the telemetry session:** landed (f7dd58ea5, aff408be5 both on main); the `telemetry` worktree and branch removed 2026-09-22 (merged, clean).
 
-- **177 · 178 — two decisions for the UX Must + Should plan (2026-09-22):** (177) upstream's "New Recipe Warning" on the fork's own roles (§Notes recipe consent) — recommend skip it for sessions the app starts from the project's `.agents/agents/`, keep it for recipes from anywhere else; (178) routines inherit the session's mode and stall on their first ask — recommend force Auto for routines, since each runs in its own worktree and lands in the Runs inbox for review. Say "177 yes / 178 yes" or otherwise; each becomes a task.
 
 ### Notes and hand checks
 
