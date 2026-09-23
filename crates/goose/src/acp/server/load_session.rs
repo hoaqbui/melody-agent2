@@ -307,6 +307,7 @@ impl GooseAcpAgent {
         if let Err(error) = cx.spawn(async move {
             let _run_guard = ActiveRunDropGuard {
                 registry: server.active_runs.clone(),
+                agent_manager: server.agent_manager.clone(),
                 session_id: task_session_id.clone(),
                 run_id: task_run_id.clone(),
                 cancel_token: task_cancel_token.clone(),

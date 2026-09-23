@@ -227,8 +227,10 @@ impl GooseAcpAgent {
         {
             return Err("Melody is already working on a task.".into());
         }
+        self.agent_manager.pin(&session_id, agent.clone());
         let run_guard = ActiveRunDropGuard {
             registry: self.active_runs.clone(),
+            agent_manager: self.agent_manager.clone(),
             session_id: session_id.clone(),
             run_id: run_id.clone(),
             cancel_token: cancel_token.clone(),
