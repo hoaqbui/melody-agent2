@@ -13,6 +13,7 @@ import {
 import type { ElicitationStatus } from './adapter/elicitations';
 import { cloneMessage } from './adapter/shared';
 import type { AcpElicitationRequest } from './elicitationRequests';
+import type { ClassifiedTurnError } from './errors';
 import type { AcpPermissionRequest } from './permissionRequestTypes';
 
 export interface AcpChatSessionSnapshot {
@@ -26,6 +27,7 @@ export interface AcpChatSessionSnapshot {
   activePromptAttemptId: string | null;
   activeRunId: string | null;
   pendingCancelPromptAttemptId: string | null;
+  turnFailure: ClassifiedTurnError | undefined;
 }
 
 type SnapshotListener = (snapshot: AcpChatSessionSnapshot) => void;
@@ -86,6 +88,11 @@ export interface AcpChatSessionActions {
   setSessionLoadError(
     sessionId: string,
     sessionLoadError: string | undefined
+  ): AcpChatSessionSnapshot;
+
+  setTurnFailure(
+    sessionId: string,
+    turnFailure: ClassifiedTurnError | undefined
   ): AcpChatSessionSnapshot;
 
   setMessages(sessionId: string, messages: Message[]): AcpChatSessionSnapshot;
@@ -182,6 +189,7 @@ function createAcpChatSessionStoreInternal(): AcpChatSessionStoreInternal {
       activePromptAttemptId: null,
       activeRunId: null,
       pendingCancelPromptAttemptId: null,
+      turnFailure: undefined,
       promptCancellationRestoreState: null,
       pendingUserInputRequestIds: new Set(),
       pendingLocalSteerMessageIds: new Set(),
@@ -309,6 +317,12 @@ function createAcpChatSessionStoreInternal(): AcpChatSessionStoreInternal {
     return notify(sessionId, entry);
   };
 
+  const setTurnFailure: AcpChatSessionActions['setTurnFailure'] = (sessionId, turnFailure) => {
+    const entry = getOrCreateEntry(sessionId);
+    entry.turnFailure = turnFailure;
+    return notify(sessionId, entry);
+  };
+
   const startPromptAttempt: AcpChatSessionActions['startPromptAttempt'] = (
     sessionId,
     promptAttemptId
@@ -322,6 +336,7 @@ function createAcpChatSessionStoreInternal(): AcpChatSessionStoreInternal {
     entry.pendingUserInputRequestIds.clear();
     entry.chatState = ChatState.Streaming;
     entry.sessionLoadError = undefined;
+    entry.turnFailure = undefined;
     entry.notifications = [];
     entry.progressMessage = undefined;
     return notify(sessionId, entry);
@@ -552,6 +567,7 @@ function createAcpChatSessionStoreInternal(): AcpChatSessionStoreInternal {
     finishSessionLoad,
     failSessionLoad,
     setSessionLoadError,
+    setTurnFailure,
     setMessages,
     addPendingLocalSteerMessage,
     setChatState,
@@ -632,6 +648,7 @@ function actionsFromStore(store: AcpChatSessionStoreInternal): AcpChatSessionAct
     finishSessionLoad: store.finishSessionLoad,
     failSessionLoad: store.failSessionLoad,
     setSessionLoadError: store.setSessionLoadError,
+    setTurnFailure: store.setTurnFailure,
     setMessages: store.setMessages,
     addPendingLocalSteerMessage: store.addPendingLocalSteerMessage,
     setChatState: store.setChatState,
@@ -776,6 +793,7 @@ function snapshotFromEntry(entry: StoreEntry): AcpChatSessionSnapshot {
     activePromptAttemptId: entry.activePromptAttemptId,
     activeRunId: entry.activeRunId,
     pendingCancelPromptAttemptId: entry.pendingCancelPromptAttemptId,
+    turnFailure: entry.turnFailure,
   };
 }
 

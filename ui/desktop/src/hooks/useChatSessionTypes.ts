@@ -1,5 +1,6 @@
 import type { ChatState } from '../types/chatState';
 import type { TokenState } from '../types/chat';
+import type { ClassifiedTurnError } from '../acp/errors';
 import type { ImageData, Message, NotificationEvent, UserInput } from '../types/message';
 import type { Session } from '../types/session';
 
@@ -24,6 +25,7 @@ export interface UseChatSessionResult {
   stopStreaming: () => void;
   retrySessionLoad: () => Promise<void>;
   sessionLoadError?: string;
+  turnFailure?: ClassifiedTurnError;
   tokenState: TokenState;
   notifications: Map<string, NotificationEvent[]>;
   pauseQueueOnStop: boolean;

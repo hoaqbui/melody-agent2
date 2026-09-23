@@ -6194,6 +6194,42 @@
   "turnDiffCard.openInEditor": {
     "defaultMessage": "Open in Editor"
   },
+  "turnFailureCard.bodyAuth": {
+    "defaultMessage": "Sign in again, then retry to pick the turn back up."
+  },
+  "turnFailureCard.bodyNetwork": {
+    "defaultMessage": "The connection closed before the reply finished. Nothing changed after the last completed step."
+  },
+  "turnFailureCard.bodyOther": {
+    "defaultMessage": "The turn stopped before it finished."
+  },
+  "turnFailureCard.bodyQuota": {
+    "defaultMessage": "This seat's usage limit was reached. A reset time isn't available for this runtime yet."
+  },
+  "turnFailureCard.copied": {
+    "defaultMessage": "Copied"
+  },
+  "turnFailureCard.copyDetails": {
+    "defaultMessage": "Copy details"
+  },
+  "turnFailureCard.headlineAuth": {
+    "defaultMessage": "The turn stopped: sign-in expired"
+  },
+  "turnFailureCard.headlineNetwork": {
+    "defaultMessage": "The turn stopped: the connection dropped"
+  },
+  "turnFailureCard.headlineOther": {
+    "defaultMessage": "The turn stopped"
+  },
+  "turnFailureCard.headlineQuota": {
+    "defaultMessage": "The turn stopped: usage limit reached"
+  },
+  "turnFailureCard.retry": {
+    "defaultMessage": "Retry"
+  },
+  "turnFailureCard.signIn": {
+    "defaultMessage": "Sign in"
+  },
   "updateSection.autoDownload": {
     "defaultMessage": "Goose akan memuat turun kemas kini di latar belakang dan memasangnya pada kali seterusnya anda keluar atau mula semula."
   },
@@ -6509,11 +6545,26 @@
   "workspaceShell.stopEasy": {
     "defaultMessage": "Easy"
   },
+  "workspaceShell.stopEasyDescription": {
+    "defaultMessage": "Easy — Sonnet, direct"
+  },
   "workspaceShell.stopHard": {
     "defaultMessage": "Hard"
   },
+  "workspaceShell.stopHardDescription": {
+    "defaultMessage": "Claude Opus orchestrates; agy researches, Codex plans and reviews, Sonnet implements. You see each worker in Agents."
+  },
+  "workspaceShell.stopHardTeam": {
+    "defaultMessage": "team"
+  },
+  "workspaceShell.stopHardTitle": {
+    "defaultMessage": "Hard — Claude leads a team"
+  },
   "workspaceShell.stopMedium": {
     "defaultMessage": "Medium"
+  },
+  "workspaceShell.stopMediumDescription": {
+    "defaultMessage": "Medium — Opus, direct"
   },
   "workspaceShell.switchFailed": {
     "defaultMessage": "Couldn't switch runtime"

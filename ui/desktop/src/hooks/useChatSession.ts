@@ -15,6 +15,7 @@ import {
 } from '../types/message';
 import { errorMessage } from '../utils/conversionUtils';
 import type { UseChatSessionParams, UseChatSessionResult } from './useChatSessionTypes';
+import { classifyTurnError } from '../acp/errors';
 import { resolveAcpElicitationRequest } from '../acp/elicitationRequests';
 import { acpChatSessionController } from '../acp/chatSessionController';
 import {
@@ -54,6 +55,7 @@ export function useChatSession({
   const chatState = acpSnapshot?.chatState ?? ChatState.LoadingConversation;
   const progressMessage = acpSnapshot?.progressMessage;
   const sessionLoadError = acpSnapshot?.sessionLoadError;
+  const turnFailure = acpSnapshot?.turnFailure;
   const tokenState = acpSnapshot?.tokenState ?? initialTokenState;
   const queueProcessingBlocked = acpSnapshot?.pendingCancelPromptAttemptId != null;
   const hasActiveRun = acpSnapshot?.activeRunId != null;
@@ -99,7 +101,10 @@ export function useChatSession({
   const onFinish = useCallback(
     (error?: string): void => {
       if (error) {
-        toastError({ title: "Couldn't send message", msg: error });
+        acpChatSessionActions.setTurnFailure(sessionId, {
+          ...classifyTurnError(error),
+          failedAt: Date.now(),
+        });
       } else {
         notifyTurnFinished({
           sessionId,
@@ -319,6 +324,7 @@ export function useChatSession({
 
   return {
     sessionLoadError,
+    turnFailure,
     messages,
     session,
     chatState,

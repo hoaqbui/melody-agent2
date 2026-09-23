@@ -256,16 +256,6 @@ Order: 152 → 139 b/c → 145 → 153 (needs the merged tree; a spine patch). 1
 
 Order: 154 (above) ∥ 155–157 (mockups, session) ∥ wave 1 (158 · 160 · 161 · 162 · 163 · 170 · 173 · 174 · 175 · 179, disjoint files; 180 session) → 159 · 169 · 172 → 93 (above, after 158) → user picks → 164–168 · 171 → 176 last. Mockups for the pick: `docs/mockups/2026-09-22-lever-words.html` (164), `-turn-failure.html` (165), `-states-sheet.html` (166–168, 171). Two calls made under "orchestrate" that were the user's: 179 resolves the sidebar spec-vs-rule as the spec, 174 picks "Describe a task…". Workers per AGENTS.md chain; the session reruns every confirm. Evidence: `docs/2026-09-22-ux-pass-research-v1.md`, screenshots in `docs/2026-09-22-ux-pass/`.
 
-- 164. Lever words per 155's pick: `workspace/Lever.tsx`, `tests/e2e/easy-mode.spec.ts` (its sr-only assertion changes with the pick).
-  - status: doing · agent: session → haiku worker · worker: medium
-  - card: as in 155
-  - context: user picked **B** (2026-09-22): the dots stay; the current stop's word sits beside them in ink ("Easy", "Medium", "Hard · team"); hover or keyboard focus on the lever shows a card — the stop's name, what it does, which seats run (Hard: "Claude Opus orchestrates; agy researches, Codex plans and reviews, Sonnet implements. You see each worker in Agents."; plus the other two stops in one line); a long press opens it on touch. Mockup: `docs/mockups/2026-09-22-lever-words.html` §Option B. The word replaces task 123's sr-only label as the visible label; keep `aria-valuetext`
-  - confirm: `just walk "easy mode"` → `1 passed` (untouched: fails on the pick's new assertion)
-- 165. Failed turn card and quota notice per 156's pick: `hooks/useChatSession.ts:99-110` (the toast), `acp/errors.ts`; read first what error each adapter sends on a closed quota (claude-agent-acp, codex-acp) and record it in context before building the quota half.
-  - status: doing · agent: session → sonnet worker · worker: high
-  - card: as in 156
-  - context: user picked **1A + 2A** (2026-09-22): a failed turn is a card in the transcript where the reply would have been — what failed in one line, the detail (error code · provider · model · time) in mono, Retry (re-sends the last prompt through the edit path, as task 169's Regenerate does) · Switch runtime… · Copy details; an auth cause puts Sign in first. Quota: with a backup seat the transcript records the fail-over as the runtime divider (`WorkspaceShell.tsx:838` pattern: "Codex quota closed until 6:10 PM → Grok from here"); without one, a card with the reset time and Continue on <backup> · Retry at <time> · Details. Mockup: `docs/mockups/2026-09-22-turn-failure.html` §1A, §2A. The quota half ships only for seats whose error says quota/rate-limit — record what each adapter sends first
-  - confirm: `cd ui/desktop && pnpm vitest run src/hooks -t "failed turn"` → `≥ 1 passed` (untouched: no test matches)
 - 166. Changes bar states per 157's pick: `workspace/ChangesBar.tsx` — staged work shows as staged with Commit, a clean tree hides the bar on the next status read (not "0 files · +0 −0", `14-after-commit.png`), Accept's label matches what it does; `DESIGN.md:111` corrected to match.
   - status: todo · agent: — · worker: medium
   - card: as the user, trust the bar's words, so that I know whether my work is committed (research Must 3)
@@ -301,6 +291,11 @@ Order: 154 (above) ∥ 155–157 (mockups, session) ∥ wave 1 (158 · 160 · 16
   - status: todo · agent: — · worker: low
   - card: as a first-run user, start Hard without a security prompt about a file that ships in my repo (user: yes, 2026-09-22; `tasks.md` §Notes recipe consent)
   - confirm: `grep -c "trustedRole: true" ui/desktop/src/workspace/WorkspaceShell.tsx ui/desktop/src/workspace/panes/review/review-session.ts | grep -v ':0$' | wc -l` → `2` (untouched: `0`); `just walk "rpi strip"` → 1 passed with `trustRecipeIfAsked` finding no dialog (log line)
+- 182. Quota never reaches the failed-turn card (found by 165, 2026-09-22): goose folds every seat's rate-limit and usage-limit error into `ProviderError::CreditsExhausted { top_up_url: None }` (`crates/goose/src/acp/provider.rs:183-207`), the server sends it as `credits_exhausted` with no reset time (`acp/server.rs:1770-1793`), and the desktop turns that into the upstream "credits exhausted" notice (`chatSessionController.ts:200-215`) before the turn fails. Reset times exist only in status snapshots never forwarded — codex-acp `resetsAt`, claude-agent-acp `rate_limit_info` on `usage_update`. 2A (fail-over divider, reset-time card) needs: a `quota_exhausted` / `rate_limited` error kind with `resetAt` from the provider, then the card's quota state. Also: "Switch runtime…" on the card needs the Runtime chip made openable from outside (`SessionChips.tsx`, uncontrolled dropdown).
+  - status: todo · agent: — · worker: high
+  - card: as the user, see when a seat's window reopens and what took over, so that a closed quota is not a mystery (user pick 2A, 2026-09-22)
+  - confirm: `cargo test -p goose --lib acp::provider -- quota` → a test that a codex `usageLimitExceeded` with `resetsAt` reaches the client error with the reset time (untouched: no test matches)
+
 ## Waiting on the user
 
 ### Handoff — one line, one command each (2026-09-20, closeout; the decisions moved under §Notes and hand checks 2026-09-21)

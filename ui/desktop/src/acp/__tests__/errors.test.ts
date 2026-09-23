@@ -1,6 +1,11 @@
 import { describe, expect, it } from 'vitest';
 import { RequestError } from '@agentclientprotocol/sdk';
-import { formatAcpError, parseAcpCreditsExhaustedError } from '../errors';
+import {
+  AUTH_REQUIRED_MESSAGE,
+  classifyTurnError,
+  formatAcpError,
+  parseAcpCreditsExhaustedError,
+} from '../errors';
 
 describe('formatAcpError', () => {
   it('explains how to recover from an authentication error', () => {
@@ -53,5 +58,47 @@ describe('parseAcpCreditsExhaustedError', () => {
         },
       })
     ).toBeNull();
+  });
+});
+
+describe('classifyTurnError', () => {
+  it('classifies the formatAcpError auth sentence as auth', () => {
+    expect(classifyTurnError(AUTH_REQUIRED_MESSAGE)).toEqual({
+      kind: 'auth',
+      detail: AUTH_REQUIRED_MESSAGE,
+    });
+  });
+
+  it('classifies a credits_exhausted-shaped message as quota', () => {
+    const message = 'Please add credits to your account (reason: credits_exhausted).';
+    expect(classifyTurnError(message)).toEqual({ kind: 'quota', detail: message });
+  });
+
+  it('classifies a rate-limit message as quota', () => {
+    const message = 'Rate limit reached for gpt-5.1 in organization on tokens per min (TPM).';
+    expect(classifyTurnError(message)).toEqual({ kind: 'quota', detail: message });
+  });
+
+  it('classifies a stream-level rejection as network', () => {
+    const message =
+      'Error in agent response stream: Codex process has exited with code 1: ProcessTransport closed';
+    expect(classifyTurnError(message)).toEqual({ kind: 'network', detail: message });
+  });
+
+  it('classifies an ECONNRESET message as network', () => {
+    const message = 'ECONNRESET: the connection to claude-agent-acp closed after 41s.';
+    expect(classifyTurnError(message)).toEqual({ kind: 'network', detail: message });
+  });
+
+  it('falls back to other for an unrecognized message', () => {
+    const message = 'The model declined to continue.';
+    expect(classifyTurnError(message)).toEqual({ kind: 'other', detail: message });
+  });
+
+  it('trims the message before classifying and reporting the detail', () => {
+    expect(classifyTurnError(`  ${AUTH_REQUIRED_MESSAGE}  `)).toEqual({
+      kind: 'auth',
+      detail: AUTH_REQUIRED_MESSAGE,
+    });
   });
 });

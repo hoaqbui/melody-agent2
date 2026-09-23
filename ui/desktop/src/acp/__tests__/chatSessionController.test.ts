@@ -114,6 +114,7 @@ function snapshotWithActivePrompt(activePromptAttemptId: string | null): AcpChat
     activePromptAttemptId,
     activeRunId: activePromptAttemptId ? 'run-1' : null,
     pendingCancelPromptAttemptId: null,
+    turnFailure: undefined,
   };
 }
 
@@ -266,7 +267,6 @@ describe('acpChatSessionController.submitMessage', () => {
     expect(acpChatSessionActions.startPromptAttempt).not.toHaveBeenCalled();
     expect(acpPromptSession).not.toHaveBeenCalled();
   });
-
 });
 
 describe('acpChatSessionController.updateMessage', () => {

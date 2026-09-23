@@ -24,10 +24,12 @@ import type { Recipe } from '../recipe';
 import RecipeActivities from './recipes/RecipeActivities';
 import {
   getTextAndImageContent,
+  imageDataFromMessage,
   type ImageData,
   type Message,
   type UserInput,
 } from '../types/message';
+import TurnFailureCard from './TurnFailureCard';
 import { substituteParameters } from '../utils/parameterSubstitution';
 import { useAutoSubmit } from '../hooks/useAutoSubmit';
 import { Goose } from './icons';
@@ -140,6 +142,7 @@ export default function BaseChat({
     stopStreaming,
     retrySessionLoad,
     sessionLoadError,
+    turnFailure,
     tokenState,
     notifications: toolCallNotifications,
     pauseQueueOnStop,
@@ -154,6 +157,22 @@ export default function BaseChat({
     (text: string) => handleSubmit({ msg: text, images: [] }),
     [handleSubmit]
   );
+  // Same re-send-through-edit path as ProgressiveMessageList's Regenerate (task 169):
+  // the failed turn's card lives outside the message list (shared with AgentsPane), so
+  // it recomputes the last user message itself instead of reaching into the list.
+  const lastUserMessage = useMemo(
+    () => [...messages].reverse().find((message) => isUserMessage(message) && message.id),
+    [messages]
+  );
+  const retryFailedTurn = useCallback(() => {
+    if (!lastUserMessage?.id) return;
+    void onMessageUpdate(
+      lastUserMessage.id,
+      getTextAndImageContent(lastUserMessage).textContent,
+      'edit',
+      imageDataFromMessage(lastUserMessage)
+    );
+  }, [lastUserMessage, onMessageUpdate]);
 
   const sessionLoaded = session !== undefined;
   const liveVoiceChatBusy = chatState !== ChatState.Idle;
@@ -560,6 +579,15 @@ export default function BaseChat({
                     submitElicitationResponse={submitElicitationResponse}
                   />
                 </SearchView>
+
+                {turnFailure && (
+                  <TurnFailureCard
+                    failure={turnFailure}
+                    provider={session?.provider_name}
+                    model={session?.model_config?.model_name}
+                    onRetry={retryFailedTurn}
+                  />
+                )}
 
                 <div className="block h-8" />
               </>
