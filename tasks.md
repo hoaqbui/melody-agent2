@@ -303,7 +303,7 @@ Order: 184 (migration) → 183 (identity); 185 ∥ 186 ∥ 187 ∥ 189 ∥ 190 �
 
 ### docs/2026-09-23-melody-program-plan-v3.md — Melody, the main agent: M0 (approved 2026-09-23, user: "approved and start ochestrating"; v3 scope 2026-09-23: "do must should and could, and we should be v0.9 and ready for alpha testing")
 
-Order: 198 → 200 (199 runs beside M1b); 197 done 2026-09-23 (one server-owned AgentManager, running agents pinned; `task181_shared_ownership` → 3 passed). 196 done 2026-09-23 (forced-sync delegate → SLEPT after 183 s; `just walk "rpi strip"` → 1 passed). 181 is the umbrella; its plan: `docs/2026-09-23-task181-shared-run-plan-v1.md`. M1a is planned at 200's gate.
+Order: 198 → 200 (199 runs beside M1b); 197 done 2026-09-23 (one server-owned AgentManager, running agents pinned; `task181_shared_ownership` → 3 passed). 196 done 2026-09-23 (forced-sync delegate → SLEPT after 183 s; `just walk "rpi strip"` → 1 passed). 181 is the umbrella; its plan: `docs/2026-09-23-task181-shared-run-plan-v1.md`. M1a is planned at 200's gate. 201 done 2026-09-23 (two stale expectations: the list meta's accumulated usage fields from task 125, and the Melody rename's import message; `test_list_sessions` → 7 passed, `apply_onboarding_imports_continues_after_candidate_failure` → 1 passed, clippy clean).
 
 
 
@@ -324,12 +324,6 @@ Order: 198 → 200 (199 runs beside M1b); 197 done 2026-09-23 (one server-owned 
   - card: as the user, I want the reply to show once and Stop to still work after a reconnect, so that recovery is visible (FURPS R U · MoSCoW Must)
   - context: `chatSessionController.ts:145`, `chatSessionStore.ts:230`, `:684`; the walk calls `import('/src/acp/acpConnection.ts').then(m => m.reconnectAcpAfterSystemResume())` mid-turn (dev walk only), extending `tests/e2e/agents-pane.spec.ts`
   - confirm: `just walk "reconnect during a Hard turn"` → 1 passed with the parent's reply exactly once (today: the reply never lands); `just smoke` → passes; then 181 closes
-
-- 201. Two tests already red on main: `acp_server_test::test_list_sessions` (the list's meta now carries `accumulatedCost`, `accumulatedInputTokens`, `accumulatedOutputTokens`; the expectation in `tests/acp_common_tests/mod.rs:96` doesn't) and `acp::server::onboarding::tests::apply_onboarding_imports_continues_after_candidate_failure` (`src/acp/server/onboarding.rs:623`)
-  - status: doing · agent: haiku-worker (wt/t201) · worker: low
-  - card: as the maintainer, I want the suite green on main so that a red means something (FURPS S · MoSCoW Should; the v0.9 alpha gate needs `just test-full` green)
-  - context: found 2026-09-23 while verifying 197; both fail on the untouched tree (git stash, same result), so neither is 197's; decide per test whether the code or the expectation is right
-  - confirm: `cargo test -p goose --test acp_server_test test_list_sessions` → ok and `cargo test -p goose --lib apply_onboarding_imports_continues_after_candidate_failure` → ok (both fail today)
 
 ## Waiting on the user
 
