@@ -3,10 +3,10 @@
     <!-- Rounded rectangle background - change fill color here -->
     <rect x="200" y="200" width="1648" height="1648" rx="400" ry="400" fill="#ffffff" stroke="none"/>
 
-    <!-- The stair in black - adjust transform to resize/move -->
+    <!-- The mark in black - adjust transform to resize/move -->
     <g transform="translate(376, 376) scale(54)" fill="#101010">
-        <rect x="-0.6" y="10.4" width="13.2" height="3.2" rx="1.6" transform="rotate(-45 6 12)"/>
-        <rect x="5.4" y="10.4" width="13.2" height="3.2" rx="1.6" transform="rotate(-45 12 12)"/>
-        <rect x="11.4" y="10.4" width="13.2" height="3.2" rx="1.6" transform="rotate(-45 18 12)"/>
+        <rect x="2" y="7.5" width="4.6" height="9" rx="1.7" opacity=".6"/>
+        <rect x="8.7" y="2.5" width="6.6" height="19" rx="2.4"/>
+        <rect x="17.4" y="7.5" width="4.6" height="9" rx="1.7" opacity=".6"/>
     </g>
 </svg>

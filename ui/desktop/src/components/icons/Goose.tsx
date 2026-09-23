@@ -8,9 +8,9 @@ export function Goose({ className = '' }) {
       xmlns="http://www.w3.org/2000/svg"
       className={className}
     >
-      <rect x="-0.6" y="10.4" width="13.2" height="3.2" rx="1.6" transform="rotate(-45 6 12)" />
-      <rect x="5.4" y="10.4" width="13.2" height="3.2" rx="1.6" transform="rotate(-45 12 12)" />
-      <rect x="11.4" y="10.4" width="13.2" height="3.2" rx="1.6" transform="rotate(-45 18 12)" />
+      <rect x="2" y="7.5" width="4.6" height="9" rx="1.7" opacity=".6" />
+      <rect x="8.7" y="2.5" width="6.6" height="19" rx="2.4" />
+      <rect x="17.4" y="7.5" width="4.6" height="9" rx="1.7" opacity=".6" />
     </svg>
   );
 }
