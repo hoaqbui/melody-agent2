@@ -2,6 +2,7 @@ import { readFileSync } from 'node:fs';
 import { resolve } from 'node:path';
 import { describe, expect, it, vi } from 'vitest';
 import type { GitStatusEntry } from '../../../native/sidecar';
+import { ChatState } from '../../../types/chatState';
 import type { Message } from '../../../types/message';
 import {
   actionablePath,
@@ -10,6 +11,7 @@ import {
   ghRecovery,
   GIT_PANE_STATES,
   hasToolCallInProgress,
+  isChatRunning,
   paneState,
   prBlocker,
   splitStatus,
@@ -50,6 +52,26 @@ describe('hasToolCallInProgress', () => {
     expect(hasToolCallInProgress([request('a'), request('b'), response('b'), response('a')])).toBe(
       false
     );
+  });
+});
+
+describe('isChatRunning', () => {
+  it('chat idle: unanswered request but chat is idle → not running', () => {
+    expect(isChatRunning([request('a'), response('a'), request('b')], ChatState.Idle)).toBe(false);
+  });
+
+  it('is true with an unanswered request when chat is not idle', () => {
+    expect(isChatRunning([request('a'), response('a'), request('b')], ChatState.Streaming)).toBe(
+      true
+    );
+  });
+
+  it('is false when chat is idle and there are no unanswered requests', () => {
+    expect(isChatRunning([request('a'), response('a')], ChatState.Idle)).toBe(false);
+  });
+
+  it('is false when there are no messages', () => {
+    expect(isChatRunning([], ChatState.Idle)).toBe(false);
   });
 });
 

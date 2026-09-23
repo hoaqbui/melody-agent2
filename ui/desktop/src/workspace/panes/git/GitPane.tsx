@@ -37,7 +37,7 @@ import {
   commitBlocker,
   createGitDraftStore,
   ghRecovery,
-  hasToolCallInProgress,
+  isChatRunning,
   paneState,
   prBlocker,
   splitStatus,
@@ -265,10 +265,10 @@ function EntryList({
 
 export function GitPane() {
   const intl = useIntl();
-  const { cwd, messages } = usePaneContext();
+  const { cwd, messages, chatState } = usePaneContext();
   const draft = draftFor(cwd);
   const message = useSyncExternalStore(draft.subscribe, draft.getState, draft.getState);
-  const running = hasToolCallInProgress(messages);
+  const running = isChatRunning(messages, chatState);
 
   const [status, setStatus] = useState<GitStatusResponse | null>(null);
   const [loading, setLoading] = useState(true);

@@ -5,6 +5,7 @@
 // (DESIGN.md Nothing Lost Rule).
 
 import type { GitStatusEntry } from '../../../native/sidecar';
+import { ChatState } from '../../../types/chatState';
 import { getToolRequests, getToolResponses, type Message } from '../../../types/message';
 
 // DESIGN.md §Shared component states, plus `ready` for a surface with nothing unresolved.
@@ -42,6 +43,13 @@ export function hasToolCallInProgress(messages: readonly Message[]): boolean {
   return messages.some((message) =>
     getToolRequests(message).some((request) => !answered.has(request.id))
   );
+}
+
+// Chat is running if there are unanswered requests AND the chat is not idle. Once the chat
+// becomes idle (the user or system stops the turn), orphaned requests no longer block Commit.
+export function isChatRunning(messages: readonly Message[], chatState?: ChatState | null): boolean {
+  if (chatState === ChatState.Idle) return false;
+  return hasToolCallInProgress(messages);
 }
 
 export function isConflicted(entry: GitStatusEntry): boolean {

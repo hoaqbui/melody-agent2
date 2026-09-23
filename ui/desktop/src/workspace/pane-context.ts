@@ -5,6 +5,7 @@
 
 import { createContext, useContext } from 'react';
 import type { GitStatusResponse } from '../native/sidecar';
+import { ChatState } from '../types/chatState';
 import type { Message } from '../types/message';
 import type { InsertChatInput } from './chat-insert';
 import type { LayoutMode, PaneId } from './pane-store';
@@ -16,6 +17,7 @@ export interface PaneContextValue {
   sessionId: string;
   // The open session's transcript; empty while no session is open.
   messages: readonly Message[];
+  chatState?: ChatState | null;
   // The path the Editor shows; null until a file is picked.
   file: string | null;
   // The line the Editor scrolls to (task 70's `file:line` links); null when the file was

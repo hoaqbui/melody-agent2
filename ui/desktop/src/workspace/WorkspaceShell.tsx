@@ -1169,6 +1169,7 @@ export function WorkspaceShell({ chat, children, panes, paneStore }: WorkspaceSh
       mode: layout.mode,
       sessionId,
       messages: snapshot?.messages ?? NO_MESSAGES,
+      chatState: snapshot?.chatState,
       file,
       line,
       openFile,
@@ -1197,6 +1198,7 @@ export function WorkspaceShell({ chat, children, panes, paneStore }: WorkspaceSh
       openReview,
       review,
       sessionId,
+      snapshot?.chatState,
       snapshot?.messages,
       store,
     ]

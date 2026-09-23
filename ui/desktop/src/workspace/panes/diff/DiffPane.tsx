@@ -55,7 +55,7 @@ import {
   type GitWorktreeRemoveRequest,
 } from '../../../native/sidecar';
 import { worktreePlace, type WorktreePlace } from '../../worktree';
-import { hasToolCallInProgress } from '../git/git-state';
+import { isChatRunning } from '../git/git-state';
 import { PrSheet } from '../git/PrSheet';
 import { useStartReview } from '../review/review-session';
 import {
@@ -432,7 +432,7 @@ interface MergeFailure {
 
 export function DiffPane() {
   const intl = useIntl();
-  const { cwd, messages, gitStatus, insertIntoChat, openFile } = usePaneContext();
+  const { cwd, messages, chatState, gitStatus, insertIntoChat, openFile } = usePaneContext();
   const gitToplevel = gitStatus?.toplevel ?? cwd;
   const { resolvedTheme } = useTheme();
   const selection = useSyncExternalStore(
@@ -446,7 +446,7 @@ export function DiffPane() {
   const baseRev = base === 'session' ? sessionStart : 'HEAD';
   const baseLabel = intl.formatMessage(base === 'session' ? i18n.sinceSessionStart : i18n.vsHead);
   const scope = selection.scope;
-  const running = hasToolCallInProgress(messages);
+  const running = isChatRunning(messages, chatState);
 
   const [files, setFiles] = useState<DiffFile[] | null>(null);
   const [loading, setLoading] = useState(true);
@@ -604,12 +604,7 @@ export function DiffPane() {
         toast.success(
           <div className="flex items-center gap-2">
             <span>{intl.formatMessage(i18n.discarded, { path: entry.path })}</span>
-            <Button
-              size="xs"
-              variant="outline"
-              data-testid="diff-discard-undo"
-              onClick={undo}
-            >
+            <Button size="xs" variant="outline" data-testid="diff-discard-undo" onClick={undo}>
               {intl.formatMessage(i18n.undo)}
             </Button>
           </div>,
