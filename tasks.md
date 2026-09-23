@@ -308,7 +308,7 @@ Order: 198 → 200 (199 runs beside M1b); 197 done 2026-09-23 (one server-owned 
 
 
 - 198. The server owns each run; a load re-attaches to it without gaps (181, step 2)
-  - status: doing · agent: claude-session-2026-09-23 · worker: high
+  - status: doing · agent: codex-worker gpt-5.6-sol (wt/t198), verified by claude-session-2026-09-23 · worker: high
   - card: as the user, I want a long reply to keep coming after my laptop sleeps or the Wi-Fi drops, so that Melody's long turns are never lost (FURPS R · MoSCoW Must)
   - context: plan §The change, bullets 2–5; `acp/server.rs:2409`, `:2251`, `:266`, `:2373`; `load_session.rs:392-467`; tests on the duplex harness `tests/acp_fixtures/mod.rs:332`, `acp_fixtures/server.rs:236`
   - confirm: `cargo test -p goose --test acp_server_test task181_reconnect` → 2 passed, one per agent loop (connection A drops after BEFORE; B loads and gets the prefix once, then AFTER and the end; one turn persisted; `Arc::ptr_eq` on the agent) — today the run is cancelled
@@ -326,7 +326,7 @@ Order: 198 → 200 (199 runs beside M1b); 197 done 2026-09-23 (one server-owned 
   - confirm: `just walk "reconnect during a Hard turn"` → 1 passed with the parent's reply exactly once (today: the reply never lands); `just smoke` → passes; then 181 closes
 
 - 201. Two tests already red on main: `acp_server_test::test_list_sessions` (the list's meta now carries `accumulatedCost`, `accumulatedInputTokens`, `accumulatedOutputTokens`; the expectation in `tests/acp_common_tests/mod.rs:96` doesn't) and `acp::server::onboarding::tests::apply_onboarding_imports_continues_after_candidate_failure` (`src/acp/server/onboarding.rs:623`)
-  - status: todo · agent: — · worker: low
+  - status: doing · agent: haiku-worker (wt/t201) · worker: low
   - card: as the maintainer, I want the suite green on main so that a red means something (FURPS S · MoSCoW Should; the v0.9 alpha gate needs `just test-full` green)
   - context: found 2026-09-23 while verifying 197; both fail on the untouched tree (git stash, same result), so neither is 197's; decide per test whether the code or the expectation is right
   - confirm: `cargo test -p goose --test acp_server_test test_list_sessions` → ok and `cargo test -p goose --lib apply_onboarding_imports_continues_after_candidate_failure` → ok (both fail today)
