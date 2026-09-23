@@ -424,6 +424,18 @@ app.whenReady().then(() => {
   );
 });
 
+// The walks drive the real app on the user's own Mac. Under them the window is transparent,
+// lets clicks through and never takes focus, so the user keeps working while a walk runs;
+// Chromium would otherwise pause a covered window's timers and painting (the git poll with
+// them). CDP screenshots and input go to the renderer, not the screen, so the walks still see.
+const quietWindows = process.env.GOOSE_WALK_QUIET === '1';
+if (quietWindows) {
+  app.commandLine.appendSwitch('disable-backgrounding-occluded-windows');
+  app.commandLine.appendSwitch('disable-renderer-backgrounding');
+  app.commandLine.appendSwitch('disable-background-timer-throttling');
+  app.whenReady().then(() => app.dock?.hide());
+}
+
 if (process.env.ENABLE_PLAYWRIGHT) {
   const debugPort = process.env.PLAYWRIGHT_DEBUG_PORT || '9222';
   console.log(`[Main] Enabling Playwright remote debugging on port ${debugPort}`);
@@ -1365,6 +1377,7 @@ const createChat = async (
       icon: path.join(__dirname, '../images/icon.icns'),
       webPreferences: {
         spellcheck: settings.spellcheckEnabled ?? true,
+        backgroundThrottling: !quietWindows,
         preload: path.join(__dirname, 'preload.js'),
         webSecurity: true,
         nodeIntegration: false,
@@ -1564,7 +1577,12 @@ const createChat = async (
   let formattedUrl = formatUrl(url);
   log.info('Opening URL: ', formattedUrl);
   mainWindow.once('ready-to-show', () => {
-    if (!mainWindow.isDestroyed()) {
+    if (mainWindow.isDestroyed()) return;
+    if (quietWindows) {
+      mainWindow.setOpacity(0);
+      mainWindow.setIgnoreMouseEvents(true);
+      mainWindow.showInactive();
+    } else {
       mainWindow.show();
     }
   });

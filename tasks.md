@@ -307,6 +307,7 @@ gone — git holds them (`git log -S"hand checks" -- tasks.md`), the walks cover
 - Walks share one machine: the sidecar's fixed port 7788 and the debug port mean one walk at a time on this checkout; a second checkout sets `PLAYWRIGHT_DEBUG_PORT_BASE`. The fixture frees its debug port and relaunches once if the window closes (139a).
 - 2026-09-22: `target/` vanished mid-session (present at 20:41, gone by 20:52) between a `just copy-binary debug`, two `just walk` runs and a system-pnpm `eslint` that tried a modules purge and aborted; nothing in the Justfile, `fixtures.ts` or `ui/desktop/scripts` removes it. Rebuilt with `cargo build` (13:53). If it happens again, note what ran in between.
 - 2026-09-22: never let a worker edit `ui/desktop/src` while a walk runs — the dev app takes Vite hot updates and the ACP socket reconnects on each (task 154's "drops every 2–20 s" were this); run walks between worker waves.
+- 2026-09-22: walks run invisible — `fixtures.ts` sets `GOOSE_WALK_QUIET=1`, and `main.ts` opens the window transparent, click-through, never focused, with the dock icon hidden and occlusion backgrounding off (a covered window otherwise stops its timers and the Changes bar poll with them). `WALK_VISIBLE=1 just walk "<name>"` shows the window to watch a walk.
 - `just test-full` opens with `cargo clippy` under the fork's two `-A` lints; the Rust light suite's sqlx dylib line is non-fatal on Darwin 27 (decision 6 of the 2026-09-18 parity plan) — a loud marker, never a silent pass.
 
 ## Ownership

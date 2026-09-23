@@ -123,6 +123,8 @@ async function launchApp(
       NODE_ENV: 'development',
       GOOSE_ALLOWLIST_BYPASS: 'true',
       ENABLE_PLAYWRIGHT: 'true',
+      // WALK_VISIBLE=1 shows the window, to watch a walk.
+      GOOSE_WALK_QUIET: process.env.WALK_VISIBLE === '1' ? '0' : '1',
       PLAYWRIGHT_DEBUG_PORT: debugPort.toString(),
       RUST_LOG: 'info',
       GOOSE_PATH_ROOT: profile.pathRoot,
