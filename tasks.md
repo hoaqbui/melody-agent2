@@ -256,11 +256,6 @@ Order: 152 → 139 b/c → 145 → 153 (needs the merged tree; a spine patch). 1
 
 Order: 154 (above) ∥ 155–157 (mockups, session) ∥ wave 1 (158 · 160 · 161 · 162 · 163 · 170 · 173 · 174 · 175 · 179, disjoint files; 180 session) → 159 · 169 · 172 → 93 (above, after 158) → user picks → 164–168 · 171 → 176 last. Mockups for the pick: `docs/mockups/2026-09-22-lever-words.html` (164), `-turn-failure.html` (165), `-states-sheet.html` (166–168, 171). Two calls made under "orchestrate" that were the user's: 179 resolves the sidebar spec-vs-rule as the spec, 174 picks "Describe a task…". Workers per AGENTS.md chain; the session reruns every confirm. Evidence: `docs/2026-09-22-ux-pass-research-v1.md`, screenshots in `docs/2026-09-22-ux-pass/`.
 
-- 176. A keyboard-only walk: `tests/e2e/keyboard.spec.ts` (`@seat`) — type a task on the Hub, Enter, reach Review, the diff, the commit box and Commit with keys only, and name each place focus is lost.
-  - status: todo · agent: — · worker: medium
-  - card: as a keyboard user, finish the loop without a mouse (Should; `DESIGN.md` §Accessibility)
-  - context: runs after 159 and 166; a step that cannot be reached by keys is a finding appended here, not a skipped step
-  - confirm: `just walk "keyboard"` → `1 passed` (untouched: no spec)
 - 181. A reconnect during a turn loses the turn's reply: every ACP connection builds its own `AgentManager` (`acp/server.rs:2784` → `create_agent()`, `server.rs:969`), so after the desktop's socket recovers (`acpConnection.ts:72-184`) and `ChatSessionsContainer.tsx:44-53` restores each open session, `execution/manager.rs:212` "Restoring evicted" builds a fresh Agent and the running turn's stream has no listener — the parent keeps only the user message. Found under task 154 (2026-09-22), where the reconnects came from the session's own workers editing renderer files under the dev app (Vite hot updates); in the product the trigger is a system resume (`reconnectAcpAfterSystemResume`) or a dropped socket.
   - status: todo · agent: — · worker: high
   - card: as the user, keep a long orchestrated turn's answer when my laptop sleeps or the connection blips, so that a reconnect is not a lost turn
