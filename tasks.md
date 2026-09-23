@@ -270,25 +270,6 @@ Order: 154 (above) ∥ 155–157 (mockups, session) ∥ wave 1 (158 · 160 · 16
 
 Order: 184 (migration) → 183 (identity); 185 ∥ 186 ∥ 187 ∥ 189 ∥ 190 ∥ 191 on disjoint files; 188 after 187; 192 last; 193 waits on the user's pick. Commits stage only the task's paths (`Lever.tsx` is the user's, uncommitted).
 
-- 185. Rename the main process's words and turn the updater off in `ui/desktop/src/main.ts`,
-     `ui/desktop/src/utils/autoUpdater.ts` and `ui/desktop/src/updates.ts`.
-  - status: doing · agent: session (worker: claude -p haiku) · worker: low
-  - card: as the user, I want the menus, dialogs, notifications and tray to say Melody, and no
-    upstream release offered, so that nothing names or installs the wrong app
-  - context:
-    - main.ts:2744 from: `item.label === 'Goose'` / to: `item.label === app.name` (else the
-      Settings item silently drops)
-    - main.ts:117,121,147 keys and values: 'Focus Goose Window' → 'Focus Melody Window'
-      ('聚焦 Melody 窗口'), 'About Goose' → 'About Melody' ('关于 Melody'), 'Hide Goose' →
-      'Hide Melody' ('隐藏 Melody'); :2872 and :2981 `menuT(...)` to match
-    - main.ts:800 `applicationName: 'Melody'`; :855 `title: 'Melody'`; :1285 'Melody Failed to
-      Start'; :3333 'Melody Error'
-    - autoUpdater.ts:649 "when you quit Melody"; :740 'Melody - Update Available'; :748 'Melody'
-    - updates.ts:1 from: `UPDATES_ENABLED = true` / to: `UPDATES_ENABLED = false`
-      (`ENABLE_DEV_UPDATES` still overrides, main.ts:80); this also hides Settings › Updates
-      (`AppSettingsSection.tsx:831`), which is intended
-  - confirm: `cd ui/desktop && grep -cE "['\`][^'\`]*\bGoose\b" src/main.ts src/utils/autoUpdater.ts; grep -c "UPDATES_ENABLED = false" src/updates.ts; pnpm run typecheck` → main.ts 0, autoUpdater.ts 0 (13 today), 1, typecheck 0
-
 - 188. Carry the rename into the 15 other locales under `ui/desktop/src/i18n/messages/`.
   - status: doing · agent: session (worker: claude -p haiku) · worker: medium
   - blocked-by: 187
