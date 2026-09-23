@@ -90,7 +90,7 @@
     "defaultMessage": "Delete \"{name}\"? This cannot be undone."
   },
   "appsView.description": {
-    "defaultMessage": "Applicazioni dai tuoi server MCP e app create da goose stesso. Puoi chiedere di creare nuove app tramite l'interfaccia di chat e appariranno qui."
+    "defaultMessage": "Applicazioni dai tuoi server MCP e app create da Melody stesso. Puoi chiedere di creare nuove app tramite l'interfaccia di chat e appariranno qui."
   },
   "appsView.errorLoading": {
     "defaultMessage": "Errore durante il caricamento delle app: {error}"
@@ -108,7 +108,7 @@
     "defaultMessage": "Caricamento app..."
   },
   "appsView.noAppsDescription": {
-    "defaultMessage": "Apri una chat e chiedi a goose l'app che desideri avere. Può crearne una per te e apparirà qui. Oppure, se qualcuno ha condiviso un'app, puoi importarla usando il pulsante qui sopra."
+    "defaultMessage": "Apri una chat e chiedi a Melody l'app che desideri avere. Può crearne una per te e apparirà qui. Oppure, se qualcuno ha condiviso un'app, puoi importarla usando il pulsante qui sopra."
   },
   "appsView.noAppsTitle": {
     "defaultMessage": "Nessuna app disponibile"
@@ -177,7 +177,7 @@
     "defaultMessage": "Credenziale eliminata"
   },
   "authSettings.description": {
-    "defaultMessage": "Gestisci le credenziali dei provider memorizzate localmente da goose."
+    "defaultMessage": "Gestisci le credenziali dei provider memorizzate localmente da Melody."
   },
   "authSettings.empty": {
     "defaultMessage": "Nessuna credenziale di provider memorizzata localmente è stata trovata."
@@ -462,10 +462,10 @@
     "defaultMessage": "Unstage"
   },
   "chat.notification.taskComplete.body": {
-    "defaultMessage": "Fai clic qui per riportare Goose in primo piano."
+    "defaultMessage": "Fai clic qui per riportare Melody in primo piano."
   },
   "chat.notification.taskComplete.title": {
-    "defaultMessage": "Goose ha completato l'attività."
+    "defaultMessage": "Melody ha completato l'attività."
   },
   "chatInput.contextWindow": {
     "defaultMessage": "Finestra di contesto"
@@ -519,13 +519,13 @@
     "defaultMessage": "In attesa del salvataggio delle immagini..."
   },
   "chatSettings.modeDescription": {
-    "defaultMessage": "Scegli la modalità predefinita che Goose usa per le nuove sessioni. Le sessioni esistenti mantengono la loro modalità corrente."
+    "defaultMessage": "Scegli la modalità predefinita che Melody usa per le nuove sessioni. Le sessioni esistenti mantengono la loro modalità corrente."
   },
   "chatSettings.modeTitle": {
     "defaultMessage": "Modalità predefinita"
   },
   "chatSettings.responseStylesDescription": {
-    "defaultMessage": "Scegli come Goose deve formattare e definire lo stile delle sue risposte"
+    "defaultMessage": "Scegli come Melody deve formattare e definire lo stile delle sue risposte"
   },
   "chatSettings.responseStylesTitle": {
     "defaultMessage": "Stili di risposta"
@@ -555,10 +555,10 @@
     "defaultMessage": "Editor di configurazione"
   },
   "configSettings.description": {
-    "defaultMessage": "Modifica le impostazioni di configurazione di goose"
+    "defaultMessage": "Modifica le impostazioni di configurazione di Melody"
   },
   "configSettings.descriptionWithProvider": {
-    "defaultMessage": "Modifica le impostazioni di configurazione di goose (impostazioni correnti per {provider})"
+    "defaultMessage": "Modifica le impostazioni di configurazione di Melody (impostazioni correnti per {provider})"
   },
   "configSettings.done": {
     "defaultMessage": "Fatto"
@@ -630,7 +630,7 @@
     "defaultMessage": "Numero massimo di turni"
   },
   "conversationLimitsDropdown.maxTurnsDescription": {
-    "defaultMessage": "Numero massimo di turni dell'agente prima che Goose richieda l'input dell'utente"
+    "defaultMessage": "Numero massimo di turni dell'agente prima che Melody richieda l'input dell'utente"
   },
   "costTracker.costUnavailable": {
     "defaultMessage": "Dati sui costi non disponibili per {model} ({inputTokens} token di input, {outputTokens} token di output)"
@@ -1086,7 +1086,7 @@
     "defaultMessage": "Modifica le impostazioni di {name}"
   },
   "defaultCardButtons.getStarted": {
-    "defaultMessage": "Inizia con goose!"
+    "defaultMessage": "Inizia con Melody!"
   },
   "defaultProviderSetupForm.apiHostLabel": {
     "defaultMessage": "Host API"
@@ -1410,7 +1410,7 @@
     "defaultMessage": "La richiesta di informazioni è stata annullata."
   },
   "elicitationRequest.defaultMessage": {
-    "defaultMessage": "Goose ha bisogno di alcune informazioni da te."
+    "defaultMessage": "Melody ha bisogno di alcune informazioni da te."
   },
   "elicitationRequest.expired": {
     "defaultMessage": "Questa richiesta è scaduta. L'estensione dovrà chiedere di nuovo."
@@ -1455,7 +1455,7 @@
     "defaultMessage": "Si è verificato un errore."
   },
   "errorBoundary.errorWithVersion": {
-    "defaultMessage": "Si è verificato un errore in Goose v{version}."
+    "defaultMessage": "Si è verificato un errore in Melody v{version}."
   },
   "errorBoundary.heading": {
     "defaultMessage": "Honk!"
@@ -1638,7 +1638,7 @@
     "defaultMessage": "Le estensioni abilitate qui vengono usate come predefinite per le nuove chat. Puoi anche attivare o disattivare le estensioni attive durante una chat."
   },
   "extensionsView.description": {
-    "defaultMessage": "Queste estensioni usano il Model Context Protocol (MCP). Possono ampliare le capacità di Goose tramite tre componenti principali: Prompt, Risorse e Strumenti. {searchShortcut} per cercare."
+    "defaultMessage": "Queste estensioni usano il Model Context Protocol (MCP). Possono ampliare le capacità di Melody tramite tre componenti principali: Prompt, Risorse e Strumenti. {searchShortcut} per cercare."
   },
   "extensionsView.heading": {
     "defaultMessage": "Estensioni"
@@ -1656,19 +1656,19 @@
     "defaultMessage": "AA:BB:CC:... o sha256/base64"
   },
   "externalBackendSection.description": {
-    "defaultMessage": "Per impostazione predefinita goose avvia un server per te; usa questa opzione per connetterti a un server goose esterno"
+    "defaultMessage": "Per impostazione predefinita Melody avvia un server per te; usa questa opzione per connetterti a un server Melody esterno"
   },
   "externalBackendSection.fingerprintRequiresHttps": {
     "defaultMessage": "Certificate fingerprint requires an https URL"
   },
   "externalBackendSection.restartNote": {
-    "defaultMessage": "Le modifiche richiedono il riavvio di Goose per avere effetto. Le nuove finestre di chat si connetteranno al server esterno."
+    "defaultMessage": "Le modifiche richiedono il riavvio di Melody per avere effetto. Le nuove finestre di chat si connetteranno al server esterno."
   },
   "externalBackendSection.secretKey": {
     "defaultMessage": "Chiave segreta"
   },
   "externalBackendSection.secretKeyHelp": {
-    "defaultMessage": "La chiave segreta configurata sul server Goose (GOOSE_SERVER__SECRET_KEY)"
+    "defaultMessage": "La chiave segreta configurata sul server Melody (GOOSE_SERVER__SECRET_KEY)"
   },
   "externalBackendSection.secretKeyPlaceholder": {
     "defaultMessage": "Inserisci la chiave segreta del server"
@@ -1677,10 +1677,10 @@
     "defaultMessage": "URL del server"
   },
   "externalBackendSection.serverUrlHelp": {
-    "defaultMessage": "Enter the HTTP(S) base URL. Goose checks /status and connects to /acp under this base."
+    "defaultMessage": "Enter the HTTP(S) base URL. Melody checks /status and connects to /acp under this base."
   },
   "externalBackendSection.title": {
-    "defaultMessage": "Server Goose"
+    "defaultMessage": "Server Melody"
   },
   "externalBackendSection.urlBaseError": {
     "defaultMessage": "URL must be the backend base URL before /acp, without query parameters or fragments"
@@ -1695,7 +1695,7 @@
     "defaultMessage": "Usa un server esterno"
   },
   "externalBackendSection.useExternalServerDescription": {
-    "defaultMessage": "Connettiti a un server goose in esecuzione altrove (richiede il riavvio dell'app)"
+    "defaultMessage": "Connettiti a un server Melody in esecuzione altrove (richiede il riavvio dell'app)"
   },
   "externalBackendSection.workingDir": {
     "defaultMessage": "Directory di lavoro remota (facoltativa)"
@@ -1941,7 +1941,7 @@
     "defaultMessage": "Developer"
   },
   "goosehintsModal.dialogDescription": {
-    "defaultMessage": "Fornisci ulteriore contesto sul tuo progetto per migliorare la comunicazione con Goose"
+    "defaultMessage": "Fornisci ulteriore contesto sul tuo progetto per migliorare la comunicazione con Melody"
   },
   "goosehintsModal.dialogTitle": {
     "defaultMessage": "Configura i suggerimenti del progetto (.goosehints)"
@@ -1962,7 +1962,7 @@
     "defaultMessage": "File .goosehints trovato in: {filePath}"
   },
   "goosehintsModal.helpText1": {
-    "defaultMessage": ".goosehints è un file di testo usato per fornire ulteriore contesto sul tuo progetto e migliorare la comunicazione con Goose."
+    "defaultMessage": ".goosehints è un file di testo usato per fornire ulteriore contesto sul tuo progetto e migliorare la comunicazione con Melody."
   },
   "goosehintsModal.helpText2": {
     "defaultMessage": "Assicurati che l'estensione {bold} sia abilitata nella pagina delle estensioni. Questa estensione è necessaria per usare .goosehints. Dovrai riavviare la sessione affinché gli aggiornamenti di .goosehints abbiano effetto."
@@ -1989,13 +1989,13 @@
     "defaultMessage": "Configura"
   },
   "goosehintsSection.description": {
-    "defaultMessage": "Configura il file .goosehints del tuo progetto per fornire ulteriore contesto a Goose"
+    "defaultMessage": "Configura il file .goosehints del tuo progetto per fornire ulteriore contesto a Melody"
   },
   "goosehintsSection.title": {
     "defaultMessage": "Suggerimenti del progetto (.goosehints)"
   },
   "groupedExtensionLoadingToast.askGoose": {
-    "defaultMessage": "Chiedi a goose"
+    "defaultMessage": "Chiedi a Melody"
   },
   "groupedExtensionLoadingToast.collapseDetails": {
     "defaultMessage": "Comprimi i dettagli"
@@ -2115,7 +2115,7 @@
     "defaultMessage": "Hugging Face"
   },
   "imagePreview.altText": {
-    "defaultMessage": "immagine goose"
+    "defaultMessage": "immagine Melody"
   },
   "imagePreview.clickToCollapse": {
     "defaultMessage": "Fai clic per comprimere"
@@ -2163,7 +2163,7 @@
     "defaultMessage": "File della ricetta"
   },
   "importRecipeForm.reviewWarning": {
-    "defaultMessage": "Assicurati di esaminare il contenuto dei file delle ricette prima di aggiungerli alla tua interfaccia goose."
+    "defaultMessage": "Assicurati di esaminare il contenuto dei file delle ricette prima di aggiungerli alla tua interfaccia Melody."
   },
   "importRecipeForm.schemaDescription": {
     "defaultMessage": "Il tuo file YAML o JSON deve seguire questa struttura. I campi obbligatori sono: title, description e instructions oppure prompt."
@@ -2274,13 +2274,13 @@
     "defaultMessage": "Scorciatoie dell'applicazione"
   },
   "keyboardShortcuts.categoryApplicationDescription": {
-    "defaultMessage": "Queste scorciatoie funzionano quando Goose è l'applicazione attiva"
+    "defaultMessage": "Queste scorciatoie funzionano quando Melody è l'applicazione attiva"
   },
   "keyboardShortcuts.categoryGlobal": {
     "defaultMessage": "Scorciatoie globali"
   },
   "keyboardShortcuts.categoryGlobalDescription": {
-    "defaultMessage": "Queste scorciatoie funzionano a livello di sistema, anche quando Goose non è in primo piano"
+    "defaultMessage": "Queste scorciatoie funzionano a livello di sistema, anche quando Melody non è in primo piano"
   },
   "keyboardShortcuts.categorySearch": {
     "defaultMessage": "Scorciatoie di ricerca"
@@ -2298,7 +2298,7 @@
     "defaultMessage": "Workspace Shortcuts"
   },
   "keyboardShortcuts.categoryWorkspaceDescription": {
-    "defaultMessage": "These shortcuts help you navigate and work in the Goose workspace"
+    "defaultMessage": "These shortcuts help you navigate and work in the Melody workspace"
   },
   "keyboardShortcuts.change": {
     "defaultMessage": "Modifica"
@@ -2340,10 +2340,10 @@
     "defaultMessage": "Trova precedente"
   },
   "keyboardShortcuts.focusWindowDescription": {
-    "defaultMessage": "Porta la finestra di Goose in primo piano da qualsiasi punto"
+    "defaultMessage": "Porta la finestra di Melody in primo piano da qualsiasi punto"
   },
   "keyboardShortcuts.focusWindowLabel": {
-    "defaultMessage": "Metti a fuoco la finestra di Goose"
+    "defaultMessage": "Metti a fuoco la finestra di Melody"
   },
   "keyboardShortcuts.loading": {
     "defaultMessage": "Caricamento in corso..."
@@ -2355,7 +2355,7 @@
     "defaultMessage": "Nuova chat"
   },
   "keyboardShortcuts.newChatWindowDescription": {
-    "defaultMessage": "Apri una nuova finestra di Goose"
+    "defaultMessage": "Apri una nuova finestra di Melody"
   },
   "keyboardShortcuts.newChatWindowLabel": {
     "defaultMessage": "Nuova finestra di chat"
@@ -2400,7 +2400,7 @@
     "defaultMessage": "Ripristina i valori predefiniti"
   },
   "keyboardShortcuts.restartDescription": {
-    "defaultMessage": "Le modifiche alle scorciatoie dell'applicazione (come Nuova chat, Impostazioni, ecc.) richiedono il riavvio di Goose per avere effetto. Le scorciatoie globali (Metti a fuoco la finestra, Avvio rapido) funzionano immediatamente."
+    "defaultMessage": "Le modifiche alle scorciatoie dell'applicazione (come Nuova chat, Impostazioni, ecc.) richiedono il riavvio di Melody per avere effetto. Le scorciatoie globali (Metti a fuoco la finestra, Avvio rapido) funzionano immediatamente."
   },
   "keyboardShortcuts.restartRequired": {
     "defaultMessage": "Riavvio necessario"
@@ -2436,7 +2436,7 @@
     "defaultMessage": "Attiva/disattiva navigazione"
   },
   "launcher.placeholder": {
-    "defaultMessage": "Chiedi qualsiasi cosa a goose..."
+    "defaultMessage": "Chiedi qualsiasi cosa a Melody..."
   },
   "liveVoice.connecting": {
     "defaultMessage": "Connecting Live voice"
@@ -2463,16 +2463,16 @@
     "defaultMessage": "Unmute microphone"
   },
   "liveVoiceSettings.description": {
-    "defaultMessage": "Parla con Goose in tempo reale"
+    "defaultMessage": "Parla con Melody in tempo reale"
   },
   "liveVoiceSettings.title": {
     "defaultMessage": "Voce in tempo reale"
   },
   "loadingGoose.compacting": {
-    "defaultMessage": "goose sta compattando la conversazione..."
+    "defaultMessage": "Melody sta compattando la conversazione..."
   },
   "loadingGoose.idle": {
-    "defaultMessage": "goose ci sta lavorando…"
+    "defaultMessage": "Melody ci sta lavorando…"
   },
   "loadingGoose.loadingConversation": {
     "defaultMessage": "caricamento conversazione..."
@@ -2481,13 +2481,13 @@
     "defaultMessage": "riavvio della sessione..."
   },
   "loadingGoose.streaming": {
-    "defaultMessage": "goose ci sta lavorando…"
+    "defaultMessage": "Melody ci sta lavorando…"
   },
   "loadingGoose.thinking": {
-    "defaultMessage": "goose sta pensando…"
+    "defaultMessage": "Melody sta pensando…"
   },
   "loadingGoose.waiting": {
-    "defaultMessage": "goose è in attesa…"
+    "defaultMessage": "Melody è in attesa…"
   },
   "localInferenceSettings.deleteConfirm": {
     "defaultMessage": "Eliminare questo modello? Potrai scaricarlo di nuovo in seguito."
@@ -3249,7 +3249,7 @@
     "defaultMessage": "Routine run was stopped"
   },
   "notifications.turn.worktreeBody": {
-    "defaultMessage": "Finished on {branch}. Click here to bring Goose back into focus."
+    "defaultMessage": "Finished on {branch}. Click here to bring Melody back into focus."
   },
   "notifications.worker.done": {
     "defaultMessage": "Worker finished"
@@ -3261,7 +3261,7 @@
     "defaultMessage": "Il server potrebbe essere in fase di avvio o temporaneamente non disponibile."
   },
   "onboardingGuard.checkProviderErrorTitle": {
-    "defaultMessage": "Impossibile connettersi al server Goose"
+    "defaultMessage": "Impossibile connettersi al server Melody"
   },
   "onboardingGuard.retry": {
     "defaultMessage": "Riprova"
@@ -3270,10 +3270,10 @@
     "defaultMessage": "Il tuo agente IA locale. Collega un provider di modelli IA per iniziare."
   },
   "onboardingGuard.welcomeTitle": {
-    "defaultMessage": "Benvenuto in goose"
+    "defaultMessage": "Benvenuto in Melody"
   },
   "onboardingSuccess.allSet": {
-    "defaultMessage": "Tutto è pronto per iniziare a usare goose."
+    "defaultMessage": "Tutto è pronto per iniziare a usare Melody."
   },
   "onboardingSuccess.connectedTo": {
     "defaultMessage": "Connesso a {providerName}"
@@ -3288,7 +3288,7 @@
     "defaultMessage": "Modello locale pronto"
   },
   "onboardingSuccess.privacyDescription": {
-    "defaultMessage": "I dati di utilizzo anonimi aiutano a migliorare goose. Non raccogliamo mai le tue conversazioni, il tuo codice o i tuoi dati personali."
+    "defaultMessage": "I dati di utilizzo anonimi aiutano a migliorare Melody. Non raccogliamo mai le tue conversazioni, il tuo codice o i tuoi dati personali."
   },
   "onboardingSuccess.privacyTitle": {
     "defaultMessage": "Privacy"
@@ -3456,10 +3456,10 @@
     "defaultMessage": "Metriche della sessione (durata, numero di interazioni, utilizzo di token)"
   },
   "privacyInfoModal.collectVersion": {
-    "defaultMessage": "Versione di goose e metodo di installazione"
+    "defaultMessage": "Versione di Melody e metodo di installazione"
   },
   "privacyInfoModal.description": {
-    "defaultMessage": "I dati di utilizzo anonimi ci aiutano a capire come viene usato goose e a individuare le aree di miglioramento."
+    "defaultMessage": "I dati di utilizzo anonimi ci aiutano a capire come viene usato Melody e a individuare le aree di miglioramento."
   },
   "privacyInfoModal.neverCollect": {
     "defaultMessage": "Non raccogliamo mai le tue conversazioni, il tuo codice, gli argomenti degli strumenti, i messaggi di errore o alcun dato personale. Puoi modificare questa impostazione in qualsiasi momento in Impostazioni."
@@ -3528,7 +3528,7 @@
     "defaultMessage": "Impossibile salvare il prompt"
   },
   "promptsSettings.promptEditingDescription": {
-    "defaultMessage": "Personalizza i prompt che definiscono il comportamento di goose in diversi contesti. Questi prompt usano la sintassi dei template Jinja2. Fai attenzione quando modifichi le variabili dei template, poiché modifiche errate possono compromettere le funzionalità. Condividi eventuali miglioramenti con la community."
+    "defaultMessage": "Personalizza i prompt che definiscono il comportamento di Melody in diversi contesti. Questi prompt usano la sintassi dei template Jinja2. Fai attenzione quando modifichi le variabili dei template, poiché modifiche errate possono compromettere le funzionalità. Condividi eventuali miglioramenti con la community."
   },
   "promptsSettings.promptEditingTitle": {
     "defaultMessage": "Modifica prompt"
@@ -3636,7 +3636,7 @@
     "defaultMessage": "Accesso in corso..."
   },
   "providerConfigurationModal.addApiKeyDescription": {
-    "defaultMessage": "Aggiungi la tua chiave o le tue chiavi API per questo provider da integrare in goose"
+    "defaultMessage": "Aggiungi la tua chiave o le tue chiavi API per questo provider da integrare in Melody"
   },
   "providerConfigurationModal.browserWindowHint": {
     "defaultMessage": "Si aprirà una finestra del browser per completare l'accesso."
@@ -3684,7 +3684,7 @@
     "defaultMessage": "Errore"
   },
   "providerConfigurationModal.externalSetupIntro": {
-    "defaultMessage": "Questo provider è configurato al di fuori di goose. Segui questi passaggi:"
+    "defaultMessage": "Questo provider è configurato al di fuori di Melody. Segui questi passaggi:"
   },
   "providerConfigurationModal.goBack": {
     "defaultMessage": "Torna indietro"
@@ -3768,7 +3768,7 @@
     "defaultMessage": "Caricamento provider..."
   },
   "providerSettings.onboardingDescription": {
-    "defaultMessage": "Seleziona un provider di modelli IA per iniziare con goose. Dovrai usare le chiavi API generate da ciascun provider, che verranno crittografate e archiviate localmente. Puoi cambiare provider in qualsiasi momento nelle impostazioni."
+    "defaultMessage": "Seleziona un provider di modelli IA per iniziare con Melody. Dovrai usare le chiavi API generate da ciascun provider, che verranno crittografate e archiviate localmente. Puoi cambiare provider in qualsiasi momento nelle impostazioni."
   },
   "providerSettings.otherProviders": {
     "defaultMessage": "Altri provider"
@@ -4395,10 +4395,10 @@
     "defaultMessage": "Merged {branch} into {checkout} at {sha}"
   },
   "runsInbox.mode": {
-    "defaultMessage": "Goose mode: {mode}"
+    "defaultMessage": "Melody mode: {mode}"
   },
   "runsInbox.modeHint": {
-    "defaultMessage": "An unattended run takes the global goose mode, not its own"
+    "defaultMessage": "An unattended run takes the global Melody mode, not its own"
   },
   "runsInbox.noChanges": {
     "defaultMessage": "No changes since the run started — nothing to accept"
@@ -4452,7 +4452,7 @@
     "defaultMessage": "Cursor"
   },
   "runtimesGate.description": {
-    "defaultMessage": "Connect your AI runtimes so goose can pick the right one for each task"
+    "defaultMessage": "Connect your AI runtimes so Melody can pick the right one for each task"
   },
   "runtimesGate.done": {
     "defaultMessage": "Done"
@@ -5103,7 +5103,7 @@
     "defaultMessage": "Cronologia chat"
   },
   "sessions.chatHistoryDesc": {
-    "defaultMessage": "Visualizza e cerca le tue conversazioni passate con Goose. {shortcut} per cercare."
+    "defaultMessage": "Visualizza e cerca le tue conversazioni passate con Melody. {shortcut} per cercare."
   },
   "sessions.close": {
     "defaultMessage": "Chiudi"
@@ -5139,7 +5139,7 @@
     "defaultMessage": "Importa link"
   },
   "sessions.importNostr.description": {
-    "defaultMessage": "Incolla un link di condivisione Nostr di Goose per recuperare, decrittografare e importare la sessione."
+    "defaultMessage": "Incolla un link di condivisione Nostr di Melody per recuperare, decrittografare e importare la sessione."
   },
   "sessions.importNostr.placeholder": {
     "defaultMessage": "goose://sessions/nostr?nevent=...&key=..."
@@ -5292,7 +5292,7 @@
     "defaultMessage": "Ciclo agente"
   },
   "settings.appearance.description": {
-    "defaultMessage": "Configura l'aspetto di goose sul tuo sistema"
+    "defaultMessage": "Configura l'aspetto di Melody sul tuo sistema"
   },
   "settings.appearance.title": {
     "defaultMessage": "Aspetto"
@@ -5307,13 +5307,13 @@
     "defaultMessage": "Monitoraggio dei costi"
   },
   "settings.dockIcon.description": {
-    "defaultMessage": "Mostra goose nel dock"
+    "defaultMessage": "Mostra Melody nel dock"
   },
   "settings.dockIcon.title": {
     "defaultMessage": "Icona del dock"
   },
   "settings.help.description": {
-    "defaultMessage": "Aiutaci a migliorare goose segnalando problemi o richiedendo nuove funzionalità"
+    "defaultMessage": "Aiutaci a migliorare Melody segnalando problemi o richiedendo nuove funzionalità"
   },
   "settings.help.reportBug": {
     "defaultMessage": "Segnala un bug"
@@ -5325,7 +5325,7 @@
     "defaultMessage": "Guida e feedback"
   },
   "settings.language.description": {
-    "defaultMessage": "Scegli la lingua di visualizzazione per goose"
+    "defaultMessage": "Scegli la lingua di visualizzazione per Melody"
   },
   "settings.language.english": {
     "defaultMessage": "English"
@@ -5382,7 +5382,7 @@
     "defaultMessage": "Cinese (tradizionale)"
   },
   "settings.menuBarIcon.description": {
-    "defaultMessage": "Mostra goose nella barra dei menu"
+    "defaultMessage": "Mostra Melody nella barra dei menu"
   },
   "settings.menuBarIcon.title": {
     "defaultMessage": "Icona della barra dei menu"
@@ -5403,7 +5403,7 @@
     "defaultMessage": "Fai clic su Notifiche"
   },
   "settings.notifications.modal.macStep3": {
-    "defaultMessage": "Trova e seleziona goose nell'elenco delle applicazioni"
+    "defaultMessage": "Trova e seleziona Melody nell'elenco delle applicazioni"
   },
   "settings.notifications.modal.macStep4": {
     "defaultMessage": "Abilita le notifiche e regola le impostazioni come preferisci"
@@ -5421,7 +5421,7 @@
     "defaultMessage": "Vai a Sistema > Notifiche"
   },
   "settings.notifications.modal.winStep3": {
-    "defaultMessage": "Trova e seleziona goose nell'elenco delle applicazioni"
+    "defaultMessage": "Trova e seleziona Melody nell'elenco delle applicazioni"
   },
   "settings.notifications.modal.winStep4": {
     "defaultMessage": "Attiva le notifiche e regola le impostazioni come preferisci"
@@ -5430,7 +5430,7 @@
     "defaultMessage": "Apri Impostazioni"
   },
   "settings.notifications.task.description": {
-    "defaultMessage": "Notifica quando Goose completa un'attività mentre la finestra è in secondo piano"
+    "defaultMessage": "Notifica quando Melody completa un'attività mentre la finestra è in secondo piano"
   },
   "settings.notifications.task.title": {
     "defaultMessage": "Notifiche di completamento attività"
@@ -5445,10 +5445,10 @@
     "defaultMessage": "Copy"
   },
   "settings.phone.description": {
-    "defaultMessage": "Open goose on your phone over the tailnet — scan the code or copy the address"
+    "defaultMessage": "Open Melody on your phone over the tailnet — scan the code or copy the address"
   },
   "settings.phone.noTailnet": {
-    "defaultMessage": "No tailnet address — start Tailscale and relaunch goose"
+    "defaultMessage": "No tailnet address — start Tailscale and relaunch Melody"
   },
   "settings.phone.notifications": {
     "defaultMessage": "Notifications on this phone"
@@ -5478,19 +5478,19 @@
     "defaultMessage": "Phone"
   },
   "settings.preventSleep.description": {
-    "defaultMessage": "Mantieni il computer attivo mentre goose esegue un'attività (lo schermo può comunque bloccarsi)"
+    "defaultMessage": "Mantieni il computer attivo mentre Melody esegue un'attività (lo schermo può comunque bloccarsi)"
   },
   "settings.preventSleep.title": {
     "defaultMessage": "Impedisci la sospensione"
   },
   "settings.theme.description": {
-    "defaultMessage": "Personalizza l'aspetto e lo stile di goose"
+    "defaultMessage": "Personalizza l'aspetto e lo stile di Melody"
   },
   "settings.theme.title": {
     "defaultMessage": "Tema"
   },
   "settings.updates.description": {
-    "defaultMessage": "Controlla e installa gli aggiornamenti per mantenere goose sempre al meglio"
+    "defaultMessage": "Controlla e installa gli aggiornamenti per mantenere Melody sempre al meglio"
   },
   "settings.updates.title": {
     "defaultMessage": "Aggiornamenti"
@@ -5580,7 +5580,7 @@
     "defaultMessage": "Cerca competenze..."
   },
   "skillsView.skillsDescription": {
-    "defaultMessage": "Visualizza le competenze installate che estendono le funzionalità di Goose. {shortcut} per cercare."
+    "defaultMessage": "Visualizza le competenze installate che estendono le funzionalità di Melody. {shortcut} per cercare."
   },
   "skillsView.skillsTitle": {
     "defaultMessage": "Competenze"
@@ -5823,10 +5823,10 @@
     "defaultMessage": "Usa un altro provider"
   },
   "telemetryConsentPrompt.description": {
-    "defaultMessage": "Vuoi condividere dati di utilizzo anonimi per aiutare a migliorare goose? Non raccogliamo mai le tue conversazioni, il tuo codice o i tuoi dati personali."
+    "defaultMessage": "Vuoi condividere dati di utilizzo anonimi per aiutare a migliorare Melody? Non raccogliamo mai le tue conversazioni, il tuo codice o i tuoi dati personali."
   },
   "telemetryConsentPrompt.heading": {
-    "defaultMessage": "Aiuta a migliorare goose"
+    "defaultMessage": "Aiuta a migliorare Melody"
   },
   "telemetryConsentPrompt.learnMore": {
     "defaultMessage": "Scopri di più"
@@ -6021,7 +6021,7 @@
     "defaultMessage": "Privacy"
   },
   "telemetrySettings.toggleDescription": {
-    "defaultMessage": "Aiuta a migliorare goose condividendo statistiche di utilizzo anonime."
+    "defaultMessage": "Aiuta a migliorare Melody condividendo statistiche di utilizzo anonime."
   },
   "telemetrySettings.toggleLabel": {
     "defaultMessage": "Dati di utilizzo anonimi"
@@ -6231,7 +6231,7 @@
     "defaultMessage": "Consentire {toolName}?"
   },
   "toolConfirmation.gooseWouldLikeToCallWithName": {
-    "defaultMessage": "Goose desidera richiamare {toolName}. Consentire?"
+    "defaultMessage": "Melody desidera richiamare {toolName}. Consentire?"
   },
   "turnDiffCard.error": {
     "defaultMessage": "Failed to load diff"
@@ -6285,7 +6285,7 @@
     "defaultMessage": "Sign in"
   },
   "updateSection.autoDownload": {
-    "defaultMessage": "Goose scaricherà l'aggiornamento in background e lo installerà al prossimo arresto o riavvio."
+    "defaultMessage": "Melody scaricherà l'aggiornamento in background e lo installerà al prossimo arresto o riavvio."
   },
   "updateSection.autoDownloadDisabledByEnv": {
     "defaultMessage": "I download automatici sono disabilitati tramite la variabile d'ambiente GOOSE_DISABLE_AUTO_DOWNLOAD."
@@ -6306,7 +6306,7 @@
     "defaultMessage": "Disabilita i download automatici degli aggiornamenti"
   },
   "updateSection.disableAutoDownloadDesc": {
-    "defaultMessage": "Se abilitato, Goose ti avviserà delle nuove versioni ma non le scaricherà automaticamente."
+    "defaultMessage": "Se abilitato, Melody ti avviserà delle nuove versioni ma non le scaricherà automaticamente."
   },
   "updateSection.downloadNow": {
     "defaultMessage": "Scarica ora"

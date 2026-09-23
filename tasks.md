@@ -270,25 +270,6 @@ Order: 154 (above) ∥ 155–157 (mockups, session) ∥ wave 1 (158 · 160 · 16
 
 Order: 184 (migration) → 183 (identity); 185 ∥ 186 ∥ 187 ∥ 189 ∥ 190 ∥ 191 on disjoint files; 188 after 187; 192 last; 193 waits on the user's pick. Commits stage only the task's paths (`Lever.tsx` is the user's, uncommitted).
 
-- 188. Carry the rename into the 15 other locales under `ui/desktop/src/i18n/messages/`.
-  - status: doing · agent: session (worker: claude -p haiku) · worker: medium
-  - blocked-by: 187
-  - card: as a user reading another language, I want the product named Melody there too so that
-    the name does not depend on the locale
-  - context:
-    - every locale keeps the name in Latin letters; replace the word Goose/goose with Melody in
-      the keys task 187 renamed, plus the stale `externalBackendSection.title` and
-      `externalBackendSection.useExternalServerDescription`; never inside `.goosehints`,
-      `goose://`, `GOOSE_*`, `.goose/`, `/home/goose`
-    - German compounds: `Goose-Fenster` → `Melody-Fenster`, lowercase `goose-…` compounds →
-      `Melody-…`
-    - Turkish: fix the dative suffix by hand — `goose'a`/`Goose'a` → `Melody'ye` (≈7 keys:
-      appsView.noAppsDescription, goosehintsSection.description,
-      groupedExtensionLoadingToast.askGoose, launcher.placeholder, onboardingGuard.welcomeTitle,
-      providerConfigurationModal.addApiKeyDescription); `'yi` and `'nin` stay
-    - Korean particles, Russian gender: left as they read
-  - confirm: `cd ui/desktop && node -e "const fs=require('fs');const d='src/i18n/messages/';const en=require('./'+d+'en.json');let bad=0;for(const f of fs.readdirSync(d)){if(f==='en.json')continue;const m=JSON.parse(fs.readFileSync(d+f));for(const [k,v] of Object.entries(m)){const t=v.defaultMessage.replace(/\.goosehints|goose:\/\/\S*|GOOSE_[A-Z_]+|\.goose\/\S*|\/home\/goose\S*/g,'');if(/goose/i.test(t)&&(!en[k]||!/goose/i.test(en[k].defaultMessage))){bad++;console.log(f,k)}}}console.log('left',bad)" && grep -c "Melody'ye" src/i18n/messages/tr.json; pnpm run i18n:check` → `left 0`, ≥ 6 (0 today), i18n:check passes
-
 - 192. Build and launch `Melody.app` with `just make-ui`, and run the smoke walks.
   - status: todo · agent: — · worker: medium
   - blocked-by: 183–191
