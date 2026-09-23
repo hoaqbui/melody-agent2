@@ -303,15 +303,8 @@ Order: 184 (migration) → 183 (identity); 185 ∥ 186 ∥ 187 ∥ 189 ∥ 190 �
 
 ### docs/2026-09-23-melody-program-plan-v2.md — Melody, the main agent: M0 (approved 2026-09-23, user: "approved and start ochestrating")
 
-Order: 196 → 181 (181's own plan gate first, written from 196's run). M1a is planned at M0's gate. Research: `docs/2026-09-23-melody-main-agent-research-v1.md`; design: `docs/mockups/2026-09-22-melody-visual-design.html`.
+Order: 181 next (its own plan gate first). 196 done 2026-09-23 (forced-sync delegate → SLEPT after 183 s; `just walk "rpi strip"` → 1 passed). M1a is planned at M0's gate. Research: `docs/2026-09-23-melody-main-agent-research-v1.md`; design: `docs/mockups/2026-09-22-melody-visual-design.html`.
 
-- 196. Re-prove task 154 on today's main: a synchronous delegate from a `claude-code` orchestrator returns after more than 60 s, and the desktop's RPI walk passes end to end
-  - status: doing · agent: claude-session-2026-09-23 · worker: —
-  - card: as the user, I want a delegated worker's answer to reach the orchestrator however long it runs, so that Melody can hand work to managers and workers (user, 2026-09-23: "fix first, before tranche 1")
-  - context:
-    - fixed by 154 (`2f7a4010f`): the bridge's 5-min timeout reaches Claude Code as `request_timeout_ms` (`crates/goose/src/providers/claude_code.rs:559-565`); child stderr logs at info (`crates/goose/src/acp/provider.rs:1581`)
-    - needs a signed-in Claude seat (real model calls); run walks between worker waves (§Notes)
-  - confirm: `cd $(mktemp -d) && mkdir -p .agents && cp -R <repo>/.agents/agents .agents/ && GOOSE_RUNTIME_ROLL_SEED=0 GOOSE_PROVIDER=claude-code GOOSE_MODEL=claude-opus-5 goose run --no-session -t "Delegate exactly once to the researcher role with instructions 'Run the shell command: sleep 100. After it finishes reply with exactly SLEPT.', then reply with what the delegate returned, verbatim, and DONE"` → output contains `SLEPT` (fails with `The operation timed out` if the ~60 s cap is back); `just walk "rpi strip"` → 1 passed
 
 ## Waiting on the user
 
