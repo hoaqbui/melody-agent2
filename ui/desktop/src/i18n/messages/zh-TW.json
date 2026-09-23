@@ -410,11 +410,26 @@
   "cardButtons.launch": {
     "defaultMessage": "啟動"
   },
-  "changesBar.acceptAll": {
-    "defaultMessage": "Accept all"
-  },
   "changesBar.binary": {
     "defaultMessage": "{count,plural,one{binary file} other{binary files}}"
+  },
+  "changesBar.cancel": {
+    "defaultMessage": "Cancel"
+  },
+  "changesBar.commit": {
+    "defaultMessage": "Commit…"
+  },
+  "changesBar.commitPlaceholder": {
+    "defaultMessage": "Commit message"
+  },
+  "changesBar.commitSend": {
+    "defaultMessage": "Commit"
+  },
+  "changesBar.committed": {
+    "defaultMessage": "Committed"
+  },
+  "changesBar.committing": {
+    "defaultMessage": "Committing…"
   },
   "changesBar.discard": {
     "defaultMessage": "Discard"
@@ -425,14 +440,26 @@
   "changesBar.files": {
     "defaultMessage": "{count,plural,one{file} other{files}}"
   },
+  "changesBar.push": {
+    "defaultMessage": "Push"
+  },
+  "changesBar.pushing": {
+    "defaultMessage": "Pushing…"
+  },
   "changesBar.retry": {
     "defaultMessage": "Retry"
   },
   "changesBar.review": {
     "defaultMessage": "Review"
   },
+  "changesBar.stagedNotCommitted": {
+    "defaultMessage": "staged · not committed"
+  },
   "changesBar.undo": {
     "defaultMessage": "Undo"
+  },
+  "changesBar.unstage": {
+    "defaultMessage": "Unstage"
   },
   "chat.notification.taskComplete.body": {
     "defaultMessage": "按一下這裡讓 Goose 重新回到焦點。"
@@ -3119,6 +3146,9 @@
   "navigationPanel.metaUpdated": {
     "defaultMessage": "更新時間"
   },
+  "navigationPanel.needsYou": {
+    "defaultMessage": "Needs you"
+  },
   "navigationPanel.newChat": {
     "defaultMessage": "New chat (⌘N)"
   },
@@ -3128,11 +3158,20 @@
   "navigationPanel.noMatch": {
     "defaultMessage": "No chats match"
   },
+  "navigationPanel.searchEmpty": {
+    "defaultMessage": "No chats match \"{query}\" in titles or conversations."
+  },
   "navigationPanel.searchLabel": {
     "defaultMessage": "Search chats (/)"
   },
   "navigationPanel.searchPlaceholder": {
     "defaultMessage": "Search chats"
+  },
+  "navigationPanel.searchTitlesGroup": {
+    "defaultMessage": "Titles"
+  },
+  "navigationPanel.searchTranscriptGroup": {
+    "defaultMessage": "In the conversation"
   },
   "navigationPanel.showAll": {
     "defaultMessage": "Show all"
@@ -3155,6 +3194,9 @@
   "navigationPanel.statusIdle": {
     "defaultMessage": "閒置"
   },
+  "navigationPanel.statusNeedsYou": {
+    "defaultMessage": "Needs your approval"
+  },
   "navigationPanel.statusStreaming": {
     "defaultMessage": "串流"
   },
@@ -3175,6 +3217,18 @@
   },
   "navigationPanel.untitledSession": {
     "defaultMessage": "未命名工作階段"
+  },
+  "notifications.approval.body": {
+    "defaultMessage": "{tool} wants to run {command}"
+  },
+  "notifications.approval.bodyNoCommand": {
+    "defaultMessage": "{tool} needs your approval"
+  },
+  "notifications.approval.title": {
+    "defaultMessage": "Needs your approval"
+  },
+  "notifications.burst.approvals": {
+    "defaultMessage": "{count,plural,one{# session needs you} other{# sessions need you}}"
   },
   "notifications.burst.runs": {
     "defaultMessage": "{count,plural,one{# routine run finished} other{# routine runs finished}}"

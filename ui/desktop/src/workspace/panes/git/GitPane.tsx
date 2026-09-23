@@ -24,7 +24,6 @@ import {
   type GitPrCreateResponse,
   type GitPrStatusRequest,
   type GitPrStatusResponse,
-  type GitPushRequest,
   type GitStatusEntry,
   type GitStatusResponse,
   type GitWorktreeListResponse,
@@ -34,6 +33,7 @@ import { cn } from '../../../utils';
 import { usePaneContext } from '../../pane-context';
 import {
   actionablePath,
+  buildPushRequest,
   commitBlocker,
   createGitDraftStore,
   ghRecovery,
@@ -46,6 +46,7 @@ import {
   type GitDraftStore,
   type PrBlocker,
 } from './git-state';
+import { draftCommitMessage } from './commit-draft';
 import { PrSheet } from './PrSheet';
 import { useStartReview } from '../review/review-session';
 
@@ -407,10 +408,7 @@ export function GitPane() {
     setActionError(null);
     const needsPush = status.upstream === null || status.ahead > 0;
     const push = needsPush
-      ? sidecarFetch('/git/push', {
-          cwd,
-          setUpstream: status.upstream === null,
-        } satisfies GitPushRequest).then(refresh)
+      ? sidecarFetch('/git/push', buildPushRequest(cwd, status)).then(refresh)
       : Promise.resolve();
     setPushing(true);
     push
@@ -424,10 +422,7 @@ export function GitPane() {
     if (!status || !canPush || prBlock || pushing) return;
     setActionError(null);
     setPushing(true);
-    sidecarFetch('/git/push', {
-      cwd,
-      setUpstream: status.upstream === null,
-    } satisfies GitPushRequest)
+    sidecarFetch('/git/push', buildPushRequest(cwd, status))
       .then(refresh)
       .catch((cause: Error) => setActionError(cause.message))
       .finally(() => setPushing(false));
@@ -586,6 +581,9 @@ export function GitPane() {
               data-testid="git-message"
               value={message}
               onChange={(event) => draft.set(event.target.value)}
+              onFocus={() => {
+                if (draft.getState().trim() === '') draft.set(draftCommitMessage(messages));
+              }}
               onKeyDown={(event) => {
                 if (event.key === 'Enter' && event.metaKey) {
                   event.preventDefault();

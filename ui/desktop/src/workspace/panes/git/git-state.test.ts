@@ -6,6 +6,7 @@ import { ChatState } from '../../../types/chatState';
 import type { Message } from '../../../types/message';
 import {
   actionablePath,
+  buildPushRequest,
   commitBlocker,
   createGitDraftStore,
   ghRecovery,
@@ -169,6 +170,19 @@ describe('paneState', () => {
       .filter((row) => row !== 'state');
     expect(rows.length).toBeGreaterThan(0);
     expect([...GIT_PANE_STATES].filter((state) => state !== 'ready').sort()).toEqual(rows.sort());
+  });
+});
+
+describe('buildPushRequest', () => {
+  it('sets upstream only when the branch has none', () => {
+    expect(buildPushRequest('/repo', { upstream: null })).toEqual({
+      cwd: '/repo',
+      setUpstream: true,
+    });
+    expect(buildPushRequest('/repo', { upstream: 'origin/main' })).toEqual({
+      cwd: '/repo',
+      setUpstream: false,
+    });
   });
 });
 

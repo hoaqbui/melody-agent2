@@ -2,7 +2,7 @@ import { execFileSync } from 'child_process';
 import { mkdtempSync, rmSync, writeFileSync } from 'fs';
 import { tmpdir } from 'os';
 import { join } from 'path';
-import { test, expect, openPane } from './fixtures';
+import { test, expect } from './fixtures';
 const previousDir = process.env.GOOSE_TEST_DIR;
 let scratch = '';
 
@@ -34,11 +34,12 @@ test.describe('changes bar', { tag: '@smoke' }, () => {
     rmSync(scratch, { recursive: true, force: true });
   });
 
-  test('shows changes bar with stats, Review, Accept all, and Discard, then Undo', async ({
+  test('shows dirty, staged, committed and discarded, through Commit…, Push and Undo', async ({
     goosePage,
   }) => {
-    // Two status polls (30 s each) sit inside this walk: after the edit and after Undo.
-    test.setTimeout(180_000);
+    // Several status polls (30 s each) sit inside this walk: dirty, staged, after the
+    // commit clears, and after Undo.
+    test.setTimeout(240_000);
     await expect(goosePage.locator('[data-testid="workspace-shell"]')).toBeVisible({
       timeout: 30000,
     });
@@ -57,7 +58,7 @@ test.describe('changes bar', { tag: '@smoke' }, () => {
     await expect(changesBarStats).toHaveText(/2 files · \+3 −0/, { timeout: 35000 });
 
     // Step 3: Click Review → Changes pane opens, notes.md selected
-    const reviewButton = goosePage.locator('button', { hasText: 'Review' });
+    const reviewButton = goosePage.locator('[data-testid="changes-bar-review"]');
     await reviewButton.click();
 
     const diffPane = goosePage.locator('[data-testid="diff-pane"]');
@@ -65,75 +66,68 @@ test.describe('changes bar', { tag: '@smoke' }, () => {
 
     const notesRow = goosePage.locator('[data-testid="diff-file"][data-path="notes.md"]');
     await expect(notesRow).toBeVisible();
-
     await expect(notesRow).toHaveAttribute('aria-pressed', 'true');
-    const diffView = goosePage.locator('[data-testid="diff-view"]');
-    await expect(diffView).toBeVisible();
+    await expect(goosePage.locator('[data-testid="diff-view"]')).toBeVisible();
 
-    // Step 4: Click Accept all → Git pane opens, files staged, commit box focused
-    const acceptAllButton = goosePage.locator('[data-testid="changes-bar-accept"]');
-    await acceptAllButton.click();
+    // Step 4: Stage both files outside the app (as a background tool call would) → the bar
+    // reads "staged · not committed", never "0 files · +0 −0" (14-after-commit.png).
+    git(scratch, ['add', '-A']);
+    await expect(changesBarStats).toHaveText(/2 files staged · not committed/, {
+      timeout: 35000,
+    });
+    await expect(goosePage.locator('[data-testid="changes-bar-unstage"]')).toBeVisible();
 
-    const gitPane = goosePage.locator('[data-testid="git-pane"]');
-    await expect(gitPane).toBeVisible({ timeout: 10000 });
+    // Step 5: Commit… on the staged state opens the bar's own message box; Commit stages
+    // whatever is shown (already staged here) and commits in one step.
+    const commitButton = goosePage.locator('[data-testid="changes-bar-commit"]');
+    await commitButton.click();
 
-    // Verify both files are staged
-    const stagedRow = goosePage.locator('[data-testid="git-staged"]');
-    await expect(stagedRow).toContainText('notes.md');
-    await expect(stagedRow).toContainText('new.txt');
+    const commitInput = goosePage.locator('[data-testid="changes-bar-commit-input"]');
+    await expect(commitInput).toBeFocused();
+    await commitInput.fill('notes: expand and add new.txt');
+    await goosePage.locator('[data-testid="changes-bar-commit-send"]').click();
 
-    // Verify commit textarea is focused
-    const commitTextarea = goosePage.locator('[data-testid="git-message"]');
-    await expect(commitTextarea).toBeFocused();
+    // Step 6: Committed — sha + subject, Push, and no Undo (no route resets a commit yet).
+    const committed = goosePage.locator('[data-testid="changes-bar-committed"]');
+    await expect(committed).toBeVisible({ timeout: 10000 });
+    await expect(committed).toHaveText(/Committed [0-9a-f]{7} · notes: expand and add new\.txt/);
+    await expect(goosePage.locator('[data-testid="changes-bar-push"]')).toBeVisible();
+    await expect(goosePage.locator('[data-testid="changes-bar-undo"]')).toHaveCount(0);
 
-    // Step 5: Unstage both files, click Discard → tree clean, bar shows Discarded · Undo
-    const unstageButtons = goosePage.locator('[data-testid="git-unstage"]');
-    const count = await unstageButtons.count();
-    for (let i = 0; i < count; i++) {
-      await unstageButtons.first().click();
-    }
+    // Step 7: The committed banner clears itself well inside a 30 s poll's worth of time,
+    // and the tree is clean, so nothing takes its place — never "0 files · +0 −0".
+    await expect(committed).toHaveCount(0, { timeout: 10000 });
+    await expect(changesBarStats).toHaveCount(0);
 
-    // Go back to Changes pane (or anywhere that shows the bar)
-    await openPane(goosePage, 'diff');
+    // Step 8: Dirty again → Discard → Discarded · Undo → Undo brings the files back.
+    writeFileSync(notes, 'line 1\nline 2\nline 3\nline 4\nline 5\n');
+    await expect(changesBarStats).toHaveText(/1 file · \+1 −0/, { timeout: 35000 });
 
-    // The bar reads the shared git-status poll (every 30 s): a Discard clicked while it
-    // still says 0 files stashes nothing and never reads Discarded.
-    await expect(goosePage.locator('[data-testid="changes-bar-stats"]')).toHaveText(
-      /^[1-9]\d* files? · /,
-      { timeout: 45000 }
-    );
     const discardButton = goosePage.locator('[data-testid="changes-bar-discard"]');
     await discardButton.click();
 
-    // Bar shows "Discarded · Undo" for at least 5 seconds
     const discardedMessage = goosePage.locator('text=Discarded');
     await expect(discardedMessage).toBeVisible();
 
     const undoButton = goosePage.locator('[data-testid="changes-bar-undo"]');
     await expect(undoButton).toBeVisible();
-
-    // Step 6: Click Undo → files back
     await undoButton.click();
 
-    // Bar should show stats again (within the next poll)
-    await expect(changesBarStats).toContainText(/files/, { timeout: 35000 });
+    await expect(changesBarStats).toContainText(/files?/, { timeout: 35000 });
 
-    // Step 7: Keyboard accessibility — tab through the bar's controls
-    // Focus on Review button
+    // Step 9: Keyboard accessibility — tab through the dirty bar's controls.
     const reviewBtn = goosePage.locator('[data-testid="changes-bar-review"]');
-    const acceptBtn = goosePage.locator('[data-testid="changes-bar-accept"]');
+    const commitBtn = goosePage.locator('[data-testid="changes-bar-commit"]');
     const discardBtn = goosePage.locator('[data-testid="changes-bar-discard"]');
 
     await reviewBtn.focus();
     let focused = await reviewBtn.evaluate((el) => document.activeElement === el);
     expect(focused).toBe(true);
 
-    // Tab to Accept all
     await goosePage.keyboard.press('Tab');
-    focused = await acceptBtn.evaluate((el) => document.activeElement === el);
+    focused = await commitBtn.evaluate((el) => document.activeElement === el);
     expect(focused).toBe(true);
 
-    // Tab to Discard
     await goosePage.keyboard.press('Tab');
     focused = await discardBtn.evaluate((el) => document.activeElement === el);
     expect(focused).toBe(true);

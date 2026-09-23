@@ -1579,9 +1579,10 @@ export function WorkspaceShell({ chat, children, panes, paneStore }: WorkspaceSh
   ]);
 
   // Task 29: the RPI strip sits above the chat in both faces, and only once a phase is lit.
+  const chatMessages = snapshot?.messages ?? NO_MESSAGES;
   const changesBarTarget = useMemo(
-    () => ({ cwd, gitStatus, openPane, focusCommit }),
-    [cwd, gitStatus, openPane, focusCommit]
+    () => ({ cwd, gitStatus, openPane, focusCommit, messages: chatMessages }),
+    [cwd, gitStatus, openPane, focusCommit, chatMessages]
   );
   const fileLinkContext = useMemo(
     () => ({ cwd, gitToplevel: gitStatus?.toplevel ?? cwd, openFile }),

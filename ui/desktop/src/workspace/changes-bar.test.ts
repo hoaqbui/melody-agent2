@@ -1,5 +1,12 @@
 import { describe, it, expect } from 'vitest';
-import { parseNumstat, aggregateStats } from './changes-bar';
+import type { GitStatusEntry } from '../native/sidecar';
+import { parseNumstat, aggregateStats, barPhase, shortSha } from './changes-bar';
+
+const entry = (index: string, worktree: string, path: string): GitStatusEntry => ({
+  index,
+  worktree,
+  path,
+});
 
 describe('changes-bar', () => {
   describe('parseNumstat', () => {
@@ -79,6 +86,29 @@ describe('changes-bar', () => {
         totalDeleted: 0,
         entries: [],
       });
+    });
+  });
+
+  describe('barPhase', () => {
+    it('is empty with no entries', () => {
+      expect(barPhase([])).toBe('empty');
+    });
+
+    it('is staged when everything shown is staged and nothing else is dirty', () => {
+      expect(barPhase([entry('M', ' ', 'a.ts'), entry('A', ' ', 'b.ts')])).toBe('staged');
+    });
+
+    it('is dirty with any unstaged or conflicted work, even alongside staged files', () => {
+      expect(barPhase([entry(' ', 'M', 'a.ts')])).toBe('dirty');
+      expect(barPhase([entry('?', '?', 'new.ts')])).toBe('dirty');
+      expect(barPhase([entry('M', ' ', 'a.ts'), entry(' ', 'M', 'b.ts')])).toBe('dirty');
+      expect(barPhase([entry('U', 'U', 'c.ts')])).toBe('dirty');
+    });
+  });
+
+  describe('shortSha', () => {
+    it('takes the first 7 characters', () => {
+      expect(shortSha('ac7e317abc123')).toBe('ac7e317');
     });
   });
 });

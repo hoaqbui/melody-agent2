@@ -4,7 +4,7 @@
 // the pane's DESIGN.md state. The commit draft lives here too so a promote or close keeps it
 // (DESIGN.md Nothing Lost Rule).
 
-import type { GitStatusEntry } from '../../../native/sidecar';
+import type { GitPushRequest, GitStatusEntry } from '../../../native/sidecar';
 import { ChatState } from '../../../types/chatState';
 import { getToolRequests, getToolResponses, type Message } from '../../../types/message';
 
@@ -103,6 +103,12 @@ export function prBlocker(input: { running: boolean; branch: string | null }): P
   if (input.running) return 'running';
   if (input.branch === null || /^HEAD( |$)/.test(input.branch)) return 'noBranch';
   return null;
+}
+
+// Push and open PR's and Push's request body (GitPane.tsx and the Changes bar's committed
+// state, task 166): a branch with no upstream sets one on this push, same as origin's rule.
+export function buildPushRequest(cwd: string, status: { upstream: string | null }): GitPushRequest {
+  return { cwd, setUpstream: status.upstream === null };
 }
 
 export type GhRecovery = 'install' | 'signIn';
