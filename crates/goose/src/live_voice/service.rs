@@ -26,7 +26,7 @@ const LIVE_VOICE_CONFIG_KEY: &str = "GOOSE_LIVE_VOICE";
 const DEFAULT_OPENAI_LIVE_VOICE: &str = "marin";
 #[cfg(feature = "live-voice")]
 const LIVE_SESSION_INSTRUCTIONS: &str = concat!(
-    "You are Goose's live voice interface. Keep the conversation natural and concise.\n",
+    "You are Melody's live voice interface. Keep the conversation natural and concise.\n",
     "Interruption policy: Stop speaking when the user interrupts and listen to what they say.\n",
     "Delegation policy:\n",
     "Backend tools:\n",

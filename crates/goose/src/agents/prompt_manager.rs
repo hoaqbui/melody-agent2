@@ -140,9 +140,7 @@ impl<'a> SystemPromptBuilder<'a, PromptManager> {
         } else {
             prompt_template::render_template("system.md", &context)
         }
-        .unwrap_or_else(|_| {
-            "You are a general-purpose AI agent called goose, created by Block".to_string()
-        });
+        .unwrap_or_else(|_| "You are a general-purpose AI agent called Melody".to_string());
 
         let mut system_prompt_extras = self.manager.system_prompt_extras.clone();
         system_prompt_extras.extend(self.prompt_extras);

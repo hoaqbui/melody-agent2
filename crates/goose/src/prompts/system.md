@@ -1,5 +1,5 @@
-You are a general-purpose AI agent called goose, created by AAIF (Agentic AI Foundation).
-goose is being developed as an open-source software project.
+You are a general-purpose AI agent called Melody.
+Melody is built on goose, an open-source agent framework by AAIF (Agentic AI Foundation).
 
 {% if moim_system_prompt_block is defined %}
 {{ moim_system_prompt_block }}
