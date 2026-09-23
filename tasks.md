@@ -272,11 +272,6 @@ Order: 152 → 139 b/c → 145 → 153 (needs the merged tree; a spine patch). 1
 
 Order: 154 (above) ∥ 155–157 (mockups, session) ∥ wave 1 (158 · 160 · 161 · 162 · 163 · 170 · 173 · 174 · 175 · 179, disjoint files; 180 session) → 159 · 169 · 172 → 93 (above, after 158) → user picks → 164–168 · 171 → 176 last. Mockups for the pick: `docs/mockups/2026-09-22-lever-words.html` (164), `-turn-failure.html` (165), `-states-sheet.html` (166–168, 171). Two calls made under "orchestrate" that were the user's: 179 resolves the sidebar spec-vs-rule as the spec, 174 picks "Describe a task…". Workers per AGENTS.md chain; the session reruns every confirm. Evidence: `docs/2026-09-22-ux-pass-research-v1.md`, screenshots in `docs/2026-09-22-ux-pass/`.
 
-- 159. Review opens Changes on the first changed file: `ChangesBar.tsx` `handleReview` presets the first entry's path (`diff-store.ts`, task 93 adds `presetDiffPath` — land a minimal one here if 93 has not) so `DiffPane` shows its diff, not "Select a file to see its changes".
-  - status: doing · agent: session → haiku worker · worker: medium
-  - card: as the user, see the diff one click after the turn, so that reviewing is not a hunt (research Must 3; `11-review-diff.png`)
-  - context: add one assertion to `tests/e2e/changes-bar.spec.ts` after the Review click: the notes.md row is selected and the diff body is visible
-  - confirm: `just walk "changes bar"` → `1 passed` (untouched: fails on the new assertion)
 - 164. Lever words per 155's pick: `workspace/Lever.tsx`, `tests/e2e/easy-mode.spec.ts` (its sr-only assertion changes with the pick).
   - status: blocked — waits on the user's pick from 155 · agent: — · worker: medium
   - card: as in 155
@@ -301,20 +296,11 @@ Order: 154 (above) ∥ 155–157 (mockups, session) ∥ wave 1 (158 · 160 · 16
   - status: blocked — waits on the user's pick from 157 · agent: — · worker: medium
   - card: as the user, find a session by something said in it, so that I do not need to remember its title (Should)
   - confirm: `just walk "sidebar"` → `1 passed` with a transcript-only match step (untouched: fails on it)
-- 172. A standalone Push: `workspace/panes/git/GitPane.tsx` shows Push beside "Push and open PR…" when the branch is ahead of its upstream (reusing the push at `:404-418`), with the running-tool guard `prBlock` carries.
-  - status: doing · agent: session → haiku worker · worker: medium
-  - card: as the user, push without opening a PR, so that sharing a branch is one click (Should)
-  - context: extend `tests/e2e/git-pane.spec.ts` with a local bare remote (`git init --bare`) as `origin`; the walk pushes and reads the remote's ref
-  - confirm: `just walk "git pane"` → `1 passed` with the push step (untouched: fails on it)
 - 176. A keyboard-only walk: `tests/e2e/keyboard.spec.ts` (`@seat`) — type a task on the Hub, Enter, reach Review, the diff, the commit box and Commit with keys only, and name each place focus is lost.
   - status: todo · agent: — · worker: medium
   - card: as a keyboard user, finish the loop without a mouse (Should; `DESIGN.md` §Accessibility)
   - context: runs after 159 and 166; a step that cannot be reached by keys is a finding appended here, not a skipped step
   - confirm: `just walk "keyboard"` → `1 passed` (untouched: no spec)
-- 179. The sidebar smoke walk matches the chips rule: `tests/e2e/sidebar.spec.ts:44-53` asserts the repo chips only when there are at least two repos (the chips show at `chips.length > 2`, `NavigationPanel.tsx:568`, All counted).
-  - status: doing · agent: session → haiku worker · worker: low
-  - card: as every task above, have a green smoke gate, so that a red means a regression (smoke 9/10 on 2026-09-22)
-  - confirm: `just smoke` → `10 passed` (untouched: 1 failed at `sidebar.spec.ts:45`)
 ## Waiting on the user
 
 ### Handoff — one line, one command each (2026-09-20, closeout; the decisions moved under §Notes and hand checks 2026-09-21)

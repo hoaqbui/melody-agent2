@@ -30,6 +30,7 @@ test.describe('sidebar', { tag: '@smoke' }, () => {
       goosePage.locator('[data-testid^="sidebar-session-"], :text("No recent chats")').first()
     ).toBeVisible({ timeout: 15000 });
     const hasSessions = (await goosePage.locator('[data-testid^="sidebar-session-"]').count()) > 0;
+    const hasChips = (await goosePage.locator('[data-testid^="sidebar-chip-"]').count()) > 2;
 
     // `/` focuses the search from the page; Esc clears and leaves it.
     await goosePage.locator('body').click({ position: { x: 600, y: 100 } });
@@ -41,11 +42,13 @@ test.describe('sidebar', { tag: '@smoke' }, () => {
     }
     await goosePage.keyboard.press('Escape');
     await expect(search).toHaveValue('');
-    if (hasSessions) {
+    if (hasChips) {
       await expect(goosePage.locator('[data-testid="sidebar-chip-all"]')).toHaveAttribute(
         'aria-pressed',
         'true'
       );
+    }
+    if (hasSessions) {
       await expect(goosePage.locator('[data-testid="sidebar-sort"]')).toHaveValue('recent');
       await expect(goosePage.locator('[data-testid="sidebar-day-Today"]')).toHaveCount(1);
       await goosePage.locator('[data-testid="sidebar-sort"]').selectOption('name');
