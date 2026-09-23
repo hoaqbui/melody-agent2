@@ -273,7 +273,7 @@ Order: 152 → 139 b/c → 145 → 153 (needs the merged tree; a spine patch). 1
 Order: 154 (above) ∥ 155–157 (mockups, session) ∥ wave 1 (158 · 160 · 161 · 162 · 163 · 170 · 173 · 174 · 175 · 179, disjoint files; 180 session) → 159 · 169 · 172 → 93 (above, after 158) → user picks → 164–168 · 171 → 176 last. Mockups for the pick: `docs/mockups/2026-09-22-lever-words.html` (164), `-turn-failure.html` (165), `-states-sheet.html` (166–168, 171). Two calls made under "orchestrate" that were the user's: 179 resolves the sidebar spec-vs-rule as the spec, 174 picks "Describe a task…". Workers per AGENTS.md chain; the session reruns every confirm. Evidence: `docs/2026-09-22-ux-pass-research-v1.md`, screenshots in `docs/2026-09-22-ux-pass/`.
 
 - 159. Review opens Changes on the first changed file: `ChangesBar.tsx` `handleReview` presets the first entry's path (`diff-store.ts`, task 93 adds `presetDiffPath` — land a minimal one here if 93 has not) so `DiffPane` shows its diff, not "Select a file to see its changes".
-  - status: todo · agent: — · worker: medium
+  - status: doing · agent: session → haiku worker · worker: medium
   - card: as the user, see the diff one click after the turn, so that reviewing is not a hunt (research Must 3; `11-review-diff.png`)
   - context: add one assertion to `tests/e2e/changes-bar.spec.ts` after the Review click: the notes.md row is selected and the diff body is visible
   - confirm: `just walk "changes bar"` → `1 passed` (untouched: fails on the new assertion)
@@ -303,7 +303,7 @@ Order: 154 (above) ∥ 155–157 (mockups, session) ∥ wave 1 (158 · 160 · 16
   - card: as the user, commit with one click after reading the diff, so that wrapping up is not typing (Should; `DESIGN.md:111` promised it)
   - confirm: `cd ui/desktop && pnpm vitest run src/workspace/panes/git -t "draft"` → `≥ 1 passed` (untouched: no test matches)
 - 169. Regenerate the last reply: a hover action on the last assistant message in `components/GooseMessage.tsx` re-sends the preceding user message in place through the existing edit path (`UserMessage.tsx:178-198` `onMessageUpdate(id, text, 'edit', images)`, which today returns early on identical text — bypass that for regenerate only); one component test.
-  - status: todo · agent: — · worker: medium
+  - status: doing · agent: session → haiku worker · worker: medium
   - card: as the user, get another answer without retyping, so that a weak reply is one click from a better one (Should; parity)
   - confirm: `cd ui/desktop && pnpm vitest run src/components -t "regenerate"` → `1 passed` (untouched: no test matches)
 - 171. One search over titles and transcripts per 157's pick: the sidebar search (`workspace/sidebar-sessions.ts:131`) also asks `acpListSessions(…, { keyword })` (`SessionListView.tsx:407`, transcript match in `session_manager.rs:364`) and merges, deduped by id, with the snippet the sheet picks.
@@ -311,7 +311,7 @@ Order: 154 (above) ∥ 155–157 (mockups, session) ∥ wave 1 (158 · 160 · 16
   - card: as the user, find a session by something said in it, so that I do not need to remember its title (Should)
   - confirm: `just walk "sidebar"` → `1 passed` with a transcript-only match step (untouched: fails on it)
 - 172. A standalone Push: `workspace/panes/git/GitPane.tsx` shows Push beside "Push and open PR…" when the branch is ahead of its upstream (reusing the push at `:404-418`), with the running-tool guard `prBlock` carries.
-  - status: todo · agent: — · worker: medium
+  - status: doing · agent: session → haiku worker · worker: medium
   - card: as the user, push without opening a PR, so that sharing a branch is one click (Should)
   - context: extend `tests/e2e/git-pane.spec.ts` with a local bare remote (`git init --bare`) as `origin`; the walk pushes and reads the remote's ref
   - confirm: `just walk "git pane"` → `1 passed` with the push step (untouched: fails on it)
