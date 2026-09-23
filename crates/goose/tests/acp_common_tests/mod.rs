@@ -93,6 +93,15 @@ pub async fn run_list_sessions<C: Connection>() {
         serde_json::Value::String("acp".to_string()),
     );
     expected_meta.insert("hasRecipe".to_string(), serde_json::Value::Bool(false));
+    expected_meta.insert(
+        "accumulatedInputTokens".to_string(),
+        serde_json::Value::Number(100.into()),
+    );
+    expected_meta.insert(
+        "accumulatedOutputTokens".to_string(),
+        serde_json::Value::Number(10.into()),
+    );
+    expected_meta.insert("accumulatedCost".to_string(), serde_json::json!(9e-6));
     assert_eq!(
         response,
         ListSessionsResponse::new(vec![SessionInfo::new(

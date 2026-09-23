@@ -623,7 +623,7 @@ mod tests {
         assert!(response
             .warnings
             .iter()
-            .any(|warning| warning.starts_with("Skipped Goose configuration import at ")));
+            .any(|warning| warning.starts_with("Skipped Melody configuration import at ")));
         let extensions = target_config.get_param::<Mapping>("extensions").unwrap();
         assert!(extensions.contains_key(serde_yaml::Value::String(name_to_key("github"))));
     }
