@@ -143,7 +143,7 @@ export function ArtifactPane() {
         detail: 'Revise the plan: ',
       })
     );
-    const input = document.querySelector('[data-testid="chat-input-field"]') as HTMLTextAreaElement;
+    const input = document.querySelector('[data-testid="chat-input"]') as HTMLTextAreaElement;
     input?.focus();
   };
 
