@@ -3,18 +3,19 @@
 #[path = "acp_common_tests/mod.rs"]
 mod common_tests;
 use agent_client_protocol::schema::v1::{
-    ContentBlock, ListSessionsRequest, ListSessionsResponse, McpServer, McpServerHttp,
-    NewSessionRequest, PromptRequest, SessionConfigKind, SessionConfigOptionCategory,
-    SessionConfigOptionValue, SessionInfo, SessionUpdate, SetSessionConfigOptionRequest,
-    StopReason, TextContent,
+    ClientCapabilities, ContentBlock, InitializeRequest, ListSessionsRequest, ListSessionsResponse,
+    LoadSessionRequest, McpServer, McpServerHttp, NewSessionRequest, PromptRequest,
+    SessionConfigKind, SessionConfigOptionCategory, SessionConfigOptionValue, SessionInfo,
+    SessionNotification, SessionUpdate, SetSessionConfigOptionRequest, StopReason, TextContent,
 };
-use agent_client_protocol::ErrorCode;
+use agent_client_protocol::schema::ProtocolVersion;
+use agent_client_protocol::{Agent as AcpAgent, Client, ConnectionTo, ErrorCode};
 use common_tests::fixtures::server::{
     assert_session_response_precedes_available_commands, AcpServerConnection,
 };
 use common_tests::fixtures::{
-    run_test, spawn_acp_server_in_process, Connection, OpenAiFixture, PermissionDecision, Session,
-    SessionData, TestConnectionConfig,
+    run_test, serve_agent_in_process, spawn_acp_server_in_process, Connection, DuplexTransport,
+    OpenAiFixture, PermissionDecision, Session, SessionData, TestConnectionConfig,
 };
 #[cfg(feature = "code-mode")]
 use common_tests::run_prompt_codemode;
@@ -31,16 +32,29 @@ use common_tests::{
     run_shell_terminal_false, run_shell_terminal_true, GENERATED_SESSION_TITLE,
     OPENAI_SESSION_NAME_RESPONSE, TURN_CONTEXT_OPEN,
 };
+use goose::acp::server::{
+    AcpBuiltinSelection, AcpProviderFactory, ActiveRunRegistry, GooseAcpAgent,
+    GooseAcpAgentOptions, LiveVoiceService, SharedAcpState,
+};
+use goose::agents::GoosePlatform;
+use goose::config::paths::Paths;
 use goose::config::GooseMode;
 use goose::conversation::message::{Message, MessageMetadata};
 use goose::custom_requests::{
     GetSessionInfoRequest, GetSessionInfoResponse, UpdateSessionProjectRequest,
 };
+use goose::providers::base::{MessageStream, Provider};
 use goose::recipe::{Recipe, Settings};
 use goose::recipe_deeplink;
 use goose::session::{SessionManager, SessionType};
+use goose_providers::conversation::token_usage::{ProviderUsage, Usage};
+use goose_providers::errors::ProviderError;
+use goose_providers::model::ModelConfig;
 use goose_test_support::{McpFixture, FAKE_CODE};
 use std::path::Path;
+use std::sync::{Arc, Mutex};
+use tokio::sync::Notify;
+use tokio::task::JoinHandle;
 
 tests_config_option_set_error!(AcpServerConnection);
 tests_mode_set_error!(AcpServerConnection);
@@ -192,6 +206,307 @@ fn last_message_snippet(session: &SessionInfo) -> Option<&str> {
         .as_ref()
         .and_then(|meta| meta.get("lastMessageSnippet"))
         .and_then(serde_json::Value::as_str)
+}
+
+struct ReconnectProvider {
+    before_sent: Arc<Notify>,
+    release_after: Arc<Notify>,
+}
+
+#[async_trait::async_trait]
+impl Provider for ReconnectProvider {
+    fn get_name(&self) -> &str {
+        "openai"
+    }
+
+    async fn stream(
+        &self,
+        _model_config: &ModelConfig,
+        _system: &str,
+        _messages: &[Message],
+        _tools: &[rmcp::model::Tool],
+    ) -> Result<MessageStream, ProviderError> {
+        let before_sent = self.before_sent.clone();
+        let release_after = self.release_after.clone();
+        Ok(Box::pin(async_stream::try_stream! {
+            yield (Some(Message::assistant().with_text("BEFORE")), None);
+            before_sent.notify_one();
+            release_after.notified().await;
+            yield (
+                Some(Message::assistant().with_text("AFTER")),
+                Some(ProviderUsage::new(
+                    "gpt-4o".to_string(),
+                    Usage::new(Some(1), Some(2), Some(3)),
+                )),
+            );
+        }))
+    }
+}
+
+struct ReconnectClient {
+    cx: Option<ConnectionTo<AcpAgent>>,
+    updates: Arc<Mutex<Vec<SessionNotification>>>,
+    notify: Arc<Notify>,
+    task: JoinHandle<()>,
+}
+
+impl ReconnectClient {
+    async fn connect(transport: DuplexTransport) -> Self {
+        let updates = Arc::new(Mutex::new(Vec::new()));
+        let notify = Arc::new(Notify::new());
+        let (ready_tx, ready_rx) = tokio::sync::oneshot::channel();
+        let task_updates = updates.clone();
+        let task_notify = notify.clone();
+        let task = tokio::spawn(async move {
+            let result = Client
+                .builder()
+                .on_receive_notification(
+                    async move |notification: SessionNotification, _cx| {
+                        task_updates.lock().unwrap().push(notification);
+                        task_notify.notify_waiters();
+                        Ok(())
+                    },
+                    agent_client_protocol::on_receive_notification!(),
+                )
+                .connect_with(transport.into_byte_streams(), async move |cx| {
+                    let _ = ready_tx.send(cx);
+                    std::future::pending::<Result<(), agent_client_protocol::Error>>().await
+                })
+                .await;
+            if let Err(error) = result {
+                tracing::debug!(%error, "reconnect test client stopped");
+            }
+        });
+        let cx = ready_rx.await.unwrap();
+        cx.send_request(
+            InitializeRequest::new(ProtocolVersion::V1)
+                .client_capabilities(ClientCapabilities::new()),
+        )
+        .block_task()
+        .await
+        .unwrap();
+        Self {
+            cx: Some(cx),
+            updates,
+            notify,
+            task,
+        }
+    }
+
+    fn cx(&self) -> &ConnectionTo<AcpAgent> {
+        self.cx.as_ref().unwrap()
+    }
+
+    async fn wait_for_text(&self, text: &str) {
+        let deadline = tokio::time::Instant::now() + std::time::Duration::from_secs(10);
+        loop {
+            if reconnect_agent_text(&self.updates.lock().unwrap()).contains(text) {
+                return;
+            }
+            tokio::time::timeout_at(deadline, self.notify.notified())
+                .await
+                .expect("timed out waiting for reconnect text");
+        }
+    }
+
+    async fn wait_for_active_run_cleared(&self) {
+        let deadline = tokio::time::Instant::now() + std::time::Duration::from_secs(10);
+        loop {
+            if self.updates.lock().unwrap().iter().any(|notification| {
+                let SessionUpdate::SessionInfoUpdate(info) = &notification.update else {
+                    return false;
+                };
+                info.meta
+                    .as_ref()
+                    .and_then(|meta| meta.get("goose"))
+                    .and_then(|goose| goose.get("activeRunId"))
+                    .is_some_and(serde_json::Value::is_null)
+            }) {
+                return;
+            }
+            tokio::time::timeout_at(deadline, self.notify.notified())
+                .await
+                .expect("timed out waiting for active run to clear");
+        }
+    }
+
+    async fn disconnect(mut self) {
+        self.cx.take();
+        self.task.abort();
+        let _ = self.task.await;
+    }
+}
+
+fn reconnect_agent_text(updates: &[SessionNotification]) -> String {
+    updates
+        .iter()
+        .filter_map(|notification| match &notification.update {
+            SessionUpdate::AgentMessageChunk(chunk) => match &chunk.content {
+                ContentBlock::Text(text) => Some(text.text.as_str()),
+                _ => None,
+            },
+            _ => None,
+        })
+        .collect()
+}
+
+fn reconnect_prompt_meta(use_state_machine: bool) -> serde_json::Map<String, serde_json::Value> {
+    serde_json::json!({
+        "goose": {
+            "unrolledAgentLoop": use_state_machine,
+        }
+    })
+    .as_object()
+    .unwrap()
+    .clone()
+}
+
+async fn assert_task181_reconnect(use_state_machine: bool) {
+    let data_root = tempfile::tempdir().unwrap();
+    let work_dir = tempfile::tempdir().unwrap();
+    let config_dir = Paths::config_dir();
+    std::fs::create_dir_all(&config_dir).unwrap();
+    std::fs::write(
+        config_dir.join(goose::config::base::CONFIG_YAML_NAME),
+        "GOOSE_MODEL: gpt-4o\nGOOSE_PROVIDER: openai\nGOOSE_MODE: auto\nGOOSE_DISABLE_KEYRING: true\n",
+    )
+    .unwrap();
+
+    let provider = Arc::new(ReconnectProvider {
+        before_sent: Arc::new(Notify::new()),
+        release_after: Arc::new(Notify::new()),
+    });
+    let provider_factory: AcpProviderFactory = Arc::new({
+        let provider = provider.clone();
+        move |_provider_name, _extensions, _working_dir, _use_default_model| {
+            let provider = provider.clone();
+            Box::pin(async move {
+                let provider: Arc<dyn Provider> = provider;
+                Ok(provider)
+            })
+        }
+    });
+    let active_runs = Arc::new(ActiveRunRegistry::default());
+    let live_voice = Arc::new(LiveVoiceService::from_config(active_runs.clone()));
+    let shared = Arc::new(
+        SharedAcpState::build(
+            data_root.path().to_path_buf(),
+            data_root.path().to_path_buf(),
+            None,
+            true,
+            GoosePlatform::GooseCli,
+        )
+        .await
+        .unwrap(),
+    );
+    let make_agent = || {
+        GooseAcpAgent::new(GooseAcpAgentOptions {
+            provider_factory: provider_factory.clone(),
+            builtin_selection: AcpBuiltinSelection::default(),
+            data_dir: data_root.path().to_path_buf(),
+            config_dir: data_root.path().to_path_buf(),
+            disable_session_naming: true,
+            goose_platform: GoosePlatform::GooseCli,
+            additional_source_roots: Vec::new(),
+            session_cwd: None,
+            scheduler: None,
+            active_runs: active_runs.clone(),
+            live_voice: live_voice.clone(),
+            shared: Some(shared.clone()),
+        })
+    };
+    let agent_a = Arc::new(make_agent().await.unwrap());
+    let agent_b = Arc::new(make_agent().await.unwrap());
+    let (transport_a, server_a) = serve_agent_in_process(agent_a.clone()).await;
+    let client_a = ReconnectClient::connect(transport_a).await;
+    let session_id = client_a
+        .cx()
+        .send_request(NewSessionRequest::new(work_dir.path()))
+        .block_task()
+        .await
+        .unwrap()
+        .session_id;
+    let running_agent = agent_a.session_agent_for_test(&session_id.0).await;
+    running_agent
+        .update_provider(provider.clone(), ModelConfig::new("gpt-4o"), &session_id.0)
+        .await
+        .unwrap();
+    let before_sent = provider.before_sent.notified();
+    let prompt_cx = client_a.cx().clone();
+    let prompt_session_id = session_id.clone();
+    let mut prompt_task = tokio::spawn(async move {
+        prompt_cx
+            .send_request(
+                PromptRequest::new(
+                    prompt_session_id,
+                    vec![ContentBlock::Text(TextContent::new("continue"))],
+                )
+                .meta(reconnect_prompt_meta(use_state_machine)),
+            )
+            .block_task()
+            .await
+    });
+    tokio::select! {
+        _ = before_sent => {}
+        result = &mut prompt_task => panic!("prompt ended before BEFORE: {result:?}"),
+        _ = tokio::time::sleep(std::time::Duration::from_secs(10)) => {
+            panic!("provider did not emit BEFORE")
+        }
+    }
+    client_a.wait_for_text("BEFORE").await;
+    client_a.disconnect().await;
+    tokio::time::timeout(std::time::Duration::from_secs(10), server_a)
+        .await
+        .expect("connection A server did not exit")
+        .unwrap();
+
+    let (transport_b, server_b) = serve_agent_in_process(agent_b.clone()).await;
+    let client_b = ReconnectClient::connect(transport_b).await;
+    client_b
+        .cx()
+        .send_request(LoadSessionRequest::new(session_id.clone(), work_dir.path()))
+        .block_task()
+        .await
+        .unwrap();
+    let reattached_agent = agent_b.session_agent_for_test(&session_id.0).await;
+    assert!(Arc::ptr_eq(&running_agent, &reattached_agent));
+    provider.release_after.notify_waiters();
+    client_b.wait_for_active_run_cleared().await;
+
+    let text = reconnect_agent_text(&client_b.updates.lock().unwrap());
+    assert_eq!(text.matches("BEFORE").count(), 1, "{text}");
+    assert_eq!(text.matches("AFTER").count(), 1, "{text}");
+    assert!(text.find("BEFORE").unwrap() < text.find("AFTER").unwrap());
+
+    let stored = SessionManager::new(data_root.path().to_path_buf())
+        .get_session(&session_id.0, true)
+        .await
+        .unwrap();
+    let assistant_turns = stored
+        .conversation
+        .unwrap()
+        .messages()
+        .iter()
+        .filter(|message| message.role == rmcp::model::Role::Assistant)
+        .count();
+    assert_eq!(assistant_turns, 1);
+
+    assert!(prompt_task.await.unwrap().is_err());
+    client_b.disconnect().await;
+    tokio::time::timeout(std::time::Duration::from_secs(10), server_b)
+        .await
+        .expect("connection B server did not exit")
+        .unwrap();
+}
+
+#[test]
+fn task181_reconnect_legacy_loop() {
+    run_test(async { assert_task181_reconnect(false).await });
+}
+
+#[test]
+fn task181_reconnect_state_machine_loop() {
+    run_test(async { assert_task181_reconnect(true).await });
 }
 
 #[test]
