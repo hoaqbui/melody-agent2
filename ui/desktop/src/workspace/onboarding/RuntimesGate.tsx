@@ -18,7 +18,7 @@ const i18n = defineMessages({
   title: { id: 'runtimesGate.title', defaultMessage: 'Set up seats' },
   description: {
     id: 'runtimesGate.description',
-    defaultMessage: 'Connect your AI runtimes so goose can pick the right one for each task',
+    defaultMessage: 'Connect your AI runtimes so Melody can pick the right one for each task',
   },
   claudeName: { id: 'runtimesGate.claudeName', defaultMessage: 'Claude' },
   codexName: { id: 'runtimesGate.codexName', defaultMessage: 'Codex' },

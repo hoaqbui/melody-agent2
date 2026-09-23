@@ -12,7 +12,7 @@ const i18n = defineMessages({
   },
   description: {
     id: 'liveVoiceSettings.description',
-    defaultMessage: 'Have a real-time voice conversation with Goose',
+    defaultMessage: 'Have a real-time voice conversation with Melody',
   },
 });
 

@@ -309,29 +309,6 @@ Order: 184 (migration) → 183 (identity); 185 ∥ 186 ∥ 187 ∥ 189 ∥ 190 �
       (`AppSettingsSection.tsx:831`), which is intended
   - confirm: `cd ui/desktop && grep -cE "['\`][^'\`]*\bGoose\b" src/main.ts src/utils/autoUpdater.ts; grep -c "UPDATES_ENABLED = false" src/updates.ts; pnpm run typecheck` → main.ts 0, autoUpdater.ts 0 (13 today), 1, typecheck 0
 
-- 187. Rename the brand in the English messages at their `defaultMessage` sources under
-     `ui/desktop/src`, regenerate `ui/desktop/src/i18n/messages/en.json`, and update the tests that
-     assert them.
-  - status: doing · agent: session (worker: claude -p haiku) · worker: medium
-  - card: as the user, I want every English sentence that names the product to say Melody so
-    that the app reads as one product
-  - context:
-    - `en.json` is generated (`pnpm run i18n:extract`, package.json:52); edit the source
-      `defaultMessage`, never en.json by hand
-    - rename: every message whose text names the product — 60 brand keys, the product word in
-      the 2 mixed keys (`goosehintsModal.helpText1`, `goosehintsSection.description`), and 11
-      ambiguous keys read as the product (e.g. `onboardingGuard.checkProviderErrorTitle`,
-      `runsInbox.mode`, `configSettings.description`, `settings.notifications.modal.macStep3`)
-    - keep: the 17 internal keys (`.goosehints`, `goose://`, `GOOSE_*`, `.goose/`) and the 2 path
-      placeholders `/home/goose/workspace` (`dirSwitcher.enterPathPlaceholder`,
-      `externalBackendSection.workingDirPlaceholder`)
-    - the name is always capitalised: lowercase brand "goose" becomes "Melody"
-    - keys stay as they are (`loadingGoose.*`, `goosehintsModal.*`): identifiers
-    - tests: `notifications.test.ts:130,131,143,144`, `App.test.tsx:273` (`/^Welcome to Melody/`),
-      `tests/e2e/phone-card.spec.ts:39`; the `context-management` e2e specs assert the backend's
-      compacting message, which stays (out of scope) — leave them
-  - confirm: `cd ui/desktop && pnpm run i18n:extract >/dev/null && node -e "const m=require('./src/i18n/messages/en.json');const keep=/\.goosehints|goose:\/\/|GOOSE_|\.goose\/|\/home\/goose/;const left=Object.entries(m).filter(([k,v])=>/goose/i.test(v.defaultMessage.replace(/\.goosehints|goose:\/\/\S*|GOOSE_[A-Z_]+|\.goose\/\S*|\/home\/goose\S*/g,'')));console.log(left.length, left.map(e=>e[0]).join(' '))" && pnpm exec vitest run src/notifications.test.ts src/App.test.tsx && pnpm run lint:check` → `0`, tests pass, lint:check (includes i18n:check) passes
-
 - 188. Carry the rename into the 15 other locales under `ui/desktop/src/i18n/messages/`.
   - status: todo · agent: — · worker: medium
   - blocked-by: 187

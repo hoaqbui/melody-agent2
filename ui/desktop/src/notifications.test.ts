@@ -127,8 +127,8 @@ describe('finish notifications', () => {
     await vi.advanceTimersByTimeAsync(2000);
 
     expect(showNotification).toHaveBeenCalledWith({
-      title: 'Goose finished the task.',
-      body: 'Click here to bring Goose back into focus.',
+      title: 'Melody finished the task.',
+      body: 'Click here to bring Melody back into focus.',
       route: '/pair?resumeSessionId=s-1',
     });
     stop();
@@ -140,8 +140,8 @@ describe('finish notifications', () => {
     await vi.advanceTimersByTimeAsync(2000);
 
     expect(showNotification).toHaveBeenCalledWith({
-      title: 'Goose finished the task.',
-      body: 'Finished on wt/wt-20260916-ab12. Click here to bring Goose back into focus.',
+      title: 'Melody finished the task.',
+      body: 'Finished on wt/wt-20260916-ab12. Click here to bring Melody back into focus.',
       route: '/pair?resumeSessionId=s-2',
     });
     stop();

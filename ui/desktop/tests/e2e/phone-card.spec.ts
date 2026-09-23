@@ -36,7 +36,7 @@ test.describe('phone card', () => {
       await expect(port).toHaveValue(/^\d+$/);
       console.log(`phone url ${text} · sidecar.port ${await port.inputValue()}`);
     } else {
-      expect(text).toBe('No tailnet address — start Tailscale and relaunch goose');
+      expect(text).toBe('No tailnet address — start Tailscale and relaunch Melody');
       await expect(card.locator('[data-testid="settings-phone-qr"]')).toHaveCount(0);
     }
 

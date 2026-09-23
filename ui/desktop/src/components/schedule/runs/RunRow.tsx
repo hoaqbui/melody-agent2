@@ -29,10 +29,10 @@ const i18n = defineMessages({
   running: { id: 'runsInbox.outcomeRunning', defaultMessage: 'Running' },
   unknown: { id: 'runsInbox.outcomeUnknown', defaultMessage: 'No outcome recorded' },
   noSnippet: { id: 'runsInbox.noSnippet', defaultMessage: 'No reply recorded' },
-  mode: { id: 'runsInbox.mode', defaultMessage: 'Goose mode: {mode}' },
+  mode: { id: 'runsInbox.mode', defaultMessage: 'Melody mode: {mode}' },
   modeHint: {
     id: 'runsInbox.modeHint',
-    defaultMessage: 'An unattended run takes the global goose mode, not its own',
+    defaultMessage: 'An unattended run takes the global Melody mode, not its own',
   },
   open: { id: 'runsInbox.open', defaultMessage: 'Open' },
   accept: { id: 'runsInbox.accept', defaultMessage: 'Accept' },

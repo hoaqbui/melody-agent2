@@ -23,15 +23,15 @@ import { worktreeBranch, worktreeSlugOf } from './workspace/worktree';
 const i18n = defineMessages({
   turnTitle: {
     id: 'chat.notification.taskComplete.title',
-    defaultMessage: 'Goose finished the task.',
+    defaultMessage: 'Melody finished the task.',
   },
   turnBody: {
     id: 'chat.notification.taskComplete.body',
-    defaultMessage: 'Click here to bring Goose back into focus.',
+    defaultMessage: 'Click here to bring Melody back into focus.',
   },
   turnWorktreeBody: {
     id: 'notifications.turn.worktreeBody',
-    defaultMessage: 'Finished on {branch}. Click here to bring Goose back into focus.',
+    defaultMessage: 'Finished on {branch}. Click here to bring Melody back into focus.',
   },
   workerDone: { id: 'notifications.worker.done', defaultMessage: 'Worker finished' },
   workerFailed: { id: 'notifications.worker.failed', defaultMessage: 'Worker failed' },
