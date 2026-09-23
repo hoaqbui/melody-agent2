@@ -333,11 +333,6 @@ Order: 154 (above) ∥ 155–157 (mockups, session) ∥ wave 1 (158 · 160 · 16
   - status: doing · agent: session → haiku worker · worker: low
   - card: as every task above, have a green smoke gate, so that a red means a regression (smoke 9/10 on 2026-09-22)
   - confirm: `just smoke` → `10 passed` (untouched: 1 failed at `sidebar.spec.ts:45`)
-- 180. Repair `DESIGN.md:177`'s garbled sentence (two edits interleaved character by character, "Task 697: the sidession menubar's Boarowsd…"): de-interleave the two sentences — the session menu's items (task 69) and the Board (task 67) — by hand; `git log -S` finds no clean prior.
-  - status: doing · agent: session · worker: — (session; a worker would invent the missing words)
-  - card: as the next reader, read `DESIGN.md` §Typography's icon list, so that the icons the menu and Board use are named (research Friction)
-  - confirm: `grep -c "Boarowsd\|sidession" DESIGN.md` → `0` (untouched: `1`); `for w in Inbox Kanban FolderOpen GitFork AlignJustify Palette MoonStar; do grep -q "\`$w\`" DESIGN.md || echo "missing $w"; done` prints nothing
-
 ## Waiting on the user
 
 ### Handoff — one line, one command each (2026-09-20, closeout; the decisions moved under §Notes and hand checks 2026-09-21)
