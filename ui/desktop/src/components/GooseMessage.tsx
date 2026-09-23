@@ -132,7 +132,7 @@ function GooseMessage({
                     {timestamp}
                   </div>
                 )}
-                {message.content.every((content) => content.type === 'text') && !isStreaming && (
+                {message.content.some((content) => content.type === 'text') && !isStreaming && (
                   <div className="absolute left-0 pt-1">
                     <MessageCopyLink text={displayText} contentRef={contentRef} />
                   </div>
@@ -186,6 +186,11 @@ function GooseMessage({
                 >
                   {!isStreaming && !hideTimestamp && timestamp}
                 </div>
+                {displayText.trim() && !isStreaming && (
+                  <div className="pt-1 opacity-0 group-hover:opacity-100 transition-opacity duration-200">
+                    <MessageCopyLink text={displayText} contentRef={contentRef} />
+                  </div>
+                )}
                 {!isStreaming && message.metadata.usage && (
                   <div className="pt-1 transition-all duration-200 opacity-0 group-hover:opacity-100 -translate-y-4 group-hover:translate-y-0">
                     <MessageUsageStats usage={message.metadata.usage} />
