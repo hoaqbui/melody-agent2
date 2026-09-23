@@ -225,7 +225,7 @@ async fn resume_saved_provider_session(
 }
 
 pub(super) const DEFAULT_PROVIDER_ID: &str = "goose";
-pub(super) const DEFAULT_PROVIDER_LABEL: &str = "Goose (Default)";
+pub(super) const DEFAULT_PROVIDER_LABEL: &str = "Melody (Default)";
 const PROVIDER_CONFIG_STATUS_CHECK_CONCURRENCY: usize = 16;
 
 /// In-memory state for an active ACP session.

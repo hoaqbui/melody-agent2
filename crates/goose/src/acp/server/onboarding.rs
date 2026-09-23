@@ -160,7 +160,7 @@ fn import_failure_warning(
     error: &anyhow::Error,
 ) -> String {
     let source_name = match source_kind {
-        OnboardingImportSourceKind::GooseConfig => "Goose configuration",
+        OnboardingImportSourceKind::GooseConfig => "Melody configuration",
         OnboardingImportSourceKind::ClaudeDesktop => "Claude Desktop tools",
     };
     format!(
@@ -358,7 +358,7 @@ fn apply_goose_config_candidate(
 
     result
         .warnings
-        .push("Session history already lives in the Goose data store when available.".to_string());
+        .push("Session history already lives in the Melody data store when available.".to_string());
     Ok(result)
 }
 

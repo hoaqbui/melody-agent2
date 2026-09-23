@@ -225,7 +225,7 @@ impl GooseAcpAgent {
             )
             .is_err()
         {
-            return Err("Goose is already working on a task.".into());
+            return Err("Melody is already working on a task.".into());
         }
         let run_guard = ActiveRunDropGuard {
             registry: self.active_runs.clone(),

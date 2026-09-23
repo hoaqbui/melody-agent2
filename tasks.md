@@ -351,19 +351,6 @@ Order: 184 (migration) → 183 (identity); 185 ∥ 186 ∥ 187 ∥ 189 ∥ 190 �
     - Korean particles, Russian gender: left as they read
   - confirm: `cd ui/desktop && node -e "const fs=require('fs');const d='src/i18n/messages/';const en=require('./'+d+'en.json');let bad=0;for(const f of fs.readdirSync(d)){if(f==='en.json')continue;const m=JSON.parse(fs.readFileSync(d+f));for(const [k,v] of Object.entries(m)){const t=v.defaultMessage.replace(/\.goosehints|goose:\/\/\S*|GOOSE_[A-Z_]+|\.goose\/\S*|\/home\/goose\S*/g,'');if(/goose/i.test(t)&&(!en[k]||!/goose/i.test(en[k].defaultMessage))){bad++;console.log(f,k)}}}console.log('left',bad)" && grep -c "Melody'ye" src/i18n/messages/tr.json; pnpm run i18n:check` → `left 0`, ≥ 6 (0 today), i18n:check passes
 
-- 189. Rename the backend strings the desktop shows in `crates/goose/src/acp/server.rs`,
-     `crates/goose/src/acp/server/onboarding.rs` and `crates/goose/src/acp/server/live_voice.rs`.
-  - status: doing · agent: session (worker: claude -p haiku) · worker: low
-  - card: as the user, I want the provider picker, onboarding and live voice to say Melody so
-    that backend text matches the app
-  - context:
-    - server.rs:227-228 label "Goose (Default)" → "Melody (Default)"; the provider id `"goose"` stays
-    - onboarding.rs:163 "Goose configuration" → "Melody configuration"; :361 "the Goose data store"
-      → "the Melody data store"
-    - live_voice.rs:228 "Goose is already working on a task." → "Melody is already working on a task."
-    - not `agents/agent.rs` or `state_machine/` (ARCHITECTURE.md §Invariants)
-  - confirm: `source bin/activate-hermit && cargo fmt --check && cargo build -p goose 2>&1 | grep -c "^warning" ; grep -c "Melody" crates/goose/src/acp/server.rs crates/goose/src/acp/server/onboarding.rs crates/goose/src/acp/server/live_voice.rs` → fmt clean, 0 warnings, each file ≥ 1
-
 - 190. Give the agent its new name in the backend prompts: `crates/goose/src/prompts/system.md`,
      `subagent_system.md`, `tiny_model_system.md`, `crates/goose-local-inference/src/prompts/tiny_model_system.md`,
      `crates/goose/src/agents/prompt_manager.rs`, `crates/goose-local-inference/src/tool_emulation.rs`,
