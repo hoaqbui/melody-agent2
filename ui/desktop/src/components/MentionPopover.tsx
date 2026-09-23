@@ -7,6 +7,7 @@ import {
   useRef,
   useState,
 } from 'react';
+import { createPortal } from 'react-dom';
 import { ItemIcon } from './ItemIcon';
 import { getInitialWorkingDir } from '../utils/workingDir';
 import { defineMessages, useIntl } from '../i18n';
@@ -606,14 +607,14 @@ const MentionPopover = forwardRef<
 
     if (!isOpen) return null;
 
-    return (
+    const popoverContent = (
       <div
         ref={popoverRef}
         className="fixed z-50 bg-background-primary border border-border-primary rounded-lg shadow-lg min-w-96 max-w-lg max-h-80"
         style={{
           left: position.x,
-          top: position.y - 10, // Position above the chat input
-          transform: 'translateY(-100%)', // Move it fully above
+          top: position.y - 10,
+          transform: 'translateY(-100%)',
         }}
       >
         <div className="p-3 flex flex-col max-h-80">
@@ -668,6 +669,8 @@ const MentionPopover = forwardRef<
         </div>
       </div>
     );
+
+    return createPortal(popoverContent, document.body);
   }
 );
 
