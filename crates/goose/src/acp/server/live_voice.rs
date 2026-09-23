@@ -317,6 +317,7 @@ impl GooseAcpAgent {
                                 &target,
                                 &tool_requests,
                                 &cx,
+                                true,
                             )
                             .await;
                     }

@@ -249,6 +249,9 @@ impl GooseAcpAgent {
         args: &LoadSessionRequest,
         session: &Session,
     ) -> Result<Option<LoadSessionResponse>, agent_client_protocol::Error> {
+        let Some((active_run_id, agent)) = self.active_runs.agent_run(&session.id) else {
+            return Ok(None);
+        };
         let Some(attachment) = self
             .run_attachments
             .sessions
@@ -257,19 +260,9 @@ impl GooseAcpAgent {
             .get(session.id.as_str())
             .cloned()
         else {
-            return Ok(None);
+            return Err(agent_client_protocol::Error::internal_error()
+                .data("Active run has no delivery record"));
         };
-        let Some((active_run_id, agent)) = self.active_runs.agent_run(&session.id) else {
-            return Ok(None);
-        };
-        let cancel_token = self
-            .active_runs
-            .agent_cancel_token(&session.id)
-            .ok_or_else(|| {
-                agent_client_protocol::Error::internal_error()
-                    .data("Active run has no cancellation token")
-            })?;
-
         let cwd = effective_session_cwd(self.session_cwd.as_deref(), &args.cwd);
         if cwd != session.working_dir {
             return Err(agent_client_protocol::Error::invalid_params()
@@ -280,12 +273,22 @@ impl GooseAcpAgent {
                 .data("Cannot change MCP servers while a run is active"));
         }
 
-        self.register_acp_session(session.id.clone(), agent.clone())
-            .await;
-        self.closed_session_ids.lock().await.remove(&session.id);
-
-        let mut state = attachment.state.lock().await;
-        if state.run_id != active_run_id {
+        let (record_run_id, history_boundary, outcome) = {
+            let state = attachment.state.lock().await;
+            (
+                state.run_id.clone(),
+                state.history_boundary,
+                state.outcome.clone(),
+            )
+        };
+        if record_run_id != active_run_id {
+            return Err(agent_client_protocol::Error::internal_error()
+                .data("Active run delivery record does not match the registry"));
+        }
+        if let Some(outcome) = outcome {
+            if let RunOutcome::Failed(error) = outcome {
+                debug!(session_id = session.id, %error, "Active run finished with a delivery failure");
+            }
             return Ok(None);
         }
         let replayed_from = replay_conversation_to_client_until(
@@ -294,43 +297,12 @@ impl GooseAcpAgent {
             self.supports_goose_custom_notifications(),
             self.requests_tool_call_label_enrichment(),
             replay_tail_from_meta(args.meta.as_ref()),
-            Some(state.history_boundary),
+            Some(history_boundary),
         )?;
-        let acp_session_id = SessionId::new(session.id.clone());
-        let target = SessionAgentTarget {
-            agent: agent.clone(),
-            session_id: session.id.clone(),
-            cancel_token: Some(cancel_token),
-        };
-        let mut tool_requests = HashMap::new();
-        for message in &state.turn_messages {
-            for content_item in &message.content {
-                if let MessageContent::ToolRequest(tool_request) = content_item {
-                    tool_requests.insert(tool_request.id.clone(), tool_request.clone());
-                }
-                self.handle_message_content(
-                    content_item,
-                    message,
-                    &acp_session_id,
-                    &target,
-                    &tool_requests,
-                    cx,
-                )
-                .await?;
-            }
-        }
-        let generation = state.next_generation;
-        let replayed_messages = state.turn_messages.len();
-        state.next_generation += 1;
-        state.connection = Some(RunConnection {
-            generation,
-            replayed_messages,
-            cx: cx.clone(),
-            server: Arc::clone(self),
-        });
-        Self::send_active_run_update(cx, &acp_session_id, Some(&active_run_id))?;
-        drop(state);
-        attachment.attached.notify_waiters();
+        self.register_acp_session(session.id.clone(), agent.clone())
+            .await;
+        self.closed_session_ids.lock().await.remove(&session.id);
+        self.install_run_connection(&attachment, cx, true).await;
 
         let (mode_state, config_options) = build_session_setup_config(
             &self.provider_inventory,
@@ -392,15 +364,6 @@ impl GooseAcpAgent {
     ) -> Result<(), agent_client_protocol::Error> {
         let run_id = format!("resume_{}", Uuid::new_v4());
         let cancel_token = CancellationToken::new();
-        self.start_active_run(
-            session_id,
-            run_id.clone(),
-            cancel_token.clone(),
-            agent.clone(),
-        )
-        .await?;
-
-        let acp_session_id = SessionId::new(session_id.to_string());
         let history_boundary = self
             .session_manager
             .get_session(session_id, true)
@@ -410,14 +373,28 @@ impl GooseAcpAgent {
             .as_ref()
             .map(|conversation| conversation.messages().len())
             .unwrap_or_default();
+        self.start_active_run(
+            session_id,
+            run_id.clone(),
+            cancel_token.clone(),
+            agent.clone(),
+        )
+        .await?;
+
+        let acp_session_id = SessionId::new(session_id.to_string());
         let attachment = self
-            .begin_run_attachment(session_id, &run_id, history_boundary, cx)
+            .begin_run_attachment(session_id, &run_id, history_boundary, Vec::new(), cx)
             .await;
-        if let Err(error) = Self::send_active_run_update(cx, &acp_session_id, Some(&run_id)) {
-            self.clear_active_run(session_id, &run_id).await;
-            self.finish_run_attachment(session_id, &run_id).await;
-            return Err(error);
-        }
+        self.append_run_delivery(
+            &attachment,
+            RunDelivery::Session(SessionNotification::new(
+                acp_session_id.clone(),
+                SessionUpdate::SessionInfoUpdate(
+                    SessionInfoUpdate::new().meta(Self::active_run_meta(Some(&run_id))),
+                ),
+            )),
+        )
+        .await?;
 
         let server = Arc::clone(self);
         let task_agent = agent.clone();
@@ -425,6 +402,7 @@ impl GooseAcpAgent {
         let task_run_id = run_id.clone();
         let task_cancel_token = cancel_token.clone();
         let task_acp_session_id = acp_session_id.clone();
+        let task_attachment = attachment.clone();
         tokio::spawn(async move {
             let _run_guard = ActiveRunDropGuard {
                 registry: server.active_runs.clone(),
@@ -450,7 +428,7 @@ impl GooseAcpAgent {
                             &task_session_id,
                             &task_agent,
                             &task_cancel_token,
-                            &attachment,
+                            &task_attachment,
                             stream,
                         )
                         .await
@@ -463,42 +441,47 @@ impl GooseAcpAgent {
                     "Failed to resume pending tool confirmation: {error}"
                 ))),
             };
-            if result.is_ok() {
-                if let Err(error) = server
-                    .send_final_usage_to_attachment(
-                        &attachment,
+            let final_usage = if result.is_ok() {
+                server
+                    .usage_deliveries(
                         &task_acp_session_id,
                         &task_session_id,
                         &task_agent,
-                        &task_cancel_token,
+                        &mut None,
                     )
                     .await
-                {
-                    warn!(
-                        session_id = task_session_id,
-                        ?error,
-                        "Failed to update usage after resumed ACP turn"
-                    );
-                }
-            }
-            if let Err(error) = server
-                .send_active_run_update_to_attachment(
-                    &attachment,
-                    &task_acp_session_id,
-                    None,
-                    &task_cancel_token,
-                )
-                .await
-            {
-                warn!(
-                    session_id = task_session_id,
-                    ?error,
-                    "Failed to clear resumed ACP run status"
-                );
-            }
+                    .map(|(_, deliveries)| deliveries)
+                    .unwrap_or_default()
+            } else {
+                Vec::new()
+            };
+            let outcome = match &result {
+                Ok(outcome) if outcome.was_cancelled => RunOutcome::Cancelled,
+                Ok(_) => RunOutcome::Completed,
+                Err(error) => RunOutcome::Failed(error.to_string()),
+            };
+            server.set_run_outcome(&task_attachment, outcome).await;
             server
-                .clear_active_run(&task_session_id, &task_run_id)
+                .clear_active_run_with_idle(
+                    &task_attachment,
+                    &task_session_id,
+                    &task_run_id,
+                    RunDelivery::Session(SessionNotification::new(
+                        task_acp_session_id.clone(),
+                        SessionUpdate::SessionInfoUpdate(
+                            SessionInfoUpdate::new().meta(Self::active_run_meta(None)),
+                        ),
+                    )),
+                )
                 .await;
+            server
+                .finish_run_attachment(&task_session_id, &task_run_id)
+                .await;
+            for delivery in final_usage {
+                server
+                    .best_effort_run_delivery(&task_attachment, delivery)
+                    .await;
+            }
             if let Err(error) = result {
                 warn!(
                     session_id = task_session_id,
@@ -506,22 +489,25 @@ impl GooseAcpAgent {
                     "Resumed ACP state-machine turn failed"
                 );
             }
-            server
-                .finish_run_attachment(&task_session_id, &task_run_id)
-                .await;
         });
 
-        if let Err(error) = self.resend_pending_tool_permissions(
-            cx,
-            agent,
-            session_id,
-            requests,
-            Some(cancel_token.clone()),
-        ) {
-            cancel_token.cancel();
-            self.clear_active_run(session_id, &run_id).await;
-            let _ = Self::send_active_run_update(cx, &acp_session_id, None);
-            return Err(error);
+        for request in requests {
+            self.hold_run_permission(
+                &attachment,
+                PendingToolPermission {
+                    request_id: request.id.clone(),
+                    tool_name: request.tool_name.clone(),
+                    arguments: request.arguments.clone(),
+                    prompt: request.prompt.clone(),
+                    diff: None,
+                },
+                SessionAgentTarget {
+                    agent: agent.clone(),
+                    session_id: session_id.to_string(),
+                    cancel_token: Some(cancel_token.clone()),
+                },
+            )
+            .await;
         }
 
         Ok(())

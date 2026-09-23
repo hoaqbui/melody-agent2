@@ -5,8 +5,9 @@ mod common_tests;
 use agent_client_protocol::schema::v1::{
     ClientCapabilities, ContentBlock, InitializeRequest, ListSessionsRequest, ListSessionsResponse,
     LoadSessionRequest, McpServer, McpServerHttp, NewSessionRequest, PromptRequest,
-    SessionConfigKind, SessionConfigOptionCategory, SessionConfigOptionValue, SessionInfo,
-    SessionNotification, SessionUpdate, SetSessionConfigOptionRequest, StopReason, TextContent,
+    RequestPermissionRequest, SessionConfigKind, SessionConfigOptionCategory,
+    SessionConfigOptionValue, SessionInfo, SessionModeId, SessionNotification, SessionUpdate,
+    SetSessionConfigOptionRequest, SetSessionModeRequest, StopReason, TextContent,
 };
 use agent_client_protocol::schema::ProtocolVersion;
 use agent_client_protocol::{Agent as AcpAgent, Client, ConnectionTo, ErrorCode};
@@ -37,7 +38,6 @@ use goose::acp::server::{
     GooseAcpAgentOptions, LiveVoiceService, SharedAcpState,
 };
 use goose::agents::GoosePlatform;
-use goose::config::paths::Paths;
 use goose::config::GooseMode;
 use goose::conversation::message::{Message, MessageMetadata};
 use goose::custom_requests::{
@@ -51,10 +51,35 @@ use goose_providers::conversation::token_usage::{ProviderUsage, Usage};
 use goose_providers::errors::ProviderError;
 use goose_providers::model::ModelConfig;
 use goose_test_support::{McpFixture, FAKE_CODE};
+use rmcp::model::CallToolRequestParams;
 use std::path::Path;
+use std::sync::atomic::{AtomicUsize, Ordering};
 use std::sync::{Arc, Mutex};
 use tokio::sync::Notify;
 use tokio::task::JoinHandle;
+
+struct ScopedEnv {
+    key: &'static str,
+    previous: Option<std::ffi::OsString>,
+}
+
+impl ScopedEnv {
+    fn set(key: &'static str, value: &str) -> Self {
+        let previous = std::env::var_os(key);
+        std::env::set_var(key, value);
+        Self { key, previous }
+    }
+}
+
+impl Drop for ScopedEnv {
+    fn drop(&mut self) {
+        if let Some(previous) = self.previous.take() {
+            std::env::set_var(self.key, previous);
+        } else {
+            std::env::remove_var(self.key);
+        }
+    }
+}
 
 tests_config_option_set_error!(AcpServerConnection);
 tests_mode_set_error!(AcpServerConnection);
@@ -213,6 +238,48 @@ struct ReconnectProvider {
     release_after: Arc<Notify>,
 }
 
+struct ReconnectPermissionProvider {
+    calls: AtomicUsize,
+}
+
+#[async_trait::async_trait]
+impl Provider for ReconnectPermissionProvider {
+    fn get_name(&self) -> &str {
+        "openai"
+    }
+
+    async fn stream(
+        &self,
+        _model_config: &ModelConfig,
+        _system: &str,
+        _messages: &[Message],
+        _tools: &[rmcp::model::Tool],
+    ) -> Result<MessageStream, ProviderError> {
+        let message = match self.calls.fetch_add(1, Ordering::SeqCst) {
+            0 => Message::assistant().with_tool_request(
+                "reconnect-tool",
+                Ok(
+                    CallToolRequestParams::new("developer__shell").with_arguments(
+                        serde_json::json!({"command": "printf permission-ran"})
+                            .as_object()
+                            .unwrap()
+                            .clone(),
+                    ),
+                ),
+            ),
+            1 => Message::assistant().with_text("PERMISSION_DONE"),
+            call => panic!("unexpected permission provider call {call}"),
+        };
+        Ok(Box::pin(futures::stream::iter([Ok((
+            Some(message),
+            Some(ProviderUsage::new(
+                "gpt-4o".to_string(),
+                Usage::new(Some(1), Some(2), Some(3)),
+            )),
+        ))])))
+    }
+}
+
 #[async_trait::async_trait]
 impl Provider for ReconnectProvider {
     fn get_name(&self) -> &str {
@@ -247,16 +314,26 @@ struct ReconnectClient {
     cx: Option<ConnectionTo<AcpAgent>>,
     updates: Arc<Mutex<Vec<SessionNotification>>>,
     notify: Arc<Notify>,
+    permission_requests: Arc<AtomicUsize>,
     task: JoinHandle<()>,
 }
 
 impl ReconnectClient {
     async fn connect(transport: DuplexTransport) -> Self {
+        Self::connect_with_permission(transport, None).await
+    }
+
+    async fn connect_with_permission(
+        transport: DuplexTransport,
+        permission: Option<PermissionDecision>,
+    ) -> Self {
         let updates = Arc::new(Mutex::new(Vec::new()));
         let notify = Arc::new(Notify::new());
         let (ready_tx, ready_rx) = tokio::sync::oneshot::channel();
         let task_updates = updates.clone();
         let task_notify = notify.clone();
+        let permission_requests = Arc::new(AtomicUsize::new(0));
+        let task_permission_requests = permission_requests.clone();
         let task = tokio::spawn(async move {
             let result = Client
                 .builder()
@@ -267,6 +344,20 @@ impl ReconnectClient {
                         Ok(())
                     },
                     agent_client_protocol::on_receive_notification!(),
+                )
+                .on_receive_request(
+                    async move |request: RequestPermissionRequest, responder, _cx| {
+                        task_permission_requests.fetch_add(1, Ordering::SeqCst);
+                        match permission {
+                            Some(decision) => responder
+                                .respond(goose::acp::map_permission_response(&request, decision)),
+                            None => {
+                                std::future::pending::<Result<(), agent_client_protocol::Error>>()
+                                    .await
+                            }
+                        }
+                    },
+                    agent_client_protocol::on_receive_request!(),
                 )
                 .connect_with(transport.into_byte_streams(), async move |cx| {
                     let _ = ready_tx.send(cx);
@@ -289,6 +380,7 @@ impl ReconnectClient {
             cx: Some(cx),
             updates,
             notify,
+            permission_requests,
             task,
         }
     }
@@ -330,6 +422,18 @@ impl ReconnectClient {
         }
     }
 
+    async fn wait_for_permission_request(&self) {
+        let deadline = tokio::time::Instant::now() + std::time::Duration::from_secs(10);
+        while self.permission_requests.load(Ordering::SeqCst) == 0 {
+            tokio::time::timeout_at(
+                deadline,
+                tokio::time::sleep(std::time::Duration::from_millis(10)),
+            )
+            .await
+            .expect("timed out waiting for permission request");
+        }
+    }
+
     async fn disconnect(mut self) {
         self.cx.take();
         self.task.abort();
@@ -350,6 +454,19 @@ fn reconnect_agent_text(updates: &[SessionNotification]) -> String {
         .collect()
 }
 
+fn reconnect_user_text(updates: &[SessionNotification]) -> String {
+    updates
+        .iter()
+        .filter_map(|notification| match &notification.update {
+            SessionUpdate::UserMessageChunk(chunk) => match &chunk.content {
+                ContentBlock::Text(text) => Some(text.text.as_str()),
+                _ => None,
+            },
+            _ => None,
+        })
+        .collect()
+}
+
 fn reconnect_prompt_meta(use_state_machine: bool) -> serde_json::Map<String, serde_json::Value> {
     serde_json::json!({
         "goose": {
@@ -361,16 +478,15 @@ fn reconnect_prompt_meta(use_state_machine: bool) -> serde_json::Map<String, ser
     .clone()
 }
 
-async fn assert_task181_reconnect(use_state_machine: bool) {
+async fn assert_task181_reconnect(
+    use_state_machine: bool,
+    finish_while_detached: bool,
+    seed_prior_turn: bool,
+) {
     let data_root = tempfile::tempdir().unwrap();
     let work_dir = tempfile::tempdir().unwrap();
-    let config_dir = Paths::config_dir();
-    std::fs::create_dir_all(&config_dir).unwrap();
-    std::fs::write(
-        config_dir.join(goose::config::base::CONFIG_YAML_NAME),
-        "GOOSE_MODEL: gpt-4o\nGOOSE_PROVIDER: openai\nGOOSE_MODE: auto\nGOOSE_DISABLE_KEYRING: true\n",
-    )
-    .unwrap();
+    let _provider_env = ScopedEnv::set("GOOSE_PROVIDER", "openai");
+    let _model_env = ScopedEnv::set("GOOSE_MODEL", "gpt-4o");
 
     let provider = Arc::new(ReconnectProvider {
         before_sent: Arc::new(Notify::new()),
@@ -431,6 +547,20 @@ async fn assert_task181_reconnect(use_state_machine: bool) {
         .update_provider(provider.clone(), ModelConfig::new("gpt-4o"), &session_id.0)
         .await
         .unwrap();
+    if seed_prior_turn {
+        let manager = SessionManager::new(data_root.path().to_path_buf());
+        manager
+            .add_message(&session_id.0, &Message::user().with_text("PRIOR_USER"))
+            .await
+            .unwrap();
+        manager
+            .add_message(
+                &session_id.0,
+                &Message::assistant().with_text("PRIOR_ASSISTANT"),
+            )
+            .await
+            .unwrap();
+    }
     let before_sent = provider.before_sent.notified();
     let prompt_cx = client_a.cx().clone();
     let prompt_session_id = session_id.clone();
@@ -460,6 +590,19 @@ async fn assert_task181_reconnect(use_state_machine: bool) {
         .expect("connection A server did not exit")
         .unwrap();
 
+    if finish_while_detached {
+        provider.release_after.notify_waiters();
+        let deadline = tokio::time::Instant::now() + std::time::Duration::from_secs(10);
+        while agent_a.has_active_run_for_test(&session_id.0) {
+            tokio::time::timeout_at(
+                deadline,
+                tokio::time::sleep(std::time::Duration::from_millis(10)),
+            )
+            .await
+            .expect("run did not finish while detached");
+        }
+    }
+
     let (transport_b, server_b) = serve_agent_in_process(agent_b.clone()).await;
     let client_b = ReconnectClient::connect(transport_b).await;
     client_b
@@ -470,26 +613,57 @@ async fn assert_task181_reconnect(use_state_machine: bool) {
         .unwrap();
     let reattached_agent = agent_b.session_agent_for_test(&session_id.0).await;
     assert!(Arc::ptr_eq(&running_agent, &reattached_agent));
-    provider.release_after.notify_waiters();
-    client_b.wait_for_active_run_cleared().await;
+    if !finish_while_detached {
+        provider.release_after.notify_waiters();
+        client_b.wait_for_active_run_cleared().await;
+    }
 
     let text = reconnect_agent_text(&client_b.updates.lock().unwrap());
     assert_eq!(text.matches("BEFORE").count(), 1, "{text}");
     assert_eq!(text.matches("AFTER").count(), 1, "{text}");
     assert!(text.find("BEFORE").unwrap() < text.find("AFTER").unwrap());
+    if seed_prior_turn {
+        assert_eq!(text.matches("PRIOR_ASSISTANT").count(), 1, "{text}");
+    }
+    let user_text = reconnect_user_text(&client_b.updates.lock().unwrap());
+    assert_eq!(user_text.matches("continue").count(), 1, "{user_text}");
+    if seed_prior_turn {
+        assert_eq!(user_text.matches("PRIOR_USER").count(), 1, "{user_text}");
+    }
 
     let stored = SessionManager::new(data_root.path().to_path_buf())
         .get_session(&session_id.0, true)
         .await
         .unwrap();
-    let assistant_turns = stored
-        .conversation
-        .unwrap()
+    let conversation = stored.conversation.unwrap();
+    let assistant_turns = conversation
         .messages()
         .iter()
-        .filter(|message| message.role == rmcp::model::Role::Assistant)
+        .filter(|message| {
+            message.role == rmcp::model::Role::Assistant
+                && message.content.iter().any(|content| match content {
+                    goose::conversation::message::MessageContent::Text(text) => {
+                        text.text.contains("BEFORE") || text.text.contains("AFTER")
+                    }
+                    _ => false,
+                })
+        })
+        .count();
+    let user_turns = conversation
+        .messages()
+        .iter()
+        .filter(|message| {
+            message.role == rmcp::model::Role::User
+                && message.content.iter().any(|content| match content {
+                    goose::conversation::message::MessageContent::Text(text) => {
+                        text.text == "continue"
+                    }
+                    _ => false,
+                })
+        })
         .count();
     assert_eq!(assistant_turns, 1);
+    assert_eq!(user_turns, 1);
 
     assert!(prompt_task.await.unwrap().is_err());
     client_b.disconnect().await;
@@ -499,14 +673,161 @@ async fn assert_task181_reconnect(use_state_machine: bool) {
         .unwrap();
 }
 
+async fn assert_task181_reconnect_permission(use_state_machine: bool) {
+    let data_root = tempfile::tempdir().unwrap();
+    let work_dir = tempfile::tempdir().unwrap();
+    let _provider_env = ScopedEnv::set("GOOSE_PROVIDER", "openai");
+    let _model_env = ScopedEnv::set("GOOSE_MODEL", "gpt-4o");
+    let provider = Arc::new(ReconnectPermissionProvider {
+        calls: AtomicUsize::new(0),
+    });
+    let provider_factory: AcpProviderFactory = Arc::new({
+        let provider = provider.clone();
+        move |_provider_name, _extensions, _working_dir, _use_default_model| {
+            let provider = provider.clone();
+            Box::pin(async move {
+                let provider: Arc<dyn Provider> = provider;
+                Ok(provider)
+            })
+        }
+    });
+    let active_runs = Arc::new(ActiveRunRegistry::default());
+    let live_voice = Arc::new(LiveVoiceService::from_config(active_runs.clone()));
+    let shared = Arc::new(
+        SharedAcpState::build(
+            data_root.path().to_path_buf(),
+            data_root.path().to_path_buf(),
+            None,
+            true,
+            GoosePlatform::GooseCli,
+        )
+        .await
+        .unwrap(),
+    );
+    let make_agent = || {
+        GooseAcpAgent::new(GooseAcpAgentOptions {
+            provider_factory: provider_factory.clone(),
+            builtin_selection: AcpBuiltinSelection::from_requested(Vec::new()),
+            data_dir: data_root.path().to_path_buf(),
+            config_dir: data_root.path().to_path_buf(),
+            disable_session_naming: true,
+            goose_platform: GoosePlatform::GooseCli,
+            additional_source_roots: Vec::new(),
+            session_cwd: None,
+            scheduler: None,
+            active_runs: active_runs.clone(),
+            live_voice: live_voice.clone(),
+            shared: Some(shared.clone()),
+        })
+    };
+    let agent_a = Arc::new(make_agent().await.unwrap());
+    let agent_b = Arc::new(make_agent().await.unwrap());
+    let (transport_a, server_a) = serve_agent_in_process(agent_a.clone()).await;
+    let client_a = ReconnectClient::connect_with_permission(transport_a, None).await;
+    let session_id = client_a
+        .cx()
+        .send_request(NewSessionRequest::new(work_dir.path()))
+        .block_task()
+        .await
+        .unwrap()
+        .session_id;
+    client_a
+        .cx()
+        .send_request(SetSessionModeRequest::new(
+            session_id.clone(),
+            SessionModeId::new("approve"),
+        ))
+        .block_task()
+        .await
+        .unwrap();
+    let running_agent = agent_a.session_agent_for_test(&session_id.0).await;
+    running_agent
+        .update_provider(provider.clone(), ModelConfig::new("gpt-4o"), &session_id.0)
+        .await
+        .unwrap();
+    let prompt_cx = client_a.cx().clone();
+    let prompt_session_id = session_id.clone();
+    let prompt_task = tokio::spawn(async move {
+        prompt_cx
+            .send_request(
+                PromptRequest::new(
+                    prompt_session_id,
+                    vec![ContentBlock::Text(TextContent::new("run a tool"))],
+                )
+                .meta(reconnect_prompt_meta(use_state_machine)),
+            )
+            .block_task()
+            .await
+    });
+    client_a.wait_for_permission_request().await;
+    assert_eq!(client_a.permission_requests.load(Ordering::SeqCst), 1);
+    client_a.disconnect().await;
+    tokio::time::timeout(std::time::Duration::from_secs(10), server_a)
+        .await
+        .expect("permission connection A server did not exit")
+        .unwrap();
+
+    let (transport_b, server_b) = serve_agent_in_process(agent_b).await;
+    let client_b =
+        ReconnectClient::connect_with_permission(transport_b, Some(PermissionDecision::AllowOnce))
+            .await;
+    client_b
+        .cx()
+        .send_request(LoadSessionRequest::new(session_id.clone(), work_dir.path()))
+        .block_task()
+        .await
+        .unwrap();
+    client_b.wait_for_permission_request().await;
+    client_b.wait_for_text("PERMISSION_DONE").await;
+    client_b.wait_for_active_run_cleared().await;
+    assert_eq!(client_b.permission_requests.load(Ordering::SeqCst), 1);
+    assert_eq!(provider.calls.load(Ordering::SeqCst), 2);
+    assert!(prompt_task.await.unwrap().is_err());
+    client_b.disconnect().await;
+    tokio::time::timeout(std::time::Duration::from_secs(10), server_b)
+        .await
+        .expect("permission connection B server did not exit")
+        .unwrap();
+}
+
 #[test]
 fn task181_reconnect_legacy_loop() {
-    run_test(async { assert_task181_reconnect(false).await });
+    run_test(async { assert_task181_reconnect(false, false, false).await });
 }
 
 #[test]
 fn task181_reconnect_state_machine_loop() {
-    run_test(async { assert_task181_reconnect(true).await });
+    run_test(async { assert_task181_reconnect(true, false, false).await });
+}
+
+#[test]
+fn task181_reconnect_detached_output_legacy_loop() {
+    run_test(async { assert_task181_reconnect(false, true, false).await });
+}
+
+#[test]
+fn task181_reconnect_detached_output_state_machine_loop() {
+    run_test(async { assert_task181_reconnect(true, true, false).await });
+}
+
+#[test]
+fn task181_reconnect_prior_history_legacy_loop() {
+    run_test(async { assert_task181_reconnect(false, false, true).await });
+}
+
+#[test]
+fn task181_reconnect_prior_history_state_machine_loop() {
+    run_test(async { assert_task181_reconnect(true, false, true).await });
+}
+
+#[test]
+fn task181_reconnect_permission_legacy_loop() {
+    run_test(async { assert_task181_reconnect_permission(false).await });
+}
+
+#[test]
+fn task181_reconnect_permission_state_machine_loop() {
+    run_test(async { assert_task181_reconnect_permission(true).await });
 }
 
 #[test]

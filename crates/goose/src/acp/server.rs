@@ -79,8 +79,8 @@ use serde::Deserialize;
 use std::collections::{HashMap, HashSet};
 use std::panic::AssertUnwindSafe;
 use std::path::{Path, PathBuf};
-use std::sync::Arc;
-use tokio::sync::{mpsc, oneshot, Mutex, Notify, OnceCell};
+use std::sync::{Arc, Weak};
+use tokio::sync::{mpsc, oneshot, Mutex, OnceCell};
 use tokio_util::compat::{TokioAsyncReadCompatExt as _, TokioAsyncWriteCompatExt as _};
 use tokio_util::sync::CancellationToken;
 use tracing::{debug, error, info, warn};
@@ -248,27 +248,113 @@ struct AgentStreamOutcome {
     output_token_limit_reached: bool,
 }
 
-const RUN_REATTACH_TIMEOUT: std::time::Duration = std::time::Duration::from_secs(10 * 60);
+const RUN_DELIVERY_BUFFER_LIMIT: usize = 8 * 1024 * 1024;
+const RUN_DELIVERY_QUEUE_LIMIT: usize = 256;
 
 #[derive(Clone)]
 struct RunConnection {
     generation: u64,
-    replayed_messages: usize,
+    tx: mpsc::Sender<RunDelivery>,
     cx: ConnectionTo<Client>,
-    server: Arc<GooseAcpAgent>,
+}
+
+#[derive(Clone)]
+enum RunDelivery {
+    Message {
+        session_id: SessionId,
+        message: Message,
+    },
+    Session(Box<SessionNotification>),
+    Goose(GooseSessionNotification),
+}
+
+#[derive(Clone)]
+struct PendingRunPermission {
+    request: PendingToolPermission,
+    target: SessionAgentTarget,
+    issued_generation: Option<u64>,
+}
+
+#[derive(Clone)]
+struct PendingRunElicitation {
+    id: String,
+    message: String,
+    requested_schema: serde_json::Value,
+    meta: Meta,
+    issued_generation: Option<u64>,
+}
+
+#[derive(Clone)]
+enum RunOutcome {
+    Completed,
+    Cancelled,
+    Failed(String),
 }
 
 struct RunAttachmentState {
+    session_id: String,
     run_id: String,
     history_boundary: usize,
-    turn_messages: Vec<Message>,
+    deliveries: Vec<RunDelivery>,
+    delivery_bytes: usize,
     connection: Option<RunConnection>,
+    pending_permission: Option<PendingRunPermission>,
+    pending_elicitation: Option<PendingRunElicitation>,
+    outcome: Option<RunOutcome>,
     next_generation: u64,
 }
 
 struct RunAttachment {
     state: Mutex<RunAttachmentState>,
-    attached: Notify,
+}
+
+fn run_delivery_size(delivery: &RunDelivery) -> usize {
+    match delivery {
+        RunDelivery::Message { message, .. } => serde_json::to_vec(message),
+        RunDelivery::Session(notification) => serde_json::to_vec(notification),
+        RunDelivery::Goose(notification) => serde_json::to_vec(notification),
+    }
+    .map(|bytes| bytes.len())
+    .unwrap_or(RUN_DELIVERY_BUFFER_LIMIT + 1)
+}
+
+fn compact_run_delivery(state: &mut RunAttachmentState, delivery: &RunDelivery) {
+    if let (
+        Some(RunDelivery::Message {
+            session_id: previous_session_id,
+            message: previous,
+        }),
+        RunDelivery::Message {
+            session_id,
+            message,
+        },
+    ) = (state.deliveries.last_mut(), delivery)
+    {
+        if previous_session_id == session_id
+            && previous.role == message.role
+            && matches!(previous.content.as_slice(), [MessageContent::Text(_)])
+            && matches!(message.content.as_slice(), [MessageContent::Text(_)])
+        {
+                let old_size = serde_json::to_vec(previous)
+                    .map(|bytes| bytes.len())
+                    .unwrap_or_default();
+                let [MessageContent::Text(previous_text)] = previous.content.as_mut_slice() else {
+                    unreachable!()
+                };
+                let [MessageContent::Text(text)] = message.content.as_slice() else {
+                    unreachable!()
+                };
+                previous_text.text.push_str(&text.text);
+                previous.metadata = message.metadata.clone();
+                let new_size = serde_json::to_vec(previous)
+                    .map(|bytes| bytes.len())
+                    .unwrap_or(RUN_DELIVERY_BUFFER_LIMIT + 1);
+                state.delivery_bytes = state.delivery_bytes.saturating_sub(old_size) + new_size;
+            return;
+        }
+    }
+    state.delivery_bytes += run_delivery_size(delivery);
+    state.deliveries.push(delivery.clone());
 }
 
 #[derive(Default)]
@@ -793,8 +879,10 @@ struct SessionAgentTarget {
     agent: Arc<Agent>,
     session_id: String,
     cancel_token: Option<CancellationToken>,
+    enrich_tool_titles: bool,
 }
 
+#[derive(Clone)]
 struct PendingToolPermission {
     request_id: String,
     tool_name: String,
@@ -908,86 +996,217 @@ impl GooseAcpAgent {
         session_id: &str,
         run_id: &str,
         history_boundary: usize,
+        initial_deliveries: Vec<RunDelivery>,
         cx: &ConnectionTo<Client>,
     ) -> Arc<RunAttachment> {
         let attachment = Arc::new(RunAttachment {
             state: Mutex::new(RunAttachmentState {
+                session_id: session_id.to_string(),
                 run_id: run_id.to_string(),
                 history_boundary,
-                turn_messages: Vec::new(),
-                connection: Some(RunConnection {
-                    generation: 0,
-                    replayed_messages: 0,
-                    cx: cx.clone(),
-                    server: Arc::clone(self),
-                }),
+                delivery_bytes: initial_deliveries.iter().map(run_delivery_size).sum(),
+                deliveries: initial_deliveries,
+                connection: None,
+                pending_permission: None,
+                pending_elicitation: None,
+                outcome: None,
                 next_generation: 1,
             }),
-            attached: Notify::new(),
         });
         self.run_attachments
             .sessions
             .lock()
             .await
             .insert(session_id.to_string(), attachment.clone());
+        self.install_run_connection(&attachment, cx, false).await;
         attachment
     }
 
     async fn finish_run_attachment(&self, session_id: &str, run_id: &str) {
+        let attachment = self
+            .run_attachments
+            .sessions
+            .lock()
+            .await
+            .get(session_id)
+            .cloned();
+        let Some(attachment) = attachment else { return };
+        if attachment.state.lock().await.run_id != run_id {
+            return;
+        }
         let mut attachments = self.run_attachments.sessions.lock().await;
-        let should_remove = match attachments.get(session_id) {
-            Some(attachment) => attachment.state.lock().await.run_id == run_id,
-            None => false,
-        };
-        if should_remove {
+        if attachments
+            .get(session_id)
+            .is_some_and(|current| Arc::ptr_eq(current, &attachment))
+        {
             attachments.remove(session_id);
         }
+    }
+
+    async fn install_run_connection(
+        self: &Arc<Self>,
+        attachment: &Arc<RunAttachment>,
+        cx: &ConnectionTo<Client>,
+        replay: bool,
+    ) {
+        let (tx, rx) = mpsc::channel(RUN_DELIVERY_QUEUE_LIMIT);
+        let (generation, deliveries) = {
+            let mut state = attachment.state.lock().await;
+            let generation = state.next_generation;
+            state.next_generation += 1;
+            state.connection = Some(RunConnection {
+                generation,
+                tx: tx.clone(),
+                cx: cx.clone(),
+            });
+            let deliveries = if replay {
+                state.deliveries.clone()
+            } else {
+                Vec::new()
+            };
+            (generation, deliveries)
+        };
+        let server = Arc::downgrade(self);
+        let weak_attachment = Arc::downgrade(attachment);
+        let cx = cx.clone();
+        tokio::spawn(async move {
+            Self::run_delivery_worker(server, weak_attachment, generation, cx, deliveries, rx)
+                .await;
+        });
+    }
+
+    async fn run_delivery_worker(
+        server: Weak<Self>,
+        attachment: Weak<RunAttachment>,
+        generation: u64,
+        cx: ConnectionTo<Client>,
+        deliveries: Vec<RunDelivery>,
+        mut rx: mpsc::Receiver<RunDelivery>,
+    ) {
+        for delivery in deliveries {
+            let Some(server) = server.upgrade() else {
+                return;
+            };
+            if server.deliver_run_event(&cx, delivery, true).await.is_err() {
+                Self::detach_run_connection(&attachment, generation).await;
+                return;
+            }
+        }
+        if let (Some(server), Some(attachment)) = (server.upgrade(), attachment.upgrade()) {
+            let connection = attachment.state.lock().await.connection.clone();
+            if let Some(connection) =
+                connection.filter(|connection| connection.generation == generation)
+            {
+                server.issue_run_permission(&attachment, &connection).await;
+                server.issue_run_elicitation(&attachment, &connection).await;
+            }
+        }
+        while let Some(delivery) = rx.recv().await {
+            let Some(server) = server.upgrade() else {
+                return;
+            };
+            if server
+                .deliver_run_event(&cx, delivery, false)
+                .await
+                .is_err()
+            {
+                Self::detach_run_connection(&attachment, generation).await;
+                return;
+            }
+        }
+    }
+
+    async fn detach_run_connection(attachment: &Weak<RunAttachment>, generation: u64) {
+        let Some(attachment) = attachment.upgrade() else {
+            return;
+        };
+        let mut state = attachment.state.lock().await;
+        if state
+            .connection
+            .as_ref()
+            .is_some_and(|connection| connection.generation == generation)
+        {
+            state.connection = None;
+        }
+        if let Some(permission) = state.pending_permission.as_mut() {
+            if permission.issued_generation == Some(generation) {
+                permission.issued_generation = None;
+            }
+        }
+        if let Some(elicitation) = state.pending_elicitation.as_mut() {
+            if elicitation.issued_generation == Some(generation) {
+                elicitation.issued_generation = None;
+            }
+        }
+    }
+
+    async fn deliver_run_event(
+        &self,
+        cx: &ConnectionTo<Client>,
+        delivery: RunDelivery,
+        replay: bool,
+    ) -> Result<(), agent_client_protocol::Error> {
+        match delivery {
+            RunDelivery::Message {
+                session_id,
+                message,
+            } => {
+                self.deliver_run_message(cx, &session_id, &message, replay)
+                    .await
+            }
+            RunDelivery::Session(notification) => cx.send_notification(*notification),
+            RunDelivery::Goose(notification) => {
+                if self.supports_goose_custom_notifications() {
+                    cx.send_notification(notification)
+                } else {
+                    Ok(())
+                }
+            }
+        }
+    }
+
+    async fn append_run_delivery(
+        &self,
+        attachment: &RunAttachment,
+        delivery: RunDelivery,
+    ) -> Result<(), agent_client_protocol::Error> {
+        let connection = {
+            let mut state = attachment.state.lock().await;
+            compact_run_delivery(&mut state, &delivery);
+            if state.delivery_bytes > RUN_DELIVERY_BUFFER_LIMIT {
+                let message = "Active run delivery buffer exceeded its limit".to_string();
+                state.outcome = Some(RunOutcome::Failed(message.clone()));
+                return Err(agent_client_protocol::Error::internal_error().data(message));
+            }
+            state.connection.clone()
+        };
+        if let Some(connection) = connection {
+            if connection.tx.try_send(delivery).is_err() {
+                let mut state = attachment.state.lock().await;
+                if state
+                    .connection
+                    .as_ref()
+                    .is_some_and(|current| current.generation == connection.generation)
+                {
+                    state.connection = None;
+                }
+            }
+        }
+        Ok(())
+    }
+
+    async fn set_run_outcome(&self, attachment: &RunAttachment, outcome: RunOutcome) {
+        attachment.state.lock().await.outcome = Some(outcome);
     }
 
     async fn current_run_connection(&self, attachment: &RunAttachment) -> Option<RunConnection> {
         attachment.state.lock().await.connection.clone()
     }
 
-    async fn wait_for_run_connection(
-        &self,
-        attachment: &RunAttachment,
-        failed_generation: u64,
-        cancel_token: &CancellationToken,
-    ) -> Result<RunConnection, agent_client_protocol::Error> {
-        loop {
-            let notified = attachment.attached.notified();
-            {
-                let mut state = attachment.state.lock().await;
-                if state
-                    .connection
-                    .as_ref()
-                    .is_some_and(|connection| connection.generation == failed_generation)
-                {
-                    state.connection = None;
-                }
-                if let Some(connection) = state.connection.clone() {
-                    return Ok(connection);
-                }
-            }
-            tokio::select! {
-                _ = cancel_token.cancelled() => {
-                    return Err(agent_client_protocol::Error::internal_error().data("Active run cancelled while detached"));
-                }
-                result = tokio::time::timeout(RUN_REATTACH_TIMEOUT, notified) => {
-                    if result.is_err() {
-                        cancel_token.cancel();
-                        return Err(agent_client_protocol::Error::internal_error().data("Timed out waiting for an ACP client to reattach"));
-                    }
-                }
-            }
+    async fn best_effort_run_delivery(&self, attachment: &RunAttachment, delivery: RunDelivery) {
+        if let Some(connection) = self.current_run_connection(attachment).await {
+            let _ = connection.tx.try_send(delivery);
         }
-    }
-
-    async fn buffer_turn_message(&self, attachment: &RunAttachment, message: &Message) -> usize {
-        let mut state = attachment.state.lock().await;
-        let index = state.turn_messages.len();
-        state.turn_messages.push(message.clone());
-        index
     }
 
     #[doc(hidden)]
@@ -996,6 +1215,11 @@ impl GooseAcpAgent {
             .get_or_create_agent(session_id.to_string())
             .await
             .expect("test session agent should be available")
+    }
+
+    #[doc(hidden)]
+    pub fn has_active_run_for_test(&self, session_id: &str) -> bool {
+        self.active_runs.agent_run(session_id).is_some()
     }
 
     #[cfg(test)]
@@ -1617,6 +1841,45 @@ impl GooseAcpAgent {
         message
     }
 
+    async fn deliver_run_message(
+        &self,
+        cx: &ConnectionTo<Client>,
+        session_id: &SessionId,
+        message: &Message,
+        replay: bool,
+    ) -> Result<(), agent_client_protocol::Error> {
+        let agent = self.get_session_agent(session_id.0.as_ref()).await?;
+        let target = SessionAgentTarget {
+            agent,
+            session_id: session_id.0.as_ref().to_string(),
+            cancel_token: self.active_runs.agent_cancel_token(session_id.0.as_ref()),
+            enrich_tool_titles: !replay,
+        };
+        let tool_requests = message
+            .content
+            .iter()
+            .filter_map(|content| match content {
+                MessageContent::ToolRequest(request) => Some((request.id.clone(), request.clone())),
+                _ => None,
+            })
+            .collect();
+        for content in &message.content {
+            if matches!(content, MessageContent::ActionRequired(_)) {
+                continue;
+            }
+            self.handle_message_content(
+                content,
+                message,
+                session_id,
+                &target,
+                &tool_requests,
+                cx,
+            )
+            .await?;
+        }
+        Ok(())
+    }
+
     async fn handle_message_content(
         &self,
         content_item: &MessageContent,
@@ -1641,8 +1904,15 @@ impl GooseAcpAgent {
                 cx.send_notification(SessionNotification::new(session_id.clone(), update))?;
             }
             MessageContent::ToolRequest(tool_request) => {
-                self.handle_tool_request(tool_request, message, session_id, &target.agent, cx)
-                    .await?;
+                self.handle_tool_request(
+                    tool_request,
+                    message,
+                    session_id,
+                    &target.agent,
+                    cx,
+                    target.enrich_tool_titles,
+                )
+                .await?;
             }
             MessageContent::ToolResponse(tool_response) => {
                 self.handle_tool_response(
@@ -1777,6 +2047,7 @@ impl GooseAcpAgent {
         session_id: &SessionId,
         agent: &Arc<Agent>,
         cx: &ConnectionTo<Client>,
+        enrich_tool_titles: bool,
     ) -> Result<(), agent_client_protocol::Error> {
         let client_requests_label_enrichment = self.requests_tool_call_label_enrichment();
         let initial_tool_call = build_initial_tool_call_with_message_meta(
@@ -1787,7 +2058,7 @@ impl GooseAcpAgent {
         let tool_call_notifier = ToolCallNotifier::new(cx, session_id);
         tool_call_notifier.send_initial(initial_tool_call)?;
 
-        if !client_requests_label_enrichment {
+        if !client_requests_label_enrichment || !enrich_tool_titles {
             return Ok(());
         }
 
@@ -1887,6 +2158,127 @@ impl GooseAcpAgent {
             })?;
 
         Ok(())
+    }
+
+    async fn hold_run_permission(
+        self: &Arc<Self>,
+        attachment: &Arc<RunAttachment>,
+        request: PendingToolPermission,
+        target: SessionAgentTarget,
+    ) {
+        let connection = {
+            let mut state = attachment.state.lock().await;
+            state.pending_permission = Some(PendingRunPermission {
+                request,
+                target,
+                issued_generation: None,
+            });
+            state.connection.clone()
+        };
+        if let Some(connection) = connection {
+            self.issue_run_permission(attachment, &connection).await;
+        }
+    }
+
+    async fn issue_run_permission(
+        self: &Arc<Self>,
+        attachment: &Arc<RunAttachment>,
+        connection: &RunConnection,
+    ) {
+        let pending = {
+            let mut state = attachment.state.lock().await;
+            let Some(pending) = state.pending_permission.as_mut() else {
+                return;
+            };
+            if pending.issued_generation.is_some() {
+                return;
+            }
+            pending.issued_generation = Some(connection.generation);
+            pending.clone()
+        };
+
+        fn option(kind: PermissionOptionKind) -> PermissionOption {
+            let id = serde_json::to_value(kind)
+                .unwrap()
+                .as_str()
+                .unwrap()
+                .to_string();
+            PermissionOption::new(id.clone(), id, kind)
+        }
+
+        let tool_call_update = build_permission_tool_call_update(
+            &pending.request.request_id,
+            &pending.request.tool_name,
+            pending.request.arguments.clone(),
+            pending.request.prompt.clone(),
+            pending.request.diff.clone(),
+        );
+        let request = RequestPermissionRequest::new(
+            SessionId::new(pending.target.session_id.clone()),
+            tool_call_update,
+            vec![
+                option(PermissionOptionKind::AllowAlways),
+                option(PermissionOptionKind::AllowOnce),
+                option(PermissionOptionKind::RejectOnce),
+                option(PermissionOptionKind::RejectAlways),
+            ],
+        );
+        let weak_attachment = Arc::downgrade(attachment);
+        let generation = connection.generation;
+        let request_id = pending.request.request_id.clone();
+        let target = pending.target.clone();
+        if connection
+            .cx
+            .send_request(request)
+            .on_receiving_result(move |result| async move {
+                let Some(attachment) = weak_attachment.upgrade() else {
+                    return Ok(());
+                };
+                match result {
+                    Ok(response) => {
+                        let should_submit = {
+                            let mut state = attachment.state.lock().await;
+                            if state.pending_permission.as_ref().is_some_and(|current| {
+                                current.request.request_id == request_id
+                                    && current.issued_generation == Some(generation)
+                            }) {
+                                state.pending_permission = None;
+                                true
+                            } else {
+                                false
+                            }
+                        };
+                        if should_submit {
+                            let permission = outcome_to_confirmation(&response.outcome).permission;
+                            if let Err(error) = target
+                                .agent
+                                .submit_tool_confirmation(
+                                    &target.session_id,
+                                    &request_id,
+                                    permission,
+                                )
+                                .await
+                            {
+                                warn!(
+                                    session_id = %target.session_id,
+                                    request_id,
+                                    %error,
+                                    "Failed to submit reattached tool confirmation"
+                                );
+                            }
+                        }
+                    }
+                    Err(error) => {
+                        debug!(?error, "ACP permission connection detached");
+                        Self::detach_run_connection(&Arc::downgrade(&attachment), generation).await;
+                    }
+                }
+                Ok(())
+            })
+            .is_err()
+        {
+            Self::detach_run_connection(&Arc::downgrade(attachment), generation).await;
+        }
     }
 }
 
@@ -2208,6 +2600,41 @@ impl GooseAcpAgent {
         }
     }
 
+    async fn clear_active_run_with_idle(
+        &self,
+        attachment: &RunAttachment,
+        session_id: &str,
+        run_id: &str,
+        idle: RunDelivery,
+    ) {
+        let connection = self.current_run_connection(attachment).await;
+        let agent = self
+            .active_runs
+            .remove_agent_run_and_then(session_id, run_id, || {
+                if let Some(connection) = connection {
+                    let _ = connection.tx.try_send(idle);
+                }
+            });
+        if let Some(agent) = agent {
+            self.agent_manager.unpin(session_id, &agent);
+            agent.discard_pending_steers(session_id).await;
+        }
+        if self.closed_session_ids.lock().await.contains(session_id) {
+            self.sessions.lock().await.remove(session_id);
+            if let Err(error) = self
+                .agent_manager
+                .remove_session_if_loaded(session_id)
+                .await
+            {
+                tracing::warn!(
+                    session_id,
+                    %error,
+                    "Failed to remove in-memory agent for closed session"
+                );
+            }
+        }
+    }
+
     async fn require_active_run(
         &self,
         session_id: &str,
@@ -2263,65 +2690,42 @@ impl GooseAcpAgent {
         ))
     }
 
-    async fn send_active_run_update_to_attachment(
+    async fn usage_deliveries(
         &self,
-        attachment: &RunAttachment,
-        session_id: &SessionId,
-        active_run_id: Option<&str>,
-        cancel_token: &CancellationToken,
-    ) -> Result<(), agent_client_protocol::Error> {
-        let mut connection = match self.current_run_connection(attachment).await {
-            Some(connection) => connection,
-            None => {
-                self.wait_for_run_connection(attachment, u64::MAX, cancel_token)
-                    .await?
-            }
-        };
-        loop {
-            if Self::send_active_run_update(&connection.cx, session_id, active_run_id).is_ok() {
-                return Ok(());
-            }
-            connection = self
-                .wait_for_run_connection(attachment, connection.generation, cancel_token)
-                .await?;
-        }
-    }
-
-    async fn send_final_usage_to_attachment(
-        &self,
-        attachment: &RunAttachment,
         acp_session_id: &SessionId,
         session_id: &str,
         agent: &Arc<Agent>,
-        cancel_token: &CancellationToken,
-    ) -> Result<Session, agent_client_protocol::Error> {
-        let mut connection = match self.current_run_connection(attachment).await {
-            Some(connection) => connection,
+        cached_context_limit: &mut Option<usize>,
+    ) -> Result<(Session, Vec<RunDelivery>), agent_client_protocol::Error> {
+        let session = self
+            .session_manager
+            .get_session(session_id, false)
+            .await
+            .internal_err_ctx("Failed to load session")?;
+        let totals = self
+            .session_manager
+            .get_session_usage_totals(session_id)
+            .await
+            .unwrap_or_default();
+        let context_limit = match *cached_context_limit {
+            Some(limit) => limit,
             None => {
-                self.wait_for_run_connection(attachment, u64::MAX, cancel_token)
-                    .await?
+                let limit = Self::resolve_context_limit(&session, agent).await?;
+                *cached_context_limit = Some(limit);
+                limit
             }
         };
-        loop {
-            match connection
-                .server
-                .send_session_usage_updates(
-                    &connection.cx,
-                    acp_session_id,
-                    session_id,
-                    agent,
-                    &mut None,
-                )
-                .await
-            {
-                Ok(session) => return Ok(session),
-                Err(_) => {
-                    connection = self
-                        .wait_for_run_connection(attachment, connection.generation, cancel_token)
-                        .await?;
-                }
-            }
-        }
+        let updates = build_usage_updates(&session, &totals, context_limit);
+        Ok((
+            session,
+            vec![
+                RunDelivery::Goose(updates.custom),
+                RunDelivery::Session(SessionNotification::new(
+                    acp_session_id.clone(),
+                    SessionUpdate::UsageUpdate(updates.standard),
+                )),
+            ],
+        ))
     }
 
     fn send_queued_steer_update(
@@ -2401,48 +2805,8 @@ impl GooseAcpAgent {
             .internal_err_ctx("Failed to resolve context limit")
     }
 
-    /// Updates sent during one turn share `cached_context_limit`, so the provider
-    /// limit is resolved once per turn rather than on every usage event.
-    async fn send_session_usage_updates(
-        &self,
-        cx: &ConnectionTo<Client>,
-        acp_session_id: &SessionId,
-        session_id: &str,
-        agent: &Arc<Agent>,
-        cached_context_limit: &mut Option<usize>,
-    ) -> Result<Session, agent_client_protocol::Error> {
-        let session = self
-            .session_manager
-            .get_session(session_id, false)
-            .await
-            .internal_err_ctx("Failed to load session")?;
-        let totals = self
-            .session_manager
-            .get_session_usage_totals(session_id)
-            .await
-            .unwrap_or_default();
-        let context_limit = match *cached_context_limit {
-            Some(limit) => limit,
-            None => {
-                let limit = Self::resolve_context_limit(&session, agent).await?;
-                *cached_context_limit = Some(limit);
-                limit
-            }
-        };
-        let updates = build_usage_updates(&session, &totals, context_limit);
-        if self.supports_goose_custom_notifications() {
-            cx.send_notification(updates.custom)?;
-        }
-        cx.send_notification(SessionNotification::new(
-            acp_session_id.clone(),
-            SessionUpdate::UsageUpdate(updates.standard),
-        ))?;
-
-        Ok(session)
-    }
-
     async fn forward_agent_stream(
-        &self,
+        self: &Arc<Self>,
         acp_session_id: &SessionId,
         session_id: &str,
         agent: &Arc<Agent>,
@@ -2452,13 +2816,13 @@ impl GooseAcpAgent {
     ) -> Result<AgentStreamOutcome, agent_client_protocol::Error> {
         let mut was_cancelled = false;
         let mut output_token_limit_reached = false;
-        let mut tool_requests = HashMap::new();
         let mut chain_tracker = ToolChainTracker::default();
         let mut context_limit = None;
         let target = SessionAgentTarget {
             agent: agent.clone(),
             session_id: session_id.to_string(),
             cancel_token: Some(cancel_token.clone()),
+            enrich_tool_titles: true,
         };
 
         while let Some(event) = stream.next().await {
@@ -2471,45 +2835,48 @@ impl GooseAcpAgent {
                 Ok(crate::agents::AgentEvent::Message(mut message)) => {
                     update_output_token_limit_reached(&mut output_token_limit_reached, &message);
                     populate_output_token_limit_content(&mut message);
-                    let message_index = self.buffer_turn_message(attachment, &message).await;
-                    let mut connection = match self.current_run_connection(attachment).await {
-                        Some(connection) => connection,
-                        None => {
-                            self.wait_for_run_connection(attachment, u64::MAX, cancel_token)
-                                .await?
-                        }
-                    };
                     for content_item in &message.content {
                         if let Some(error) = prompt_error_from_message_content(content_item) {
                             return Err(error);
                         }
 
-                        if let MessageContent::ToolRequest(tool_request) = content_item {
-                            tool_requests.insert(tool_request.id.clone(), tool_request.clone());
-                        }
-
-                        while connection.replayed_messages <= message_index {
-                            let result = connection
-                                .server
-                                .handle_message_content(
-                                    content_item,
-                                    &message,
-                                    acp_session_id,
-                                    &target,
-                                    &tool_requests,
-                                    &connection.cx,
-                                )
-                                .await;
-                            if result.is_ok() {
-                                break;
+                        if let MessageContent::ActionRequired(action) = content_item {
+                            match &action.data {
+                                ActionRequiredData::ToolConfirmation {
+                                    id,
+                                    tool_name,
+                                    arguments,
+                                    prompt,
+                                } => {
+                                    self.hold_run_permission(
+                                        attachment,
+                                        PendingToolPermission {
+                                            request_id: id.clone(),
+                                            tool_name: tool_name.clone(),
+                                            arguments: arguments.clone(),
+                                            prompt: prompt.clone(),
+                                            diff: action.diff.clone(),
+                                        },
+                                        target.clone(),
+                                    )
+                                    .await;
+                                }
+                                ActionRequiredData::Elicitation {
+                                    id,
+                                    message: elicitation_message,
+                                    requested_schema,
+                                } => {
+                                    self.hold_run_elicitation(
+                                        attachment,
+                                        id.clone(),
+                                        elicitation_message.clone(),
+                                        requested_schema.clone(),
+                                        message_meta_without_steer(&message),
+                                    )
+                                    .await;
+                                }
+                                _ => {}
                             }
-                            connection = self
-                                .wait_for_run_connection(
-                                    attachment,
-                                    connection.generation,
-                                    cancel_token,
-                                )
-                                .await?;
                         }
 
                         let ready_chain = match content_item {
@@ -2527,92 +2894,65 @@ impl GooseAcpAgent {
                         };
 
                         if let Some(chain) = ready_chain {
-                            connection.server.spawn_ready_chain_summary(
-                                chain,
-                                agent,
-                                acp_session_id,
-                                &connection.cx,
-                            );
+                            if let Some(connection) = self.current_run_connection(attachment).await
+                            {
+                                self.spawn_ready_chain_summary(
+                                    chain,
+                                    agent,
+                                    acp_session_id,
+                                    &connection.cx,
+                                );
+                            }
                         }
                     }
+                    self.append_run_delivery(
+                        attachment,
+                        RunDelivery::Message {
+                            session_id: acp_session_id.clone(),
+                            message,
+                        },
+                    )
+                    .await?;
                 }
                 Ok(crate::agents::AgentEvent::McpNotification((request_id, notification))) => {
                     if let Some(update) =
                         tool_notifications::tool_notification_update(request_id, notification)
                     {
-                        let mut connection = match self.current_run_connection(attachment).await {
-                            Some(connection) => connection,
-                            None => {
-                                self.wait_for_run_connection(attachment, u64::MAX, cancel_token)
-                                    .await?
-                            }
-                        };
-                        loop {
-                            let notifier = ToolCallNotifier::new(&connection.cx, acp_session_id);
-                            if notifier.send_update(update.clone()).is_ok() {
-                                break;
-                            }
-                            connection = self
-                                .wait_for_run_connection(
-                                    attachment,
-                                    connection.generation,
-                                    cancel_token,
-                                )
-                                .await?;
-                        }
+                        self.append_run_delivery(
+                            attachment,
+                            RunDelivery::Session(SessionNotification::new(
+                                acp_session_id.clone(),
+                                SessionUpdate::ToolCallUpdate(update),
+                            )),
+                        )
+                        .await?;
                     }
                 }
                 Ok(crate::agents::AgentEvent::MessageUsage { message_id, usage }) => {
-                    let mut connection = match self.current_run_connection(attachment).await {
-                        Some(connection) => connection,
-                        None => {
-                            self.wait_for_run_connection(attachment, u64::MAX, cancel_token)
-                                .await?
-                        }
-                    };
-                    loop {
-                        let result = if connection.server.supports_goose_custom_notifications() {
-                            connection.cx.send_notification(GooseSessionNotification {
-                                session_id: session_id.to_string(),
-                                update: GooseSessionUpdate::MessageUsage(message_usage_update(
-                                    message_id.clone(),
-                                    &usage,
-                                )),
-                            })
-                        } else {
-                            Ok(())
-                        };
-                        if result.is_ok() {
-                            break;
-                        }
-                        connection = self
-                            .wait_for_run_connection(
-                                attachment,
-                                connection.generation,
-                                cancel_token,
-                            )
-                            .await?;
-                    }
+                    self.append_run_delivery(
+                        attachment,
+                        RunDelivery::Goose(GooseSessionNotification {
+                            session_id: session_id.to_string(),
+                            update: GooseSessionUpdate::MessageUsage(message_usage_update(
+                                message_id, &usage,
+                            )),
+                        }),
+                    )
+                    .await?;
                 }
                 Ok(crate::agents::AgentEvent::Usage(_)) => {
-                    // Both agent loops persist usage before emitting this event. A failed
-                    // mid-turn update must not abort the turn; the end-of-turn update
-                    // still reports errors.
-                    let Some(connection) = self.current_run_connection(attachment).await else {
-                        continue;
-                    };
-                    if let Err(error) = connection
-                        .server
-                        .send_session_usage_updates(
-                            &connection.cx,
-                            acp_session_id,
-                            session_id,
-                            agent,
-                            &mut context_limit,
-                        )
+                    match self
+                        .usage_deliveries(acp_session_id, session_id, agent, &mut context_limit)
                         .await
                     {
-                        warn!(session_id, ?error, "Failed to send mid-turn usage update");
+                        Ok((_, deliveries)) => {
+                            for delivery in deliveries {
+                                self.append_run_delivery(attachment, delivery).await?;
+                            }
+                        }
+                        Err(error) => {
+                            warn!(session_id, ?error, "Failed to send mid-turn usage update");
+                        }
                     }
                 }
                 Ok(_) => {}
@@ -2630,12 +2970,7 @@ impl GooseAcpAgent {
         if !was_cancelled {
             if let Some(chain) = chain_tracker.close_current_chain() {
                 if let Some(connection) = self.current_run_connection(attachment).await {
-                    connection.server.spawn_ready_chain_summary(
-                        chain,
-                        agent,
-                        acp_session_id,
-                        &connection.cx,
-                    );
+                    self.spawn_ready_chain_summary(chain, agent, acp_session_id, &connection.cx);
                 }
             }
         }
@@ -2687,8 +3022,18 @@ impl GooseAcpAgent {
             agent.clone(),
         )
         .await?;
+        let user_message = Self::convert_acp_prompt_to_message(&args.prompt);
         let attachment = self
-            .begin_run_attachment(&session_id, &run_id, history_boundary, cx)
+            .begin_run_attachment(
+                &session_id,
+                &run_id,
+                history_boundary,
+                vec![RunDelivery::Message {
+                    session_id: args.session_id.clone(),
+                    message: user_message.clone(),
+                }],
+                cx,
+            )
             .await;
         let (result_tx, result_rx) = oneshot::channel();
         let server = Arc::clone(self);
@@ -2701,29 +3046,29 @@ impl GooseAcpAgent {
                 run_id: run_id.clone(),
                 cancel_token: cancel_token.clone(),
             };
-            let result = async {
+            let result: Result<PromptResponse, agent_client_protocol::Error> = async {
                 server
-                    .send_active_run_update_to_attachment(
+                    .append_run_delivery(
                         &attachment,
-                        &acp_session_id,
-                        Some(&run_id),
-                        &cancel_token,
+                        RunDelivery::Session(SessionNotification::new(
+                            acp_session_id.clone(),
+                            SessionUpdate::SessionInfoUpdate(
+                                SessionInfoUpdate::new().meta(Self::active_run_meta(Some(&run_id))),
+                            ),
+                        )),
                     )
                     .await?;
-
                 if let Some(connection) = server.current_run_connection(&attachment).await {
-                    connection
-                        .server
+                    let _ = server
                         .send_local_inference_progress_update(
                             &connection.cx,
                             &acp_session_id,
                             &session_id,
                             &agent,
                         )
-                        .await?;
+                        .await;
                 }
 
-                let user_message = Self::convert_acp_prompt_to_message(&args.prompt);
                 let use_state_machine = use_state_machine_from_meta(args.meta.as_ref());
                 let session_config = SessionConfig {
                     id: session_id.clone(),
@@ -2753,24 +3098,32 @@ impl GooseAcpAgent {
                         stream,
                     )
                     .await?;
+                let (session, final_usage) = server
+                    .usage_deliveries(&acp_session_id, &session_id, &agent, &mut None)
+                    .await?;
+                let run_outcome = if outcome.was_cancelled {
+                    RunOutcome::Cancelled
+                } else {
+                    RunOutcome::Completed
+                };
+                server.set_run_outcome(&attachment, run_outcome).await;
                 server
-                    .send_active_run_update_to_attachment(
+                    .clear_active_run_with_idle(
                         &attachment,
-                        &acp_session_id,
-                        None,
-                        &cancel_token,
-                    )
-                    .await?;
-                let session = server
-                    .send_final_usage_to_attachment(
-                        &attachment,
-                        &acp_session_id,
                         &session_id,
-                        &agent,
-                        &cancel_token,
+                        &run_id,
+                        RunDelivery::Session(SessionNotification::new(
+                            acp_session_id.clone(),
+                            SessionUpdate::SessionInfoUpdate(
+                                SessionInfoUpdate::new().meta(Self::active_run_meta(None)),
+                            ),
+                        )),
                     )
-                    .await?;
-                server.clear_active_run(&session_id, &run_id).await;
+                    .await;
+                server.finish_run_attachment(&session_id, &run_id).await;
+                for delivery in final_usage {
+                    server.best_effort_run_delivery(&attachment, delivery).await;
+                }
                 let stop_reason =
                     prompt_stop_reason(outcome.was_cancelled, outcome.output_token_limit_reached);
                 let mut response = PromptResponse::new(stop_reason);
@@ -2781,18 +3134,25 @@ impl GooseAcpAgent {
             }
             .await;
 
-            if server.active_runs.agent_run(&session_id).is_some() {
-                let _ = server
-                    .send_active_run_update_to_attachment(
+            if let Err(error) = &result {
+                server
+                    .set_run_outcome(&attachment, RunOutcome::Failed(error.to_string()))
+                    .await;
+                server
+                    .clear_active_run_with_idle(
                         &attachment,
-                        &acp_session_id,
-                        None,
-                        &cancel_token,
+                        &session_id,
+                        &run_id,
+                        RunDelivery::Session(SessionNotification::new(
+                            acp_session_id.clone(),
+                            SessionUpdate::SessionInfoUpdate(
+                                SessionInfoUpdate::new().meta(Self::active_run_meta(None)),
+                            ),
+                        )),
                     )
                     .await;
-                server.clear_active_run(&session_id, &run_id).await;
+                server.finish_run_attachment(&session_id, &run_id).await;
             }
-            server.finish_run_attachment(&session_id, &run_id).await;
             let _ = result_tx.send(result);
         });
 

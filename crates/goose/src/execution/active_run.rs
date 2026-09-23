@@ -116,6 +116,18 @@ impl ActiveRunRegistry {
     }
 
     pub(crate) fn remove_agent_run(&self, session_id: &str, run_id: &str) -> Option<Arc<Agent>> {
+        self.remove_agent_run_and_then(session_id, run_id, || {})
+    }
+
+    pub(crate) fn remove_agent_run_and_then<F>(
+        &self,
+        session_id: &str,
+        run_id: &str,
+        on_remove: F,
+    ) -> Option<Arc<Agent>>
+    where
+        F: FnOnce(),
+    {
         let mut runs = self
             .runs_by_session
             .lock()
@@ -125,6 +137,7 @@ impl ActiveRunRegistry {
             return None;
         }
         let agent = state.agent_run.take()?.agent;
+        on_remove();
         if !state.live_active {
             runs.remove(session_id);
         }
