@@ -129,7 +129,7 @@ Approved 2026-09-18 on the user's delegation; all 17 gate decisions as recommend
   - confirm: `just walk "plan gate"` → 1 passed (untouched: no spec); `test -f docs/2026-09-18-plan-gate-runs-v1.md && grep -c '^| ' docs/2026-09-18-plan-gate-runs-v1.md` → `≥ 11` (untouched: no file)
 
 - 154. A synchronous `delegate` from a `claude-code` orchestrator dies at ~60 s: the child keeps running but the tool call returns `<error>The operation timed out.</error>` and the orchestrator answers without the result. Reproduced headless twice on 2026-09-22 — the walk's own conditions (a roles-only scratch dir, `GOOSE_STATE_MACHINE=1`, seed 0 → agy: parent `20260922_10`, child `_11` created 21:01:05, "timed out" 63 s later) and a child told to `sleep 100` (parent `_13`, child `_14` at 21:03:55, the error quoted verbatim at 21:05:04). The desktop is not involved; `rpi strip` fails only because its researcher takes longer than a minute in a dir without the file it is asked about. Fix the cap at the bridge, then make the walk ask about a file the scratch dir holds.
-  - status: todo · agent: — · worker: high
+  - status: doing · agent: session → haiku worker · worker: high
   - card: as the user, get the researcher's brief back however long the research takes, so that a delegate is a call and not a coin toss against a clock
   - context:
     - the bridge is a `StreamableHttp` extension with `timeout: None` (`session_bridge.rs:131-139`), forwarded to the adapter at `acp/provider.rs:1871`; Claude Code's tool timeout (`MCP_TOOL_TIMEOUT`, default 1e8 ms) is not the cap — the binary's per-server `httpTimeout` doc says it "raises the per-request fetch first-byte budget and the tool-call watchdog… capped at 5 minutes", and a sync delegate sends no byte until the child ends. Three fixes, in rising cost: (a) the orchestrator role delegates `async: true` and `load(source: <task_id>)`s the result (`orchestrator.md` §How to delegate; zero code, the tool already suggests it); (b) pass a per-server `timeout` for the bridge in the adapter's `mcpServers` entry — the forwarding at `acp/provider.rs:1881-1893` copies `uri` and `headers` only and drops the rest with `..` (find the field on `McpServerHttp`); (c) the bridge streams a first byte / progress while the child runs. Pick after reading whether `McpServerHttp` carries a timeout at all
@@ -273,21 +273,21 @@ Order: 152 → 139 b/c → 145 → 153 (needs the merged tree; a spine patch). 1
 Order: 154 (above) ∥ 155–157 (mockups, session) ∥ wave 1 (158 · 160 · 161 · 162 · 163 · 170 · 173 · 174 · 175 · 179, disjoint files; 180 session) → 159 · 169 · 172 → 93 (above, after 158) → user picks → 164–168 · 171 → 176 last. Two calls made under "orchestrate" that were the user's: 179 resolves the sidebar spec-vs-rule as the spec, 174 picks "Describe a task…". Workers per AGENTS.md chain; the session reruns every confirm. Evidence: `docs/2026-09-22-ux-pass-research-v1.md`, screenshots in `docs/2026-09-22-ux-pass/`.
 
 - 155. Mockup sheet `docs/mockups/2026-09-22-lever-words.html`: the Easy composer row at 1440 and 390 wide, three options for showing the lever's stop words (A words under the three stops · B the current stop's word beside the knob · C words until the first sent turn, then quiet), each naming what Hard does ("Claude orchestrates Codex, agy, Grok").
-  - status: todo · agent: — · worker: — (session; design)
+  - status: doing · agent: session · worker: — (session; design)
   - card: as a first-run user, know what the three dots do and that Hard means a team, so that I can choose orchestration at all (research Must 7; `01-first-paint.png`)
   - context: reverses task 123's sr-only word (`Lever.tsx:182`) — the point of the sheet; Studio light tokens from `theme-tokens.ts` `lightColorTokens`; pattern `docs/mockups/2026-09-20-telemetry-pane.html`
   - confirm: `grep -c 'data-option=' docs/mockups/2026-09-22-lever-words.html` → `3` (untouched: no file)
 - 156. Mockup sheet `docs/mockups/2026-09-22-turn-failure.html`: a failed turn in the transcript (today a toast "Couldn't send message", `useChatSession.ts:102`) as an inline card with Retry, and the quota states — seat quota closed with fail-over ("Codex quota closed → Grok from here", building on the runtime divider at `WorkspaceShell.tsx:838`) and without (a reset time, Switch runtime); two options each.
-  - status: todo · agent: — · worker: — (session; design)
+  - status: doing · agent: session · worker: — (session; design)
   - card: as the user, see why a turn stopped and have the next step one click away, so that a failure is not a dead end (research Must 5; `PRODUCT.md` §13 fail-over)
   - confirm: `grep -c 'data-option=' docs/mockups/2026-09-22-turn-failure.html` → `≥ 4` (untouched: no file)
 - 157. States sheet `docs/mockups/2026-09-22-states-sheet.html`: the Changes bar in dirty · staged · committed · discarded (and Accept's two readings: "Stage all" vs a one-step "Commit" with the drafted message inline); a sidebar row "needs you" beside streaming · unread · error, with the notification's words; a sidebar search result matched in the transcript, with its snippet.
-  - status: todo · agent: — · worker: — (session; design)
+  - status: doing · agent: session · worker: — (session; design)
   - card: as the user, read the tree's state and which session waits on me at a glance, so that nothing stalls silently (research Must 3, 4; Should search)
   - context: the `warning` "waiting" dot already exists for Agents rows (`DESIGN.md` §Typography, task 28) — reuse, don't invent
   - confirm: `grep -c 'data-state=' docs/mockups/2026-09-22-states-sheet.html` → `≥ 8` (untouched: no file)
 - 158. Keep the adapter's later title and input on a tool row: in `ui/desktop/src/acp/adapter/tools.ts` `applyToolCallUpdate`, when a `tool_call_update` carries `title` or `rawInput` and the toolRequest exists, update its `toolCall.value.name` / `arguments` (today only `applyToolCall` sets them, from the first, pre-input notification); one test in `acp/__tests__/sessionNotificationAdapter.test.ts`.
-  - status: todo · agent: — · worker: medium
+  - status: doing · agent: session → haiku worker · worker: medium
   - card: as the user, read which file an Edit touched and which command ran on the row itself, so that I can tell what the agent did without opening it (research Must 2; `09-turn-done.png` rows read "Edit", "Terminal")
   - context: first find the layer that drops the later title: record the ACP notifications the desktop receives during one Edit (`sessionNotificationAdapter.ts:73`). If no later `tool_call_update` with a title arrives, the fix is in `crates/goose/src/acp/` (a spine patch: `worker: high`, one Rust test instead of the vitest). "Read file" is neither a string the npx copy of claude-agent-acp builds nor one in `crates/goose/src`, so the spawned adapter version is unconfirmed
     - claude-agent-acp titles `Edit ${displayPath}` / the command once input streams (`tools.js`, `title: displayPath ? \`Edit ${displayPath}\` : "Edit"`); the row's label is `getToolLabelContent` (`ToolCallWithResponse.tsx:764`) over `toolCall.name`; do not reorder or duplicate rows
@@ -298,20 +298,20 @@ Order: 154 (above) ∥ 155–157 (mockups, session) ∥ wave 1 (158 · 160 · 16
   - context: add one assertion to `tests/e2e/changes-bar.spec.ts` after the Review click: the notes.md row is selected and the diff body is visible
   - confirm: `just walk "changes bar"` → `1 passed` (untouched: fails on the new assertion)
 - 160. The Runs inbox's Accept includes new files: `components/schedule/runs/runs-state.ts` `acceptPaths` takes untracked paths from `/git/status` as well as `/git/diff`, and `RunsInbox.tsx:181` passes both; one test in `runs-state.test.ts`.
-  - status: todo · agent: — · worker: low
+  - status: doing · agent: session → haiku worker · worker: low
   - card: as the user, accept a run that only created files, so that new files are not a dead end (`tasks.md` §Notes "Accept commits tracked changes only"; research Must 3)
   - confirm: `cd ui/desktop && pnpm vitest run src/components/schedule/runs/runs-state.test.ts -t "untracked"` → `1 passed` (untouched: no test matches)
 - 161. Esc mid-tool-call no longer disables Commit: `GitPane.tsx:271` reads `running` as the chat streaming and `hasToolCallInProgress(messages)` (`git-state.ts:37`), so an orphaned request from a stopped turn no longer counts once the chat is idle; the predicate moves into `git-state.ts` with one test (an unanswered request, chat idle → not running).
-  - status: todo · agent: — · worker: low
+  - status: doing · agent: session → haiku worker · worker: low
   - card: as the user, commit after I stopped a turn, so that stopping work does not lock the loop (`tasks.md` §Notes "Esc mid-tool-call leaves Git's Commit disabled"; research Must 3)
   - confirm: `cd ui/desktop && pnpm vitest run src/workspace/panes/git/git-state.test.ts -t "chat idle"` → `1 passed` (untouched: no test matches)
 - 162. The `/` and `@` popover is never clipped: `components/MentionPopover.tsx:612` renders through `createPortal(…, document.body)` — its `fixed` box is contained today by the composer card's `backdrop-filter` (`main.css` glass on `.chat-input-card`); one test that the popover's parent is `document.body`.
-  - status: todo · agent: — · worker: medium
+  - status: doing · agent: session → haiku worker · worker: medium
   - card: as a first-run user, see the whole command and file list when I type `/` or `@` on the Hub, so that the first thing I try works (research Must 6; `05-at-mention.png`)
   - context: the session screenshots the Hub with `@` after the confirm, as the before/after pair
   - confirm: `cd ui/desktop && pnpm vitest run src/components -t "popover portal"` → `1 passed` (untouched: no test matches)
 - 163. The Runtimes gate tells the truth: in `workspace/onboarding/RuntimesGate.tsx:40-46,124-132`, agy's `signInCmd` becomes the command `agy --help` names for signing in (read it, never guessed; if agy has none, the row shows the sentence as text and the button is hidden), and each Install opens the vendor's own page — Codex's `codex.withexo.com` goes.
-  - status: todo · agent: — · worker: low
+  - status: doing · agent: session → haiku worker · worker: low
   - card: as a new user, have Install and Sign in do what they say, so that setting up a seat does not type prose into my shell (research Must 8)
   - context: the session checks each URL resolves to the vendor's domain before marking done
   - confirm: `grep -c "withexo\|sign in through" ui/desktop/src/workspace/onboarding/RuntimesGate.tsx` → `0` (untouched: `2`); `cd ui/desktop && pnpm run typecheck` → exit 0
@@ -340,7 +340,7 @@ Order: 154 (above) ∥ 155–157 (mockups, session) ∥ wave 1 (158 · 160 · 16
   - card: as the user, get another answer without retyping, so that a weak reply is one click from a better one (Should; parity)
   - confirm: `cd ui/desktop && pnpm vitest run src/components -t "regenerate"` → `1 passed` (untouched: no test matches)
 - 170. Copy a reply that has tool calls: `components/GooseMessage.tsx:135` shows the copy link when the reply has any text part, copying the text parts only; one test.
-  - status: todo · agent: — · worker: low
+  - status: doing · agent: session → haiku worker · worker: low
   - card: as the user, copy what the agent said even when it also ran tools, so that the answer is not stuck on screen (Should)
   - confirm: `cd ui/desktop && pnpm vitest run src/components -t "copy with tool calls"` → `1 passed` (untouched: no test matches)
 - 171. One search over titles and transcripts per 157's pick: the sidebar search (`workspace/sidebar-sessions.ts:131`) also asks `acpListSessions(…, { keyword })` (`SessionListView.tsx:407`, transcript match in `session_manager.rs:364`) and merges, deduped by id, with the snippet the sheet picks.
@@ -353,17 +353,17 @@ Order: 154 (above) ∥ 155–157 (mockups, session) ∥ wave 1 (158 · 160 · 16
   - context: extend `tests/e2e/git-pane.spec.ts` with a local bare remote (`git init --bare`) as `origin`; the walk pushes and reads the remote's ref
   - confirm: `just walk "git pane"` → `1 passed` with the push step (untouched: fails on it)
 - 173. Revise… focuses the composer: `workspace/rpi-strip/RpiStrip.tsx:106` and `workspace/panes/artifact/ArtifactPane.tsx:146` query `[data-testid="chat-input"]` (the textarea's id, `ChatInput.tsx:1677`).
-  - status: todo · agent: — · worker: low
+  - status: doing · agent: session → haiku worker · worker: low
   - card: as the user revising a plan, type straight away, so that Revise… means revise (Should)
   - context: from: `'[data-testid="chat-input-field"]'` / to: `'[data-testid="chat-input"]'` (both files)
   - confirm: `grep -rc 'chat-input-field' ui/desktop/src | grep -v ':0$' | wc -l` → `0` (untouched: `2`)
 - 174. The Hub invites a task: when the chat has no messages, the composer placeholder reads "Describe a task…"; with history it keeps `keyboardShortcuts.ts:18`'s "⌘↑/⌘↓ to navigate messages"; i18n extracted.
-  - status: todo · agent: — · worker: low
+  - status: doing · agent: session → haiku worker · worker: low
   - card: as a first-run user, be told what to type, so that the Hub's one input says what it is for (Should; `01-first-paint.png`)
   - context: from: "{prefix}↑/{prefix}↓ to navigate messages" (empty chat) / to: "Describe a task…"
   - confirm: `grep -rc "Describe a task" ui/desktop/src --include=*.ts --include=*.tsx | grep -v ':0$' | wc -l` → `≥ 1` (untouched: `0`); `cd ui/desktop && pnpm run i18n:check` → green
 - 175. The shortcut list names the fork's keys: `components/settings/keyboard/KeyboardShortcutsSection.tsx` adds read-only rows for ⌘K (palette), ⌘N (new chat), ⌘1/⌘2/⌘3 (columns, `WorkspaceShell.tsx:1450`), ⇧⌘F (Files), `/` (search chats) — each verified against its handler before it is listed.
-  - status: todo · agent: — · worker: low
+  - status: doing · agent: session → haiku worker · worker: low
   - card: as the user, find a shortcut in Settings, so that the keys the fork added are discoverable (Should)
   - confirm: `grep -c "⌘K\|Meta+K\|palette" ui/desktop/src/components/settings/keyboard/KeyboardShortcutsSection.tsx` → `≥ 1` (untouched: `0`); `cd ui/desktop && pnpm run typecheck && pnpm run i18n:check` → green
 - 176. A keyboard-only walk: `tests/e2e/keyboard.spec.ts` (`@seat`) — type a task on the Hub, Enter, reach Review, the diff, the commit box and Commit with keys only, and name each place focus is lost.
@@ -372,11 +372,11 @@ Order: 154 (above) ∥ 155–157 (mockups, session) ∥ wave 1 (158 · 160 · 16
   - context: runs after 159 and 166; a step that cannot be reached by keys is a finding appended here, not a skipped step
   - confirm: `just walk "keyboard"` → `1 passed` (untouched: no spec)
 - 179. The sidebar smoke walk matches the chips rule: `tests/e2e/sidebar.spec.ts:44-53` asserts the repo chips only when there are at least two repos (the chips show at `chips.length > 2`, `NavigationPanel.tsx:568`, All counted).
-  - status: todo · agent: — · worker: low
+  - status: doing · agent: session → haiku worker · worker: low
   - card: as every task above, have a green smoke gate, so that a red means a regression (smoke 9/10 on 2026-09-22)
   - confirm: `just smoke` → `10 passed` (untouched: 1 failed at `sidebar.spec.ts:45`)
 - 180. Repair `DESIGN.md:177`'s garbled sentence (two edits interleaved character by character, "Task 697: the sidession menubar's Boarowsd…"): de-interleave the two sentences — the session menu's items (task 69) and the Board (task 67) — by hand; `git log -S` finds no clean prior.
-  - status: todo · agent: — · worker: — (session; a worker would invent the missing words)
+  - status: doing · agent: session · worker: — (session; a worker would invent the missing words)
   - card: as the next reader, read `DESIGN.md` §Typography's icon list, so that the icons the menu and Board use are named (research Friction)
   - confirm: `grep -c "Boarowsd\|sidession" DESIGN.md` → `0` (untouched: `1`); `for w in Inbox Kanban FolderOpen GitFork AlignJustify Palette MoonStar; do grep -q "\`$w\`" DESIGN.md || echo "missing $w"; done` prints nothing
 
