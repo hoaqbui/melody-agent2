@@ -266,7 +266,207 @@ Order: 154 (above) ∥ 155–157 (mockups, session) ∥ wave 1 (158 · 160 · 16
   - card: as the user, see when a seat's window reopens and what took over, so that a closed quota is not a mystery (user pick 2A, 2026-09-22)
   - confirm: `cargo test -p goose --lib acp::provider -- quota` → a test that a codex `usageLimitExceeded` with `resetsAt` reaches the client error with the reset time (untouched: no test matches)
 
+### docs/2026-09-22-melody-rename-prd-plan-v1.md — Goose → Melody (approved 2026-09-22, user: "rename and rebrand everything to be Melody" → "Brand + app identity" → "App folder only", "Turn it off", "Keep goose://", "Yes, edit the prompts" → "Approve, include drawings")
+
+Order: 184 (migration) → 183 (identity); 185 ∥ 186 ∥ 187 ∥ 189 ∥ 190 ∥ 191 on disjoint files; 188 after 187; 192 last; 193 waits on the user's pick. Commits stage only the task's paths (`Lever.tsx` is the user's, uncommitted).
+
+- 183. Rename the app's packaging identity in `ui/desktop/package.json`, `ui/desktop/forge.config.ts`,
+     `ui/desktop/forge.{deb,rpm}.desktop`, `ui/desktop/vite.main.config.mts`, `ui/desktop/index.html`,
+     `ui/desktop/public/manifest.webmanifest` and `justfile`.
+  - status: todo · agent: — · worker: low
+  - blocked-by: 184 (a launch under the new name before the migration exists creates `.../Melody`
+    and the copy is then skipped for good)
+  - card: as the user, I want the dock, window and installer to say Melody so that the app I run
+    is the product I named
+  - context:
+    - package.json:3 from: `"productName": "Goose"` / to: `"productName": "Melody"`; :5 from:
+      `"Goose App"` / to: `"Melody"`; :26-28 `${GOOSE_BUNDLE_NAME:-Goose}` → `${GOOSE_BUNDLE_NAME:-Melody}`
+    - vite.main.config.mts:8 from: `|| 'Goose'` / to: `|| 'Melody'`
+    - forge.config.ts packagerConfig: add `appBundleId: 'com.melody.desktop'`; :41 and :43 "Goose
+      needs access" → "Melody needs access"; deb/rpm `name`/`bin` and flatpak `bin` 'Goose' →
+      'Melody' (flatpak `id` stays, :125); the `goose` protocol stays (:22-27)
+    - .desktop files: `Name=Melody`; `Exec=/usr/lib/melody/Melody %U` (deb), `/usr/lib/Melody/Melody %U` (rpm)
+    - index.html:9 `<title>Melody</title>`; manifest `name` and `short_name` "Melody"
+    - justfile:139-140 `out/Goose-darwin-arm64/Goose.app` → `out/Melody-darwin-arm64/Melody.app`
+  - confirm: `cd ui/desktop && grep -c 'Melody' package.json forge.config.ts index.html public/manifest.webmanifest vite.main.config.mts && grep -c "appBundleId: 'com.melody.desktop'" forge.config.ts && pnpm run typecheck` → package.json 5, forge.config.ts ≥ 6, index.html 1, manifest 2, vite 1, the bundle ID 1, typecheck 0
+
+- 184. Copy the old app folder into the new one on first launch, in a new
+     `ui/desktop/src/utils/migrateUserData.ts` called from `ui/desktop/src/main.ts`.
+  - status: doing · agent: session (worker: claude -p haiku) · worker: medium
+  - card: as the user, I want my theme, layout, workspace state and recipe trust to survive the
+    rename so that Melody opens where Goose left off
+  - context:
+    - `migrateUserData(appData: string, from: string, to: string): 'copied' | 'skipped' | 'failed'`
+      — copies `<appData>/<from>` into `<appData>/<to>` with `fs.cpSync(…, { recursive: true,
+      force: false, filter })` only when `<from>/settings.json` exists and `<to>/settings.json` does
+      not (the file is the marker, not the folder: Electron or a dev launch may create the folder
+      first); errors are caught, logged, return `'failed'`; never deletes
+    - the filter skips `Singleton*` and Chromium's regenerable caches by basename: `Cache`,
+      `Code Cache`, `GPUCache`, `DawnGraphiteCache`, `DawnWebGPUCache` — the user's folder is 1.9 GB,
+      1.8 GB of it those caches (`du -sh`, 2026-09-22); what remains is ~15 MB
+    - call it in main.ts right after the `GOOSE_USER_DATA` block (:190-194) and before
+      `SETTINGS_FILE` (:197), only when `GOOSE_USER_DATA` is unset:
+      `migrateUserData(app.getPath('appData'), 'Goose', app.getName())`
+    - `Partitions/goose/` holds the renderer's localStorage; the partition name `persist:goose`
+      stays (main.ts:419)
+    - a unit test beside it (pure fs logic, PRODUCT.md §8 allows it): copied, skipped when the
+      target's `settings.json` exists, skipped when the source is absent, `Singleton*` and `Cache`
+      not copied, source unchanged
+  - confirm: `cd ui/desktop && pnpm exec vitest run src/utils/migrateUserData.test.ts && pnpm run typecheck && grep -n "migrateUserData(" src/main.ts` → 5 tests pass, typecheck 0, one call site above `const SETTINGS_FILE`
+
+- 185. Rename the main process's words and turn the updater off in `ui/desktop/src/main.ts`,
+     `ui/desktop/src/utils/autoUpdater.ts` and `ui/desktop/src/updates.ts`.
+  - status: todo · agent: — · worker: low
+  - card: as the user, I want the menus, dialogs, notifications and tray to say Melody, and no
+    upstream release offered, so that nothing names or installs the wrong app
+  - context:
+    - main.ts:2744 from: `item.label === 'Goose'` / to: `item.label === app.name` (else the
+      Settings item silently drops)
+    - main.ts:117,121,147 keys and values: 'Focus Goose Window' → 'Focus Melody Window'
+      ('聚焦 Melody 窗口'), 'About Goose' → 'About Melody' ('关于 Melody'), 'Hide Goose' →
+      'Hide Melody' ('隐藏 Melody'); :2872 and :2981 `menuT(...)` to match
+    - main.ts:800 `applicationName: 'Melody'`; :855 `title: 'Melody'`; :1285 'Melody Failed to
+      Start'; :3333 'Melody Error'
+    - autoUpdater.ts:649 "when you quit Melody"; :740 'Melody - Update Available'; :748 'Melody'
+    - updates.ts:1 from: `UPDATES_ENABLED = true` / to: `UPDATES_ENABLED = false`
+      (`ENABLE_DEV_UPDATES` still overrides, main.ts:80); this also hides Settings › Updates
+      (`AppSettingsSection.tsx:831`), which is intended
+  - confirm: `cd ui/desktop && grep -cE "['\`][^'\`]*\bGoose\b" src/main.ts src/utils/autoUpdater.ts; grep -c "UPDATES_ENABLED = false" src/updates.ts; pnpm run typecheck` → main.ts 0, autoUpdater.ts 0 (13 today), 1, typecheck 0
+
+- 186. Rename the renderer's hard-coded words in `ui/desktop/src/components/BaseChat.tsx`,
+     `ui/desktop/src/toasts.tsx`, `ui/desktop/src/workspace/panes/telemetry/TelemetryNow.tsx`,
+     `ui/desktop/src/gooseServeLeaseRegistry.ts` and `ui/desktop/src/acp/errors.ts`, with their tests.
+  - status: doing · agent: session (worker: claude -p haiku) · worker: low
+  - card: as the user, I want the chat's corner mark, the recovery button and the error texts to
+    say Melody so that no screen still names Goose
+  - context:
+    - BaseChat.tsx:520-532 the watermark: text `goose` → `Melody`, the `<a href="https://goose-docs.ai">`
+      becomes a plain `<div>` with the same classes minus `hover:opacity-80 transition-opacity`
+      (Melody has no docs site); the comment "Goose watermark" → "Melody watermark"
+    - toasts.tsx:202 "Ask goose" → "Ask Melody"
+    - TelemetryNow.tsx:74 "Goose's own permission gate." → "Melody's own permission gate."
+    - gooseServeLeaseRegistry.ts:4 "This window's Goose backend stopped" → "This window's Melody
+      backend stopped", "restart Goose Desktop" → "restart Melody" (acpConnection.ts:211 matches the
+      constant, not the text)
+    - errors.ts:20 "The connected Goose server" → "The connected Melody server"; update
+      `App.test.tsx:309` and `__tests__/createSession.test.ts:220` to the new text
+  - confirm: `cd ui/desktop && pnpm exec vitest run src/App.test.tsx src/__tests__/createSession.test.ts && grep -c "Melody" src/components/BaseChat.tsx src/toasts.tsx src/gooseServeLeaseRegistry.ts src/acp/errors.ts && pnpm run typecheck` → tests pass, each file ≥ 1, typecheck 0
+
+- 187. Rename the brand in the English messages at their `defaultMessage` sources under
+     `ui/desktop/src`, regenerate `ui/desktop/src/i18n/messages/en.json`, and update the tests that
+     assert them.
+  - status: doing · agent: session (worker: claude -p haiku) · worker: medium
+  - card: as the user, I want every English sentence that names the product to say Melody so
+    that the app reads as one product
+  - context:
+    - `en.json` is generated (`pnpm run i18n:extract`, package.json:52); edit the source
+      `defaultMessage`, never en.json by hand
+    - rename: every message whose text names the product — 60 brand keys, the product word in
+      the 2 mixed keys (`goosehintsModal.helpText1`, `goosehintsSection.description`), and 11
+      ambiguous keys read as the product (e.g. `onboardingGuard.checkProviderErrorTitle`,
+      `runsInbox.mode`, `configSettings.description`, `settings.notifications.modal.macStep3`)
+    - keep: the 17 internal keys (`.goosehints`, `goose://`, `GOOSE_*`, `.goose/`) and the 2 path
+      placeholders `/home/goose/workspace` (`dirSwitcher.enterPathPlaceholder`,
+      `externalBackendSection.workingDirPlaceholder`)
+    - the name is always capitalised: lowercase brand "goose" becomes "Melody"
+    - keys stay as they are (`loadingGoose.*`, `goosehintsModal.*`): identifiers
+    - tests: `notifications.test.ts:130,131,143,144`, `App.test.tsx:273` (`/^Welcome to Melody/`),
+      `tests/e2e/phone-card.spec.ts:39`; the `context-management` e2e specs assert the backend's
+      compacting message, which stays (out of scope) — leave them
+  - confirm: `cd ui/desktop && pnpm run i18n:extract >/dev/null && node -e "const m=require('./src/i18n/messages/en.json');const keep=/\.goosehints|goose:\/\/|GOOSE_|\.goose\/|\/home\/goose/;const left=Object.entries(m).filter(([k,v])=>/goose/i.test(v.defaultMessage.replace(/\.goosehints|goose:\/\/\S*|GOOSE_[A-Z_]+|\.goose\/\S*|\/home\/goose\S*/g,'')));console.log(left.length, left.map(e=>e[0]).join(' '))" && pnpm exec vitest run src/notifications.test.ts src/App.test.tsx && pnpm run lint:check` → `0`, tests pass, lint:check (includes i18n:check) passes
+
+- 188. Carry the rename into the 15 other locales under `ui/desktop/src/i18n/messages/`.
+  - status: todo · agent: — · worker: medium
+  - blocked-by: 187
+  - card: as a user reading another language, I want the product named Melody there too so that
+    the name does not depend on the locale
+  - context:
+    - every locale keeps the name in Latin letters; replace the word Goose/goose with Melody in
+      the keys task 187 renamed, plus the stale `externalBackendSection.title` and
+      `externalBackendSection.useExternalServerDescription`; never inside `.goosehints`,
+      `goose://`, `GOOSE_*`, `.goose/`, `/home/goose`
+    - German compounds: `Goose-Fenster` → `Melody-Fenster`, lowercase `goose-…` compounds →
+      `Melody-…`
+    - Turkish: fix the dative suffix by hand — `goose'a`/`Goose'a` → `Melody'ye` (≈7 keys:
+      appsView.noAppsDescription, goosehintsSection.description,
+      groupedExtensionLoadingToast.askGoose, launcher.placeholder, onboardingGuard.welcomeTitle,
+      providerConfigurationModal.addApiKeyDescription); `'yi` and `'nin` stay
+    - Korean particles, Russian gender: left as they read
+  - confirm: `cd ui/desktop && node -e "const fs=require('fs');const d='src/i18n/messages/';const en=require('./'+d+'en.json');let bad=0;for(const f of fs.readdirSync(d)){if(f==='en.json')continue;const m=JSON.parse(fs.readFileSync(d+f));for(const [k,v] of Object.entries(m)){const t=v.defaultMessage.replace(/\.goosehints|goose:\/\/\S*|GOOSE_[A-Z_]+|\.goose\/\S*|\/home\/goose\S*/g,'');if(/goose/i.test(t)&&(!en[k]||!/goose/i.test(en[k].defaultMessage))){bad++;console.log(f,k)}}}console.log('left',bad)" && grep -c "Melody'ye" src/i18n/messages/tr.json; pnpm run i18n:check` → `left 0`, ≥ 6 (0 today), i18n:check passes
+
+- 189. Rename the backend strings the desktop shows in `crates/goose/src/acp/server.rs`,
+     `crates/goose/src/acp/server/onboarding.rs` and `crates/goose/src/acp/server/live_voice.rs`.
+  - status: doing · agent: session (worker: claude -p haiku) · worker: low
+  - card: as the user, I want the provider picker, onboarding and live voice to say Melody so
+    that backend text matches the app
+  - context:
+    - server.rs:227-228 label "Goose (Default)" → "Melody (Default)"; the provider id `"goose"` stays
+    - onboarding.rs:163 "Goose configuration" → "Melody configuration"; :361 "the Goose data store"
+      → "the Melody data store"
+    - live_voice.rs:228 "Goose is already working on a task." → "Melody is already working on a task."
+    - not `agents/agent.rs` or `state_machine/` (ARCHITECTURE.md §Invariants)
+  - confirm: `source bin/activate-hermit && cargo fmt --check && cargo build -p goose 2>&1 | grep -c "^warning" ; grep -c "Melody" crates/goose/src/acp/server.rs crates/goose/src/acp/server/onboarding.rs crates/goose/src/acp/server/live_voice.rs` → fmt clean, 0 warnings, each file ≥ 1
+
+- 190. Give the agent its new name in the backend prompts: `crates/goose/src/prompts/system.md`,
+     `subagent_system.md`, `tiny_model_system.md`, `crates/goose-local-inference/src/prompts/tiny_model_system.md`,
+     `crates/goose/src/agents/prompt_manager.rs`, `crates/goose-local-inference/src/tool_emulation.rs`,
+     `crates/goose-local-inference/src/llamacpp/inference_emulated_tools.rs` and
+     `crates/goose/src/live_voice/service.rs`, with the four `prompt_manager` snapshots.
+  - status: doing · agent: session (worker: claude -p haiku) · worker: low
+  - card: as the user, I want the agent to call itself Melody so that its answers match the app
+  - context:
+    - system.md:1-2 from: "You are a general-purpose AI agent called goose, created by AAIF
+      (Agentic AI Foundation).\ngoose is being developed as an open-source software project." /
+      to: "You are a general-purpose AI agent called Melody.\nMelody is built on goose, an
+      open-source agent framework by AAIF (Agentic AI Foundation)."
+    - subagent_system.md:1 "within the goose AI framework … spawned by the main goose agent" →
+      "within Melody … spawned by the main Melody agent"
+    - tiny_model_system.md (both copies):1 "You are goose, an autonomous AI agent created by AAIF"
+      → "You are Melody, an autonomous AI agent built on goose by AAIF"
+    - prompt_manager.rs:144 fallback "called goose, created by Block" → "called Melody"
+    - tool_emulation.rs:53, inference_emulated_tools.rs:66 "You are Goose" → "You are Melody";
+      live_voice/service.rs:29 "You are Goose's live voice interface" → "You are Melody's live voice interface"
+    - snapshots: `INSTA_UPDATE=always cargo test -p goose prompt_manager`, then review the four
+      `.snap` diffs show only the name lines
+    - parity: prompts are shared by both agent-loop paths; no loop code changes
+  - confirm: `source bin/activate-hermit && cargo fmt --check && cargo test -p goose prompt_manager 2>&1 | grep "test result" && grep -rc "called Melody" crates/goose/src/prompts/system.md` → fmt clean, `ok`, 0 failed; 1
+
+- 191. Record the name in `DESIGN.md`.
+  - status: doing · agent: session (worker: claude -p haiku) · worker: low
+  - card: as the next agent, I want the product name recorded so that no new copy says Goose
+  - context:
+    - §Iconography's sentence "The product name, `Goose.app` and upstream's goose animations …
+      were not the mark's and were left as they are" gains: "Amended 2026-09-22 (user: 'rename and
+      rebrand everything to be Melody'): the product name is **Melody** — `productName`,
+      `Melody.app`, bundle ID `com.melody.desktop`; `goose` stays wherever it names a real thing
+      (`.goosehints`, `goose://`, `GOOSE_*`, the `goose` CLI, the backend's folders)."
+    - add a vocabulary row: "the product | **Melody**, always capitalised; never goose in copy
+      except the names above | Melody | `productName`, `appBundleId`"
+  - confirm: `grep -c "com.melody.desktop" DESIGN.md` → ≥ 1
+
+- 192. Build and launch `Melody.app` with `just make-ui`, and run the smoke walks.
+  - status: todo · agent: — · worker: medium
+  - blocked-by: 183–191
+  - card: as the user, I want the packaged app rebuilt and proven so that the rename is real, not
+    a diff
+  - context:
+    - quit Goose.app first (`osascript -e 'tell application "Goose" to quit'`); never overwrite a
+      live bundle (AGENTS.md §Never)
+    - the old `out/Goose-darwin-arm64/` is left in place
+  - confirm: `source bin/activate-hermit && just make-ui >/dev/null && defaults read "$PWD/ui/desktop/out/Melody-darwin-arm64/Melody.app/Contents/Info" CFBundleIdentifier && defaults read "$PWD/ui/desktop/out/Melody-darwin-arm64/Melody.app/Contents/Info" CFBundleName && just smoke 2>&1 | tail -2` → `com.melody.desktop`, `Melody`, smoke 10 passed
+
+- 193. Draw Melody artwork for the goose drawings: `ui/desktop/src/components/FlyingBird.tsx` (the streaming loader), `ui/desktop/src/components/icons/Geese.tsx` (the recipe modal) and `Rain` in `ui/desktop/src/components/icons/Goose.tsx` (the logo's hover).
+  - status: todo · agent: — · worker: high
+  - card: as the user, I want no goose drawn anywhere in Melody so that the rebrand is whole (user, 2026-09-22: "Approve, include drawings")
+  - context:
+    - options first: mockups of each replacement beside the Takes strip emblem (DESIGN.md §Iconography; canonical `ux_tests/docs/melody-style-guide.html`), the user picks before any source edit
+    - uses: `FlyingBird` in `LoadingGoose.tsx:46`, `McpAppRenderer.tsx:1001`; `Geese` in `CreateEditRecipeModal.tsx:500`; `Rain` in `GooseLogo.tsx:39`
+  - confirm: `cd ui/desktop && grep -rlE "<(FlyingBird|Geese|Rain)\\b" src | wc -l && pnpm run typecheck` → 0 files (4 today), typecheck 0
+
 ## Waiting on the user
+
+- 192 — after Melody.app launches: your theme, layout and workspace are kept; the app menu shows Settings…; the microphone prompt names Melody; Browser pane logins survived or not; `goose://` links open Melody (move or delete `ui/desktop/out/Goose-darwin-arm64/Goose.app` if they open Goose); then say whether `~/Library/Application Support/Goose` can go.
+- 193 — pick the Melody artwork for the loader, the recipe modal and the logo hover from mockups.
 
 ### Handoff — one line, one command each (2026-09-20, closeout; the decisions moved under §Notes and hand checks 2026-09-21)
 
