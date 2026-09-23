@@ -1904,6 +1904,9 @@
   "gitPane.unstaged": {
     "defaultMessage": "Unstaged"
   },
+  "gooseMessage.regenerate": {
+    "defaultMessage": "Regenerate response"
+  },
   "goosehintsModal.close": {
     "defaultMessage": "关闭"
   },

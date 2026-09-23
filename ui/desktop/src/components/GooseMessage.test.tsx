@@ -92,4 +92,36 @@ describe('GooseMessage', () => {
       expect(copyButton).toBeInTheDocument();
     });
   });
+
+  describe('regenerate', () => {
+    it('shows regenerate button when onRegenerate is provided', async () => {
+      const message = createMessage([
+        {
+          type: 'text',
+          text: 'This is a response',
+        },
+      ]);
+
+      const onRegenerate = vi.fn();
+
+      render(
+        <GooseMessage
+          sessionId="test-session"
+          message={message}
+          hideTimestamp={false}
+          toolStates={[]}
+          toolNotifications={[]}
+          toolConfirmationShownInline={false}
+          append={() => {}}
+          isStreaming={false}
+          submitElicitationResponse={undefined}
+          onRegenerate={onRegenerate}
+        />,
+        { wrapper: IntlTestWrapper }
+      );
+
+      const regenerateButton = await screen.findByRole('button', { name: /regenerate/i });
+      expect(regenerateButton).toBeInTheDocument();
+    });
+  });
 });

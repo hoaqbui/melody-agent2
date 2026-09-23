@@ -11,11 +11,13 @@ import {
   CreditsExhaustedNotification,
   getCreditsExhaustedNotification,
 } from './context_management/CreditsExhaustedNotification';
-import type {
-  ImageData,
-  Message,
-  NotificationEvent,
-  SystemNotificationContent,
+import {
+  getTextAndImageContent,
+  imageDataFromMessage,
+  type ImageData,
+  type Message,
+  type NotificationEvent,
+  type SystemNotificationContent,
 } from '../types/message';
 import LoadingGoose from './LoadingGoose';
 import { getModelDisplayName } from './settings/models/predefinedModelsUtils';
@@ -72,6 +74,7 @@ interface MessageRowProps {
     editType: 'fork' | 'edit',
     retainedImages: ImageData[]
   ) => void;
+  onRegenerate?: () => void;
   rowContext: MessageRowContext;
   sessionId: string;
   submitElicitationResponse?: (
@@ -89,6 +92,7 @@ function MessageRowComponent({
   message,
   modelChangeMessage,
   onMessageUpdate,
+  onRegenerate,
   rowContext,
   sessionId,
   submitElicitationResponse,
@@ -138,6 +142,7 @@ function MessageRowComponent({
             append={append}
             isStreaming={isStreaming}
             submitElicitationResponse={submitElicitationResponse}
+            onRegenerate={onRegenerate}
           />
         )}
       </div>
@@ -238,6 +243,21 @@ export default function ProgressiveMessageList({
     return () => window.removeEventListener('keydown', handleKeyDown);
   }, [isLoading, messages.length]);
 
+  const lastUserMessage = useMemo(
+    () => [...messages].reverse().find((message) => isUserMessage(message) && message.id),
+    [isUserMessage, messages]
+  );
+  const regenerateLastTurn = useMemo(() => {
+    if (!onMessageUpdate || !lastUserMessage?.id) return undefined;
+    const { id } = lastUserMessage;
+    return () =>
+      onMessageUpdate(
+        id,
+        getTextAndImageContent(lastUserMessage).textContent,
+        'edit',
+        imageDataFromMessage(lastUserMessage)
+      );
+  }, [lastUserMessage, onMessageUpdate]);
   const rowContexts = useMemo(() => deriveMessageRowContexts(messages), [messages]);
   const messagesToRender = messages.slice(0, renderedCount);
   const messageRows = messagesToRender
@@ -280,6 +300,7 @@ export default function ProgressiveMessageList({
           message={message}
           modelChangeMessage={modelChangeMessage}
           onMessageUpdate={onMessageUpdate}
+          onRegenerate={!isUser && index === messages.length - 1 ? regenerateLastTurn : undefined}
           rowContext={rowContext}
           sessionId={sessionId}
           submitElicitationResponse={submitElicitationResponse}

@@ -1,5 +1,5 @@
 import { memo, useMemo, useRef } from 'react';
-import { AlertTriangle } from 'lucide-react';
+import { AlertTriangle, RotateCcw } from 'lucide-react';
 import ImagePreview from './ImagePreview';
 import { formatMessageTimestamp } from '../utils/timeUtils';
 import MarkdownContent from './MarkdownContent';
@@ -19,12 +19,34 @@ import ElicitationRequest from './ElicitationRequest';
 import MessageCopyLink from './MessageCopyLink';
 import MessageUsageStats from './MessageUsageStats';
 import { getTextDirection } from '../utils/textDirection';
+import { defineMessages, useIntl } from '../i18n';
 import { cn } from '../utils';
 import type { ToolRenderState } from './messageRowContext';
 import {
   STREAMING_RENDER_COOLDOWN_MS,
   useThrottledStreamingText,
 } from '../hooks/useThrottledStreamingText';
+
+const i18n = defineMessages({
+  regenerate: { id: 'gooseMessage.regenerate', defaultMessage: 'Regenerate response' },
+});
+
+function RegenerateButton({ onClick }: { onClick: () => void }) {
+  const intl = useIntl();
+  const label = intl.formatMessage(i18n.regenerate);
+  return (
+    <button
+      type="button"
+      onClick={onClick}
+      title={label}
+      aria-label={label}
+      data-testid="message-regenerate"
+      className="rounded p-0.5 text-text-secondary opacity-0 transition-opacity duration-200 group-hover:opacity-100 hover:text-text-primary focus:outline-none focus-visible:opacity-100 focus-visible:ring-2 focus-visible:ring-ring-primary"
+    >
+      <RotateCcw className="h-3 w-3" />
+    </button>
+  );
+}
 
 const MAX_STREAMING_MARKDOWN_LENGTH = 16_000;
 const LARGE_STREAMING_RENDER_COOLDOWN_MS = 250;
@@ -42,6 +64,7 @@ interface GooseMessageProps {
     elicitationId: string,
     userData: Record<string, unknown>
   ) => Promise<boolean>;
+  onRegenerate?: () => void;
 }
 
 function GooseMessage({
@@ -54,6 +77,7 @@ function GooseMessage({
   append,
   isStreaming,
   submitElicitationResponse,
+  onRegenerate,
 }: GooseMessageProps) {
   const contentRef = useRef<HTMLDivElement | null>(null);
 
@@ -132,11 +156,12 @@ function GooseMessage({
                     {timestamp}
                   </div>
                 )}
-                {message.content.some((content) => content.type === 'text') && !isStreaming && (
-                  <div className="absolute left-0 pt-1">
+                <div className="absolute left-0 pt-1 flex items-center gap-2">
+                  {message.content.some((content) => content.type === 'text') && !isStreaming && (
                     <MessageCopyLink text={displayText} contentRef={contentRef} />
-                  </div>
-                )}
+                  )}
+                  {onRegenerate && !isStreaming && <RegenerateButton onClick={onRegenerate} />}
+                </div>
                 {!isStreaming && message.metadata.usage && (
                   <div className="pt-1 transition-all duration-200 opacity-0 group-hover:opacity-100 -translate-y-4 group-hover:translate-y-0">
                     <MessageUsageStats usage={message.metadata.usage} />
@@ -186,11 +211,12 @@ function GooseMessage({
                 >
                   {!isStreaming && !hideTimestamp && timestamp}
                 </div>
-                {displayText.trim() && !isStreaming && (
-                  <div className="pt-1 opacity-0 group-hover:opacity-100 transition-opacity duration-200">
+                <div className="pt-1 flex items-center gap-2 opacity-0 group-hover:opacity-100 transition-opacity duration-200">
+                  {displayText.trim() && !isStreaming && (
                     <MessageCopyLink text={displayText} contentRef={contentRef} />
-                  </div>
-                )}
+                  )}
+                  {onRegenerate && !isStreaming && <RegenerateButton onClick={onRegenerate} />}
+                </div>
                 {!isStreaming && message.metadata.usage && (
                   <div className="pt-1 transition-all duration-200 opacity-0 group-hover:opacity-100 -translate-y-4 group-hover:translate-y-0">
                     <MessageUsageStats usage={message.metadata.usage} />
