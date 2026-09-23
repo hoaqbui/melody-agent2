@@ -116,6 +116,15 @@ function selectedValue(options: readonly SessionConfigOption[], id: string): str
   return option?.type === 'select' ? option.currentValue : undefined;
 }
 
+// A routine runs unattended, so the scheduler runs an approval mode as Auto (task 178).
+function routineModeName(options: readonly SessionConfigOption[]): string | undefined {
+  const value = selectedValue(options, 'mode');
+  if (value !== 'approve' && value !== 'smart_approve') return choiceName(options, 'mode') ?? value;
+  const option = options.find((candidate) => candidate.id === 'mode');
+  if (option?.type !== 'select') return 'auto';
+  return configChoices(option).find((choice) => choice.value === 'auto')?.name ?? 'auto';
+}
+
 // The scheduler wants six fields; cronstrue names the cadence, or the field it rejects.
 function cronHint(cron: string, sixFields: string): { text: string; valid: boolean } {
   if (cron.split(/\s+/).length !== 6) return { text: sixFields, valid: false };
@@ -176,7 +185,7 @@ export function RoutineSheet({
   const hint = trigger === 'custom' ? cronHint(cron, intl.formatMessage(i18n.cronInvalid)) : null;
   const provider = choiceName(options, 'provider') ?? selectedValue(options, 'provider');
   const model = choiceName(options, 'model') ?? selectedValue(options, 'model');
-  const mode = choiceName(options, 'mode') ?? selectedValue(options, 'mode');
+  const mode = routineModeName(options);
   const runsWith = [provider, model, mode].filter(Boolean).join(' · ');
   const problem = !title.trim()
     ? intl.formatMessage(i18n.titleRequired)

@@ -17,7 +17,7 @@ use tokio_util::sync::CancellationToken;
 use crate::agents::{Agent, AgentConfig, AgentEvent, GoosePlatform, SessionConfig};
 use crate::config::paths::Paths;
 use crate::config::permission::PermissionManager;
-use crate::config::{resolve_extensions_for_new_session, Config};
+use crate::config::{resolve_extensions_for_new_session, Config, GooseMode};
 use crate::conversation::message::Message;
 use crate::conversation::Conversation;
 #[cfg(feature = "telemetry")]
@@ -1121,6 +1121,13 @@ async fn run_provider_and_model(settings: Option<&Settings>) -> Result<(String, 
     Ok((provider_name, model_config))
 }
 
+fn routine_mode(mode: GooseMode) -> GooseMode {
+    match mode {
+        GooseMode::Approve | GooseMode::SmartApprove => GooseMode::Auto,
+        GooseMode::Auto | GooseMode::Chat => mode,
+    }
+}
+
 #[allow(clippy::too_many_lines)]
 async fn execute_job(
     job: ScheduledJob,
@@ -1154,9 +1161,11 @@ async fn execute_job(
     .map_err(|e| anyhow!(e.to_string()))?;
 
     let settings = recipe.settings.as_ref();
-    let goose_mode = settings
-        .and_then(|settings| settings.goose_mode)
-        .unwrap_or_default();
+    let goose_mode = routine_mode(
+        settings
+            .and_then(|settings| settings.goose_mode)
+            .unwrap_or_default(),
+    );
     let cwd = match settings.and_then(|settings| settings.working_dir.as_deref()) {
         Some(working_dir) => PathBuf::from(working_dir),
         None => std::env::current_dir()?,
@@ -1801,7 +1810,7 @@ mod tests {
                 .map(|model| model.model_name.as_str()),
             Some("claude-sonnet-4-5")
         );
-        assert_eq!(session.goose_mode, GooseMode::Approve);
+        assert_eq!(session.goose_mode, GooseMode::Auto);
     }
 
     #[tokio::test]
@@ -2211,5 +2220,13 @@ mod tests {
             stored.extension_data.get_extension_state("scheduler", "v0"),
             Some(&serde_json::json!({ "status": "done" }))
         );
+    }
+
+    #[test]
+    fn routine_mode_converts_approve_to_auto() {
+        assert_eq!(routine_mode(GooseMode::Approve), GooseMode::Auto);
+        assert_eq!(routine_mode(GooseMode::SmartApprove), GooseMode::Auto);
+        assert_eq!(routine_mode(GooseMode::Auto), GooseMode::Auto);
+        assert_eq!(routine_mode(GooseMode::Chat), GooseMode::Chat);
     }
 }
