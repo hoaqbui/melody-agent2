@@ -1,0 +1,1608 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>Melody visual design</title>
+<link rel="preconnect" href="https://fonts.googleapis.com" />
+<link href="https://fonts.googleapis.com/css2?family=Schibsted+Grotesk:wght@500;600&family=JetBrains+Mono:wght@500&display=swap" rel="stylesheet" />
+<style>
+  /* Values from ui/desktop/src/theme/theme-tokens.ts (Studio light, Charcoal Monokai) and main.css :root motion roles.
+     Rules from DESIGN.md; where this sheet proposes a change it says so in a "Proposal" note. */
+  .t-light {
+    --bg-page:#ffffff; --bg-2:#f8f7f3; --bg-3:#f1efe9; --tint:#f3f8fd; --hair:#e3dfd6;
+    --t1:#1e1d1a; --t2:#5a5851; --t3:#6f6c64; --t-dis:#a8a49b;
+    --inverse:#1e1d1a; --on-inverse:#ffffff; --disc:#1e1d1a; --disc-ring:#e3dfd6;
+    --info:#44c1b8; --blue:#2277cc; --focus:#44c1b8; --focus-edge:#0b7a72; --success:#2f8f5b; --warning:#fbbf24; --warning-text:#d9a012; --danger:#c23b3b; --diff-add:#2f8f5b;
+    --shadow-sm:0 1px 2px rgba(0,0,0,.1),0 2px 6px rgba(0,0,0,.08);
+    --shadow-md:0 1px 2px rgba(0,0,0,.06),0 6px 18px rgba(0,0,0,.12);
+    --shadow-lg:0 10px 28px rgba(0,0,0,.16),0 0 0 .5px rgba(0,0,0,.1);
+    --canvas:#e9e6de;
+  }
+  .t-dark {
+    --bg-page:#1c1c1c; --bg-2:#242424; --bg-3:#2c2c2c; --tint:#262a2e; --hair:rgba(248,248,242,.06);
+    --t1:#f8f8f2; --t2:#c8c8c2; --t3:#7a7a72; --t-dis:#7a7a72;
+    --inverse:#f8f8f2; --on-inverse:#1c1c1c; --disc:#f8f8f2; --disc-ring:rgba(248,248,242,.14);
+    --info:#44c1b8; --blue:#6cb6ff; --focus:#44c1b8; --focus-edge:#44c1b8; --success:#a6e22e; --warning:#fbbf24; --warning-text:#fbbf24; --danger:#f92672; --diff-add:#a6e22e;
+    --shadow-sm:0 1px 2px 0 rgba(0,0,0,.5);
+    --shadow-md:0 4px 6px -1px rgba(0,0,0,.65),0 2px 4px -2px rgba(0,0,0,.5);
+    --shadow-lg:0 10px 15px -3px rgba(0,0,0,.65),0 4px 6px -4px rgba(0,0,0,.5);
+    --canvas:#121212;
+  }
+  :root { --ring:transparent; --ease-g2:cubic-bezier(.55,0,1,.45); --ease-out:cubic-bezier(.2,.8,.2,1); --motion-fast:120ms; --motion-press:80ms; --motion-base:180ms; --halo-period:1600ms;
+    --r-panel:16px; --r-control:12px; --r-chip:999px; --sans:"Schibsted Grotesk",-apple-system,system-ui,sans-serif; --mono:"JetBrains Mono",ui-monospace,monospace; }
+  * { box-sizing:border-box; }
+  body { margin:0; font:500 13px/20px var(--sans); }
+  body.t-light, body.t-dark { background:var(--canvas); color:var(--t1); }
+  button { font:inherit; color:inherit; background:none; border:0; padding:0; cursor:pointer; }
+  svg { flex:none; }
+  .mono { font-family:var(--mono); font-size:12px; }
+
+  /* Sheet chrome */
+  .sheet { max-width:1240px; margin:0 auto; padding:32px 16px 80px; }
+  .top { display:flex; align-items:center; gap:12px; flex-wrap:wrap; margin-bottom:6px; }
+  .top h1 { font-size:20px; line-height:28px; font-weight:600; margin:0; }
+  .top .sp { flex:1; }
+  .lede { color:var(--t2); max-width:820px; margin:0 0 20px; }
+  .toc { display:flex; flex-wrap:wrap; gap:6px; margin:0 0 32px; }
+  .toc a { color:var(--t2); text-decoration:none; font-size:12px; padding:4px 10px; border-radius:var(--r-chip); background:var(--bg-page); box-shadow:var(--shadow-sm); }
+  .toc a:hover { color:var(--t1); }
+  section { margin:0 0 48px; scroll-margin-top:16px; }
+  h2 { font-size:15px; line-height:22px; font-weight:600; margin:0 0 4px; }
+  .sub { color:var(--t2); margin:0 0 14px; max-width:860px; }
+  .pair { display:grid; grid-template-columns:1fr 1fr; gap:14px; }
+  @media (max-width:900px) { .pair { grid-template-columns:1fr; } }
+  .board { border-radius:var(--r-panel); padding:18px; background:var(--bg-3); color:var(--t1); }
+  .board.t-dark { background:#141414; }
+  .board-label { font-size:11px; line-height:16px; color:var(--t3); margin:0 0 12px; letter-spacing:.02em; }
+  .specs { display:flex; flex-wrap:wrap; gap:18px 22px; align-items:flex-start; }
+  .spec { display:flex; flex-direction:column; gap:8px; }
+  .cap { font-size:11px; line-height:16px; color:var(--t3); }
+  .note { border-radius:var(--r-control); padding:10px 14px; background:var(--bg-page); box-shadow:var(--shadow-sm); color:var(--t2); margin-top:12px; max-width:860px; }
+  .note b { color:var(--t1); font-weight:600; }
+  .note.prop { box-shadow:var(--shadow-sm); } .note.prop > b:first-child::before { content:""; display:inline-block; width:8px; height:8px; border-radius:50%; background:var(--warning); margin-right:8px; vertical-align:1px; }
+  table.ref { width:100%; border-collapse:collapse; background:var(--bg-page); border-radius:var(--r-panel); overflow:hidden; box-shadow:var(--shadow-sm); }
+  table.ref th, table.ref td { text-align:left; padding:8px 12px; border-bottom:1px solid var(--hair); vertical-align:top; }
+  table.ref th { font-size:11px; color:var(--t3); font-weight:600; background:var(--bg-2); }
+  table.ref tr:last-child td { border-bottom:0; }
+  table.ref td:first-child { font-weight:600; white-space:nowrap; }
+  .swatch { display:inline-block; width:12px; height:12px; border-radius:4px; vertical-align:-2px; margin-right:6px; box-shadow:0 0 0 1px rgba(0,0,0,.1); }
+  .replay { font-size:11px; padding:3px 10px; border-radius:var(--r-chip); background:var(--bg-page); box-shadow:var(--shadow-sm); color:var(--t2); }
+
+  /* ——— Components (all read tokens, so they render in either theme) ——— */
+  .lift { box-shadow:var(--shadow-sm); transition:transform var(--motion-fast) var(--ease-out), box-shadow var(--motion-fast) var(--ease-out), background var(--motion-base); }
+  .lift:hover, .lift.is-hover { transform:translateY(-1px); box-shadow:var(--shadow-md); }
+  .lift:active, .lift.is-press { transform:none; box-shadow:var(--shadow-sm); transition-duration:var(--motion-press); }
+
+  .emblem { width:28px; height:28px; border-radius:8px; background:#ffffff; color:#101010; box-shadow:var(--shadow-sm), 0 0 0 .5px rgba(0,0,0,.08); display:grid; place-items:center; flex:none; }
+  .emblem svg { width:16px; height:16px; fill:currentColor; }
+  .emblem.sm { width:16px; height:16px; border-radius:4.5px; } .emblem.sm svg { width:11px; height:11px; }
+  .emblem.xl { width:112px; height:112px; border-radius:27px; box-shadow:var(--shadow-md), 0 0 0 .5px rgba(0,0,0,.08); } .emblem.xl svg { width:76px; height:76px; }
+  .emblem.working { box-shadow:0 0 0 0 color-mix(in srgb,var(--inverse) 40%,transparent); animation:halo var(--halo-period) ease-in-out infinite; }
+
+  .dot { width:8px; height:8px; border-radius:50%; flex:none; }
+  .dot.running { background:var(--info); animation:halo-info var(--halo-period) ease-in-out infinite; }
+  .dot.needs { background:var(--warning); }
+  .dot.done { background:var(--success); }
+  .dot.failed { background:var(--danger); }
+  .dot.idle { background:transparent; box-shadow:inset 0 0 0 1.5px var(--t3); opacity:.6; }
+  @keyframes halo-info { 0%,100% { box-shadow:0 0 0 0 color-mix(in srgb,var(--info) 45%,transparent); } 50% { box-shadow:0 0 0 4px transparent; } }
+  @keyframes halo { 0%,100% { box-shadow:0 0 0 0 color-mix(in srgb,var(--info) 45%,transparent); } 50% { box-shadow:0 0 0 8px transparent; } }
+
+  /* Melody pin */
+  .pin { display:flex; align-items:center; gap:10px; width:100%; min-width:0; padding:10px 12px; border-radius:var(--r-control); background:var(--bg-page); text-align:left; }
+  .pin b { display:block; font-weight:600; }
+  .pin .line { display:block; font-size:11px; line-height:16px; color:var(--t3); }
+  .pin.open { box-shadow:var(--shadow-sm), inset 0 0 0 1.5px var(--inverse); }
+  .count { margin-left:auto; min-width:18px; height:18px; padding:0 5px; border-radius:9px; background:var(--inverse); color:var(--on-inverse); font-size:11px; font-weight:600; display:grid; place-items:center; }
+  .kbd { margin-left:auto; font-size:11px; color:var(--t3); }
+
+  /* Sessions column (C3) */
+  .col-sessions { width:280px; background:var(--bg-3); border-radius:var(--r-panel); padding:10px; display:flex; flex-direction:column; gap:8px; }
+  .search { display:flex; gap:6px; }
+  .search .field { flex:1; height:30px; border-radius:var(--r-control); background:var(--bg-page); display:flex; align-items:center; gap:6px; padding:0 10px; color:var(--t3); font-size:12px; box-shadow:var(--shadow-sm); }
+  .icon-btn { width:30px; height:30px; border-radius:var(--r-control); display:grid; place-items:center; background:var(--bg-page); color:var(--t2); }
+  .chips { display:flex; gap:4px; flex-wrap:wrap; }
+  .chip { height:24px; padding:0 9px; border-radius:var(--r-chip); display:inline-flex; align-items:center; gap:5px; font-size:12px; color:var(--t2); background:transparent; }
+  .chip .n { color:var(--t3); font-size:11px; }
+  .chip.on { background:var(--inverse); color:var(--on-inverse); box-shadow:none; } .chip.on .n { color:inherit; opacity:.7; }
+  .day { font-size:11px; color:var(--t3); font-weight:600; padding:6px 6px 2px; display:flex; }
+  .day .sort { margin-left:auto; font-weight:500; }
+  .row { display:grid; grid-template-columns:8px 1fr auto; column-gap:8px; align-items:center; padding:7px 8px; border-radius:var(--r-control); width:100%; text-align:left; transition:background var(--motion-fast), box-shadow var(--motion-fast); }
+  .row:hover, .row.is-hover { background:var(--bg-page); box-shadow:var(--shadow-sm); }
+  .row.on { background:var(--bg-page); box-shadow:var(--shadow-sm), inset 0 0 0 2px var(--focus); }
+  .row.on .title { font-weight:600; }
+  .row .title { white-space:nowrap; overflow:hidden; text-overflow:ellipsis; color:var(--t1); }
+  .row .time { font-size:11px; color:var(--t3); }
+  .row .meta { grid-column:2 / 4; display:flex; align-items:center; gap:6px; font-size:11px; line-height:16px; color:var(--t3); }
+  .row .unread { width:6px; height:6px; border-radius:50%; background:var(--info); }
+  .row.enter { animation:land var(--motion-base) var(--ease-out) both; }
+  @keyframes land { from { opacity:0; transform:translateY(4px); } }
+  .tabs { display:grid; grid-template-columns:repeat(4,1fr); margin-top:auto; padding-top:6px; border-top:1px solid var(--hair); }
+  .tabs span { display:flex; flex-direction:column; align-items:center; gap:2px; font-size:10px; color:var(--t3); padding:4px 0; }
+  .tabs span.on { color:var(--t1); } .tabs span.on svg { fill:var(--focus); }
+  .tabs svg { width:16px; height:16px; fill:currentColor; }
+
+  /* Folded sessions strip (proposal) */
+  .strip { width:56px; background:var(--bg-3); border-radius:var(--r-panel); padding:10px 0; display:flex; flex-direction:column; align-items:center; gap:10px; }
+  .strip .s { width:32px; height:32px; border-radius:var(--r-control); display:grid; place-items:center; background:var(--bg-page); box-shadow:var(--shadow-sm); position:relative; font-size:11px; color:var(--t2); font-weight:600; }
+  .strip .s .dot { position:absolute; left:-2px; top:-2px; box-shadow:0 0 0 2px var(--bg-3); }
+
+  /* Melody — her tab's body; specimens at Work's default width */
+  .col-melody { width:480px; background:var(--bg-2); border-radius:var(--r-panel); box-shadow:var(--shadow-md); display:flex; flex-direction:column; overflow:hidden; }
+  .m-head { display:flex; align-items:center; gap:10px; padding:14px 16px 8px; }
+  .m-head b { font-size:15px; line-height:22px; font-weight:600; display:block; }
+  .m-head .line { font-size:11px; line-height:16px; color:var(--t3); }
+  .m-head .hide { margin-left:auto; }
+  .feed { padding:6px 14px 12px; display:flex; flex-direction:column; gap:10px; }
+  .you { align-self:flex-end; max-width:88%; background:var(--tint); padding:8px 12px; border-radius:var(--r-panel); border-bottom-right-radius:6px; }
+  .mel { align-self:flex-start; max-width:96%; color:var(--t1); }
+  .card { --ring:transparent; display:grid; grid-template-columns:1fr auto; column-gap:10px; align-items:start; box-shadow:var(--shadow-sm), inset 0 0 0 3px var(--ring); margin-top:8px; padding:9px 12px; border-radius:var(--r-control); background:var(--bg-page); width:100%; text-align:left; }
+  .card b { font-weight:600; font-size:12px; display:block; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
+  .card .w { font-size:11px; line-height:16px; color:var(--t3); }
+  .card .go { color:var(--t3); transition:transform var(--motion-fast) var(--ease-out), color var(--motion-fast); }
+  .card:hover .go, .card.is-hover .go { transform:translateX(2px); color:var(--t1); }
+  .card .go { margin-top:3px; }
+  .card.lift:hover, .card.lift.is-hover { box-shadow:var(--shadow-md), inset 0 0 0 3px var(--ring); }
+  .card.st-running { --ring:var(--info); } .card.st-needs { --ring:var(--warning); } .card.st-done { --ring:var(--success); } .card.st-failed { --ring:var(--danger); }
+  .typing { display:inline-flex; gap:4px; padding:6px 0; }
+  .typing i { width:6px; height:6px; border-radius:50%; background:var(--t3); animation:bob 1.2s infinite; }
+  .typing i:nth-child(2) { animation-delay:.15s; } .typing i:nth-child(3) { animation-delay:.3s; }
+  @keyframes bob { 30% { transform:translateY(-3px); opacity:1; } 0%,60%,100% { opacity:.35; } }
+  .suggest { display:flex; gap:6px; flex-wrap:wrap; padding:0 14px 8px; }
+  .suggest button { font-size:12px; padding:4px 10px; border-radius:var(--r-chip); background:var(--bg-page); color:var(--t2); }
+  .bar { margin:0 14px 8px; padding:8px 12px; border-radius:var(--r-control); background:var(--bg-page); box-shadow:var(--shadow-sm); font-size:12px; color:var(--t2); display:flex; align-items:center; gap:10px; }
+  .bar b { color:var(--t1); font-weight:600; }
+  .bar button { white-space:nowrap; flex:none; margin-left:auto; font-size:12px; padding:3px 10px; border-radius:var(--r-chip); background:var(--bg-2); color:var(--t1); }
+
+  /* Composer — Easy: attach · send */
+  .composer { background:var(--bg-page); border-radius:var(--r-panel); box-shadow:var(--shadow-md); padding:12px 12px 10px 16px; transition:transform var(--motion-base) var(--ease-out), box-shadow var(--motion-base); }
+  .composer.raised { transform:translateY(-3px); box-shadow:var(--shadow-lg); }
+  .composer .ph { color:var(--t3); font-size:15px; line-height:22px; min-height:22px; }
+  .composer .ph.typed { color:var(--t1); }
+  .c-row { display:flex; align-items:center; gap:8px; margin-top:12px; }
+  .c-row .sp { flex:1; }
+  .attach { width:30px; height:30px; border-radius:50%; display:grid; place-items:center; color:var(--t2); background:var(--bg-page); }
+  .attach svg, .disc svg { width:16px; height:16px; fill:currentColor; }
+  .disc { width:34px; height:34px; border-radius:50%; display:grid; place-items:center; color:var(--t3); background:var(--bg-page); box-shadow:var(--shadow-sm), inset 0 0 0 2px var(--disc-ring); }
+  .disc[data-armed] { background:var(--disc); color:#fff; box-shadow:var(--shadow-sm); }
+  .t-dark .disc[data-armed] { color:#1c1c1c; }
+  .disc.stop { background:var(--bg-2); color:var(--t1); box-shadow:var(--shadow-sm); }
+  .disc.stop i { width:10px; height:10px; border-radius:2px; background:currentColor; }
+  .composer.in-melody { margin:0 12px 12px; }
+
+  /* Session header + chat */
+  .col-chat { flex:1; min-width:0; background:var(--bg-page); border-radius:var(--r-panel); box-shadow:var(--shadow-md); display:flex; flex-direction:column; overflow:hidden; }
+  .s-head { display:flex; align-items:center; gap:10px; padding:12px 18px; border-bottom:1px solid var(--hair); flex-wrap:wrap; }
+  .crumb { display:flex; align-items:center; gap:6px; color:var(--t3); font-size:12px; }
+  .crumb svg { width:14px; height:14px; fill:currentColor; }
+  .s-title { font-size:15px; line-height:22px; font-weight:600; }
+  .origin { display:inline-flex; align-items:center; gap:6px; height:22px; padding:0 9px 0 4px; border-radius:var(--r-chip); background:var(--bg-2); font-size:11px; color:var(--t2); }
+  .origin.you { padding-left:9px; }
+  .status { display:inline-flex; align-items:center; gap:6px; font-size:12px; color:var(--t2); }
+  .s-head .sp { flex:1; }
+  .more { width:28px; height:28px; border-radius:var(--r-control); display:grid; place-items:center; color:var(--t3); background:var(--bg-page); }
+  .transcript { padding:18px 22px; display:flex; flex-direction:column; gap:12px; flex:1; }
+  .tool { display:inline-flex; align-items:center; gap:8px; font-size:12px; color:var(--t2); padding:5px 10px; border-radius:var(--r-control); background:var(--tint); width:max-content; }
+  .ask { border-radius:var(--r-panel); padding:12px 14px; background:var(--bg-page); box-shadow:0 0 0 1px var(--hair), var(--shadow-sm); }
+  .ask .h { display:flex; align-items:center; gap:8px; font-size:11px; color:var(--t2); font-weight:600; margin-bottom:4px; }
+  .ask .opts { display:flex; gap:8px; margin-top:10px; flex-wrap:wrap; }
+  .ask .opts button { padding:5px 12px; border-radius:var(--r-control); background:var(--bg-page); font-size:12px; }
+  .ask .opts button.primary { background:var(--inverse); color:var(--on-inverse); }
+  .handoff { display:flex; align-items:center; gap:10px; font-size:11px; color:var(--t3); }
+  .handoff::before, .handoff::after { content:""; flex:1; height:1px; background:var(--hair); }
+
+  /* Work column stub */
+  .col-work { width:240px; background:var(--bg-2); border-radius:var(--r-panel); box-shadow:var(--shadow-md); padding:8px; display:flex; flex-direction:column; gap:8px; }
+  .wtabs { display:flex; gap:4px; }
+  .wtabs span { font-size:12px; padding:4px 10px; border-radius:8px 8px 0 0; color:var(--t3); }
+  .wtabs span.on { background:var(--bg-page); color:var(--t1); }
+  .wbody { flex:1; border-radius:var(--r-control); background:var(--bg-page); }
+
+  /* Frame */
+  .frame { display:flex; gap:8px; height:560px; min-width:1200px; padding:8px; border-radius:20px; background:var(--canvas); box-shadow:var(--shadow-lg); overflow:hidden; }
+  .frame .col-sessions { flex:none; }
+  .dims { display:flex; gap:8px; margin-top:8px; font-size:11px; color:var(--t3); }
+  .dims span { text-align:center; border-top:1px solid var(--t3); padding-top:4px; }
+  .phone { width:300px; height:560px; border-radius:36px; padding:12px; background:var(--canvas); box-shadow:var(--shadow-lg); display:flex; flex-direction:column; gap:8px; }
+  .phone .screen { flex:1; border-radius:24px; overflow:hidden; display:flex; flex-direction:column; background:var(--bg-2); }
+  .prail { display:flex; justify-content:space-around; padding:6px 4px 2px; font-size:10px; color:var(--t3); }
+  .prail span { display:flex; flex-direction:column; align-items:center; gap:3px; }
+  .prail span.on { color:var(--t1); }
+
+  /* Motion demo stage */
+  .stage { display:flex; gap:8px; height:220px; align-items:stretch; }
+  .stage .col-melody { transition:width var(--motion-base) var(--ease-out), opacity var(--motion-base), margin var(--motion-base) var(--ease-out); }
+  .stage .col-melody.closed { width:0; opacity:0; margin-left:-8px; }
+  .pop { animation:pop var(--motion-base) var(--ease-out) both; }
+  @keyframes pop { from { transform:scale(0); } 70% { transform:scale(1.15); } }
+  .flash { animation:flash 900ms ease-out; }
+  @keyframes flash { 0% { box-shadow:var(--shadow-sm), inset 0 0 0 3px var(--ring), 0 0 0 0 color-mix(in srgb,var(--info) 50%,transparent); } 100% { box-shadow:var(--shadow-sm), inset 0 0 0 3px var(--ring), 0 0 0 10px transparent; } }
+
+  @media (prefers-reduced-motion: reduce) { *, *::before, *::after { animation:none !important; transition:none !important; } }
+</style>
+<style>
+  /* Desktop pass (2026-09-22): the window at true size, one theme at a time. */
+  .sheet { max-width:1480px; }
+  .col-sessions { overflow:hidden; }
+  .board { background:var(--bg-3); }
+  body.t-dark .board { background:#141414; }
+  .ctl { display:flex; flex-wrap:wrap; align-items:center; gap:6px; margin:0 0 12px; }
+  .ctl .replay.on { background:var(--inverse); color:var(--on-inverse); }
+  .ctl input[type=range] { width:220px; accent-color:var(--inverse); }
+  .ctl .sep { width:1px; height:18px; background:var(--hair); margin:0 6px; }
+  .ctl label { display:inline-flex; align-items:center; gap:6px; font-size:12px; color:var(--t2); cursor:pointer; }
+  .win-fit { position:relative; overflow:hidden; border-radius:14px; }
+  .win { position:absolute; left:0; top:0; transform-origin:top left; background:var(--canvas); border-radius:12px; display:flex; flex-direction:column; box-shadow:var(--shadow-lg); }
+  .titlebar { height:32px; flex:none; display:flex; align-items:center; gap:8px; padding:0 14px; color:var(--t3); }
+  .titlebar i { width:12px; height:12px; border-radius:50%; display:inline-block; }
+  .cols { flex:1; min-height:0; display:flex; gap:8px; padding:0 8px 8px; }
+  .cols > * { flex:none; height:auto !important; min-height:0; transition:width var(--motion-base) var(--ease-out); }
+  .cols > .col-chat { flex:1; }
+  .col-melody .feed { overflow:hidden; }
+  .readout { display:flex; flex-wrap:wrap; gap:8px 18px; margin-top:12px; font-size:12px; color:var(--t2); }
+  .readout b { color:var(--t1); font-weight:600; }
+  .readout .step { padding:2px 8px; border-radius:var(--r-chip); background:var(--bg-page); box-shadow:var(--shadow-sm); }
+  .readout .warn { color:var(--danger); }
+  .col-work { padding:0; overflow:hidden; }
+  .col-work .wtabs { padding:8px 8px 0; background:var(--bg-2); }
+  .col-work .wbody { margin:0; border-radius:0; padding:12px 14px; font:500 12px/20px var(--mono); color:var(--t2); overflow:hidden; }
+  .col-work .add { color:var(--diff-add); } .col-work .del { color:var(--danger); } .col-work .hunk { color:var(--t3); }
+  .cols .strip { height:auto; }
+  .tip { position:relative; display:inline-block; }
+  .tip .bubble { position:absolute; left:-6px; bottom:calc(100% + 8px); white-space:nowrap; background:var(--t1); color:var(--bg-page); font-size:12px; padding:5px 9px; border-radius:8px; box-shadow:var(--shadow-lg); }
+  .menu { width:240px; background:var(--bg-page); border-radius:var(--r-control); box-shadow:var(--shadow-lg); padding:5px; }
+  .menu div { display:flex; align-items:center; padding:6px 9px; border-radius:8px; font-size:13px; }
+  .menu div:hover, .menu div.is-hover { background:var(--bg-2); }
+  .menu div span { margin-left:auto; color:var(--t3); font-size:11px; }
+  .menu hr { border:0; border-top:1px solid var(--hair); margin:4px 2px; }
+  .menu .danger { color:var(--danger); }
+  .seam-stage { display:flex; gap:0; height:300px; }
+  .seam { width:12px; flex:none; cursor:col-resize; display:grid; place-items:center; }
+  .seam::after { content:""; width:2px; height:48px; border-radius:2px; background:var(--hair); transition:background var(--motion-fast), height var(--motion-fast); }
+  .seam:hover::after, .seam.drag::after { background:var(--focus); height:96px; }
+  .keys { display:inline-flex; gap:4px; }
+  .keys kbd { font:600 12px/1 var(--sans); padding:5px 8px; border-radius:6px; background:var(--bg-page); box-shadow:var(--shadow-sm), inset 0 -1px 0 var(--hair); color:var(--t1); }
+  #pin .pin, #interact .pin { width:248px; }
+  .ladder { display:grid; grid-template-columns:repeat(4,minmax(0,1fr)); gap:14px; }
+  @media (max-width:1000px) { .ladder { grid-template-columns:1fr; } }
+  .tier { background:var(--bg-page); border-radius:var(--r-panel); box-shadow:var(--shadow-sm); padding:14px 16px; }
+  .tier h3 { margin:0 0 2px; font-size:13px; font-weight:600; }
+  .tier p { margin:0 0 10px; font-size:12px; color:var(--t2); }
+  .sw { display:grid; grid-template-columns:36px 1fr; gap:4px 10px; align-items:center; margin-top:8px; font-size:12px; }
+  .sw i { width:36px; height:36px; border-radius:10px; box-shadow:0 0 0 .5px rgba(0,0,0,.12); }
+  .sw b { font-weight:600; display:block; } .sw span { color:var(--t3); font-size:11px; }
+  .marks { display:flex; gap:14px; align-items:center; }
+  .ground { width:200px; height:160px; border-radius:var(--r-panel); display:grid; place-items:center; }
+  .focusring { outline:none; box-shadow:var(--shadow-sm), 0 0 0 2px var(--bg-page), 0 0 0 3px var(--focus-edge), 0 0 0 5px var(--focus); }
+</style>
+<style>
+  /* Components sheet (2026-09-22). Everything below reads the reference's tokens. */
+  .tip { position:relative; display:inline-block; }
+  .tip .bubble { position:absolute; left:-6px; bottom:calc(100% + 8px); white-space:nowrap; background:var(--t1); color:var(--bg-page); font-size:12px; padding:5px 9px; border-radius:8px; box-shadow:var(--shadow-lg); }
+  .menu { width:240px; background:var(--bg-page); border-radius:var(--r-control); box-shadow:var(--shadow-lg); padding:5px; }
+  .menu div { display:flex; align-items:center; padding:6px 9px; border-radius:8px; font-size:13px; }
+  .menu div:hover, .menu div.is-hover { background:var(--bg-2); }
+  .menu div span { margin-left:auto; color:var(--t3); font-size:11px; }
+  .menu hr { border:0; border-top:1px solid var(--hair); margin:4px 2px; }
+  .menu .danger { color:var(--danger); }
+  .keys { display:inline-flex; gap:4px; }
+  .keys kbd { font:600 12px/1 var(--sans); padding:5px 8px; border-radius:6px; background:var(--bg-page); box-shadow:var(--shadow-sm), inset 0 -1px 0 var(--hair); color:var(--t1); }
+  .focusring { outline:none; box-shadow:var(--shadow-sm), 0 0 0 2px var(--bg-page), 0 0 0 3px var(--focus-edge), 0 0 0 5px var(--focus); }
+  .sheet { max-width:1480px; }
+  .board { background:var(--bg-3); }
+  body.t-dark .board { background:#141414; }
+  .grid2 { display:grid; grid-template-columns:repeat(2,minmax(0,1fr)); gap:14px; }
+  .grid3 { display:grid; grid-template-columns:repeat(3,minmax(0,1fr)); gap:14px; }
+  @media (max-width:1100px) { .grid2, .grid3 { grid-template-columns:1fr; } }
+  .panel { background:var(--bg-page); border-radius:var(--r-panel); box-shadow:var(--shadow-sm); padding:16px 18px; }
+  .panel > h3 { margin:0 0 2px; font-size:13px; font-weight:600; }
+  .panel > .cap { display:block; margin:0 0 12px; }
+  .line { display:flex; flex-wrap:wrap; align-items:center; gap:10px; margin:8px 0; }
+  .lbl { width:92px; flex:none; font-size:11px; color:var(--t3); }
+
+  /* Buttons */
+  .b { height:32px; padding:0 14px; border-radius:var(--r-control); display:inline-flex; align-items:center; gap:7px; font-size:13px; font-weight:500; white-space:nowrap; }
+  .b svg { width:16px; height:16px; fill:currentColor; }
+  .b.sm { height:26px; padding:0 10px; font-size:12px; border-radius:9px; } .b.sm svg { width:14px; height:14px; }
+  .b.primary { background:var(--inverse); color:var(--on-inverse); }
+  .b.secondary { background:var(--bg-page); color:var(--t1); }
+  .b.ghost { background:transparent; color:var(--t2); box-shadow:none; }
+  .b.ghost:hover, .b.ghost.is-hover { background:var(--bg-2); color:var(--t1); transform:none; box-shadow:none; }
+  .b.danger { background:var(--bg-page); color:var(--danger); }
+  .b.link { background:none; box-shadow:none; color:var(--blue); padding:0 2px; height:auto; }
+  .b.link:hover { text-decoration:underline; transform:none; box-shadow:none; }
+  .b[disabled], .b.is-disabled { opacity:.45; box-shadow:none; transform:none; cursor:default; }
+  .b.loading .spin { width:14px; height:14px; border-radius:50%; border:2px solid currentColor; border-right-color:transparent; animation:spin .8s linear infinite; }
+  @keyframes spin { to { transform:rotate(360deg); } }
+  .why { font-size:11px; color:var(--t3); }
+  .ib { width:32px; height:32px; border-radius:var(--r-control); display:grid; place-items:center; background:var(--bg-page); color:var(--t2); }
+  .ib svg { width:16px; height:16px; fill:currentColor; }
+  .ib.ghost { box-shadow:none; background:transparent; } .ib.ghost:hover { background:var(--bg-2); transform:none; box-shadow:none; }
+
+  /* Controls */
+  .fchip { height:26px; padding:0 10px; border-radius:var(--r-chip); display:inline-flex; align-items:center; gap:6px; font-size:12px; color:var(--t2); background:var(--bg-page); }
+  .fchip.on { background:var(--inverse); color:var(--on-inverse); }
+  .fchip .n { color:inherit; opacity:.6; font-size:11px; }
+  .fchip.mono { font-family:var(--mono); font-size:11.5px; }
+  .fchip svg { width:14px; height:14px; fill:currentColor; }
+  .seg { display:inline-flex; padding:3px; gap:2px; border-radius:var(--r-chip); background:var(--bg-2); box-shadow:inset 0 1px 2px rgba(0,0,0,.08); }
+  .seg span { height:26px; padding:0 12px; border-radius:var(--r-chip); display:inline-flex; align-items:center; font-size:12px; color:var(--t2); }
+  .seg span.on { background:var(--bg-page); color:var(--t1); box-shadow:var(--shadow-sm); }
+  .field { height:34px; min-width:220px; border-radius:var(--r-control); background:var(--bg-page); box-shadow:inset 0 0 0 1px var(--hair); display:flex; align-items:center; gap:8px; padding:0 12px; color:var(--t3); font-size:13px; }
+  .field svg { width:14px; height:14px; fill:currentColor; }
+  .field.typed { color:var(--t1); }
+  .field.focus { box-shadow:0 0 0 1px var(--focus-edge), 0 0 0 3px var(--focus); }
+  .field.err { box-shadow:inset 0 0 0 1px var(--danger); }
+  .errline { font-size:11px; color:var(--danger); display:flex; align-items:center; gap:6px; }
+  .select { justify-content:space-between; color:var(--t1); }
+  .sw-t { width:34px; height:20px; border-radius:999px; background:var(--bg-2); box-shadow:inset 0 0 0 1px var(--hair); position:relative; flex:none; }
+  .sw-t::after { content:""; position:absolute; top:2px; left:2px; width:16px; height:16px; border-radius:50%; background:var(--bg-page); box-shadow:var(--shadow-sm); transition:left var(--motion-base) var(--ease-out); }
+  .sw-t.on { background:var(--inverse); box-shadow:none; } .sw-t.on::after { left:16px; }
+  .chk { width:16px; height:16px; border-radius:5px; box-shadow:inset 0 0 0 1.5px var(--t3); display:grid; place-items:center; flex:none; }
+  .chk.on { background:var(--inverse); box-shadow:none; color:var(--on-inverse); } .chk svg { width:12px; height:12px; fill:currentColor; }
+  .rad { width:16px; height:16px; border-radius:50%; box-shadow:inset 0 0 0 1.5px var(--t3); flex:none; }
+  .rad.on { box-shadow:inset 0 0 0 5px var(--inverse); }
+  .opt { display:inline-flex; align-items:center; gap:8px; font-size:13px; }
+  .ttip { display:inline-block; background:var(--t1); color:var(--bg-page); font-size:12px; padding:5px 9px; border-radius:8px; box-shadow:var(--shadow-lg); }
+  .wtabs2 { display:flex; align-items:flex-end; gap:2px; padding:6px 8px 0; background:var(--bg-2); border-radius:12px 12px 0 0; }
+  .wtab { display:inline-flex; align-items:center; gap:7px; height:32px; padding:0 12px; border-radius:10px 10px 0 0; font-size:13px; color:var(--t2); }
+  .wtab svg { width:14px; height:14px; fill:currentColor; }
+  .wtab.on { background:var(--bg-page); color:var(--t1); } .wtab.on svg { fill:var(--focus); }
+  .wtab .x { opacity:.5; margin-left:2px; }
+  .wtab .udot { width:6px; height:6px; border-radius:50%; background:var(--info); }
+  .toast { display:inline-flex; align-items:center; gap:12px; background:var(--t1); color:var(--bg-page); padding:9px 12px 9px 14px; border-radius:var(--r-control); box-shadow:var(--shadow-lg); font-size:13px; }
+  .toast .b { height:26px; padding:0 10px; font-size:12px; background:transparent; color:inherit; box-shadow:inset 0 0 0 1px rgba(127,127,127,.4); }
+  .dialog { width:380px; background:var(--bg-page); border-radius:var(--r-panel); box-shadow:var(--shadow-lg); padding:18px 18px 14px; }
+  .dialog h4 { margin:0 0 4px; font-size:15px; font-weight:600; }
+  .dialog p { margin:0 0 16px; color:var(--t2); }
+  .dialog .acts { display:flex; justify-content:flex-end; gap:8px; }
+  .scrim { padding:28px; border-radius:var(--r-panel); background:rgba(20,20,18,.28); display:flex; justify-content:center; }
+  .skel { height:10px; border-radius:6px; background:linear-gradient(90deg,var(--bg-2),var(--bg-3),var(--bg-2)); background-size:200% 100%; animation:shimmer 1.4s linear infinite; }
+  @keyframes shimmer { to { background-position:-200% 0; } }
+  .ring { width:34px; height:34px; border-radius:50%; display:grid; place-items:center; }
+  .statusw { display:inline-flex; align-items:center; gap:6px; font-size:12px; color:var(--t2); }
+
+  /* Chat widgets */
+  .thread { background:var(--bg-page); border-radius:var(--r-panel); box-shadow:var(--shadow-md); padding:22px 26px; display:flex; flex-direction:column; gap:14px; }
+  .reply { line-height:22px; font-size:13.5px; }
+  .reply p { margin:0 0 8px; }
+  .reply a { color:var(--blue); text-decoration:none; } .reply a:hover { text-decoration:underline; }
+  .reply code { font-family:var(--mono); font-size:12px; background:var(--bg-2); padding:1px 5px; border-radius:5px; }
+  .codeblk { background:var(--bg-2); border-radius:var(--r-control); overflow:hidden; font:500 12px/19px var(--mono); }
+  .codeblk .h { display:flex; align-items:center; padding:6px 10px; font-family:var(--sans); font-size:11px; color:var(--t3); border-bottom:1px solid var(--hair); }
+  .codeblk .h .sp { flex:1; } .codeblk .h svg { width:14px; height:14px; fill:currentColor; }
+  .codeblk pre { margin:0; padding:10px 12px; color:var(--t1); }
+  .codeblk .k { color:#ae81ff; } .codeblk .s { color:#2f8f5b; } .t-dark .codeblk .s { color:#e6db74; } .codeblk .c { color:var(--t3); }
+  .trow { display:flex; align-items:center; gap:8px; font-size:12px; color:var(--t2); padding:6px 10px; border-radius:var(--r-control); background:var(--tint); width:max-content; max-width:100%; }
+  .trow svg { width:14px; height:14px; fill:currentColor; }
+  .trow .mono { color:var(--t1); }
+  .trow .dur { color:var(--t3); font-size:11px; }
+  .trow.running { background:var(--bg-page); box-shadow:var(--shadow-md), inset 0 0 0 2px var(--info); }
+  .trow.failed { box-shadow:inset 0 0 0 2px var(--danger); background:var(--bg-page); }
+  .tgroup { display:flex; flex-direction:column; gap:4px; }
+  .wcard { border-radius:var(--r-panel); background:var(--bg-page); box-shadow:var(--shadow-sm), inset 0 0 0 3px var(--ring); padding:12px 14px; --ring:transparent; }
+  .wcard.st-running { --ring:var(--info); box-shadow:var(--shadow-md), inset 0 0 0 3px var(--ring); }
+  .wcard.st-needs { --ring:var(--warning); } .wcard.st-done { --ring:var(--success); } .wcard.st-failed { --ring:var(--danger); }
+  .wcard .hd { display:flex; align-items:center; gap:8px; margin-bottom:6px; }
+  .wcard .hd b { font-weight:600; } .wcard .hd .w { margin-left:auto; font-size:11px; color:var(--t3); }
+  .wcard .hd svg { width:16px; height:16px; fill:currentColor; color:var(--t2); }
+  .wcard .body { color:var(--t2); font-size:13px; }
+  .wcard .acts { display:flex; gap:8px; margin-top:12px; flex-wrap:wrap; align-items:center; }
+  .diff { font:500 12px/19px var(--mono); border-radius:10px; background:var(--bg-2); overflow:hidden; margin-top:4px; }
+  .diff div { padding:0 12px; } .diff .a { background:color-mix(in srgb,var(--diff-add) 14%,transparent); } .diff .d { background:color-mix(in srgb,var(--danger) 12%,transparent); } .diff .hh { color:var(--t3); padding-top:4px; }
+  .worker { display:grid; grid-template-columns:8px 1fr auto; column-gap:10px; align-items:center; padding:8px 10px; border-radius:var(--r-control); background:var(--bg-2); font-size:12px; }
+  .worker b { font-weight:600; font-size:13px; } .worker .m { grid-column:2 / 4; color:var(--t3); font-size:11px; }
+  .divider { display:flex; align-items:center; gap:10px; font-size:11px; color:var(--t3); }
+  .divider::before, .divider::after { content:""; flex:1; height:1px; background:var(--hair); }
+  .todo { display:flex; flex-direction:column; gap:6px; font-size:13px; }
+  .todo div { display:flex; align-items:center; gap:8px; }
+  .todo .done { color:var(--t3); text-decoration:line-through; }
+  .quote { border-radius:10px; background:var(--bg-2); font:500 12px/19px var(--mono); overflow:hidden; }
+  .quote .h { font-family:var(--sans); font-size:11px; color:var(--t3); padding:5px 10px; border-bottom:1px solid var(--hair); }
+  .quote pre { margin:0; padding:8px 10px; }
+  .imgatt { width:180px; height:112px; border-radius:var(--r-control); background:repeating-linear-gradient(45deg,var(--bg-2),var(--bg-2) 8px,var(--bg-3) 8px,var(--bg-3) 16px); box-shadow:var(--shadow-sm); display:grid; place-items:end start; padding:8px; font-size:11px; color:var(--t2); }
+  .changesbar { display:flex; align-items:center; gap:10px; padding:8px 12px; border-radius:var(--r-control); background:var(--bg-page); box-shadow:var(--shadow-sm); font-size:12px; color:var(--t2); }
+  .changesbar b { color:var(--t1); font-weight:600; } .changesbar .add { color:var(--diff-add); } .changesbar .del { color:var(--danger); } .changesbar .sp { flex:1; }
+  .usage { width:34px; height:34px; border-radius:50%; display:grid; place-items:center; background:conic-gradient(var(--t1) 0 62%, var(--hair) 62% 100%); }
+  .usage i { width:28px; height:28px; border-radius:50%; background:var(--bg-page); display:grid; place-items:center; color:var(--t2); }
+  .usage svg { width:14px; height:14px; fill:currentColor; }
+
+  /* Panes */
+  .pane { background:var(--bg-page); border-radius:var(--r-panel); box-shadow:var(--shadow-md); overflow:hidden; display:flex; flex-direction:column; height:520px; }
+  .pane .tb { display:flex; align-items:center; gap:6px; padding:8px 10px; background:var(--bg-2); border-bottom:1px solid var(--hair); }
+  .addr { flex:1; height:30px; border-radius:var(--r-chip); background:var(--bg-page); box-shadow:inset 0 0 0 1px var(--hair); display:flex; align-items:center; gap:8px; padding:0 12px; font-size:12px; color:var(--t2); min-width:0; }
+  .addr .host { color:var(--t1); } .addr svg { width:14px; height:14px; fill:currentColor; color:var(--t3); }
+  .site { flex:1; padding:22px 26px; background:#ffffff; color:#1e1d1a; overflow:hidden; font-family:-apple-system,system-ui,sans-serif; }
+  .site .nav { display:flex; gap:18px; font-size:12px; color:#6f6c64; margin-bottom:28px; } .site .nav b { color:#1e1d1a; margin-right:auto; }
+  .site h5 { font-size:26px; line-height:1.15; margin:0 0 10px; font-weight:700; letter-spacing:-.01em; }
+  .site p { color:#5a5851; font-size:13px; margin:0 0 16px; max-width:420px; }
+  .site .hero { height:150px; border-radius:12px; background:linear-gradient(135deg,#e9e6de,#f8f7f3); }
+  .md { flex:1; display:grid; grid-template-columns:180px 1fr; overflow:hidden; }
+  .mdtoc { padding:16px 12px; border-right:1px solid var(--hair); background:var(--bg-2); font-size:12px; }
+  .mdtoc .t { font-size:11px; color:var(--t3); font-weight:600; margin-bottom:8px; }
+  .mdtoc a { display:block; padding:4px 8px; border-radius:8px; color:var(--t2); text-decoration:none; }
+  .mdtoc a.on { background:var(--bg-page); color:var(--t1); box-shadow:var(--shadow-sm), inset 0 0 0 2px var(--focus); font-weight:600; }
+  .mdtoc a.l2 { padding-left:18px; }
+  .doc { padding:20px 28px; overflow:hidden; line-height:22px; }
+  .doc h1 { font-size:20px; line-height:28px; margin:0 0 6px; font-weight:600; }
+  .doc h2 { font-size:15px; margin:18px 0 6px; }
+  .doc p { margin:0 0 10px; color:var(--t1); }
+  .doc ul { margin:0 0 10px; padding-left:20px; } .doc li::marker { color:var(--t3); }
+  .doc blockquote { margin:0 0 10px; padding:6px 12px; border-radius:10px; background:var(--bg-2); color:var(--t2); }
+  .doc table { border-collapse:collapse; font-size:12px; margin-bottom:10px; } .doc td, .doc th { padding:5px 10px; border-bottom:1px solid var(--hair); text-align:left; } .doc th { color:var(--t3); font-weight:600; }
+  .sel { background:color-mix(in srgb,var(--focus) 30%,transparent); border-radius:3px; }
+  .addpill { display:inline-flex; align-items:center; gap:6px; height:26px; padding:0 10px; border-radius:var(--r-chip); background:var(--inverse); color:var(--on-inverse); font-size:12px; box-shadow:var(--shadow-md); vertical-align:middle; margin-left:6px; }
+  .term { flex:1; background:#1c1c1c; color:#f8f8f2; font:500 12px/19px var(--mono); padding:12px 14px; overflow:hidden; }
+  .t-light .term.light { background:#fbfaf7; color:#1e1d1a; }
+  .term .p { color:#a6e22e; } .term .d2 { color:#7a7a72; } .term .r { color:#f92672; } .term .y { color:#e6db74; } .term .c { color:#66d9ef; }
+  .t-light .term.light .p { color:#2f8f5b; } .t-light .term.light .r { color:#c23b3b; } .t-light .term.light .y { color:#a16207; } .t-light .term.light .c { color:#0b7a72; } .t-light .term.light .d2 { color:#6f6c64; }
+  .cursor { display:inline-block; width:7px; height:14px; background:currentColor; vertical-align:-2px; animation:blink 1s steps(1) infinite; }
+  @keyframes blink { 50% { opacity:0; } }
+  .keybar { display:flex; gap:6px; padding:8px 10px; background:var(--bg-2); border-top:1px solid var(--hair); }
+  .keybar span { font:600 11px/1 var(--sans); padding:6px 9px; border-radius:7px; background:var(--bg-page); box-shadow:var(--shadow-sm); color:var(--t2); }
+  .termsend { position:absolute; right:14px; top:52px; }
+
+  /* Melody vs session */
+  .vs { display:grid; grid-template-columns:480px minmax(0,1fr); gap:14px; align-items:stretch; }
+  .vs .col-melody, .vs .col-chat { height:640px; }
+  .diffs td:first-child { width:170px; }
+</style>
+<style>
+  /* Hover (user pick B, 2026-09-22): the 1 px lift and shadow-md, plus a 4 px light-teal outline outside the edge.
+     Ghost buttons, menu items and tabs keep a wash; they sit inside something that already floats. */
+  .lift:hover, .lift.is-hover { transform:translateY(-1px); box-shadow:var(--shadow-md), 0 0 0 4px var(--focus); }
+  .card { --hover:var(--focus); } .card.st-running, .card.st-needs, .card.st-done, .card.st-failed { --hover:var(--ring); }
+  .card.lift:hover, .card.lift.is-hover { box-shadow:var(--shadow-md), inset 0 0 0 3px var(--ring), 0 0 0 4px var(--hover); }
+  .row:hover, .row.is-hover { background:var(--bg-page); box-shadow:var(--shadow-sm), 0 0 0 4px var(--focus); }
+  .row.on:hover, .row.on.is-hover { box-shadow:var(--shadow-sm), inset 0 0 0 2px var(--focus), 0 0 0 4px var(--focus); }
+  .lift:active, .lift.is-press { transform:none; box-shadow:var(--shadow-sm), 0 0 0 4px var(--focus); transition-duration:var(--motion-press); }
+  /* Three panels (user, 2026-09-22): the Work column holds a pane over Melody. */
+  .col-right { display:flex; flex-direction:column; min-height:0; }
+  .col-right > * { flex:1 1 0; min-height:0; height:auto !important; }
+  .col-right .col-melody, .col-right .col-work { width:auto !important; }
+  .col-right .hseam { flex:0 0 8px; }
+  .seam.h { width:auto; height:12px; flex:0 0 12px; cursor:row-resize; }
+  .seam.h::after { width:48px; height:2px; }
+  .seam.h:hover::after, .seam.h.drag::after { width:96px; height:2px; }
+  .seam-stage { height:auto; }
+  .stage .col-right .col-melody { transition:flex-grow var(--motion-base) var(--ease-out), opacity var(--motion-base), margin var(--motion-base) var(--ease-out); margin-top:8px; }
+  .stage .col-right .col-melody.closed { flex-grow:0 !important; opacity:0; width:auto; margin:0; }
+  /* Settings (2026-09-22) */
+  .set-win { display:grid; grid-template-columns:248px minmax(0,1fr); gap:8px; height:680px; padding:8px; border-radius:20px; background:var(--canvas); box-shadow:var(--shadow-lg); }
+  .set-nav { background:var(--bg-3); border-radius:var(--r-panel); padding:10px; display:flex; flex-direction:column; gap:2px; }
+  .set-nav .hd { display:flex; align-items:center; gap:8px; padding:6px 8px 10px; font-weight:600; }
+  .set-nav .hd svg { width:16px; height:16px; fill:currentColor; }
+  .set-nav button { display:flex; align-items:center; gap:10px; padding:8px 10px; border-radius:var(--r-control); text-align:left; color:var(--t2); font-size:13px; transition:background var(--motion-fast), box-shadow var(--motion-fast); }
+  .set-nav button svg { width:16px; height:16px; fill:currentColor; flex:none; }
+  .set-nav button:hover { background:var(--bg-page); box-shadow:var(--shadow-sm), 0 0 0 4px var(--focus); color:var(--t1); }
+  .set-nav button.on { background:var(--bg-page); color:var(--t1); font-weight:600; box-shadow:var(--shadow-sm), inset 0 0 0 2px var(--focus); }
+  .set-nav button.on svg { fill:var(--t1); }
+  .set-nav .sp { flex:1; }
+  .set-nav .ver { font-size:11px; color:var(--t3); padding:6px 10px; }
+  .set-main { background:var(--bg-page); border-radius:var(--r-panel); box-shadow:var(--shadow-md); overflow:auto; padding:22px 28px; }
+  .set-main.swap > * { animation:swap var(--motion-base) var(--ease-out) both; }
+  @keyframes swap { from { opacity:0; transform:translateY(6px); } }
+  .set-main h3 { margin:0; font-size:20px; line-height:28px; font-weight:600; display:flex; align-items:center; gap:10px; }
+  .set-main > p { margin:2px 0 18px; color:var(--t2); }
+  .sgroup { margin:0 0 18px; }
+  .sgroup > .t { font-size:11px; font-weight:600; color:var(--t3); margin:0 0 6px 2px; }
+  .sgroup > .box { background:var(--bg-page); border-radius:var(--r-control); box-shadow:0 0 0 1px var(--hair), var(--shadow-sm); }
+  .srow { display:flex; align-items:center; gap:16px; padding:12px 14px; border-top:1px solid var(--hair); }
+  .srow:first-child { border-top:0; }
+  .srow .l { flex:1; min-width:0; }
+  .srow .l b { display:block; font-weight:500; }
+  .srow .l span { display:block; font-size:12px; color:var(--t3); }
+  .srow .seat { display:flex; align-items:center; gap:10px; flex:1; }
+  .qr { width:96px; height:96px; border-radius:10px; background:#fff; box-shadow:0 0 0 1px var(--hair); display:grid; place-items:center; }
+  .qr i { width:72px; height:72px; background:repeating-conic-gradient(#101010 0 25%, #fff 0 50%) 0 0/12px 12px; border-radius:4px; }
+  /* Wide screens (proposal, 2026-09-22): the chat keeps a 760 px measure, centred. */
+  .cols .col-chat .transcript { padding-left:max(22px, calc((100% - 760px) / 2)); padding-right:max(22px, calc((100% - 760px) / 2)); }
+  .cols .col-chat > div:last-child { padding-left:max(18px, calc((100% - 760px) / 2)) !important; padding-right:max(18px, calc((100% - 760px) / 2)) !important; }
+  .cols .col-chat .s-head { padding-left:max(18px, calc((100% - 796px) / 2)); padding-right:max(18px, calc((100% - 796px) / 2)); }
+  /* Work = two tabbed panels (user, 2026-09-22). */
+  .col-right { gap:8px; }
+  .tpanel { display:flex; flex-direction:column; flex:1 1 0; min-height:0; background:var(--bg-page); border-radius:var(--r-panel); box-shadow:var(--shadow-md); overflow:hidden; }
+  .tpanel .wtabs2 { border-radius:0; flex:none; }
+  .tpanel .wtab { cursor:pointer; white-space:nowrap; }
+  .tpanel .wtab .x { cursor:pointer; width:12px; height:12px; }
+  .tpanel .wtab .emblem.sm { box-shadow:0 0 0 .5px rgba(0,0,0,.15); }
+  .tpanel .end { margin-left:auto; display:flex; gap:2px; align-self:center; padding-bottom:3px; }
+  .tpanel .ib.sm { width:26px; height:26px; border-radius:8px; } .tpanel .ib.sm svg { width:14px; height:14px; }
+  .tbody { flex:1; min-height:0; overflow:hidden; display:flex; flex-direction:column; }
+  .tbody > * { flex:1; min-height:0; }
+  .tbody .col-melody { width:auto !important; height:auto !important; box-shadow:none; border-radius:0; }
+  .diff-body { padding:12px 14px; font:500 12px/20px var(--mono); color:var(--t2); }
+  .diff-body .add { color:var(--diff-add); } .diff-body .del { color:var(--danger); } .diff-body .hunk { color:var(--t3); }
+  [data-work-toggle][aria-pressed="true"] { color:var(--t1); }
+  /* No gaps between panels (user, 2026-09-22): they meet edge to edge, divided by one hairline. */
+  #win .cols { gap:0; padding:0; border-top:1px solid var(--hair); }
+  #win .cols > * { border-radius:0 !important; box-shadow:none !important; }
+  #win .cols > * + * { border-left:1px solid var(--hair); }
+  #win .col-right { gap:0; }
+  #win .tpanel { border-radius:0; box-shadow:none; }
+  #win .tpanel + .tpanel { border-top:1px solid var(--hair); }
+  #win .strip { border-radius:0; }
+  #win { overflow:hidden; }
+  .tbody .m-head .emblem, .tbody .m-head b { display:none; }
+  .tbody .m-head { padding:10px 16px 2px; }
+  /* Melody's friends (user, 2026-09-22): a project manager per repository, each with a family mark. */
+  .friends { display:flex; flex-direction:column; gap:4px; }
+  .friend { display:flex; align-items:center; gap:10px; width:100%; padding:7px 10px; border-radius:var(--r-control); background:transparent; text-align:left; box-shadow:none; }
+  .friend .emblem.fr { width:22px; height:22px; border-radius:6px; } .friend .emblem.fr svg { width:13px; height:13px; }
+  .friend .fl { flex:1; min-width:0; }
+  .friend b { display:block; font-weight:600; font-size:13px; line-height:18px; }
+  .friend .line { display:block; font-size:11px; line-height:15px; color:var(--t3); white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
+  .friend.on { background:var(--bg-page); box-shadow:var(--shadow-sm), inset 0 0 0 2px var(--focus); }
+  .family { display:grid; grid-template-columns:repeat(4, minmax(0,1fr)); gap:14px; }
+  .family .fm { background:var(--bg-page); border-radius:var(--r-panel); box-shadow:var(--shadow-sm); padding:18px; display:flex; flex-direction:column; align-items:center; gap:10px; text-align:center; }
+  .family .emblem.lg { width:72px; height:72px; border-radius:18px; } .family .emblem.lg svg { width:48px; height:48px; }
+  .family b { font-size:15px; font-weight:600; } .family .cap { max-width:220px; }
+  .wtabs2 .end { margin-left:auto; display:flex; gap:2px; align-self:center; padding-bottom:3px; }
+  .wtabs2 .ib.sm { width:26px; height:26px; border-radius:8px; } .wtabs2 .ib.sm svg { width:14px; height:14px; }
+  .strip .emblem { width:32px; height:32px; border-radius:9px; } .strip .emblem svg { width:18px; height:18px; }
+  /* The family, working (picked 2026-09-23, motion proposal 01). */
+  .emblem svg rect { transform-box:fill-box; transform-origin:center; }
+  .emblem.working .mk-mel .r1, .emblem.working .mk-mel .r3 { animation:mkSide 1.8s cubic-bezier(.45,0,.55,1) infinite; }
+  .emblem.working .mk-mel .r2 { animation:mkCentre 1.8s cubic-bezier(.45,0,.55,1) infinite; }
+  @keyframes mkSide { 0%,100% { y:7.5px; height:9px; } 50% { y:4.5px; height:15px; } }
+  @keyframes mkCentre { 0%,100% { y:2.5px; height:19px; } 50% { y:5.5px; height:13px; } }
+  .emblem.working .mk-har .r1 { animation:mkCall 1.6s cubic-bezier(.45,0,.2,1) infinite; } .emblem.working .mk-har .r2 { animation:mkAnswer 1.6s cubic-bezier(.45,0,.2,1) infinite; }
+  @keyframes mkCall { 0%,50%,100% { transform:translateY(0); } 20% { transform:translateY(-2.5px); } }
+  @keyframes mkAnswer { 0%,50%,100% { transform:translateY(0); } 70% { transform:translateY(-2.5px); } }
+  .emblem.working .mk-tem rect { animation:mkTick 1.2s steps(1) infinite; } .emblem.working .mk-tem .r2 { animation-delay:.4s; } .emblem.working .mk-tem .r3 { animation-delay:.8s; }
+  @keyframes mkTick { 0% { opacity:1; } 33%,100% { opacity:.3; } }
+  .emblem.working .mk-cho .r2, .emblem.working .mk-cho .r3 { animation:mkNotes 1.6s var(--ease-out) infinite; } .emblem.working .mk-cho .r1 { animation:mkRoot 1.6s var(--ease-out) infinite; }
+  @keyframes mkNotes { 0%,100% { transform:scale(1); } 20% { transform:scale(1.18); } }
+  @keyframes mkRoot { 0%,30%,100% { opacity:1; } 45% { opacity:.55; } }
+  /* UX review fixes (Codex, 2026-09-23) */
+  .col-melody .feed { flex:1; min-height:0; overflow:auto; }
+  .row .meta .stw.needs { color:var(--t1); font-weight:600; } .row .meta .stw.failed { color:var(--danger); font-weight:600; }
+  .row.on, .row.on:hover, .row.on.is-hover { box-shadow:var(--shadow-sm), inset 0 0 0 1px var(--focus-edge), inset 0 0 0 3px var(--focus); }
+  .friend.on { box-shadow:var(--shadow-sm), inset 0 0 0 1px var(--focus-edge), inset 0 0 0 3px var(--focus); }
+  .set-nav button.on { box-shadow:var(--shadow-sm), inset 0 0 0 1px var(--focus-edge), inset 0 0 0 3px var(--focus); }
+  .mdtoc a.on { box-shadow:var(--shadow-sm), inset 0 0 0 1px var(--focus-edge), inset 0 0 0 3px var(--focus); }
+  .friends { gap:0; } .friend { padding:4px 10px; } .friend b { line-height:17px; } .friend .line { line-height:14px; } .friend .emblem.fr { width:20px; height:20px; }
+  .wtab .x { opacity:1; color:var(--t2); }
+  .tabscroll { display:flex; align-items:flex-end; gap:2px; overflow-x:auto; scrollbar-width:none; min-width:0; flex:1; }
+  .tabscroll::-webkit-scrollbar { display:none; }
+  .tabscroll > .wtab { flex:none; }
+  .tpanel .wtab .tl { max-width:120px; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
+  .tpanel .wtab:focus-visible { outline:none; box-shadow:0 0 0 1px var(--focus-edge), 0 0 0 3px var(--focus); }
+  .wtab .tx { width:24px; height:24px; margin:0 -6px 0 0; border-radius:6px; display:grid; place-items:center; color:var(--t2); }
+  .wtab .tx svg { width:12px; height:12px; fill:currentColor; } .wtab .tx:hover { background:var(--bg-2); color:var(--t1); }
+  .wtabs2 { position:relative; }
+  .picker { position:absolute; right:8px; top:100%; z-index:5; width:200px; }
+  .picker div { gap:0; cursor:pointer; } .picker svg { width:14px; height:14px; fill:currentColor; }
+  .strip { justify-content:flex-start; }
+  .strip .sbtn { width:32px; height:32px; border-radius:9px; display:grid; place-items:center; color:var(--t2); flex:none; }
+  .strip .sbtn svg { width:16px; height:16px; fill:currentColor; }
+  .strip .sbtn:hover { background:var(--bg-page); color:var(--t1); } .strip .sbtn.on { color:var(--focus); }
+  .strip .sdiv { width:28px; height:1px; background:var(--hair); flex:none; }
+  .strip .s.on { box-shadow:var(--shadow-sm), inset 0 0 0 1px var(--focus-edge), inset 0 0 0 3px var(--focus); }
+  .set-nav .back { color:var(--t2); font-size:12px; padding:6px 10px; margin-bottom:4px; }
+  .set-nav .back:hover { color:var(--t1); background:var(--bg-page); box-shadow:none; }
+</style>
+</head>
+<body class="t-light" id="body">
+<style>.i16{width:16px;height:16px;fill:currentColor;flex:none}.i14{width:14px;height:14px;fill:currentColor;flex:none}</style>
+<svg width="0" height="0" style="position:absolute" aria-hidden="true">
+  <symbol id="h-left" viewBox="0 0 16 16"><path d="M14 8a.75.75 0 0 1-.75.75H4.56l3.22 3.22a.75.75 0 1 1-1.06 1.06l-4.5-4.5a.75.75 0 0 1 0-1.06l4.5-4.5a.75.75 0 0 1 1.06 1.06L4.56 7.25h8.69A.75.75 0 0 1 14 8Z"/></symbol>
+  <symbol id="h-right" viewBox="0 0 16 16"><path d="M2 8a.75.75 0 0 1 .75-.75h8.69L8.22 4.03a.75.75 0 0 1 1.06-1.06l4.5 4.5a.75.75 0 0 1 0 1.06l-4.5 4.5a.75.75 0 0 1-1.06-1.06l3.22-3.22H2.75A.75.75 0 0 1 2 8Z"/></symbol>
+  <symbol id="h-refresh" viewBox="0 0 16 16"><path fill-rule="evenodd" d="M13.836 2.477a.75.75 0 0 1 .75.75v3.182a.75.75 0 0 1-.75.75h-3.182a.75.75 0 0 1 0-1.5h1.37l-.84-.841a4.5 4.5 0 0 0-7.08.932.75.75 0 0 1-1.3-.75 6 6 0 0 1 9.44-1.242l.842.84V3.227a.75.75 0 0 1 .75-.75Zm-.911 7.5A.75.75 0 0 1 13.199 11a6 6 0 0 1-9.44 1.241l-.84-.84v1.371a.75.75 0 0 1-1.5 0V9.591a.75.75 0 0 1 .75-.75H5.35a.75.75 0 0 1 0 1.5H3.98l.841.841a4.5 4.5 0 0 0 7.08-.932.75.75 0 0 1 1.025-.273Z"/></symbol>
+  <symbol id="h-share" viewBox="0 0 16 16"><path d="M8 1a.75.75 0 0 1 .53.22l2.5 2.5a.75.75 0 0 1-1.06 1.06L8.75 3.56V9.5a.75.75 0 0 1-1.5 0V3.56L6.03 4.78a.75.75 0 0 1-1.06-1.06l2.5-2.5A.75.75 0 0 1 8 1ZM3.5 7A1.5 1.5 0 0 0 2 8.5v4A1.5 1.5 0 0 0 3.5 14h9a1.5 1.5 0 0 0 1.5-1.5v-4A1.5 1.5 0 0 0 12.5 7H11a.75.75 0 0 0 0 1.5h1.5v4h-9v-4H5A.75.75 0 0 0 5 7H3.5Z"/></symbol>
+  <symbol id="h-lock" viewBox="0 0 16 16"><path fill-rule="evenodd" d="M8 1a3.5 3.5 0 0 0-3.5 3.5V7A1.5 1.5 0 0 0 3 8.5v5A1.5 1.5 0 0 0 4.5 15h7a1.5 1.5 0 0 0 1.5-1.5v-5A1.5 1.5 0 0 0 11.5 7V4.5A3.5 3.5 0 0 0 8 1Zm2 6V4.5a2 2 0 1 0-4 0V7h4Z"/></symbol>
+  <symbol id="h-globe" viewBox="0 0 16 16"><path fill-rule="evenodd" d="M8 1a7 7 0 1 0 0 14A7 7 0 0 0 8 1Zm4.93 6.25h-2.2a11.3 11.3 0 0 0-.9-3.9 5.52 5.52 0 0 1 3.1 3.9ZM8 2.6c.5.6 1.1 2.2 1.23 4.65H6.77C6.9 4.8 7.5 3.2 8 2.6ZM6.17 3.35a11.3 11.3 0 0 0-.9 3.9h-2.2a5.52 5.52 0 0 1 3.1-3.9ZM3.07 8.75h2.2c.1 1.5.4 2.8.9 3.9a5.52 5.52 0 0 1-3.1-3.9ZM8 13.4c-.5-.6-1.1-2.2-1.23-4.65h2.46C9.1 11.2 8.5 12.8 8 13.4Zm1.83-.75c.5-1.1.8-2.4.9-3.9h2.2a5.52 5.52 0 0 1-3.1 3.9Z"/></symbol>
+  <symbol id="h-doc" viewBox="0 0 16 16"><path fill-rule="evenodd" d="M4 2a1.5 1.5 0 0 0-1.5 1.5v9A1.5 1.5 0 0 0 4 14h8a1.5 1.5 0 0 0 1.5-1.5V6.621a1.5 1.5 0 0 0-.44-1.06L9.94 2.439A1.5 1.5 0 0 0 8.878 2H4Zm1 5.75A.75.75 0 0 1 5.75 7h4.5a.75.75 0 0 1 0 1.5h-4.5A.75.75 0 0 1 5 7.75Zm0 3a.75.75 0 0 1 .75-.75h4.5a.75.75 0 0 1 0 1.5h-4.5a.75.75 0 0 1-.75-.75Z"/></symbol>
+  <symbol id="h-ok" viewBox="0 0 16 16"><path fill-rule="evenodd" d="M8 15A7 7 0 1 0 8 1a7 7 0 0 0 0 14Zm3.844-8.791a.75.75 0 0 0-1.188-.918l-3.7 4.79-1.649-1.833a.75.75 0 1 0-1.114 1.004l2.25 2.5a.75.75 0 0 0 1.15-.043l4.25-5.5Z"/></symbol>
+  <symbol id="h-bad" viewBox="0 0 16 16"><path fill-rule="evenodd" d="M8 15A7 7 0 1 0 8 1a7 7 0 0 0 0 14Zm2.78-4.22a.75.75 0 0 1-1.06 0L8 9.06l-1.72 1.72a.75.75 0 1 1-1.06-1.06L6.94 8 5.22 6.28a.75.75 0 0 1 1.06-1.06L8 6.94l1.72-1.72a.75.75 0 1 1 1.06 1.06L9.06 8l1.72 1.72a.75.75 0 0 1 0 1.06Z"/></symbol>
+  <symbol id="h-warn" viewBox="0 0 16 16"><path fill-rule="evenodd" d="M6.701 2.25c.577-1 2.02-1 2.598 0l5.196 9a1.5 1.5 0 0 1-1.299 2.25H2.804a1.5 1.5 0 0 1-1.3-2.25l5.197-9ZM8 4a.75.75 0 0 1 .75.75v3a.75.75 0 1 1-1.5 0v-3A.75.75 0 0 1 8 4Zm0 8a1 1 0 1 0 0-2 1 1 0 0 0 0 2Z"/></symbol>
+  <symbol id="h-pencil" viewBox="0 0 16 16"><path d="M13.488 2.513a1.75 1.75 0 0 0-2.475 0L6.75 6.774a2.75 2.75 0 0 0-.596.892l-.848 2.047a.75.75 0 0 0 .98.98l2.047-.848a2.75 2.75 0 0 0 .892-.596l4.261-4.262a1.75 1.75 0 0 0 0-2.474Z"/><path d="M4.75 3.5c-.69 0-1.25.56-1.25 1.25v6.5c0 .69.56 1.25 1.25 1.25h6.5c.69 0 1.25-.56 1.25-1.25V9A.75.75 0 0 1 14 9v2.25A2.75 2.75 0 0 1 11.25 14h-6.5A2.75 2.75 0 0 1 2 11.25v-6.5A2.75 2.75 0 0 1 4.75 2H7a.75.75 0 0 1 0 1.5H4.75Z"/></symbol>
+  <symbol id="h-trash" viewBox="0 0 16 16"><path fill-rule="evenodd" d="M5 3.25V4H2.75a.75.75 0 0 0 0 1.5h.3l.815 8.15A1.5 1.5 0 0 0 5.357 15h5.285a1.5 1.5 0 0 0 1.493-1.35l.815-8.15h.3a.75.75 0 0 0 0-1.5H11v-.75A2.25 2.25 0 0 0 8.75 1h-1.5A2.25 2.25 0 0 0 5 3.25Zm2.25-.75a.75.75 0 0 0-.75.75V4h3v-.75a.75.75 0 0 0-.75-.75h-1.5ZM6.05 6a.75.75 0 0 1 .787.713l.275 5.5a.75.75 0 0 1-1.498.075l-.275-5.5A.75.75 0 0 1 6.05 6Zm3.9 0a.75.75 0 0 1 .712.787l-.275 5.5a.75.75 0 0 1-1.498-.075l.275-5.5a.75.75 0 0 1 .786-.711Z"/></symbol>
+  <symbol id="h-copy" viewBox="0 0 16 16"><path d="M5.5 3.5A1.5 1.5 0 0 1 7 2h2.879a1.5 1.5 0 0 1 1.06.44l2.122 2.12a1.5 1.5 0 0 1 .439 1.061V9.5A1.5 1.5 0 0 1 12 11V8.621a3 3 0 0 0-.879-2.121L9 4.379A3 3 0 0 0 6.879 3.5H5.5Z"/><path d="M4 5a1.5 1.5 0 0 0-1.5 1.5v6A1.5 1.5 0 0 0 4 14h5a1.5 1.5 0 0 0 1.5-1.5V8.621a1.5 1.5 0 0 0-.44-1.06L7.94 5.439A1.5 1.5 0 0 0 6.878 5H4Z"/></symbol>
+  <symbol id="h-play" viewBox="0 0 16 16"><path d="M3 3.732a1.5 1.5 0 0 1 2.305-1.265l6.706 4.267a1.5 1.5 0 0 1 0 2.531l-6.706 4.268A1.5 1.5 0 0 1 3 12.267V3.732Z"/></symbol>
+  <symbol id="h-down" viewBox="0 0 16 16"><path fill-rule="evenodd" d="M4.22 6.22a.75.75 0 0 1 1.06 0L8 8.94l2.72-2.72a.75.75 0 1 1 1.06 1.06l-3.25 3.25a.75.75 0 0 1-1.06 0L4.22 7.28a.75.75 0 0 1 0-1.06Z"/></symbol>
+  <symbol id="h-check" viewBox="0 0 16 16"><path fill-rule="evenodd" d="M12.416 3.376a.75.75 0 0 1 .208 1.04l-5 7.5a.75.75 0 0 1-1.154.114l-3-3a.75.75 0 0 1 1.06-1.06l2.353 2.353 4.493-6.74a.75.75 0 0 1 1.04-.207Z"/></symbol>
+  <symbol id="h-x" viewBox="0 0 16 16"><path d="M5.28 4.22a.75.75 0 0 0-1.06 1.06L6.94 8l-2.72 2.72a.75.75 0 1 0 1.06 1.06L8 9.06l2.72 2.72a.75.75 0 1 0 1.06-1.06L9.06 8l2.72-2.72a.75.75 0 0 0-1.06-1.06L8 6.94 5.28 4.22Z"/></symbol>
+  <symbol id="h-code" viewBox="0 0 16 16"><path fill-rule="evenodd" d="M4.78 4.97a.75.75 0 0 1 0 1.06L2.81 8l1.97 1.97a.75.75 0 1 1-1.06 1.06l-2.5-2.5a.75.75 0 0 1 0-1.06l2.5-2.5a.75.75 0 0 1 1.06 0ZM11.22 4.97a.75.75 0 0 0 0 1.06L13.19 8l-1.97 1.97a.75.75 0 1 0 1.06 1.06l2.5-2.5a.75.75 0 0 0 0-1.06l-2.5-2.5a.75.75 0 0 0-1.06 0ZM8.856 2.008a.75.75 0 0 1 .636.848l-1.5 10.5a.75.75 0 0 1-1.484-.212l1.5-10.5a.75.75 0 0 1 .848-.636Z"/></symbol>
+  <symbol id="h-undo" viewBox="0 0 20 20"><path fill-rule="evenodd" d="M7.793 2.232a.75.75 0 0 1-.025 1.06L3.622 7.25h10.003a5.375 5.375 0 0 1 0 10.75H10.75a.75.75 0 0 1 0-1.5h2.875a3.875 3.875 0 0 0 0-7.75H3.622l4.146 3.957a.75.75 0 0 1-1.036 1.085l-5.5-5.25a.75.75 0 0 1 0-1.085l5.5-5.25a.75.75 0 0 1 1.06.025Z"/></symbol>
+  <symbol id="p-files" viewBox="0 0 16 16"><path d="M1.5 4A1.5 1.5 0 0 1 3 2.5h2.9a1.5 1.5 0 0 1 1.06.44l.6.6c.28.28.66.46 1.06.46H13A1.5 1.5 0 0 1 14.5 5.5v.75H4.1a1.5 1.5 0 0 0-1.44 1.08L1.5 11.3V4Z"/><path d="M3.1 7.8a.75.75 0 0 1 .72-.55h10.43a.75.75 0 0 1 .72.95l-1.44 5a.75.75 0 0 1-.72.55H2.38a.75.75 0 0 1-.72-.95L3.1 7.8Z"/></symbol>
+  <symbol id="p-editor" viewBox="0 0 16 16"><path fill-rule="evenodd" d="M4.25 2A2.25 2.25 0 0 0 2 4.25v7.5A2.25 2.25 0 0 0 4.25 14h7.5A2.25 2.25 0 0 0 14 11.75v-7.5A2.25 2.25 0 0 0 11.75 2h-7.5ZM6.5 5 4 8l2.5 3 1-.9L5.8 8l1.7-2.1-1-.9Zm3 0 2.5 3-2.5 3-1-.9L10.2 8 8.5 5.9l1-.9Z"/></symbol>
+  <symbol id="p-changes" viewBox="0 0 16 16"><path fill-rule="evenodd" d="M4 1.5A1.5 1.5 0 0 0 2.5 3v10A1.5 1.5 0 0 0 4 14.5h8a1.5 1.5 0 0 0 1.5-1.5V5.6a1.5 1.5 0 0 0-.44-1.06L10.46 1.94A1.5 1.5 0 0 0 9.4 1.5H4Zm4 2.75a.75.75 0 0 1 .75.75v1.25H10a.75.75 0 0 1 0 1.5H8.75V9a.75.75 0 0 1-1.5 0V7.75H6a.75.75 0 0 1 0-1.5h1.25V5A.75.75 0 0 1 8 4.25ZM6 10.75a.75.75 0 0 0 0 1.5h4a.75.75 0 0 0 0-1.5H6Z"/></symbol>
+  <symbol id="p-git" viewBox="0 0 16 16"><circle cx="4.5" cy="3.5" r="2"/><circle cx="4.5" cy="12.5" r="2"/><circle cx="11.5" cy="5" r="2"/><path d="M3.75 5h1.5v6h-1.5z"/><path d="M12.25 6.5c0 2.9-2.2 4.2-6.5 4.6V9.6c3.3-.4 5-1.2 5-3.1h1.5Z"/></symbol>
+  <symbol id="p-agents" viewBox="0 0 16 16"><circle cx="5.5" cy="5" r="2.5"/><circle cx="11.25" cy="5.5" r="2"/><path d="M1 13a4.5 4.5 0 0 1 9 0v.5a.5.5 0 0 1-.5.5h-8a.5.5 0 0 1-.5-.5V13Z"/><path d="M11 14h3.5a.5.5 0 0 0 .5-.5V13a3.5 3.5 0 0 0-5.2-3.06A5.9 5.9 0 0 1 11 13.5v.5Z"/></symbol>
+  <symbol id="p-artifact" viewBox="0 0 16 16"><path d="M7.5 1.2a1 1 0 0 1 1 0l5 2.8a1 1 0 0 1 .5.87v6.26a1 1 0 0 1-.5.87l-5 2.8a1 1 0 0 1-1 0l-5-2.8a1 1 0 0 1-.5-.87V4.87a1 1 0 0 1 .5-.87l5-2.8Z"/></symbol>
+  <symbol id="p-review" viewBox="0 0 16 16"><path fill-rule="evenodd" d="M5 2.5A1.5 1.5 0 0 1 6.5 1h3A1.5 1.5 0 0 1 11 2.5h.5A1.5 1.5 0 0 1 13 4v9.5a1.5 1.5 0 0 1-1.5 1.5h-7A1.5 1.5 0 0 1 3 13.5V4a1.5 1.5 0 0 1 1.5-1.5H5Zm5.53 5.28a.75.75 0 0 0-1.06-1.06L7.25 8.94l-.72-.72a.75.75 0 0 0-1.06 1.06l1.25 1.25a.75.75 0 0 0 1.06 0l2.75-2.75Z"/></symbol>
+  <symbol id="p-telemetry" viewBox="0 0 16 16"><rect x="2" y="8" width="3" height="6" rx="1"/><rect x="6.5" y="4" width="3" height="10" rx="1"/><rect x="11" y="2" width="3" height="12" rx="1"/></symbol>
+  <symbol id="p-board" viewBox="0 0 16 16"><rect x="1.5" y="2" width="3.5" height="12" rx="1.2"/><rect x="6.25" y="2" width="3.5" height="8" rx="1.2"/><rect x="11" y="2" width="3.5" height="10" rx="1.2"/></symbol>
+  <symbol id="p-routine" viewBox="0 0 16 16"><path fill-rule="evenodd" d="M1 8a7 7 0 1 1 14 0A7 7 0 0 1 1 8Zm7.75-4.25a.75.75 0 0 0-1.5 0V8c0 .414.336.75.75.75h3.25a.75.75 0 0 0 0-1.5h-2.5v-3.5Z"/></symbol>
+  <symbol id="p-ext" viewBox="0 0 16 16"><path d="M6 1.5a1.75 1.75 0 0 0-1.75 1.75V4H2.5a1 1 0 0 0-1 1v2.25h.75a1.75 1.75 0 1 1 0 3.5H1.5V13a1 1 0 0 0 1 1h2.25v-.75a1.75 1.75 0 1 1 3.5 0V14h2.25a1 1 0 0 0 1-1v-2.25h.75a1.75 1.75 0 1 0 0-3.5h-.75V5a1 1 0 0 0-1-1H7.75v-.75A1.75 1.75 0 0 0 6 1.5Z"/></symbol>
+  <symbol id="p-palette" viewBox="0 0 16 16"><path fill-rule="evenodd" d="M3.5 2A1.5 1.5 0 0 0 2 3.5v9A1.5 1.5 0 0 0 3.5 14h9a1.5 1.5 0 0 0 1.5-1.5v-9A1.5 1.5 0 0 0 12.5 2h-9Zm3.28 3.47a.75.75 0 0 0-1.06 1.06L7.19 8 5.72 9.47a.75.75 0 1 0 1.06 1.06l2-2a.75.75 0 0 0 0-1.06l-2-2ZM9 10a.75.75 0 0 0 0 1.5h2a.75.75 0 0 0 0-1.5H9Z"/></symbol>
+  <symbol id="p-phone" viewBox="0 0 16 16"><path fill-rule="evenodd" d="M5 1.5A1.5 1.5 0 0 0 3.5 3v10A1.5 1.5 0 0 0 5 14.5h6a1.5 1.5 0 0 0 1.5-1.5V3A1.5 1.5 0 0 0 11 1.5H5Zm2 10.25a.75.75 0 0 0 0 1.5h2a.75.75 0 0 0 0-1.5H7Z"/></symbol>
+  <symbol id="p-key" viewBox="0 0 16 16"><path fill-rule="evenodd" d="M1.5 5A1.5 1.5 0 0 1 3 3.5h10A1.5 1.5 0 0 1 14.5 5v6a1.5 1.5 0 0 1-1.5 1.5H3A1.5 1.5 0 0 1 1.5 11V5ZM4 6h1.5v1.5H4V6Zm3 0h1.5v1.5H7V6Zm3 0h2v1.5h-2V6ZM4.5 9h7v1.5h-7V9Z"/></symbol>
+  <symbol id="p-shield" viewBox="0 0 16 16"><path d="M7.47 1.13a.75.75 0 0 1 1.06 0A9.6 9.6 0 0 0 13.3 3a.75.75 0 0 1 .7.75v3.1c0 3.46-2.2 6.3-5.72 7.62a.75.75 0 0 1-.56 0C4.2 13.15 2 10.3 2 6.85v-3.1A.75.75 0 0 1 2.7 3a9.6 9.6 0 0 0 4.77-1.87Z"/></symbol>
+  <symbol id="p-info" viewBox="0 0 16 16"><path fill-rule="evenodd" d="M15 8A7 7 0 1 1 1 8a7 7 0 0 1 14 0ZM9 5a1 1 0 1 1-2 0 1 1 0 0 1 2 0ZM6.75 8a.75.75 0 0 0 0 1.5h.75v1.75a.75.75 0 0 0 1.5 0v-2.5A.75.75 0 0 0 8.25 8h-1.5Z"/></symbol>
+  <symbol id="p-sun" viewBox="0 0 16 16"><path d="M8 1a.75.75 0 0 1 .75.75v1.5a.75.75 0 0 1-1.5 0v-1.5A.75.75 0 0 1 8 1ZM10.5 8a2.5 2.5 0 1 1-5 0 2.5 2.5 0 0 1 5 0ZM12.95 4.11a.75.75 0 1 0-1.06-1.06l-1.06 1.06a.75.75 0 0 0 1.06 1.06l1.06-1.06ZM15 8a.75.75 0 0 1-.75.75h-1.5a.75.75 0 0 1 0-1.5h1.5A.75.75 0 0 1 15 8ZM11.89 12.95a.75.75 0 0 0 1.06-1.06l-1.06-1.06a.75.75 0 0 0-1.06 1.06l1.06 1.06ZM8 12a.75.75 0 0 1 .75.75v1.5a.75.75 0 0 1-1.5 0v-1.5A.75.75 0 0 1 8 12ZM5.17 11.89a.75.75 0 0 0-1.06-1.06l-1.06 1.06a.75.75 0 1 0 1.06 1.06l1.06-1.06ZM4 8a.75.75 0 0 1-.75.75h-1.5a.75.75 0 0 1 0-1.5h1.5A.75.75 0 0 1 4 8ZM4.11 5.17a.75.75 0 0 0 1.06-1.06L4.11 3.05a.75.75 0 1 0-1.06 1.06l1.06 1.06Z"/></symbol>
+</svg>
+<svg width="0" height="0" style="position:absolute" aria-hidden="true">
+  <symbol id="takes" viewBox="0 0 24 24"><rect x="8.7" y="2.5" width="6.6" height="19" rx="2.4"/><rect x="2" y="7.5" width="4.6" height="9" rx="1.7" opacity=".6"/><rect x="17.4" y="7.5" width="4.6" height="9" rx="1.7" opacity=".6"/></symbol>
+  <symbol id="m-harmony" viewBox="0 0 24 24"><rect x="5.2" y="2.5" width="6" height="14.5" rx="2.3"/><rect x="12.8" y="7" width="6" height="14.5" rx="2.3"/></symbol>
+  <symbol id="m-tempo" viewBox="0 0 24 24"><rect x="2.6" y="10.5" width="5.2" height="11" rx="1.9" opacity=".55"/><rect x="9.4" y="6.5" width="5.2" height="11" rx="1.9" opacity=".78"/><rect x="16.2" y="2.5" width="5.2" height="11" rx="1.9"/></symbol>
+  <symbol id="m-chord" viewBox="0 0 24 24"><rect x="4.4" y="2.5" width="6.6" height="19" rx="2.4"/><rect x="13.4" y="4.5" width="6.2" height="6.4" rx="2" opacity=".6"/><rect x="13.4" y="13.1" width="6.2" height="6.4" rx="2" opacity=".6"/></symbol>
+  <symbol id="h-folder" viewBox="0 0 16 16"><path d="M2 3.5A1.5 1.5 0 0 1 3.5 2h2.879a1.5 1.5 0 0 1 1.06.44l1.122 1.12A1.5 1.5 0 0 0 9.62 4H12.5A1.5 1.5 0 0 1 14 5.5v1.401a2.986 2.986 0 0 0-1.5-.401h-9c-.546 0-1.059.146-1.5.401V3.5ZM2 9.5v3A1.5 1.5 0 0 0 3.5 14h9a1.5 1.5 0 0 0 1.5-1.5v-3A1.5 1.5 0 0 0 12.5 8h-9A1.5 1.5 0 0 0 2 9.5Z"/></symbol>
+  <symbol id="h-clip" viewBox="0 0 16 16"><path d="M11.914 4.086a2 2 0 0 0-2.828 0l-5 5a2 2 0 1 0 2.828 2.828l.556-.555a.75.75 0 0 1 1.06 1.06l-.555.556a3.5 3.5 0 0 1-4.95-4.95l5-5a3.5 3.5 0 0 1 4.95 4.95l-1.972 1.972a2.125 2.125 0 0 1-3.006-3.005L9.97 4.97a.75.75 0 1 1 1.06 1.06L9.058 8.003a.625.625 0 0 0 .884.883l1.972-1.972a2 2 0 0 0 0-2.828Z"/></symbol>
+  <symbol id="h-up" viewBox="0 0 16 16"><path d="M8 14a.75.75 0 0 1-.75-.75V4.56L4.03 7.78a.75.75 0 0 1-1.06-1.06l4.5-4.5a.75.75 0 0 1 1.06 0l4.5 4.5a.75.75 0 0 1-1.06 1.06L8.75 4.56v8.69A.75.75 0 0 1 8 14Z"/></symbol>
+  <symbol id="l-search" viewBox="0 0 16 16"><path fill-rule="evenodd" clip-rule="evenodd" d="M9.965 11.026a5 5 0 1 1 1.06-1.06l2.755 2.754a.75.75 0 1 1-1.06 1.06l-2.755-2.754ZM10.5 7a3.5 3.5 0 1 1-7 0 3.5 3.5 0 0 1 7 0Z"/></symbol>
+  <symbol id="l-plus" viewBox="0 0 16 16"><path d="M8.75 3.75a.75.75 0 0 0-1.5 0v3.5h-3.5a.75.75 0 0 0 0 1.5h3.5v3.5a.75.75 0 0 0 1.5 0v-3.5h3.5a.75.75 0 0 0 0-1.5h-3.5v-3.5Z"/></symbol>
+  <symbol id="l-chevron-r" viewBox="0 0 16 16"><path fill-rule="evenodd" clip-rule="evenodd" d="M6.22 4.22a.75.75 0 0 1 1.06 0l3.25 3.25a.75.75 0 0 1 0 1.06l-3.25 3.25a.75.75 0 0 1-1.06-1.06L8.94 8 6.22 5.28a.75.75 0 0 1 0-1.06Z"/></symbol>
+  <symbol id="l-panel-left" viewBox="0 0 16 16"><path fill-rule="evenodd" clip-rule="evenodd" d="M2 4.25A2.25 2.25 0 0 1 4.25 2h7.5A2.25 2.25 0 0 1 14 4.25v7.5A2.25 2.25 0 0 1 11.75 14h-7.5A2.25 2.25 0 0 1 2 11.75v-7.5ZM7 3.5v9h4.75a.75.75 0 0 0 .75-.75v-7.5a.75.75 0 0 0-.75-.75H7Z"/></symbol>
+  <symbol id="l-panel-right" viewBox="0 0 16 16"><path fill-rule="evenodd" clip-rule="evenodd" d="M2 4.25A2.25 2.25 0 0 1 4.25 2h7.5A2.25 2.25 0 0 1 14 4.25v7.5A2.25 2.25 0 0 1 11.75 14h-7.5A2.25 2.25 0 0 1 2 11.75v-7.5ZM9 3.5v9H4.25a.75.75 0 0 1-.75-.75v-7.5a.75.75 0 0 1 .75-.75H9Z"/></symbol>
+  <symbol id="l-ellipsis" viewBox="0 0 16 16"><path d="M2 8a1.5 1.5 0 1 1 3 0 1.5 1.5 0 0 1-3 0ZM6.5 8a1.5 1.5 0 1 1 3 0 1.5 1.5 0 0 1-3 0ZM12.5 6.5a1.5 1.5 0 1 0 0 3 1.5 1.5 0 0 0 0-3Z"/></symbol>
+  <symbol id="l-terminal" viewBox="0 0 16 16"><path fill-rule="evenodd" clip-rule="evenodd" d="M2 4.25A2.25 2.25 0 0 1 4.25 2h7.5A2.25 2.25 0 0 1 14 4.25v7.5A2.25 2.25 0 0 1 11.75 14h-7.5A2.25 2.25 0 0 1 2 11.75v-7.5Zm2.97 2.28a.75.75 0 0 1 1.06-1.06l2 2a.75.75 0 0 1 0 1.06l-2 2a.75.75 0 1 1-1.06-1.06L6.44 8 4.97 6.53ZM8.75 9.5a.75.75 0 0 0 0 1.5h2a.75.75 0 0 0 0-1.5h-2Z"/></symbol>
+  <symbol id="h-chat" viewBox="0 0 16 16"><path d="M1 8.74c0 .983.713 1.825 1.69 1.943.764.092 1.534.164 2.31.216v2.351a.75.75 0 0 0 1.28.53l2.51-2.51c.155-.153.36-.245.577-.258a41.7 41.7 0 0 0 3.943-.4c.98-.143 1.69-.99 1.69-1.973V4.26c0-.983-.71-1.83-1.69-1.974A41.8 41.8 0 0 0 8 2c-2.1 0-4.143.154-6.31.286C.713 2.43 1 3.277 1 4.26v4.48Z"/></symbol>
+  <symbol id="h-book" viewBox="0 0 16 16"><path d="M7.25 3.688a8 8 0 0 0-4.5-1.188.75.75 0 0 0-.75.75v8.5c0 .414.336.75.75.75 1.67 0 3.21.52 4.5 1.4V3.688ZM8.75 13.9a7.97 7.97 0 0 1 4.5-1.4.75.75 0 0 0 .75-.75v-8.5a.75.75 0 0 0-.75-.75 8 8 0 0 0-4.5 1.188V13.9Z"/></symbol>
+  <symbol id="h-bolt" viewBox="0 0 16 16"><path d="M9.58 1.077a.75.75 0 0 1 .405.82L9.165 6h4.085a.75.75 0 0 1 .567 1.241l-6.5 7.5a.75.75 0 0 1-1.302-.638L6.835 10H2.75a.75.75 0 0 1-.567-1.241l6.5-7.5a.75.75 0 0 1 .897-.182Z"/></symbol>
+  <symbol id="h-cog" viewBox="0 0 16 16"><path fill-rule="evenodd" clip-rule="evenodd" d="M6.955 1.45A.5.5 0 0 1 7.452 1h1.096a.5.5 0 0 1 .497.45l.17 1.699c.484.12.94.312 1.356.562l1.321-1.081a.5.5 0 0 1 .67.033l.774.775a.5.5 0 0 1 .034.67l-1.08 1.32c.25.417.44.873.561 1.357l1.699.17a.5.5 0 0 1 .45.497v1.096a.5.5 0 0 1-.45.497l-1.699.17c-.12.484-.312.94-.562 1.356l1.082 1.322a.5.5 0 0 1-.034.67l-.774.774a.5.5 0 0 1-.67.033l-1.322-1.08c-.416.25-.872.44-1.356.561l-.17 1.699a.5.5 0 0 1-.497.45H7.452a.5.5 0 0 1-.497-.45l-.17-1.699a4.97 4.97 0 0 1-1.356-.562L4.108 13.37a.5.5 0 0 1-.67-.033l-.774-.775a.5.5 0 0 1-.034-.67l1.08-1.32a4.97 4.97 0 0 1-.561-1.357l-1.699-.17A.5.5 0 0 1 1 8.548V7.452a.5.5 0 0 1 .45-.497l1.699-.17c.12-.484.312-.94.562-1.356L2.629 4.107a.5.5 0 0 1 .034-.67l.774-.774a.5.5 0 0 1 .67-.033L5.43 3.71a4.97 4.97 0 0 1 1.356-.561l.17-1.699ZM6 8c0 .538.212 1.026.558 1.385l.057.057a2 2 0 0 0 2.828-2.828l-.058-.056A2 2 0 0 0 6 8Z"/></symbol>
+</svg>
+
+
+<div class="sheet">
+  <div class="top">
+    <h1>Melody — visual design</h1><span class="sp"></span>
+    <button class="replay" id="themeBtn">Theme: Studio light</button>
+    <a class="replay" href="2026-09-22-melody-main-agent.html" style="text-decoration:none">Open the clickable prototype (older, four columns)</a>
+  </div>
+  <p class="lede">The one visual design reference for Melody, desktop first: the ink language, type and icons, every button, component, chat widget and pane, the desktop window and its width budget, Melody's surfaces next to a normal session, motion and hover, tokens, words and the decisions still open. Drawn from <span class="mono">theme-tokens.ts</span> and <span class="mono">DESIGN.md</span>; where a rule changes, an amber-dotted <b>Proposal</b> says so. The theme switch redraws everything. Nothing here is built yet. Consolidated 2026-09-22 from the design reference and the components sheet, which it replaces.</p>
+  <nav class="toc" id="toc"></nav>
+
+  <section id="language">
+    <h2>0 · Ink language — the black-and-white mark sets the tone; teal is the accent, amber waits on you; green and red report outcomes</h2>
+    <p class="sub">The app icon is the source: the <span class="mono">#101010</span> Takes strip on a white rounded square. The chrome is ink on paper, and colour is earned. Teal is the accent: where you are and what's alive. Amber means something is waiting on you. Blue is kept for links and info notes only. Two service colours report outcomes: green for done, red for failed. Everything else is ink, paper and the greys between them.</p>
+    <div class="board">
+      <div class="specs" style="gap:28px;align-items:stretch">
+        <div class="spec"><div class="marks"><div class="ground" style="background:#ffffff"><span class="emblem xl"><svg><use href="#takes"/></svg></span></div><div class="ground" style="background:#1c1c1c"><span class="emblem xl"><svg><use href="#takes"/></svg></span></div></div>
+          <span class="cap">The mark is always the icon in miniature, the same white tile on paper and on charcoal. 28 px on the pin, 16 px in a row, 112 px here</span></div>
+        <div class="spec" style="flex:1 1 100%"><div class="ladder">
+          <div class="tier"><h3>Primary — ink and paper</h3><p>Text and everything filled: the send disc, the primary answer, the pin ring, counts, the selected chip</p>
+            <div class="sw"><i style="background:#101010"></i><div><b>Mark ink</b><span>#101010 · the emblem only</span></div></div>
+            <div class="sw"><i style="background:var(--t1)"></i><div><b>Ink</b><span>text-primary, background-inverse · light #1e1d1a · dark #f8f8f2</span></div></div>
+            <div class="sw"><i style="background:var(--bg-page)"></i><div><b>Paper</b><span>background-primary · light #ffffff · dark #1c1c1c</span></div></div></div>
+          <div class="tier"><h3>Secondary — the greys</h3><p>Grounds, hairlines, secondary text, the Idle ring</p>
+            <div class="sw"><i style="background:var(--t2)"></i><div><b>Ink 2</b><span>text-secondary · status words</span></div></div>
+            <div class="sw"><i style="background:var(--t3)"></i><div><b>Ink 3</b><span>text-tertiary · meta, placeholders</span></div></div>
+            <div class="sw"><i style="background:var(--bg-2)"></i><div><b>Wash</b><span>background-secondary · Melody and Work grounds</span></div></div>
+            <div class="sw"><i style="background:var(--bg-3)"></i><div><b>Flank</b><span>background-tertiary · the Sessions column</span></div></div></div>
+          <div class="tier"><h3>Tertiary — teal, amber (blue, rarely)</h3><p>Accents. Only as a dot, a card's 3 px outline, a halo, a ring or a flash; never a fill behind text, and one mark per element</p>
+            <div class="sw"><i style="background:var(--focus)"></i><div><b>Teal — where you are, what's alive</b><span>Current session row (2 px ring), focus ring, active tab icon, focused pin, seam · Running dot, halo and card outline, Melody working, unread, the link flash · light teal #44c1b8 in both themes; the focus ring keeps its 1 px #0b7a72 edge on paper; never as text</span></div></div>
+            <div class="sw"><i style="background:var(--warning)"></i><div><b>Amber — waiting on you</b><span>Needs you dot and card outline, the question card's dot · #fbbf24</span></div></div>
+            <div class="sw"><i style="background:var(--blue)"></i><div><b>Blue — links and info notes</b><span>A link in a reply, an info banner; nothing else · light #2277cc · dark #6cb6ff</span></div></div></div>
+          <div class="tier"><h3>Service — green and red</h3><p>Outcomes only: how something ended. Never decoration, never a brand accent</p>
+            <div class="sw"><i style="background:var(--success)"></i><div><b>Green — done</b><span>Done dot, PASS, committed, added lines and git's A · light #2f8f5b · dark #a6e22e</span></div></div>
+            <div class="sw"><i style="background:var(--danger)"></i><div><b>Red — failed</b><span>Failed dot and card outline, the error bar's dot, FAIL, Delete, removed lines and git's D · light #c23b3b · dark #f92672</span></div></div></div></div>
+        </div></div>
+      </div>
+    </div>
+    <div class="note prop"><b>Proposal — amends DESIGN.md §Tokens &amp; theme.</b> Studio light: <span class="mono">background-inverse</span> goes from teal <span class="mono">#0b7a72</span> to ink, and the send disc from <span class="mono">#44c1b8</span> to ink, so everything filled is ink. Light teal <span class="mono">#44c1b8</span> becomes the accent: <span class="mono">ring-primary</span> (focus, the active tab's icon, the focused pin) and activity (the running dot, which is blue today, unread, Running outlines); on paper the focus ring is edged in <span class="mono">#0b7a72</span> so it measures 5.2:1, and light teal is never used for text (2.2:1). <span class="mono">info</span> blue shrinks to links and info notes. Green and red keep their service roles. Charcoal Monokai: the purple accent becomes white ink; focus and activity go from purple and cyan to teal <span class="mono">#44c1b8</span>; links go from cyan to blue <span class="mono">#6cb6ff</span>; Needs you goes from Monokai yellow to amber; green <span class="mono">#a6e22e</span> and red <span class="mono">#f92672</span> stay. Monokai's colours stay in code (syntax, terminal, diff). On paper, amber is a mark only, never a text colour.</div>
+    <div class="board" style="margin-top:14px"><p class="board-label">The family — Melody and her three friends, one project manager per repository · white tile, #101010 bars, the 24 grid</p><div class="family">
+      <div class="fm"><span class="emblem lg"><svg><use href="#takes"/></svg></span><b>Melody</b><span class="cap">The Takes strip · knows every session, hands work to her friends</span></div>
+      <div class="fm"><span class="emblem lg"><svg><use href="#m-harmony"/></svg></span><b>Harmony</b><span class="cap">Two equal bars a step apart, two voices · manages melody-agent2</span></div>
+      <div class="fm"><span class="emblem lg"><svg><use href="#m-tempo"/></svg></span><b>Tempo</b><span class="cap">Three equal bars stepping up and forward · manages compo</span></div>
+      <div class="fm"><span class="emblem lg"><svg><use href="#m-chord"/></svg></span><b>Chord</b><span class="cap">A tall bar with two notes stacked beside it · manages ux_tests</span></div>
+    </div></div>
+
+  </section>
+  <section id="type">
+    <h2>1 · Type and icons — decided 2026-09-22: one face (Type A), solid icons (Icon A)</h2>
+    <p class="sub">Schibsted Grotesk for everything a person reads, the interface and Melody's words alike; JetBrains Mono only for machine text. Heroicons 16 solid for every glyph, 16 px on buttons and 14 px in rows and chips; the fill echoes the mark's solid bars. Melody herself is drawn only as the app icon.</p>
+    <div class="board"><div class="grid2">
+      <div class="panel"><h3>The five sizes and two weights</h3><span class="cap">theme-tokens.ts base tokens · weights 500 and 600 only</span>
+        <div class="line"><span class="lbl">heading-xs 20/28</span><span style="font-size:20px;line-height:28px;font-weight:600">Melody</span></div>
+        <div class="line"><span class="lbl">text-lg 15/22</span><span style="font-size:15px;line-height:22px;font-weight:600">Fix the compo export bug</span><span class="why">titles · 600</span></div>
+        <div class="line"><span class="lbl">text-md 13/20</span><span style="font-size:13px">Started it in compo. I'll tell you when it needs you.</span><span class="why">body, buttons, rows · 500</span></div>
+        <div class="line"><span class="lbl">text-sm 12/16</span><span style="font-size:12px;color:var(--t2)">Commit waits while the agent writes files</span><span class="why">secondary</span></div>
+        <div class="line"><span class="lbl">text-xs 11/16</span><span style="font-size:11px;color:var(--t3)">compo · Running · 2m</span><span class="why">meta, captions</span></div>
+        <div class="line"><span class="lbl">mono 12</span><span class="mono">wt/export-1x · claude-opus-5 · #412</span><span class="why">machine text only</span></div>
+      </div>
+      <div class="panel" style="grid-column:span 2"><h3>The icon set</h3><span class="cap">16 px · currentColor · the pane and place glyphs are drawn here in the Heroicons 16 solid style; the build uses the Heroicons named beside each</span>
+        <div id="iconGrid" style="display:grid;grid-template-columns:repeat(auto-fill,minmax(92px,1fr));gap:8px"></div>
+      </div>
+    </div></div>
+  </section>
+  <section id="buttons">
+    <h2>2 · Buttons</h2>
+    <p class="sub">Five kinds, two sizes, one primary per surface. Every button floats on shadow and lifts 1 px on hover, except ghost and link, which stay flat. Filled means ink. The fix is the primary: <b>Sign in to Claude</b>, never a bare <b>Retry</b>.</p>
+    <div class="board"><div class="grid2">
+      <div class="panel"><h3>Kinds</h3><span class="cap">32 px · radius 12 · 13/500 · icon 16 at the left</span>
+        <div class="line"><span class="lbl">Primary</span><button class="b primary lift">Accept plan</button><button class="b primary lift"><svg><use href="#h-play"/></svg>Run now</button></div>
+        <div class="line"><span class="lbl">Secondary</span><button class="b secondary lift">Revise…</button><button class="b secondary lift"><svg><use href="#h-pencil"/></svg>Edit</button></div>
+        <div class="line"><span class="lbl">Ghost</span><button class="b ghost">Cancel</button><button class="b ghost"><svg><use href="#h-copy"/></svg>Copy</button></div>
+        <div class="line"><span class="lbl">Danger</span><button class="b danger lift"><svg><use href="#h-trash"/></svg>Delete session</button><span class="why">never filled; its confirm is filled red</span></div>
+        <div class="line"><span class="lbl">Link</span><button class="b link">Open in Changes</button><span class="why">blue, in text and action rows</span></div>
+        <div class="line"><span class="lbl">Small · 26</span><button class="b sm primary lift">Allow once</button><button class="b sm secondary lift">Always allow</button><button class="b sm ghost">Deny</button></div>
+      </div>
+      <div class="panel"><h3>States</h3><span class="cap">rest · hover (lift) · press · focus (light-teal ring) · disabled, with the reason · working</span>
+        <div class="line"><span class="lbl">Primary</span><button class="b primary lift">Commit</button><button class="b primary lift is-hover">Commit</button><button class="b primary lift is-press">Commit</button><button class="b primary focusring">Commit</button></div>
+        <div class="line"><span class="lbl">Secondary</span><button class="b secondary lift">Push</button><button class="b secondary lift is-hover">Push</button><button class="b secondary lift is-press">Push</button><button class="b secondary focusring">Push</button></div>
+        <div class="line"><span class="lbl">Disabled</span><button class="b primary is-disabled">Commit</button><span class="why">Commit waits while the agent writes files</span></div>
+        <div class="line"><span class="lbl">Working</span><button class="b primary loading"><span class="spin"></span>Committing…</button><button class="b secondary loading lift"><span class="spin"></span>Pushing…</button></div>
+      </div>
+      <div class="panel"><h3>Icon buttons</h3><span class="cap">32 × 32 · the label is its tooltip and accessible name</span>
+        <div class="line"><span class="lbl">Secondary</span><button class="ib lift" aria-label="Back"><svg><use href="#h-left"/></svg></button><button class="ib lift" aria-label="Refresh"><svg><use href="#h-refresh"/></svg></button><button class="ib lift" aria-label="Session menu"><svg><use href="#l-ellipsis"/></svg></button><button class="ib lift is-hover" aria-label="Attach"><svg><use href="#h-clip"/></svg></button><button class="ib focusring" aria-label="New chat"><svg><use href="#l-plus"/></svg></button></div>
+        <div class="line"><span class="lbl">Ghost</span><button class="ib ghost" aria-label="Copy"><svg><use href="#h-copy"/></svg></button><button class="ib ghost" aria-label="Close"><svg><use href="#h-x"/></svg></button><button class="ib ghost" aria-label="Hide Melody"><svg><use href="#l-panel-left"/></svg></button></div>
+      </div>
+      <div class="panel"><h3>The send disc</h3><span class="cap">rest · armed (text in) · Stop while a turn runs · the usage ring on its edge</span>
+        <div class="line"><button class="disc" aria-label="Send" disabled><svg><use href="#h-up"/></svg></button><button class="disc lift" data-armed aria-label="Send"><svg><use href="#h-up"/></svg></button><button class="disc stop lift" aria-label="Stop"><i></i></button><span class="usage" title="Context 62%"><i><svg><use href="#h-up"/></svg></i></span><span class="why">ring fills ink; amber from 80 %, red at 100 %</span></div>
+      </div>
+    </div></div>
+  </section>
+  <section id="components">
+    <h2>3 · Components</h2>
+    <p class="sub">The controls the Melody surfaces use. Selection is ink, focus is light teal. Status is a dot beside its word, except on cards, where it's the 3 px outline.</p>
+    <div class="board"><div class="grid3">
+      <div class="panel"><h3>Chips</h3><span class="cap">filters, the repo row, machine text, origin</span>
+        <div class="line"><span class="fchip on lift">All <span class="n">6</span></span><span class="fchip lift">melody-agent2 <span class="n">3</span></span><span class="fchip lift">compo <span class="n">2</span></span></div>
+        <div class="line"><span class="fchip mono lift">wt/export-1x</span><span class="origin"><span class="emblem sm"><svg><use href="#m-tempo"/></svg></span>Started by Tempo</span><span class="origin"><span class="emblem sm"><svg><use href="#takes"/></svg></span>Started by Melody</span><span class="origin you">Started by you</span></div>
+        <div class="line"><span class="seg"><span>Recent</span><span class="on">Name</span><span>Project</span></span></div>
+      </div>
+      <div class="panel"><h3>Fields</h3><span class="cap">rest · focus · typed · error, the cause then the fix</span>
+        <div class="line"><span class="field"><svg><use href="#l-search"/></svg>Search</span></div>
+        <div class="line"><span class="field focus typed"><svg><use href="#l-search"/></svg>export</span></div>
+        <div class="line"><span class="field select">claude-opus-5 <svg><use href="#h-down"/></svg></span></div>
+        <div class="line"><span class="field err typed">wt/export 1x</span></div><div class="errline"><svg class="i14" style="color:var(--danger)"><use href="#h-bad"/></svg>A branch name can't hold a space — try export-1x</div>
+      </div>
+      <div class="panel"><h3>Toggles</h3><span class="cap">switch · checkbox · radio — on is ink</span>
+        <div class="line"><span class="opt"><span class="sw-t on"></span>Plan gate</span><span class="opt"><span class="sw-t"></span>Keep computer awake</span></div>
+        <div class="line"><span class="opt"><span class="chk on"><svg><use href="#h-check"/></svg></span>Include untracked</span><span class="opt"><span class="chk"></span>Draft</span></div>
+        <div class="line"><span class="opt"><span class="rad on"></span>Direct</span><span class="opt"><span class="rad"></span>Orchestrate</span></div>
+      </div>
+      <div class="panel"><h3>Status</h3><span class="cap">a dot beside its word · on cards, the outline</span>
+        <div class="line"><span class="statusw"><span class="dot running"></span>Running</span><span class="statusw"><span class="dot needs"></span>Needs you</span><span class="statusw"><span class="dot done"></span>Done</span><span class="statusw"><span class="dot failed"></span>Failed</span><span class="statusw"><span class="dot idle"></span>Idle</span></div>
+        <div class="line"><span class="count" style="margin:0">3</span><span class="why">count · ink</span><span class="row" style="width:auto;padding:0;display:inline-flex"><span class="unread"></span></span><span class="why">unread · teal</span></div>
+        <div style="display:flex;flex-direction:column;gap:8px;margin-top:12px"><div class="skel" style="width:80%"></div><div class="skel" style="width:60%"></div><div class="skel" style="width:70%"></div></div><span class="cap" style="margin-top:6px">Loading keeps the layout; lines shimmer</span>
+      </div>
+      <div class="panel"><h3>Tabs</h3><span class="cap">the Work column's bar: attached tabs, the active icon teal, × on hover, the unseen dot</span>
+        <div class="wtabs2"><span class="wtab on"><svg><use href="#l-terminal"/></svg>Terminal<svg class="x"><use href="#h-x"/></svg></span><span class="wtab"><svg><use href="#p-changes"/></svg>Changes <span class="udot"></span></span><span class="wtab"><svg><use href="#h-globe"/></svg>Browser</span><span class="end"><button class="ib ghost sm" aria-label="New tab"><svg><use href="#l-plus"/></svg></button><button class="ib ghost sm" aria-label="Session menu"><svg><use href="#l-ellipsis"/></svg></button></span></div>
+        <div style="height:40px;background:var(--bg-page);border-radius:0 0 12px 12px;box-shadow:var(--shadow-sm)"></div>
+      </div>
+      <div class="panel"><h3>Menu and tooltip</h3><span class="cap">the session menu's order; shortcuts right-aligned; Delete red</span>
+        <div style="display:flex;gap:14px;align-items:flex-start"><div class="menu" role="menu"><div class="is-hover">Open</div><div>Rename<span>R</span></div><div>Fork<span>F</span></div><hr><div>Archive<span>A</span></div><div class="danger">Delete<span>D</span></div></div><span class="ttip">Needs you · started by Melody at 10:42</span></div>
+      </div>
+      <div class="panel"><h3>Toast</h3><span class="cap">ink; one action; leaves in 6 s</span>
+        <div class="line"><span class="toast">Discarded 3 files<button class="b">Undo</button></span></div>
+        <div class="line"><span class="toast"><svg class="i14" style="color:var(--success)"><use href="#h-ok"/></svg>Committed 4f2a91c<button class="b">Push</button></span></div>
+      </div>
+      <div class="panel" style="grid-column:span 2"><h3>Dialog</h3><span class="cap">only for what can't be undone; the confirm names the act; Esc cancels; focus returns to the opener</span>
+        <div class="scrim"><div class="dialog"><h4>Delete "Fix the compo export bug"?</h4><p>The session and its transcript go. Its worktree <span class="mono">wt/export-1x</span> stays on disk.</p><div class="acts"><button class="b ghost">Cancel</button><button class="b lift" style="background:var(--danger);color:#fff">Delete session</button></div></div></div>
+      </div>
+    </div></div>
+    <div class="board" style="margin-top:14px"><p class="board-label">Shared parts — each is built once and appears on every surface listed; a second copy is a bug (DESIGN.md's Upstream Rule, applied to Melody's own parts)</p>
+    <table class="ref">
+      <tr><th>Part</th><th>Appears in</th><th>Variants and states</th><th>Build on</th></tr>
+      <tr><td>Family mark</td><td>Melody's pin, friends' rows, session rows (16), origin chips, Melody's tab, the folded strip, the app icon, the loader</td><td>Melody · Harmony · Tempo · Chord; 16 / 22 / 28 / 32 / 72 / 112 px; working (teal halo)</td><td><span class="mono">components/icons/Goose.tsx</span> (the mark today) → one mark component that takes the member</td></tr>
+      <tr><td>Pin</td><td>Melody at the top of Sessions; each friend as its compact variant</td><td>rest · hover · open (ring) · count · working · unavailable</td><td>new, in <span class="mono">workspace/</span></td></tr>
+      <tr><td>Status dot + word</td><td>Session rows, the strip, the session header, worker rows, Board cards, Settings › Seats, the ask card</td><td>Running (teal) · Needs you (amber) · Done (green) · Failed (red) · Idle (ring)</td><td>the dot in <span class="mono">panes/agents/AgentRow.tsx</span> and <span class="mono">board/BoardCard.tsx</span>, merged into one</td></tr>
+      <tr><td>Status outline</td><td>Session cards; chat widgets (ask, tool confirmation, plan gate, diff, turn failure); the running tool row</td><td>3 px in the status colour (2 px on a tool row); hover adds 4 px in the same colour</td><td>one <span class="mono">--ring</span> treatment, not per widget</td></tr>
+      <tr><td>Session row</td><td>The Sessions list, filtered by a friend or a repository chip</td><td>current (ring) · hover · unread · worktree · manager's mark</td><td><span class="mono">Layout/NavigationPanel.tsx</span>, <span class="mono">workspace/sidebar-sessions.ts</span></td></tr>
+      <tr><td>Session card</td><td>Melody's tab, Melody vs a session, Board</td><td>the row's data, shown as a card; the status outline</td><td>the same session record as the row; <span class="mono">board/BoardCard.tsx</span> becomes this card</td></tr>
+      <tr><td>Tab bar</td><td>Work's top and bottom panels; every pane</td><td>attached tabs · active icon teal · × on the active tab · unseen dot · + · ⋯ on the first bar</td><td><span class="mono">workspace/WorkColumn.tsx</span> (one bar per panel, tasks 117–120)</td></tr>
+      <tr><td>Composer</td><td>Chat, Melody's tab</td><td>attach · send; the placeholder is the only difference; quote and image; raised on hover; Changes bar above in a session</td><td><span class="mono">components/ChatInput.tsx</span>, <span class="mono">ChatInputCard.tsx</span></td></tr>
+      <tr><td>Send disc + usage ring</td><td>Every composer</td><td>rest · armed · Stop; ring ink → amber 80 % → red 100 %</td><td><span class="mono">bottom_menu/UsageRing.tsx</span></td></tr>
+      <tr><td>Button</td><td>Everywhere</td><td>primary · secondary · ghost · danger · link; 32 / 26; the hover rule</td><td><span class="mono">components/ui/button.tsx</span></td></tr>
+      <tr><td>Session menu</td><td>⋯ on Work's first bar; right-click on a row or a card; ⌘K</td><td>one list, one order</td><td><span class="mono">workspace/RailMenu.tsx</span>, <span class="mono">ui/dropdown-menu.tsx</span></td></tr>
+      <tr><td>Settings row</td><td>Settings, Session controls</td><td>label · description · control (switch, segmented, select, button)</td><td>new; <span class="mono">ui/switch.tsx</span>, <span class="mono">ui/input.tsx</span>, <span class="mono">ui/Select.tsx</span>; a segmented control is new</td></tr>
+      <tr><td>Tool row, tool confirmation</td><td>Session threads</td><td>done · running (lifted, ring) · failed</td><td><span class="mono">ToolCallWithResponse.tsx</span>, <span class="mono">ToolCallStatusIndicator.tsx</span>, <span class="mono">ToolCallConfirmation.tsx</span></td></tr>
+      <tr><td>Changes bar, worker row</td><td>Session threads; the Agents pane</td><td>as DESIGN.md has them</td><td><span class="mono">workspace/ChangesBar.tsx</span>, <span class="mono">panes/agents/AgentRow.tsx</span></td></tr>
+      <tr><td>Tooltip, toast, dialog</td><td>Everywhere</td><td>ink tooltip after 500 ms; ink toast with one action; dialog only for what can't be undone</td><td><span class="mono">ui/Tooltip.tsx</span>, react-toastify, <span class="mono">ui/ConfirmationModal.tsx</span></td></tr>
+    </table></div>
+
+  </section>
+  <section id="window">
+    <h2>4 · The desktop window — three panels; Work is two tabbed panels</h2>
+    <p class="sub">Sessions · Chat · Work, edge to edge with no gaps; a hairline divides them. Work is two tabbed panels: the top one, whose bar ends in <b>+</b> and the session menu <b>⋯</b>, and a secondary bottom one, whose bar ends in <b>+</b>. Melody is a tab, in the bottom panel by default. The rules: when the bottom panel has no tabs, the top one extends down; when neither has tabs, Work collapses and Chat takes the width. The button at Chat's top right shows or hides Work; pressed when Work has no tabs, it opens a new Terminal. The pin (or ⌘J) opens or closes Melody's tab.</p>
+    <div class="board">
+      <div class="ctl" id="winCtl">
+        <button class="replay" data-w="1280" data-h="800">1280 · 13" at More Space</button>
+        <button class="replay" data-w="1470" data-h="956">1470 · MacBook Air 13"</button>
+        <button class="replay on" data-w="1512" data-h="982">1512 · MacBook Pro 14"</button>
+        <button class="replay" data-w="1728" data-h="1117">1728 · MacBook Pro 16"</button>
+        <button class="replay" data-w="1920" data-h="1080">1920 · external</button>
+        <button class="replay" data-w="2560" data-h="1440">2560 · 2K / Studio Display</button>
+        <button class="replay" data-w="3840" data-h="2160">3840 · 4K at 1x</button>
+        <span class="sep"></span>
+        <input type="range" id="winW" min="1024" max="3840" step="2" value="1512" aria-label="Window width" />
+        <span class="sep"></span>
+        <button class="replay" id="winReset">Reset the panels</button>
+        <span class="why">Try it in the window: click a tab, its × to close it, + for a terminal, the button at Chat's top right, the pin (or ⌘J) for Melody</span>
+      </div>
+      <div class="win-fit" id="winFit"><div class="win" id="win"></div></div>
+      <div class="readout" id="winRead"></div>
+    </div>
+  </section>
+  <section id="budget">
+    <h2>5 · Width budget — three panels, who gives way</h2>
+    <p class="sub">Chat keeps at least 480 px while the Work column shows, and its text keeps a 760 px measure however wide the window gets. <b>Proposal for wide screens:</b> from 1920 up, Work grows to a quarter of the window, capped at 960 (640 at 2560, 960 at 3840), so a pane and Melody get room instead of the chat getting empty margins. When there isn't room: <b>1</b> Work narrows from 480 to 360; <b>2</b> Sessions folds to its 56 px dot strip, and Work widens again if that frees room. Melody takes whatever width Work has. Panels meet edge to edge, divided by a hairline, so no width goes to gaps.</p>
+    <table class="ref" id="budgetTable"></table>
+    <div class="note prop"><b>Proposal — amends the One Dock Rule and the per-panel tab bars (DESIGN.md §Principles, §Vocabulary).</b> The frame stays three panels. Work holds up to two tabbed panels, top and bottom; the bottom one is secondary. Melody is a tab like any other, except that closing it only hides her: her conversation is kept, and the pin or ⌘J brings the tab back in the bottom panel. An empty bottom panel lets the top one extend down, and no tabs anywhere collapses Work. The Work toggle moves from the tab bar to Chat's top right, so it's reachable while Work is collapsed; the session menu ⋯ stays on the first bar, and right-clicking the session's row reaches it while Work is collapsed. The table is computed by the same function that draws §4.</div>
+  </section>
+  <section id="pin">
+    <h2>6 · Melody pin — top of the Sessions column, above search</h2>
+    <p class="sub">Clicking the pin opens or closes Melody's tab in Work's bottom panel (⌘J does the same). Her three friends sit under it as compact rows (§7). It's a Floating Button, and its second line always says what she's doing.</p>
+    <div class="board" data-spec="pin"></div>
+  </section>
+  <section id="rows">
+    <h2>7 · Session rows — the C3 list, with a status dot and who started it</h2>
+    <p class="sub">The sidebar stays C3 (DESIGN.md §Vocabulary, Sessions column): search, repository chips, groups by day, tabs at the foot. Each row gains two things: a status dot at the left with its word in the tooltip and accessible name, and in the meta line the mark of the friend who manages it (Harmony, Tempo, Chord), or none for a session you started. Melody and her friends aren't in the list; their pins above it are their rows, and clicking a friend opens their conversation and filters the list to their repository. When the column folds, it becomes the strip on the right.</p>
+    <div class="board" data-spec="rows"></div>
+    <div class="note">Status colours follow the ink language (§0), and the Board and worker rows move with them: <b>Running</b> teal, with the 1600 ms halo · <b>Needs you</b> amber · <b>Done</b> green · <b>Failed</b> red, which stays · <b>Idle</b> an empty ring · the unread dot teal (§0). The word is never left out: the tooltip, the accessible name and the session header all say it.</div>
+    <div class="board" data-spec="friend" style="margin-top:14px"></div>
+  </section>
+  <section id="melody">
+    <h2>8 · Melody</h2>
+    <p class="sub">She's a tab in Work, in the bottom panel by default. You can drag her to the top one like any tab. On the inspector ground, her replies are flat in the body face, and your messages sit on the tint, as in chat. Under her tab, her line counts sessions and what needs you. Closing her tab hides her; she keeps working and counting on her pin. The specimens below are her tab's body at its default size.</p>
+    <div class="board" data-spec="melody"></div>
+  </section>
+  <section id="cards">
+    <h2>9 · Session cards — Melody's link to a session</h2>
+    <p class="sub">Whenever she mentions a session, her message ends in its card. The card is the same object as the rail row: dot, title, repository and status word. Clicking it opens the session in Chat, and right-clicking gives the session menu (§15). A card's status is its outline: 3 px, in its status colour (teal Running, amber Needs you, green Done, red Failed; Idle has none), with no dot inside. Rows, the strip and the header keep their top-left dot, so nothing carries both.</p>
+    <div class="board" data-spec="cards"></div>
+  </section>
+  <section id="composer">
+    <h2>10 · Composer — attach · send, in Melody and in every Easy session</h2>
+    <p class="sub">The lever goes, and the folder chip moves to the session header (§11). In Easy the row is just the paper clip and the send disc: Heroicons 16 solid, 16 px on buttons. Advanced keeps its chips as they are. The disc keeps its usage ring and its states.</p>
+    <div class="board" data-spec="composer"></div>
+    <div class="note prop"><b>Proposal — retires the lever.</b> <span class="mono">Lever.tsx</span>, the words <b>lever</b> and <b>stop</b>, and the Easy row "lever · folder · attach · send" (DESIGN.md §Vocabulary) leave Easy. A new Easy session starts in the orchestrator setup and falls back to direct Opus in a folder with no orchestrator role. The research doc settles how that happens; this sheet only draws the row.</div>
+  </section>
+  <section id="session">
+    <h2>11 · Session view — header, question card, and Melody's handoff</h2>
+    <p class="sub">The header now carries what the composer used to: the repository (the folder chip's job), the title, who started the session and its status. A session Melody started opens with a divider naming the handoff, the "→ Codex from here" pattern applied to people.</p>
+    <div class="board" data-spec="session"></div>
+    <div class="board" data-spec="newchat" style="margin-top:14px"></div>
+  </section>
+  <section id="widgets">
+    <h2>12 · Chat widgets</h2>
+    <p class="sub">What a session posts in its thread. The rules: <b>a widget never moves</b>; it's posted once and updated in place. <b>Running is the one lifted card</b>; everything else floats and settles back. <b>The fix is the primary</b>. Status on a card is its 3 px outline. Left: a turn as it runs. Right: the widgets that stop and wait, or fail.</p>
+    <div class="board"><div class="grid2">
+      <div class="thread">
+        <div class="you" style="align-self:flex-end">Retina exports come out blurry. Fix the scale in the export path.</div>
+        <div class="reply"><p>The canvas is created at CSS size, so every export renders at 1x. I'll scale it by <code>devicePixelRatio</code> in <a href="#">render.ts</a>.</p></div>
+        <div class="tgroup">
+          <span class="trow"><svg><use href="#h-doc"/></svg>Read <span class="mono">src/export/render.ts</span><span class="dur">0.2 s</span></span>
+          <span class="trow"><svg><use href="#l-search"/></svg>Searched <span class="mono">createCanvas</span> · 4 files<span class="dur">0.4 s</span></span>
+          <span class="trow running"><svg><use href="#l-terminal"/></svg>Running <span class="mono">pnpm test export</span><span class="dur">12 s</span><span class="dot running" style="margin-left:4px"></span></span>
+        </div>
+        <span class="cap">Tool rows on the tint; the running row is the one lifted, ringed in teal</span>
+        <div class="wcard st-done"><div class="hd"><svg><use href="#h-pencil"/></svg><b class="mono" style="font-family:var(--mono);font-weight:500;font-size:12px">src/export/render.ts</b><span class="w"><span style="color:var(--diff-add)">+2</span> <span style="color:var(--danger)">−1</span></span></div>
+          <div class="diff"><div class="hh">@@ -41,7 +41,8 @@</div><div>  const canvas = createCanvas(w, h);</div><div class="d">- const scale = 1;</div><div class="a">+ const scale = window.devicePixelRatio ?? 2;</div><div class="a">+ canvas.scale(scale, scale);</div></div>
+          <div class="acts"><button class="b sm secondary lift">Open in Changes</button><button class="b sm ghost"><svg><use href="#h-undo"/></svg>Undo this turn</button></div></div>
+        <span class="cap">Diff card: a write lands as the change itself; green outline once it's in the tree</span>
+        <div class="codeblk"><div class="h">ts · render.ts<span class="sp"></span><svg><use href="#h-copy"/></svg>&nbsp;Copy</div><pre><span class="k">const</span> scale = window.devicePixelRatio ?? <span class="s">2</span>;
+canvas.scale(scale, scale); <span class="c">// crisp on retina</span></pre></div>
+        <div class="todo"><div><span class="chk on"><svg><use href="#h-check"/></svg></span><span class="done">Find where the canvas is sized</span></div><div><span class="chk on"><svg><use href="#h-check"/></svg></span><span class="done">Scale by the pixel ratio</span></div><div><span class="dot running"></span>Run the export tests</div><div><span class="chk"></span>Re-export the sheet PNG</div></div>
+        <span class="cap">The turn's plan: done items struck through, the current one with the running dot</span>
+        <div style="display:flex;gap:10px;align-items:center"><span class="typing"><i></i><i></i><i></i></span><span class="why">Claude is thinking…</span></div>
+        <div class="changesbar"><span><b>3 files</b> · <span class="add">+24</span> <span class="del">−6</span></span><span class="sp"></span><button class="b sm secondary lift">Review</button><button class="b sm primary lift">Commit…</button><button class="b sm ghost">Discard</button></div>
+        <span class="cap">The Changes bar sits over the composer once the tree is dirty</span>
+      </div>
+      <div class="thread">
+        <div class="wcard st-needs"><div class="hd"><span class="dot needs"></span><b>Two ways to fix this. Which one?</b><span class="w">Needs you</span></div>
+          <div class="body">Scale at render keeps exports and previews in step. Scale at export touches one file.</div>
+          <div class="acts"><button class="b sm primary lift">Scale at render</button><button class="b sm secondary lift">Scale at export</button><button class="b sm ghost">Answer in words…</button></div></div>
+        <span class="cap">Ask card: amber outline; the recommended answer is the primary</span>
+        <div class="wcard st-needs"><div class="hd"><svg><use href="#l-terminal"/></svg><b>Run <span class="mono" style="font-weight:500">rm -rf dist/</span>?</b><span class="w">waiting for you · Claude asks</span></div>
+          <div class="body">Claude wants to clear the build output before re-exporting.</div>
+          <div class="acts"><button class="b sm primary lift">Allow once</button><button class="b sm secondary lift">Always allow</button><button class="b sm ghost">Deny</button></div></div>
+        <span class="cap">Tool confirmation: the adapter's own words and command; nothing runs until you answer</span>
+        <div class="wcard st-needs"><div class="hd"><svg><use href="#h-doc"/></svg><b>Plan ready — waiting for you</b><span class="w">Planner · Codex</span></div>
+          <div class="body">4 steps · touches <span class="mono">render.ts</span>, <span class="mono">export.ts</span> · adds one test</div>
+          <div class="acts"><button class="b sm primary lift">Accept</button><button class="b sm secondary lift">Revise…</button><button class="b sm link">Open plan</button></div></div>
+        <span class="cap">Plan gate: Orchestrate pauses here before any code</span>
+        <div class="divider">→ Codex from here</div>
+        <div style="display:flex;flex-direction:column;gap:6px">
+          <div class="worker"><span class="dot running"></span><b>Researcher</b><span class="why">Running · 38 s</span><span class="m">agy · <span class="mono">gemini-3.8-flash-high</span> · map the export path</span></div>
+          <div class="worker"><span class="dot done"></span><b>Implementer</b><span class="why">Done</span><span class="m">Claude · <span class="mono">sonnet-5</span> · scale the canvas</span></div>
+        </div>
+        <span class="cap">Runtime divider and worker rows, when a session delegates</span>
+        <div class="wcard st-failed"><div class="hd"><svg style="color:var(--danger)"><use href="#h-warn"/></svg><b>Claude stopped: your session expired</b><span class="w">Failed</span></div>
+          <div class="body">Your message and the files so far are kept.</div>
+          <div class="acts"><button class="b sm primary lift">Sign in to Claude</button><button class="b sm secondary lift">Continue with Codex</button><button class="b sm ghost">Details</button></div></div>
+        <span class="cap">Turn failure: red outline; the cause in plain words, then the fix as the primary</span>
+        <div class="composer"><div class="quote" style="margin-bottom:8px"><div class="h">src/export/render.ts:41-44</div><pre>const scale = 1;</pre></div><div class="imgatt" style="margin-bottom:8px">export-1x.png</div><div class="ph typed" style="font-size:14px">Why is this still 1x?</div><div class="c-row"><span class="sp"></span><button class="attach lift" aria-label="Attach"><svg><use href="#h-clip"/></svg></button><button class="disc lift" data-armed aria-label="Send"><svg><use href="#h-up"/></svg></button></div></div>
+        <span class="cap">Composer with a quote from Add to chat and an image attachment</span>
+      </div>
+    </div></div>
+  </section>
+  <section id="panes">
+    <h2>13 · Browser · Markdown · Terminal</h2>
+    <p class="sub">Three panes of the Work column, each under its tab bar. Each pane hands its selection to the chat through <b>Add to chat</b> (the Terminal calls it <b>Send to chat</b>); nothing is sent until you press send.</p>
+    <div class="board"><div class="grid3">
+      <div>
+        <div class="wtabs2"><span class="wtab on"><svg><use href="#h-globe"/></svg>Browser<svg class="x"><use href="#h-x"/></svg></span><span class="wtab"><svg><use href="#h-doc"/></svg>Markdown</span><span class="wtab"><svg><use href="#l-terminal"/></svg>Terminal</span><span class="end"><button class="ib ghost sm" aria-label="New tab"><svg><use href="#l-plus"/></svg></button><button class="ib ghost sm" aria-label="Session menu"><svg><use href="#l-ellipsis"/></svg></button></span></div>
+        <div class="pane" style="border-radius:0 0 16px 16px">
+          <div class="tb"><button class="ib ghost" aria-label="Back"><svg><use href="#h-left"/></svg></button><button class="ib ghost" aria-label="Forward" style="opacity:.4"><svg><use href="#h-right"/></svg></button><button class="ib ghost" aria-label="Refresh"><svg><use href="#h-refresh"/></svg></button>
+            <span class="addr"><svg><use href="#h-lock"/></svg><span class="host">localhost:5173</span>/export</span>
+            <button class="b sm secondary lift"><svg><use href="#h-share"/></svg>Share with agents</button></div>
+          <div class="site"><div class="nav"><b>compo</b><span>Library</span><span>Queue</span><span>Export</span></div><h5>Export take 2</h5><p>1920 × 1080 · MP4 · 1:40. The preview renders at the display's pixel ratio.</p><div class="hero"></div></div>
+        </div>
+        <span class="cap" style="display:block;margin-top:8px">Back · Forward · Refresh (Stop while loading) · the address · Share with agents ▸ Page · Screenshot · Console</span>
+      </div>
+      <div>
+        <div class="wtabs2"><span class="wtab"><svg><use href="#h-globe"/></svg>Browser</span><span class="wtab on"><svg><use href="#h-doc"/></svg>Markdown<svg class="x"><use href="#h-x"/></svg></span><span class="wtab"><svg><use href="#l-terminal"/></svg>Terminal</span><span class="end"><button class="ib ghost sm" aria-label="New tab"><svg><use href="#l-plus"/></svg></button><button class="ib ghost sm" aria-label="Session menu"><svg><use href="#l-ellipsis"/></svg></button></span></div>
+        <div class="pane" style="border-radius:0 0 16px 16px">
+          <div class="tb"><span style="font-size:12px;color:var(--t2)" class="mono">docs/2026-09-22-export-plan-v1.md</span><span style="flex:1"></span><button class="b sm secondary lift"><svg><use href="#h-pencil"/></svg>Edit</button></div>
+          <div class="md"><div class="mdtoc"><div class="t">Contents</div><a href="#" onclick="return false">Goal</a><a href="#" class="on" onclick="return false">Approach</a><a href="#" class="l2" onclick="return false">Scale at render</a><a href="#" class="l2" onclick="return false">Tests</a><a href="#" onclick="return false">Tasks</a></div>
+            <div class="doc"><h1>Export at the display's scale</h1><p>Exports render at 1x on retina because the canvas is sized in CSS pixels.</p><h2>Approach</h2><p><span class="sel">Scale the canvas by <code style="font-family:var(--mono);font-size:12px">devicePixelRatio</code> at render</span><span class="addpill"><svg class="i14"><use href="#l-plus"/></svg>Add to chat</span>, so the preview and the export stay in step.</p>
+              <ul><li>one change in <span class="mono">render.ts</span></li><li>a snapshot test at 2x</li></ul><blockquote>Scale at export was rejected: previews would drift.</blockquote>
+              <table><tr><th>Task</th><th>Worker</th></tr><tr><td>Scale the canvas</td><td>Implementer</td></tr><tr><td>Snapshot at 2x</td><td>Implementer</td></tr></table></div></div>
+        </div>
+        <span class="cap" style="display:block;margin-top:8px">Contents from three headings up, the current heading ringed teal · a selection offers Add to chat · Edit opens the Editor at that heading</span>
+      </div>
+      <div style="position:relative">
+        <div class="wtabs2"><span class="wtab"><svg><use href="#h-globe"/></svg>Browser</span><span class="wtab"><svg><use href="#h-doc"/></svg>Markdown</span><span class="wtab on"><svg><use href="#l-terminal"/></svg>Terminal<svg class="x"><use href="#h-x"/></svg></span><span class="end"><button class="ib ghost sm" aria-label="New tab"><svg><use href="#l-plus"/></svg></button><button class="ib ghost sm" aria-label="Session menu"><svg><use href="#l-ellipsis"/></svg></button></span></div>
+        <div class="pane" style="border-radius:0 0 16px 16px">
+          <div class="term light">
+<div><span class="p">~/github/compo</span> <span class="d2">wt/export-1x</span> <span class="c">$</span> pnpm test export</div>
+<div class="d2">&gt; vitest run export</div>
+<div>&nbsp;</div>
+<div> <span class="p">✓</span> render.test.ts <span class="d2">(3)</span></div>
+<div> <span class="r">✗</span> export.test.ts <span class="d2">(1 failed)</span></div>
+<div>&nbsp;&nbsp;&nbsp;<span class="r">AssertionError:</span> <span class="sel">expected 1920 to be 3840</span></div>
+<div>&nbsp;&nbsp;&nbsp;<span class="d2">at export.test.ts:28:19</span></div>
+<div>&nbsp;</div>
+<div> Tests <span class="r">1 failed</span> | <span class="p">3 passed</span> <span class="d2">(4)</span></div>
+<div> <span class="y">Duration</span> 1.84s</div>
+<div>&nbsp;</div>
+<div><span class="p">~/github/compo</span> <span class="d2">wt/export-1x</span> <span class="c">$</span> <span class="cursor"></span></div>
+          </div>
+        </div>
+        <span class="termsend addpill" style="top:224px"><svg class="i14"><use href="#l-plus"/></svg>Send to chat</span>
+        <span class="cap" style="display:block;margin-top:8px">JetBrains Mono on the terminal's own ground (paper in Studio light, charcoal with the Monokai eight in dark) · a selection offers Send to chat</span>
+      </div>
+    </div></div>
+  </section>
+  <section id="vs">
+    <h2>14 · Melody vs a normal session</h2>
+    <p class="sub">Same ink, same composer, different jobs. Melody talks about sessions: her thread is words and session cards, never tool rows. A session does the work: its thread is tool rows, diffs and the widgets in §12.</p>
+    <div class="board"><div class="vs" id="vsStage"></div></div>
+    <table class="ref diffs" style="margin-top:14px">
+      <tr><th></th><th>Melody</th><th>A session</th></tr>
+      <tr><td>Where it lives</td><td>A tab in Work's bottom panel (by default); closing it hides her; never in the Sessions list</td><td>The Chat column; a row in the Sessions list</td></tr>
+      <tr><td>What the thread holds</td><td>Her words and session cards (3 px status outline); no tool rows, no diffs</td><td>Tool rows, diff cards, ask cards, tool confirmations, plan gate, worker rows, turn failures</td></tr>
+      <tr><td>Header</td><td>Her tab (mark · <b>Melody</b> · ×), then her line "6 sessions · 1 needs you"</td><td>Repository crumb · title · Started by Tempo / Melody / you · status word and dot · the Work toggle</td></tr>
+      <tr><td>Composer</td><td>"Ask Melody, or hand her a task…" · attach · send; no Changes bar</td><td>"Describe a task…" · attach · send; the Changes bar above it once the tree is dirty</td></tr>
+      <tr><td>What she touches</td><td>Sessions: starts, reads, messages, reports; never edits files</td><td>The repository: reads, edits, runs, commits</td></tr>
+      <tr><td>Lifetime</td><td>Always there; no Archive, no Delete; her context is summarised, never cleared</td><td>Opened, archived, deleted like any chat</td></tr>
+      <tr><td>Mark</td><td>The app icon (white tile, #101010 Takes strip)</td><td>Its manager's 16 px mark in its row (Harmony, Tempo, Chord); none when you started it</td></tr>
+    </table>
+  </section>
+  <section id="interact">
+    <h2>15 · Desktop interactions</h2>
+    <p class="sub">What the pointer and keyboard do. Every item reuses a pattern the app already has; none of them adds a new one.</p>
+    <div class="board" data-spec="interact"></div>
+  </section>
+  <section id="motion">
+    <h2>16 · Motion — the existing roles, and each motion comes from somewhere and goes somewhere</h2>
+    <p class="sub">No new duration roles: <span class="mono">--motion-fast</span> 120 ms for lifts, <span class="mono">--motion-press</span> 80 ms, <span class="mono">--motion-base</span> 180 ms for columns, rows and menus, <span class="mono">--halo-period</span> 1600 ms for anything running. Reduced motion stills all of it.</p>
+    <div class="board" id="motionBoard">
+      <div class="specs" style="margin-bottom:14px">
+        <button class="replay" data-demo="toggle">Open / hide Melody</button>
+        <button class="replay" data-demo="spawn">Melody starts a session</button>
+        <button class="replay" data-demo="badge">A reply while hidden</button>
+        <button class="replay" data-demo="raise">Pointer over the chat</button>
+      </div>
+      <div class="stage" id="stage"></div>
+    </div>
+    <table class="ref" style="margin-top:14px">
+      <tr><th>Beat</th><th>Motion</th><th>Duration · easing</th><th>What it shows</th></tr>
+      <tr><td>Melody shows / hides</td><td>Her tab opens and closes in place (tabs don't grow or shrink — 04 not picked); the bottom panel slides open or shut and the top panel gives way (03); the pin's ring comes and goes</td><td>180 ms · ease-out</td><td>She hides into her pin and grows back out of it; there's no second place she lives</td></tr>
+      <tr><td>Sessions folds / unfolds</td><td>The list narrows into its dot strip; each row's dot stays put and becomes the strip's dot</td><td>180 ms · ease-out</td><td>The strip is the list, collapsed, not something new</td></tr>
+      <tr><td>She starts a session</td><td>Her card lands (4 px rise); the new row lands in Today; both flash teal once</td><td>180 ms · 900 ms flash</td><td>The card and the row are the same object, so the flash links them</td></tr>
+      <tr><td>Reply while hidden</td><td>The pin's count rolls to its new value (10)</td><td>260 ms</td><td>The count comes out of the pin, which opens her</td></tr>
+      <tr><td>Status changes</td><td>The dot's colour crossfades; Running breathes its halo</td><td>180 ms · 1600 ms period</td><td>The same dot in rail, card and header, so all three change together</td></tr>
+      <tr><td>Opening a session from a card</td><td>Chat plays the pane-open motion (fade, zoom-in-95 from the top)</td><td>150 ms · ease-g2</td><td>The session grows out of where you clicked</td></tr>
+      <tr><td>Hover and press</td><td>Lift 1 px to shadow-md with a 4 px outline outside the edge: light teal, or the card's own status colour when it already has an outline (amber, green, red, teal); the chevron nudges 2 px; press settles back, the outline stays. Ghost buttons, menu items and tabs get a wash, no outline</td><td>120 / 80 ms</td><td>The Floating Button Rule, and teal for what the pointer is on (decided 2026-09-22, option B)</td></tr>
+      <tr><td>Composer</td><td>Rises 3 px to shadow-lg while the pointer is over its column</td><td>180 ms</td><td>Unchanged (DESIGN.md §Motion, 2026-09-20)</td></tr>
+      <tr><td>Melody writing</td><td>Three dots bob in the feed; her mark works (below, 01) with a teal halo</td><td>1200 ms loop · 1600 ms</td><td>She's working even while she's hidden</td></tr>
+    </table>
+    <div class="note">Differences from the prototype: its springy 220–380 ms curves and 2 px lifts become the system's 120–180 ms and 1 px. Running moves from DESIGN.md's blue dot to teal (§0).</div>
+    <div class="board" style="margin-top:14px"><p class="board-label">Locked 2026-09-23 — your picks from the motion proposals; these override any older line above — each links to its demo in <a href="2026-09-22-melody-motion-proposals.html" style="color:inherit">2026-09-22-melody-motion-proposals.html</a></p>
+    <table class="ref">
+      <tr><th>Beat</th><th>Motion</th><th>Duration · easing</th><th>Where it applies</th></tr>
+      <tr><td>01 · The family, working</td><td>Each mark moves its own way: Melody's sides rise as her centre dips (heights change, ends stay round); Harmony's bars nod in turn, never level; Tempo's steps tick; Chord's notes pulse, then the root. A teal halo on the tile</td><td>1.8 · 1.6 · 1.2 · 1.6 s loops</td><td>Melody's pin, a friend's row while running, the loader; live on this sheet (§4, §6, §7)</td></tr>
+      <tr><td>03 · Work's panels give way</td><td>The bottom panel's last tab closing lets the top panel slide down; the last tab anywhere slides Work away as Chat widens; the toggle with no tabs slides Work back with a new Terminal growing out of the toggle's corner</td><td>180 ms ease-out</td><td>Work, §4</td></tr>
+      <tr><td>05 · An answered ask settles</td><td>The card folds up and leaves a one-line record of the choice; the record reopens it</td><td>fold 260 ms · record after 160 ms</td><td>Ask cards, tool confirmations, the plan gate (§12)</td></tr>
+      <tr><td>06 · Sign-in closes into its seat</td><td>The sign-in runs in a Terminal tab; on success it closes into its seat row, whose dot pulses green to Ready</td><td>grow 180 ms · close 560 ms · pulse 600 ms</td><td>Settings › Seats, a turn failure's "Sign in to …" (§21, §12)</td></tr>
+      <tr><td>07 · Running settles into Done</td><td>The teal outline and pulse stop, the outline crossfades to green, the row's dot pulses once</td><td>180 ms · pulse 600 ms</td><td>Session cards, rows, the header (§7, §9, §11)</td></tr>
+      <tr><td>08 · Needs you draws its outline</td><td>The amber outline draws itself around the card from the top left, once</td><td>420 ms ease-out</td><td>Session cards, ask cards (§9, §12)</td></tr>
+      <tr><td>09C · The sent message: launch</td><td>The send disc presses; an ink dot shoots from it to where your message lands, and the bubble opens there; the composer clears</td><td>press 90 ms · flight 420 ms · open 180 ms</td><td>Every composer (§10)</td></tr>
+      <tr><td>10 · Counts roll</td><td>The pin's count and the Changes bar's numbers roll to their new value</td><td>260 ms ease-out</td><td>The pin, the Changes bar (§6, §12)</td></tr>
+    </table>
+    <div class="note" style="margin-top:10px">Not picked: 02 (the handoff card flying into a friend's row — they flash teal together instead, as above), 04 (tabs growing and shrinking — tabs open and close in place), 09A · 09B · 09D (other ways to send). Every picked beat stops under Reduce motion: loops still, travels become cuts.</div></div>
+
+  </section>
+  <section id="tokens">
+    <h2>17 · Tokens — every new element and the existing role it reads</h2>
+    <p class="sub">The ink language re-points existing roles (§0); it adds no new ones.</p>
+    <div class="note prop" style="margin:0 0 12px"><b>Proposal — amends DESIGN.md §Iconography.</b> One set: Heroicons 16 solid replaces lucide app-wide (the composer already uses it), which closes the "two sets is a known state" line. Each lucide icon maps to its solid counterpart (the pane icons, the session menu, the status icons); the plan carries the table.</div>
+    <table class="ref" id="tokenTable"></table>
+    <div class="note"><b>Decided 2026-09-22: Type A, one face; Icon A, solid.</b> Type: Schibsted Grotesk on the five sizes, for the chrome and for Melody's words alike. The header title is 15/22 at 600, rows and messages 13/20 at 500, meta lines 11/16. Mono only for machine text (<span class="mono">wt/&lt;slug&gt;</span>, model ids, the Work column's diff). Radius: panel 16 (columns, cards in chat, the composer), control 12 (rows, cards in Melody, buttons, menus), chip 999 (the origin chip, filters, the count). Icons: Heroicons 16 solid, everywhere, at 16 px on buttons and 14 px in rows and chips; the fill echoes the mark's solid bars. Melody herself is drawn only as the app icon: the <span class="mono">#101010</span> Takes strip on a white rounded square, in both themes.</div>
+  </section>
+  <section id="words">
+    <h2>18 · Words — new rows for the vocabulary table</h2>
+    <table class="ref">
+      <tr><th>Concept</th><th>On screen</th><th>Never</th><th>Internal (proposed)</th></tr>
+      <tr><td>The main agent</td><td><b>Melody</b>; the pin's line reads what she's doing: "Knows 6 sessions", "Writing…", "2 need you"</td><td>assistant, main session, home, sidecar</td><td><span class="mono">melody-tab</span>, <span class="mono">melody-pin</span>, <span class="mono">melody-feed</span>, <span class="mono">melody-card-&lt;id&gt;</span>, <span class="mono">melody-seam</span></td></tr>
+      <tr><td>Melody's friends</td><td><b>Harmony</b> · <b>Tempo</b> · <b>Chord</b>, each named with its repository and runtime in its status line (the Named Runtime Rule)</td><td>bot, PM, sub-agent</td><td><span class="mono">friend-&lt;id&gt;</span>, <span class="mono">session-origin[data-origin=melody|harmony|tempo|chord|you]</span></td></tr>
+      <tr><td>Who started a session</td><td><b>Started by Tempo</b> · <b>Started by Melody</b> · <b>Started by you</b> (header chip); the manager's mark in the row</td><td>spawned, child, subagent</td><td><span class="mono">session-origin[data-origin=melody|you]</span></td></tr>
+      <tr><td>Work waiting on you</td><td><b>Needs you</b></td><td>Blocked, Pending, Action required</td><td>the Board's status, renamed (open decision 3)</td></tr>
+      <tr><td>A session's link in her feed</td><td><b>session card</b></td><td>chip, link, pill</td><td><span class="mono">melody-card[data-status]</span></td></tr>
+      <tr><td>The folded Sessions column</td><td><b>strip</b>, one dot per session, the title as its tooltip</td><td>mini sidebar, dock</td><td><span class="mono">workspace-column-sessions[data-folded]</span></td></tr>
+      <tr><td>Melody handing a session over</td><td>divider "<b>Melody handed this over</b>", then her words as the first message</td><td>delegated, spawned by</td><td><span class="mono">session-handoff</span></td></tr>
+      <tr><td>Retired</td><td colspan="3"><b>lever</b>, <b>stop</b> (Easy · Medium · Hard · Custom) — leave the default surface; Advanced's Runtime · Mode chips are the manual way</td></tr>
+    </table>
+  </section>
+  <section id="a11y">
+    <h2>19 · Keys and accessibility</h2>
+    <table class="ref">
+      <tr><th>Input</th><th>Behaviour</th></tr>
+      <tr><td>⌘J</td><td>Opens Melody's tab in Work's bottom panel and focuses her input; pressed again, closes the tab and returns focus to where it was</td></tr>
+      <tr><td>⌘1 · ⌘2 · ⌘3</td><td>Unchanged: Sessions · Chat · Work. ⌘J is Melody's, so the column numbers don't shift</td></tr>
+      <tr><td>⌘Enter · Esc in her input</td><td>Send, and cancel her turn, as in chat (DESIGN.md §Accessibility)</td></tr>
+      <tr><td>Seams</td><td>A <span class="mono">separator</span> between columns (← →) and between Work's two panels (↑ ↓), 16 px a press; double-click resets</td></tr>
+      <tr><td>Work toggle</td><td>The button at Chat's top right; <span class="mono">aria-pressed</span> while Work shows; with no tabs it opens a Terminal and says so</td></tr>
+      <tr><td>Landmark</td><td>Her tab is a <span class="mono">tabpanel</span> labelled Melody; the feed is <span class="mono">role="log"</span> with polite announcements, so a card that needs you reads "<i>title</i> needs you"</td></tr>
+      <tr><td>Colour never alone</td><td>Every dot has its word next to it or in its accessible name; the pin's count reads "3 new from Melody"; the strip's dots carry the title and status in their names</td></tr>
+      <tr><td>Hidden, then shown</td><td>Her draft, scroll position and unsent input are kept (the Nothing Lost Rule applied to Melody)</td></tr>
+    </table>
+  </section>
+  <section id="open">
+    <h2>20 · Decisions — what's still open, and what's settled</h2>
+    <table class="ref">
+      <tr><th>#</th><th>Still open</th><th>Recommended</th><th>Alternative</th></tr>
+      <tr><td>1</td><td>The word for work waiting on you</td><td><b>Needs you</b> everywhere, replacing the Board's <b>Needs review</b> (one word per concept)</td><td>Keep Needs review for changes that aren't committed yet, and Needs you only for questions</td></tr>
+      <tr><td>2</td><td>Melody's own session in the list</td><td>Not listed; the pin is her row</td><td>Pinned at the top of Today</td></tr>
+      <tr><td>3</td><td>Phone rail order</td><td>Melody · Chat · panes</td><td>Chat first, as today, with Melody second</td></tr>
+      <tr><td>4</td><td>More colour</td><td>A faint teal tint on Melody's tab; the pin's count amber when something needs you; progress and "on" in teal</td><td>A colour per runtime or per repository</td></tr>
+      <tr><td>5</td><td>Naming a new friend</td><td>Melody proposes a musical name when she first works in a repository; you can rename it</td><td>You name each one</td></tr>
+    </table>
+    <div class="note" style="margin-top:12px"><b>Settled.</b> Three panels, edge to edge (2026-09-22) · Work is two tabbed panels; Melody is a tab, bottom panel by default · friends: Harmony, Tempo, Chord, one per repository · ink language, teal = focus + activity, amber = needs you, blue = links, green/red = outcomes · hover = lift + 4 px outline in the item's own colour · Type A, Icon A · the lever retired · motion picks locked (§16) · the session menu ⋯ sits beside the Work toggle in every header, so it stays reachable while Work is collapsed (from the 2026-09-23 UX review).</div>
+  </section>
+  <section id="settings">
+    <h2>21 · Settings — the route, every category</h2>
+    <p class="sub">Settings is a route (the sidebar's fourth tab), so it takes the window: its categories on the left, where the current one carries the current row's teal ring, and the category on the right in the components above. Click through; each category is filled in. Everything takes effect at once, with no Save button. Anything that can't be undone asks first.</p>
+    <div class="board"><div class="set-win"><nav class="set-nav" id="setNav"></nav><div class="set-main" id="setMain"></div></div></div>
+    <div class="note">What moved here from the lever: nothing. Melody picks the setup (§20, the research doc settles how). Advanced's Runtime · Mode chips stay the manual way, and <b>Seats</b> is where a runtime gets installed or signed in.</div>
+  </section>
+  <section id="phone">
+    <h2>22 · Phone — secondary</h2>
+    <p class="sub">Desktop leads; the phone follows. Melody is the first tab on the tab rail, before Chat, and one thing shows at a time, as today.</p>
+    <div class="board" data-spec="phone"></div>
+  </section>
+</div>
+<script>
+/* Specimens are built once per theme from the same templates, so light and dark can never drift apart. */
+const h = (html) => { const t = document.createElement('template'); t.innerHTML = html.trim(); return t.content; };
+const MARKS = {
+  takes: ['mel', '<rect class="r1" x="2" y="7.5" width="4.6" height="9" rx="1.7" opacity=".6"/><rect class="r2" x="8.7" y="2.5" width="6.6" height="19" rx="2.4"/><rect class="r3" x="17.4" y="7.5" width="4.6" height="9" rx="1.7" opacity=".6"/>'],
+  'm-harmony': ['har', '<rect class="r1" x="5.2" y="2.5" width="6" height="14.5" rx="2.3"/><rect class="r2" x="12.8" y="7" width="6" height="14.5" rx="2.3"/>'],
+  'm-tempo': ['tem', '<rect class="r1" x="2.6" y="10.5" width="5.2" height="11" rx="1.9" opacity=".55"/><rect class="r2" x="9.4" y="6.5" width="5.2" height="11" rx="1.9" opacity=".78"/><rect class="r3" x="16.2" y="2.5" width="5.2" height="11" rx="1.9"/>'],
+  'm-chord': ['cho', '<rect class="r1" x="4.4" y="2.5" width="6.6" height="19" rx="2.4"/><rect class="r2" x="13.4" y="4.5" width="6.2" height="6.4" rx="2" opacity=".6"/><rect class="r3" x="13.4" y="13.1" width="6.2" height="6.4" rx="2" opacity=".6"/>'],
+};
+const E = (cls='', mark='takes') => `<span class="emblem ${cls}"><svg viewBox="0 0 24 24" class="mk-${MARKS[mark][0]}">${MARKS[mark][1]}</svg></span>`;
+const FRIENDS = { harmony:{ name:'Harmony', mark:'m-harmony', repo:'melody-agent2' }, tempo:{ name:'Tempo', mark:'m-tempo', repo:'compo' }, chord:{ name:'Chord', mark:'m-chord', repo:'ux_tests' } };
+const PM_OF = { 'melody-agent2':'harmony', compo:'tempo', ux_tests:'chord' };
+const markOf = (who) => who === 'melody' ? 'takes' : FRIENDS[who].mark;
+const friendRow = (id, line, st, mod='') => `<button class="friend lift ${mod}" title="${FRIENDS[id].name} manages ${FRIENDS[id].repo}">${E(st === 'running' ? 'fr working' : 'fr', FRIENDS[id].mark)}<span class="fl"><b>${FRIENDS[id].name}</b><span class="line">${line}</span></span>${st ? dot(st) : ''}</button>`;
+const friendsBlock = (sel) => `<div class="friends">${friendRow('harmony', 'melody-agent2 · 3 sessions · running', 'running', sel === 'harmony' ? 'on' : '')}${friendRow('tempo', 'compo · 2 sessions · 1 needs you', 'needs', sel === 'tempo' ? 'on' : '')}${friendRow('chord', 'ux_tests · idle', '', sel === 'chord' ? 'on' : '')}</div>`;
+const I = (id, s=16) => `<svg width="${s}" height="${s}" fill="currentColor"><use href="#${id}"/></svg>`;
+const dot = (st) => `<span class="dot ${st}" aria-label="${({running:'Running',needs:'Needs you',done:'Done',failed:'Failed',idle:'Idle'})[st]}"></span>`;
+
+const pin = (mod, line, right='') => `<button class="pin lift ${mod}">${E(mod.includes('working')?'working':'')}<span><b>Melody</b><span class="line">${line}</span></span>${right}</button>`;
+const STW = { needs:'Needs you', failed:'Failed' };
+const row = (st, title, time, repo, byMelody, extra='') => `<button class="row ${extra}" data-row="${title}">${dot(st)}<span class="title">${title}</span><span class="time">${time}</span><span class="meta">${byMelody ? E('sm', markOf(typeof byMelody === 'string' ? byMelody : (PM_OF[repo.split(' ')[0]] || 'melody'))) : ''}${STW[st] ? `<span class="stw ${st}">${STW[st]}</span>` : ''}<span>${repo}</span>${extra.includes('unread')?'<span class="unread" aria-label="Unread"></span>':''}</span></button>`;
+const card = (st, title, repo, word, mod='') => `<button class="card lift st-${st} ${mod}" aria-label="${title}, ${word}"><span><b>${title}</b><span class="w">${repo} · ${word}</span></span><span class="go">${I('l-chevron-r',14)}</span></button>`;
+const composer = (ph, typed, disc, extra='') => `<div class="composer ${extra}"><div class="ph ${typed?'typed':''}">${ph}</div><div class="c-row"><span class="sp"></span><button class="attach lift" aria-label="Attach">${I('h-clip')}</button>${disc}</div></div>`;
+const discIdle = `<button class="disc" aria-label="Send" disabled>${I('h-up')}</button>`;
+const discArmed = `<button class="disc lift" data-armed aria-label="Send">${I('h-up')}</button>`;
+const discStop = `<button class="disc stop lift" aria-label="Stop"><i></i></button>`;
+
+const ROWS = [
+  ['Today', 'needs', 'Fix the compo export bug', 'now', 'compo', true],
+  ['Today', 'running', 'Delegation timeout', '9m', 'melody-agent2', true, 'unread'],
+  ['Today', 'running', 'Composer cleanup', '2m', 'melody-agent2', false],
+  ['Today', 'done', 'Export pipeline', '1h', 'compo', true],
+  ['Yesterday', 'failed', 'Quota reset card', 'Mon', 'melody-agent2', true],
+  ['Yesterday', 'idle', 'Style guide refresh', 'Mon', 'ux_tests', false],
+];
+const sessionsCol = (opts={}) => {
+  const repo = opts.repo || null, current = opts.current ?? 'Fix the compo export bug';
+  const rows = ROWS.filter(r => !repo || r[4] === repo);
+  let lastDay = '', list = '';
+  for (const [day, st, title, time, rp, by, extra=''] of rows) {
+    if (day !== lastDay) { list += `<div class="day">${day}${lastDay ? '' : '<span class="sort">Recent ▾</span>'}</div>`; lastDay = day; }
+    list += row(st, title, time, rp, by, (title === current && !opts.friend ? 'on ' : '') + extra);
+  }
+  const chip = (name, n) => `<span class="chip ${(name === 'All' ? !repo : repo === name) ? 'on' : ''}">${name} <span class="n">${n}</span></span>`;
+  return `<div class="col-sessions" style="${opts.h ? 'height:' + opts.h + 'px' : ''}">
+  ${pin(opts.pinMod ?? 'open', opts.pinLine ?? '6 sessions · 1 needs you', opts.pinRight ?? '<span class="kbd">⌘J</span>')}
+  ${friendsBlock(opts.friend)}
+  <div class="search"><span class="field">${I('l-search',14)}Search</span><button class="icon-btn lift" aria-label="New chat">${I('l-plus',14)}</button></div>
+  <div class="chips">${chip('All', 6)}${chip('melody-agent2', 3)}${chip('compo', 2)}${chip('Elsewhere', 1)}</div>
+  ${list}
+  <div class="tabs"><span class="on">${I('h-chat')}Chats</span><span>${I('h-book')}Library</span><span>${I('h-bolt')}Automate</span><span>${I('h-cog')}Settings</span></div>
+</div>`;
+};
+
+const melodyHead = (line) => `<div class="m-head">${E()}<div><b>Melody</b><span class="line">${line}</span></div></div>`;
+const melodyCol = (opts={}) => `<aside class="col-melody" aria-label="Melody" style="${opts.w?'width:'+opts.w+'px;':''}${opts.h?'height:'+opts.h+'px':''}">
+  ${melodyHead(opts.line ?? '6 sessions · 1 needs you')}
+  <div class="feed" role="log">${opts.feed ?? `
+    <div class="mel">Morning. Export pipeline in compo finished overnight.${card('done','Export pipeline','compo','Done')}</div>
+    <div class="you">Start a session to fix the compo export bug</div>
+    <div class="mel">Started it with Tempo. It needs a decision from you:${card('needs','Fix the compo export bug','compo','Tempo · Needs you')}</div>`}
+  </div>
+  ${opts.bar ?? ''}
+  ${opts.suggest ? `<div class="suggest"><button class="lift">What needs me?</button><button class="lift">Summarise today</button></div>` : ''}
+  ${composer(opts.ph ?? 'Ask Melody, or hand her a task…', !!opts.typed, opts.disc ?? discIdle, 'in-melody')}
+</aside>`;
+
+const sessionHead = (by, st, word, toggle) => `<div class="s-head"><div><div class="crumb">${I('h-folder',14)}<span>compo</span></div><div class="s-title">Fix the compo export bug</div></div>
+  ${by !== 'you' ? `<span class="origin">${E('sm', markOf(by))}Started by ${by === 'melody' ? 'Melody' : FRIENDS[by].name}</span>` : `<span class="origin you">Started by you</span>`}
+  <span class="sp"></span><span class="status">${dot(st)}${word}</span><button class="more lift" data-work-toggle aria-pressed="${(toggle ?? 'on') === 'on'}" aria-label="Show or hide Work" title="Show or hide Work">${I('l-panel-right',14)}</button><button class="more lift" aria-label="Session menu" title="Session menu">${I('l-ellipsis',14)}</button></div>`;
+const friendChat = (id, toggle) => `<div class="col-chat">
+  <div class="s-head"><div style="display:flex;align-items:center;gap:10px">${E('fr', FRIENDS[id].mark)}<div><div class="s-title">${FRIENDS[id].name}</div><div class="crumb">Manages ${FRIENDS[id].repo} · Claude · <span class="mono">claude-opus-5</span></div></div></div>
+  <span class="sp"></span><span class="status">${dot('needs')}1 needs you</span><button class="more lift" data-work-toggle aria-pressed="${(toggle ?? 'on') === 'on'}" aria-label="Show or hide Work" title="Show or hide Work">${I('l-panel-right',14)}</button><button class="more lift" aria-label="${FRIENDS[id].name} menu">${I('l-ellipsis',14)}</button></div>
+  <div class="transcript">
+    <div class="mel">Two sessions in ${FRIENDS[id].repo}. One needs you.</div>
+    ${card('needs','Fix the compo export bug','compo','Needs you')}${card('done','Export pipeline','compo','Done')}
+    <div class="you">What's left on the export?</div>
+    <div class="mel">Only the scale decision. Tests pass once it lands; I'll re-export the sheet PNG after.</div>
+  </div>
+  <div style="padding:0 18px 16px">${composer('Ask ' + FRIENDS[id].name + '…', false, discIdle)}</div>
+</div>`;
+const chatCol = (opts={}) => `<div class="col-chat" style="${opts.h?'height:'+opts.h+'px':''}">
+  ${sessionHead(opts.by ?? 'tempo', opts.st ?? 'needs', opts.word ?? 'Needs you', opts.toggle)}
+  <div class="transcript">
+    <div class="handoff">Melody handed this to Tempo · 10:42</div>
+    <div class="mel">Fix the compo export bug: renders come out at 1x on retina. Read the export path first.</div>
+    <span class="tool">${I('l-terminal',14)}Read export.ts, render.ts</span>
+    ${opts.ask === false ? '' : `<div class="wcard st-needs"><div class="hd"><b>Two ways to fix this. Which one?</b><span class="w">Needs you</span></div><div class="body">Scale at render keeps previews in step with exports (recommended). Scale at export touches one file.</div><div class="acts"><button class="b sm primary lift">Scale at render</button><button class="b sm secondary lift">Scale at export</button><button class="b sm ghost">Answer in words…</button></div></div>`}
+  </div>
+  <div style="padding:0 18px 16px">${composer('Describe a task…', false, discIdle)}</div>
+</div>`;
+
+const workCol = () => `<div class="col-work"><div class="wtabs"><span class="on">Changes</span><span>Terminal</span></div><div class="wbody"></div></div>`;
+
+const TEMPLATES = {
+  frame: () => `<div class="frame">${sessionsCol()}${melodyCol({suggest:false})}${chatCol()}${workCol()}</div>`,
+  pin: () => `<div class="specs">
+    <div class="spec">${pin('', 'Knows 6 sessions')}<span class="cap">Rest, Melody hidden</span></div>
+    <div class="spec">${pin('is-hover', 'Knows 6 sessions')}<span class="cap">Hover: lift 1 px, shadow-md</span></div>
+    <div class="spec">${pin('open', '6 sessions · 1 needs you', '<span class="kbd">⌘J</span>')}<span class="cap">Open: inverse ring</span></div>
+    <div class="spec">${pin('', 'Writing…', '<span class="count">3</span>')}<span class="cap">Hidden with new messages: count</span></div>
+    <div class="spec">${pin('working', 'Starting a session in compo…')}<span class="cap">Working: the emblem breathes</span></div>
+    <div class="spec">${pin('', '<span style="color:var(--danger)">Claude isn’t signed in — Sign in</span>')}<span class="cap">Unavailable: her seat is down</span></div>
+  </div>`,
+  rows: () => `<div class="specs" style="gap:14px">
+    <div class="spec" style="width:264px">
+      ${row('running','Composer cleanup','2m','melody-agent2',false,'on')}
+      ${row('needs','Delegation timeout','9m','melody-agent2',true,'unread')}
+      ${row('done','Export pipeline','1h','compo',true)}
+      ${row('failed','Quota reset card','Mon','melody-agent2',true)}
+      ${row('idle','Style guide refresh','Mon','ux_tests',false)}
+      ${row('running','Fix the compo export bug','now','compo · <span class="mono">wt/export-1x</span>',true,'is-hover')}
+      <span class="cap">Current (white, 600, 2 px light-teal ring) · Needs you + unread · Done · Failed (stays) · Idle · Hover, with a worktree</span>
+    </div>
+    <div class="spec" style="width:264px">${sessionsCol({pinMod:'', pinLine:'Writing…', pinRight:'<span class="count">3</span>', h:430})}<span class="cap">The column with Melody hidden</span></div>
+  </div>`,
+  'melody-ready': () => `<div class="specs">${melodyCol({h:520, suggest:false})}<div class="spec" style="max-width:260px"><span class="cap">Ready: her replies flat; yours on the tint; every session she names ends in its card; the composer is attach · send. Work's width; the bottom half, resizable by the seam.</span></div></div>`,
+  'melody-states': () => `<div class="specs">
+    <div class="spec">${melodyCol({w:300, h:330, line:'No sessions yet', suggest:true, feed:`<div class="mel">I'm Melody. Tell me what you're working on and I'll start sessions for it, or open one yourself. I keep track of both.</div>`})}<span class="cap">Empty: first launch; the suggestions go once you send</span></div>
+    <div class="spec">${melodyCol({w:300, h:330, line:'Writing…', typed:true, ph:'What needs me?', disc:discStop, feed:`<div class="you">What needs me?</div><div class="mel"><span class="typing"><i></i><i></i><i></i></span></div>`})}<span class="cap">Running: the send disc is Stop; Esc cancels</span></div>
+    <div class="spec">${melodyCol({w:300, h:330, line:'Can’t reach Claude', feed:`<div class="you">Start a session for the quota card</div>`, bar:`<div class="bar">${dot('failed')}<span><b>Claude isn’t signed in.</b> Your message is kept and sends once you're signed in.</span><button class="b sm primary lift">Sign in to Claude</button></div>`})}<span class="cap">Error / Unavailable: the cause, then the fix; the draft stays</span></div>
+  </div>`,
+  cards: () => `<div class="specs" style="width:320px;flex-direction:column;align-items:stretch">
+    ${card('running','Fix the compo export bug','compo','Running')}
+    ${card('needs','Delegation timeout','melody-agent2','Needs you')}
+    ${card('done','Export pipeline','compo','Done · 3 files')}
+    ${card('failed','Quota reset card','melody-agent2','Failed · quota closed')}
+    ${card('idle','Style guide refresh','ux_tests','Idle')}
+    ${card('running','Fix the compo export bug','compo','Running','is-hover')}
+    <span class="cap">Running · Needs you · Done · Failed (stays) · Idle · Hover: lift, chevron 2 px</span>
+  </div>`,
+  composer: () => `<div class="specs" style="flex-direction:column;align-items:stretch;max-width:520px">
+    ${composer('Describe a task…', false, discIdle)}<span class="cap">Rest: disc ringed and dimmed</span>
+    ${composer('Fix the export at 2x', true, discArmed, 'raised')}<span class="cap">Text in, pointer over the column: disc armed (teal in light, violet in dark), card raised 3 px</span>
+    ${composer('Fix the export at 2x', true, discStop)}<span class="cap">Running: the disc is Stop</span>
+  </div>`,
+  session: () => `<div class="specs" style="flex-direction:column;align-items:stretch">${chatCol({h:470})}<span class="cap">A session Melody started, stopped on a question. The header shows the repository, title, Started by Melody, and the status word beside its dot.</span>
+    <div class="col-chat" style="height:auto">${sessionHead('you','running','Running')}</div><span class="cap">A session you started: the chip reads "Started by you", with no mark</span></div>`,
+  narrow: () => `<div class="specs">
+    <div class="spec"><div class="frame" style="height:380px;width:520px;min-width:0">
+      <div class="strip">${E('working')}<div class="s">CC${dot('running')}</div><div class="s">DT${dot('needs')}</div><div class="s">EP${dot('done')}</div><div class="s">QR${dot('failed')}</div></div>
+      ${melodyCol({w:250, h:364, suggest:false, feed:`<div class="mel">One thing needs you:${card('needs','Delegation timeout','melody-agent2','Needs you')}</div>`})}
+      <div class="col-chat" style="height:364px;min-width:180px">${sessionHead('tempo','needs','Needs you')}</div>
+    </div><span class="cap">Sessions folded into its dot strip (initials + status); hover names the session</span></div>
+    <div class="spec"><div class="phone"><div class="screen">${melodyHead('6 sessions · 1 needs you')}<div class="feed"><div class="mel">One thing needs you:${card('needs','Delegation timeout','melody-agent2','Needs you')}</div></div><div style="flex:1"></div>${composer('Ask Melody…', false, discIdle, 'in-melody')}</div>
+      <div class="prail"><span class="on">${E('sm')}Melody</span><span>Chat</span><span>Changes</span><span>Terminal</span></div></div><span class="cap">Phone: Melody is the first tab</span></div>
+  </div>`,
+};
+
+const TOKENS = [
+  ['Sessions column ground','--color-background-tertiary','#f1efe9','#2c2c2c'],
+  ['Melody\'s tab ground','--color-background-secondary','#f8f7f3','#242424'],
+  ['Chat, cards, composer','--color-background-primary','#ffffff','#1c1c1c'],
+  ['Your message in her feed','tint (a treatment, no role)','#f3f8fd','#262a2e'],
+  ['Melody mark','the app icon (no role)','#101010 on #ffffff','#101010 on #ffffff'],
+  ['Pin ring, count, primary answer, selected chip','--color-background-inverse (was teal / purple)','#1e1d1a','#f8f8f2'],
+  ['Send disc, armed','disc (was #44c1b8 / purple)','#1e1d1a','#f8f8f2'],
+  ['Current session row ring, focus ring, active tab icon, focused pin, seam','light teal, --color-ring-primary (was blue / purple)','#44c1b8','#44c1b8'],
+  ['Focus ring inner edge (paper only)','dark teal','#0b7a72','—'],
+  ['Running dot and outline, Melody working, unread, link flash','teal, --color-text-info (was blue / cyan)','#44c1b8','#44c1b8'],
+  ['Links, info notes','blue','#2277cc','#6cb6ff'],
+  ['Needs you dot, card outline','amber, --color-background-warning','#fbbf24','#fbbf24'],
+  ['Done dot, added lines','green, --color-text-success','#2f8f5b','#a6e22e'],
+  ['Failed dot, error bar dot','--color-text-danger','#c23b3b','#f92672'],
+  ['Titles, her replies','--color-text-primary','#1e1d1a','#f8f8f2'],
+  ['Pin line, status word','--color-text-secondary','#5a5851','#c8c8c2'],
+  ['Meta, time, placeholder','--color-text-tertiary','#6f6c64','#7a7a72'],
+  ['Header rule, divider','--color-border-primary','#e3dfd6','rgba(248,248,242,.06)'],
+  ['Rows, pin, buttons at rest','--shadow-sm','',''],
+  ['Columns, composer; lifted controls','--shadow-md','',''],
+  ['Composer raised, menus','--shadow-lg','',''],
+];
+function tokenTable() {
+  const t = document.getElementById('tokenTable');
+  t.innerHTML = '<tr><th>Element</th><th>Role</th><th>Studio light</th><th>Charcoal Monokai</th></tr>' + TOKENS.map(([e,r,l,d]) =>
+    `<tr><td>${e}</td><td class="mono">${r}</td><td>${l?`<span class="swatch" style="background:${l}"></span><span class="mono">${l}</span>`:'—'}</td><td>${d?`<span class="swatch" style="background:${d}"></span><span class="mono">${d}</span>`:'—'}</td></tr>`).join('');
+}
+
+/* Motion stage */
+function stage(state={}) {
+  const s = document.getElementById('stage');
+  s.innerHTML = `<div class="col-sessions" style="width:220px;padding:8px">
+      ${pin(state.open===false?'':'open', state.open===false && state.count ? 'Writing…' : 'Knows 6 sessions', state.count ? `<span class="count pop">${state.count}</span>` : '')}
+      <div id="stageRows">${row('running','Composer cleanup','2m','melody-agent2',false,'on')}${row('done','Export pipeline','1h','compo',true)}</div>
+    </div>
+    <div class="col-chat" id="stageChat" style="padding:12px;justify-content:flex-end">${composer('Describe a task…', false, discIdle)}</div>
+    <div class="col-right" style="width:300px">${workPane()}<aside class="col-melody ${state.open===false?'closed':''}" id="stageMel"><div class="feed" id="stageFeed"><div class="mel">Export pipeline finished.${card('done','Export pipeline','compo','Done')}</div></div></aside></div>`;
+}
+const demos = {
+  toggle() { const m = document.getElementById('stageMel'); const closing = !m.classList.contains('closed'); m.classList.toggle('closed', closing); document.querySelector('#stage .pin').classList.toggle('open', !closing); },
+  spawn() {
+    stage();
+    const f = document.getElementById('stageFeed');
+    f.append(h(`<div class="mel row enter" style="display:block;padding:0">Started it in compo.${card('running','Fix the compo export bug','compo','Running','flash')}</div>`));
+    const r = document.getElementById('stageRows');
+    r.prepend(h(row('running','Fix the compo export bug','now','compo',true,'enter flash')));
+  },
+  badge() { stage({open:false}); setTimeout(() => stage({open:false, count:1}), 250); },
+  raise() { const c = document.querySelector('#stageChat .composer'); c.classList.add('raised'); setTimeout(() => c.classList.remove('raised'), 1200); },
+};
+document.querySelectorAll('[data-demo]').forEach(b => b.onclick = () => demos[b.dataset.demo]());
+
+/* ——— Desktop pass ——— */
+const SEAM = 0, EDGE = 0;
+const D = { S:280, Sfold:56, M:360, Mmin:320, K:480, Kmin:360 };
+
+/* The width budget: first configuration, in preference order, that leaves Chat its minimum. */
+function layout(W, work, melody) {
+  const right = work || melody;
+  const minChat = 480;
+  const steps = [];
+  const fit = (S) => {
+    const cols = 1 + (S ? 1 : 0) + (right ? 1 : 0);
+    const fixed = EDGE * 2 + S + SEAM * (cols - 1);
+    if (!right) return { S, K:0, C:W - fixed };
+    const room = W - fixed - minChat;
+    const Kw = Math.min(960, Math.max(D.K, Math.round(W * 0.25)));
+    if (room >= Kw) { if (Kw > D.K) steps.push('Work widens to ' + Kw); return { S, K:Kw, C:W - fixed - Kw }; }
+    if (room >= D.K) return { S, K:D.K, C:W - fixed - D.K };
+    if (room >= D.Kmin) { steps.push('Work narrows to ' + room); return { S, K:room, C:minChat }; }
+    return null;
+  };
+  let r = fit(D.S);
+  if (!r) { steps.length = 0; steps.push('Sessions folds to its strip'); r = fit(D.Sfold); }
+  if (!r) { r = { S:D.Sfold, K:D.Kmin, C:W - EDGE * 2 - D.Sfold - SEAM * 2 - D.Kmin }; steps.push('Chat under 480'); }
+  return { ...r, M: melody ? r.K : 0, steps, minChat };
+}
+
+const stripCol = () => `<div class="strip">
+  <button class="sbtn" aria-label="Expand Sessions" title="Expand Sessions">${I('l-panel-left')}</button>
+  ${E('working')}${E('working', 'm-harmony')}${E('', 'm-tempo')}${E('', 'm-chord')}
+  <span class="sdiv"></span>
+  <button class="sbtn" aria-label="New chat" title="New chat">${I('l-plus')}</button>
+  <div class="s on" title="Fix the compo export bug · Needs you">FC${dot('needs')}</div><div class="s" title="Delegation timeout · Running">DT${dot('running')}</div><div class="s" title="Composer cleanup · Running">CC${dot('running')}</div><div class="s" title="Export pipeline · Done">EP${dot('done')}</div><div class="s" title="Quota reset card · Failed">QR${dot('failed')}</div>
+  <span style="flex:1"></span>
+  <button class="sbtn on" aria-label="Chats" title="Chats">${I('h-chat')}</button><button class="sbtn" aria-label="Library" title="Library">${I('h-book')}</button><button class="sbtn" aria-label="Automate" title="Automate">${I('h-bolt')}</button><button class="sbtn" aria-label="Settings" title="Settings">${I('h-cog')}</button>
+</div>`;
+const workPane = () => `<div class="col-work"><div class="wtabs"><span class="on">${I('p-changes',13)} Changes</span><span>${I('l-terminal',13)} Terminal</span><span>${I('h-globe',13)} Browser</span></div><div class="wbody">
+  <div class="hunk">src/export/render.ts</div><div class="hunk">@@ -41,7 +41,8 @@</div>
+  <div>  const canvas = createCanvas(w, h);</div><div class="del">- const scale = 1;</div><div class="add">+ const scale = window.devicePixelRatio ?? 2;</div><div class="add">+ canvas.scale(scale, scale);</div><div>  return render(canvas, frame);</div></div></div>`;
+
+let win = { W:1512, H:982, view:null };
+const TABS = { changes:['p-changes','Changes'], terminal:['l-terminal','Terminal'], browser:['h-globe','Browser'], markdown:['h-doc','Markdown'], files:['p-files','Files'], editor:['p-editor','Editor'], git:['p-git','Git'], melody:['takes','Melody'] };
+const PICKABLE = ['terminal', 'changes', 'browser', 'markdown', 'files', 'editor', 'git', 'melody'];
+const freshWork = () => ({ visible:true, top:{ tabs:['changes','terminal','browser'], on:'changes' }, bottom:{ tabs:['melody'], on:'melody' }, n:1 });
+let work = freshWork();
+function tabMeta(id) { return id.startsWith('term-') ? ['l-terminal', 'Terminal ' + id.slice(5)] : TABS[id]; }
+function hasTabs() { return work.top.tabs.length + work.bottom.tabs.length > 0; }
+function melodyOpen() { return work.top.tabs.includes('melody') || work.bottom.tabs.includes('melody'); }
+function newTerminal() { const any = [...work.top.tabs, ...work.bottom.tabs].some(t => t === 'terminal' || t.startsWith('term-')); return any ? 'term-' + (++work.n) : 'terminal'; }
+function tabBody(id) {
+  if (id === 'melody') return melodyCol({ suggest:false });
+  if (id === 'browser') return `<div class="site"><div class="nav"><b>compo</b><span>Library</span><span>Queue</span><span>Export</span></div><h5>Export take 2</h5><p>1920 × 1080 · MP4 · 1:40.</p><div class="hero"></div></div>`;
+  if (id === 'changes') return `<div class="diff-body"><div class="hunk">src/export/render.ts</div><div class="hunk">@@ -41,7 +41,8 @@</div><div>  const canvas = createCanvas(w, h);</div><div class="del">- const scale = 1;</div><div class="add">+ const scale = window.devicePixelRatio ?? 2;</div><div class="add">+ canvas.scale(scale, scale);</div><div>  return render(canvas, frame);</div></div>`;
+  if (id === 'files' || id === 'editor' || id === 'git') return `<div class="diff-body"><div class="hunk">${tabMeta(id)[1]}</div><div>src/</div><div>&nbsp; export/</div><div>&nbsp;&nbsp; render.ts</div><div>&nbsp;&nbsp; export.ts</div></div>`;
+  return `<div class="term light"><div><span class="p">~/github/compo</span> <span class="d2">wt/export-1x</span> <span class="c">$</span> pnpm test export</div><div> <span class="p">✓</span> render.test.ts <span class="d2">(3)</span></div><div> <span class="r">✗</span> export.test.ts <span class="d2">(1 failed)</span></div><div><span class="p">~/github/compo</span> <span class="c">$</span> <span class="cursor"></span></div></div>`;
+}
+function tpanel(where, p, menu) {
+  const tabs = p.tabs.map(id => { const [ic, label] = tabMeta(id); const on = id === p.on;
+    return `<span class="wtab ${on ? 'on' : ''}" role="tab" tabindex="0" aria-selected="${on}" data-tab="${where}:${id}" title="${label}">${ic === 'takes' ? E('sm') : I(ic)}<span class="tl">${label}</span>${on ? `<button class="tx" data-close="${where}:${id}" aria-label="Close ${label}" tabindex="-1">${I('h-x')}</button>` : ''}</span>`; }).join('');
+  const open = [...work.top.tabs, ...work.bottom.tabs];
+  const picker = work.picker === where ? `<div class="menu picker" role="menu">${PICKABLE.filter(id => id === 'terminal' || !open.includes(id)).map(id => `<div data-pick="${where}:${id}">${tabMeta(id)[0] === 'takes' ? E('sm') : I(tabMeta(id)[0])}&nbsp;${id === 'terminal' ? 'New Terminal' : tabMeta(id)[1]}</div>`).join('')}</div>` : '';
+  const list = work.list === where ? `<div class="menu picker" role="menu">${p.tabs.map(id => `<div data-tab="${where}:${id}">${tabMeta(id)[1]}</div>`).join('')}</div>` : '';
+  return `<div class="tpanel" data-panel="${where}"><div class="wtabs2" role="tablist"><div class="tabscroll">${tabs}</div><span class="end"><button class="ib ghost sm ovf" data-ovf="${where}" aria-label="All tabs" title="All tabs" hidden>${I('h-down')}</button><button class="ib ghost sm" data-add="${where}" aria-label="Open a pane" title="Open a pane">${I('l-plus')}</button>${menu ? `<button class="ib ghost sm" aria-label="Session menu" title="Session menu">${I('l-ellipsis')}</button>` : ''}</span>${picker}${list}</div><div class="tbody">${tabBody(p.on)}</div></div>`;
+}
+function toggleMelody() {
+  const where = ['top', 'bottom'].find(w => work[w].tabs.includes('melody'));
+  const shown = where && work.visible && work[where].on === 'melody';
+  if (shown) { const p = work[where]; p.tabs = p.tabs.filter(x => x !== 'melody'); p.on = p.tabs[0]; return; }
+  if (where) { work[where].on = 'melody'; work.visible = true; work.focus = where + ':melody'; return; }
+  work.bottom.tabs.unshift('melody'); work.bottom.on = 'melody'; work.visible = true; work.focus = 'bottom:melody';
+}
+function drawWindow() {
+  const show = work.visible && hasTabs();
+  const L = layout(win.W, show, false);
+  const el = document.getElementById('win');
+  el.style.width = win.W + 'px'; el.style.height = win.H + 'px';
+  const mOpen = show && melodyOpen();
+  const fr = win.view && win.view.friend;
+  const sessions = L.S === D.Sfold ? stripCol() : sessionsCol({ pinMod: mOpen ? 'open' : '', pinLine: '6 sessions · 1 needs you', pinRight: mOpen ? '<span class="kbd">⌘J</span>' : '<span class="count">2</span>', friend: fr, repo: fr ? FRIENDS[fr].repo : null });
+  const panels = ['top', 'bottom'].filter(w => work[w].tabs.length);
+  const right = show ? `<div class="col-right">${panels.map((w, n) => tpanel(w, work[w], n === 0)).join('')}</div>` : '';
+  el.innerHTML = `<div class="titlebar"><i style="background:#ff5f57"></i><i style="background:#febc2e"></i><i style="background:#28c840"></i><span style="width:10px"></span>${I('l-panel-left',15)}</div>
+    <div class="cols">${sessions}${fr ? friendChat(fr, show ? 'on' : 'off') : chatCol({ toggle: show ? 'on' : 'off' })}${right}</div>`;
+  el.querySelectorAll('.col-melody .feed').forEach(f => f.scrollTop = f.scrollHeight);
+  if (work.focus) { const tgt = el.querySelector(`[data-tab="${work.focus}"]`) || el.querySelector('[data-work-toggle]'); tgt?.focus(); work.focus = null; }
+  const cols = el.querySelector('.cols');
+  const [s] = cols.children;
+  if (L.S !== D.Sfold) s.style.width = L.S + 'px';
+  if (show) cols.querySelector('.col-right').style.width = L.K + 'px';
+  fitWindow();
+  el.querySelectorAll('.tabscroll').forEach(t => { if (t.scrollWidth > t.clientWidth + 1) t.parentElement.querySelector('.ovf').hidden = false; });
+  el.querySelectorAll('.col-melody .feed').forEach(f => f.scrollTop = f.scrollHeight);
+  const names = (w) => work[w].tabs.map(t => tabMeta(t)[1]).join(', ');
+  const state = show ? `Work <b>${L.K}</b> · top: ${names('top') || '—'} · bottom: ${names('bottom') || '— (top extends down)'}` : hasTabs() ? 'Work <b>hidden</b> — the button at Chat’s top right shows it again' : 'Work <b>collapsed</b> — no tabs; the button opens a new Terminal';
+  document.getElementById('winRead').innerHTML =
+    `<span><b>${win.W} × ${win.H}</b></span><span>Sessions <b>${L.S === D.Sfold ? 'strip 56' : L.S}</b></span>` +
+    `<span>Chat <b class="${L.C < L.minChat ? 'warn' : ''}">${L.C}</b></span><span>${state}</span>` +
+    (L.steps.length ? L.steps.map(s => `<span class="step">${s}</span>`).join('') : '');
+}
+document.getElementById('win').addEventListener('click', (e) => {
+  const t = e.target.closest('[data-close],[data-pick],[data-tab],[data-add],[data-ovf],[data-work-toggle],.pin,.friend,.row');
+  const hadMenu = work.picker || work.list; work.picker = null; work.list = null;
+  if (!t) { if (hadMenu) drawWindow(); return; }
+  if (t.dataset.close) { const [w, id] = t.dataset.close.split(':'); const p = work[w]; const i = p.tabs.indexOf(id); p.tabs = p.tabs.filter(x => x !== id); if (p.on === id) p.on = p.tabs[Math.max(0, i - 1)]; work.focus = p.on ? w + ':' + p.on : null; e.stopPropagation(); }
+  else if (t.dataset.pick) { const [w, id] = t.dataset.pick.split(':'); const nid = id === 'terminal' ? newTerminal() : id; work[w].tabs.push(nid); work[w].on = nid; work.visible = true; work.focus = w + ':' + nid; }
+  else if (t.dataset.tab) { const [w, id] = t.dataset.tab.split(':'); work[w].on = id; work.focus = w + ':' + id; }
+  else if (t.dataset.add) { if (hadMenu !== t.dataset.add) work.picker = t.dataset.add; }
+  else if (t.dataset.ovf) { if (hadMenu !== t.dataset.ovf) work.list = t.dataset.ovf; }
+  else if (t.hasAttribute('data-work-toggle')) { if (!hasTabs()) { const id = newTerminal(); work.top.tabs.push(id); work.top.on = id; work.visible = true; work.focus = 'top:' + id; } else work.visible = !work.visible; }
+  else if (t.classList.contains('pin')) toggleMelody();
+  else if (t.classList.contains('friend')) { const id = Object.keys(FRIENDS).find(k => t.title.startsWith(FRIENDS[k].name)); win.view = win.view && win.view.friend === id ? null : { friend:id }; }
+  else if (t.classList.contains('row')) win.view = null;
+  drawWindow();
+});
+// Tabs from the keyboard: ← → move, Enter opens, Delete closes, ⌥↓ / ⌥↑ move to the other panel.
+document.getElementById('win').addEventListener('keydown', (e) => {
+  const t = e.target.closest('.wtab'); if (!t) return;
+  const [w, id] = t.dataset.tab.split(':'); const p = work[w]; const i = p.tabs.indexOf(id);
+  if (e.altKey && (e.key === 'ArrowDown' || e.key === 'ArrowUp')) {
+    const to = e.key === 'ArrowDown' ? 'bottom' : 'top'; if (to === w) return;
+    p.tabs.splice(i, 1); if (p.on === id) p.on = p.tabs[0]; work[to].tabs.push(id); work[to].on = id; work.focus = to + ':' + id;
+  } else if (e.key === 'ArrowRight' || e.key === 'ArrowLeft') {
+    const n = p.tabs[(i + (e.key === 'ArrowRight' ? 1 : p.tabs.length - 1)) % p.tabs.length]; work.focus = w + ':' + n; e.preventDefault();
+    return document.querySelector(`#win [data-tab="${w}:${n}"]`)?.focus();
+  } else if (e.key === 'Enter' || e.key === ' ') { p.on = id; work.focus = w + ':' + id; }
+  else if (e.key === 'Delete' || e.key === 'Backspace') { p.tabs.splice(i, 1); if (p.on === id) p.on = p.tabs[Math.max(0, i - 1)]; work.focus = p.on ? w + ':' + p.on : null; }
+  else return;
+  e.preventDefault(); drawWindow();
+});
+document.addEventListener('keydown', (e) => { if ((e.metaKey || e.ctrlKey) && e.key.toLowerCase() === 'j') { e.preventDefault(); toggleMelody(); drawWindow(); } });
+function fitWindow() {
+  const fitEl = document.getElementById('winFit'), el = document.getElementById('win');
+  const k = Math.min(1, fitEl.clientWidth / win.W);
+  el.style.transform = `scale(${k})`; fitEl.style.height = Math.round(win.H * k) + 'px';
+}
+function setWidth(W, H) {
+  win.W = W; win.H = H ?? Math.round(W * 0.64);
+  document.getElementById('winW').value = W;
+  document.querySelectorAll('#winCtl [data-w]').forEach(b => b.classList.toggle('on', +b.dataset.w === W));
+  drawWindow();
+}
+document.querySelectorAll('#winCtl [data-w]').forEach(b => b.onclick = () => setWidth(+b.dataset.w, +b.dataset.h));
+document.getElementById('winW').oninput = (e) => setWidth(+e.target.value);
+document.getElementById('winReset').onclick = () => { work = freshWork(); drawWindow(); };
+addEventListener('resize', fitWindow);
+
+function budgetTable() {
+  const sizes = [1280, 1470, 1512, 1728, 1920, 2560, 3840];
+  const cell = (W, work, melody) => { const L = layout(W, work, melody); return `${L.S === D.Sfold ? 'strip' : L.S} · <b>${L.C}</b>${L.K ? ' · ' + L.K : ''}`; };
+  document.getElementById('budgetTable').innerHTML = '<tr><th>Window</th><th>Melody open — Sessions · <b>Chat</b> · Work</th><th>Work closed — Sessions · <b>Chat</b></th><th>What gave way</th></tr>' +
+    sizes.map(W => `<tr><td>${W}</td><td class="mono">${cell(W, true, true)}</td><td class="mono">${cell(W, false, false)}</td><td>${layout(W, true, true).steps.join(' · ') || 'nothing'}</td></tr>`).join('');
+}
+
+Object.assign(TEMPLATES, {
+  rows: () => `<div class="specs" style="gap:28px">
+    <div class="spec" style="width:280px">
+      ${row('running','Composer cleanup','2m','melody-agent2',false,'on')}
+      ${row('needs','Delegation timeout','9m','melody-agent2',true,'unread')}
+      ${row('done','Export pipeline','1h','compo',true)}
+      ${row('failed','Quota reset card','Mon','melody-agent2',true)}
+      ${row('idle','Style guide refresh','Mon','ux_tests',false)}
+      ${row('running','Fix the compo export bug','now','compo · <span class="mono">wt/export-1x</span>',true,'is-hover')}
+      <span class="cap">Current (white, 600, 2 px light-teal ring) · Needs you + unread · Done · Failed (stays) · Idle · Hover, with a worktree</span>
+    </div>
+    <div class="spec">${sessionsCol({pinMod:'', pinLine:'Writing…', pinRight:'<span class="count">3</span>'})}<span class="cap">The column with Melody hidden: the pin counts her new messages</span></div>
+    <div class="spec">${stripCol()}<span class="cap">Folded: the strip, 56 px</span></div>
+  </div>`,
+  melody: () => `<div class="specs" style="gap:24px">
+    <div class="spec">${melodyCol({h:560, suggest:false})}<span class="cap">Ready</span></div>
+    <div class="spec">${melodyCol({h:560, line:'No sessions yet', suggest:true, feed:`<div class="mel">I'm Melody. Tell me what you're working on and I'll start sessions for it, or open one yourself. I keep track of both.</div>`})}<span class="cap">Empty: first launch; the suggestions go once you send</span></div>
+    <div class="spec">${melodyCol({h:560, line:'Writing…', typed:true, ph:'What needs me?', disc:discStop, feed:`<div class="you">What needs me?</div><div class="mel"><span class="typing"><i></i><i></i><i></i></span></div>`})}<span class="cap">Running: the send disc is Stop; Esc cancels</span></div>
+    <div class="spec">${melodyCol({w:320, h:560, line:'Can’t reach Claude', feed:`<div class="you">Start a session for the quota card</div>`, bar:`<div class="bar">${dot('failed')}<span><b>Claude isn’t signed in.</b> Your message is kept and sends once you're signed in.</span><button class="b sm primary lift">Sign in to Claude</button></div>`})}<span class="cap">Error / Unavailable, at the 320 minimum</span></div>
+  </div>`,
+  cards: () => `<div class="specs" style="gap:28px">
+    <div class="spec" style="width:332px">
+      ${card('running','Fix the compo export bug','compo','Running')}
+      ${card('needs','Delegation timeout','melody-agent2','Needs you')}
+      ${card('done','Export pipeline','compo','Done · 3 files')}
+      <span class="cap">Running · Needs you · Done</span>
+    </div>
+    <div class="spec" style="width:332px">
+      ${card('failed','Quota reset card','melody-agent2','Failed · quota closed')}
+      ${card('idle','Style guide refresh','ux_tests','Idle')}
+      ${card('running','Fix the compo export bug','compo','Running','is-hover')}
+      <span class="cap">Failed (stays) · Idle · Hover: lift, chevron 2 px</span>
+    </div>
+  </div>`,
+  composer: () => `<div class="specs" style="gap:28px">
+    <div class="spec" style="width:560px">${composer('Describe a task…', false, discIdle)}<span class="cap">Rest: disc ringed and dimmed</span></div>
+    <div class="spec" style="width:560px">${composer('Fix the export at 2x', true, discArmed, 'raised')}<span class="cap">Text in, pointer over the column: disc armed, card raised 3 px</span></div>
+    <div class="spec" style="width:560px">${composer('Fix the export at 2x', true, discStop)}<span class="cap">Running: the disc is Stop</span></div>
+    <div class="spec" style="width:336px">${composer('Ask Melody, or hand her a task…', false, discIdle)}<span class="cap">In Melody's tab: the same row, at the tab's width</span></div>
+  </div>`,
+  newchat: () => `<div class="specs" style="gap:24px;align-items:flex-start"><div class="col-chat" style="height:420px;width:640px">
+      <div class="s-head"><div><button class="fchip lift" style="height:28px">${I('h-folder',14)}Choose repository ${I('h-down',14)}</button><div class="s-title" style="margin-top:4px">New chat</div></div><span class="sp"></span><button class="more lift" data-work-toggle aria-pressed="true" aria-label="Show or hide Work">${I('l-panel-right',14)}</button><button class="more lift" aria-label="Session menu">${I('l-ellipsis',14)}</button></div>
+      <div class="transcript" style="justify-content:center;align-items:center;text-align:center"><div style="max-width:420px"><div class="s-title" style="margin-bottom:6px">Start a session</div><div class="why" style="font-size:13px;color:var(--t2)">Pick a repository, then describe the task. Its friend runs the session — Tempo for compo — and Melody hears about it.</div><div class="line" style="justify-content:center;margin-top:12px"><span class="fchip lift">Fix a bug</span><span class="fchip lift">Review my branch</span><span class="fchip lift">Plan a feature</span></div></div></div>
+      <div style="padding:0 18px 16px">${composer('Describe a task…', false, discIdle)}</div></div>
+      <div class="spec"><div class="menu" role="menu"><div class="is-hover">${E('sm','m-harmony')}&nbsp;melody-agent2<span>Harmony</span></div><div>${E('sm','m-tempo')}&nbsp;compo<span>Tempo</span></div><div>${E('sm','m-chord')}&nbsp;ux_tests<span>Chord</span></div><hr><div>${I('h-folder',14)}&nbsp;Elsewhere…<span>no friend</span></div></div><span class="cap">The repository menu names each repository's friend; the folder chip's job, now in the header</span></div></div>`,
+  friend: () => `<div class="specs" style="gap:0;align-items:stretch;border-radius:16px;overflow:hidden;box-shadow:var(--shadow-md)">${sessionsCol({ friend:'tempo', repo:'compo', pinMod:'' , pinRight:'<span class="count">2</span>' })}<div style="width:720px;display:flex">${friendChat('tempo')}</div></div><span class="cap" style="display:block;margin-top:8px">Clicking Tempo: its conversation opens in Chat (header: name, the repository it manages, its runtime), the compo chip is selected, and the list shows only compo. <b>All</b> clears it; clicking Tempo again goes back.</span>`,
+  session: () => `<div class="specs" style="flex-direction:column;align-items:stretch">${chatCol({h:560})}<span class="cap">A session Melody started, stopped on a question. The header shows the repository, title, Started by Melody, and the status word beside its dot.</span>
+    <div class="col-chat" style="height:auto">${sessionHead('you','running','Running')}</div><span class="cap">A session you started: the chip reads "Started by you", with no mark</span></div>`,
+  interact: () => `<div class="specs" style="gap:36px">
+    <div class="spec" style="width:280px"><div style="height:44px"></div>
+      <div class="tip">${row('needs','Delegation timeout','9m','melody-agent2',true,'is-hover')}<span class="bubble">Needs you · started by Melody at 10:42</span></div>
+      <span class="cap">Hover a dot or a strip cell: status, who started it, when (tooltip after 500 ms, upstream's)</span></div>
+    <div class="spec"><div style="display:flex;gap:10px;align-items:flex-start">${card('needs','Delegation timeout','melody-agent2','Needs you','is-hover')}</div>
+      <div class="menu" role="menu"><div class="is-hover">Open</div><div>Rename<span>R</span></div><div>Fork<span>F</span></div><hr><div>Archive<span>A</span></div><div class="danger">Delete<span>D</span></div></div>
+      <span class="cap">Right-click a row or a card: the session menu's session rows, in its order (DESIGN.md, session menu)</span></div>
+    <div class="spec"><div class="seam-stage" id="seamStage"></div><span class="cap" id="seamRead">Drag the seam between the pane and Melody</span></div>
+    <div class="spec"><div style="display:flex;flex-direction:column;gap:14px">
+      <div><span class="keys"><kbd>⌘</kbd><kbd>J</kbd></span> <span class="cap" style="margin-left:8px">Open Melody, focus her input · again to hide</span></div>
+      <div><span class="keys"><kbd>⌘</kbd><kbd>↵</kbd></span> <span class="cap" style="margin-left:8px">Send to Melody</span></div>
+      <div><span class="keys"><kbd>esc</kbd></span> <span class="cap" style="margin-left:8px">Cancel her turn</span></div>
+      <div>${pin('focusring', 'Knows 6 sessions')}</div><span class="cap">Keyboard focus: light teal, 2 px, over a 1 px dark-teal edge, 2 px off the control</span></div></div>
+  </div>`,
+  phone: () => `<div class="specs"><div class="spec"><div class="phone"><div class="screen">${melodyHead('6 sessions · 1 needs you')}<div class="feed"><div class="mel">One thing needs you:${card('needs','Delegation timeout','melody-agent2','Needs you')}</div></div><div style="flex:1"></div>${composer('Ask Melody…', false, discIdle, 'in-melody')}</div>
+      <div class="prail"><span class="on">${E('sm')}Melody</span><span>Chat</span><span>Changes</span><span>Terminal</span></div></div></div></div>`,
+});
+
+function seamDemo() {
+  const st = document.getElementById('seamStage');
+  st.innerHTML = `<div class="col-right" style="width:360px;height:420px;gap:0">${tpanel('top', { tabs:['changes','terminal'], on:'changes' }, true)}<div class="seam h" role="separator" aria-orientation="horizontal" tabindex="0" aria-label="Resize the panels" id="seam"></div>${tpanel('bottom', { tabs:['melody'], on:'melody' }, false)}</div>`;
+  const col = st.querySelector('.tpanel[data-panel=bottom]'), seam = document.getElementById('seam'), read = document.getElementById('seamRead');
+  let hgt = 204; const set = (v) => { hgt = Math.max(140, Math.min(320, Math.round(v))); col.style.flex = '0 0 ' + hgt + 'px'; read.textContent = 'Bottom panel ' + hgt + ' px high · drag, ↑ ↓, double-click resets to half'; };
+  set(204);
+  seam.onpointerdown = (e) => { const y0 = e.clientY, h0 = hgt; seam.classList.add('drag'); seam.setPointerCapture(e.pointerId);
+    seam.onpointermove = (m) => set(h0 - (m.clientY - y0));
+    seam.onpointerup = () => { seam.classList.remove('drag'); seam.onpointermove = null; }; };
+  seam.ondblclick = () => set(204);
+  seam.onkeydown = (e) => { if (e.key === 'ArrowUp') set(hgt + 16); if (e.key === 'ArrowDown') set(hgt - 16); };
+}
+
+function buildAll() {
+  document.querySelectorAll('[data-spec]').forEach(n => { n.innerHTML = TEMPLATES[n.dataset.spec](); });
+  seamDemo(); drawWindow(); stage();
+}
+
+document.getElementById('themeBtn').onclick = () => {
+  const dark = document.body.classList.toggle('t-dark'); document.body.classList.toggle('t-light', !dark);
+  document.getElementById('themeBtn').textContent = 'Theme: ' + (dark ? 'Charcoal Monokai' : 'Studio light');
+};
+
+buildAll(); budgetTable(); tokenTable();
+const vsSession = `<div class="col-chat">
+  ${sessionHead('tempo','needs','Needs you')}
+  <div class="transcript" style="gap:10px">
+    <div class="handoff">Melody handed this to Tempo · 10:42</div>
+    <div class="mel">Fix the compo export bug: renders come out at 1x on retina.</div>
+    <span class="trow"><svg class="i14"><use href="#h-doc"/></svg>Read <span class="mono">render.ts</span>, <span class="mono">export.ts</span><span class="dur">0.3 s</span></span>
+    <span class="trow"><svg class="i14"><use href="#l-terminal"/></svg>Ran <span class="mono">pnpm test export</span> · 1 failed<span class="dur">1.8 s</span></span>
+    <div class="wcard st-needs"><div class="hd"><span class="dot needs"></span><b>Two ways to fix this. Which one?</b><span class="w">Needs you</span></div><div class="body">Scale at render keeps previews in step. Scale at export touches one file.</div><div class="acts"><button class="b sm primary lift">Scale at render</button><button class="b sm secondary lift">Scale at export</button></div></div>
+  </div>
+  <div style="padding:0 18px 16px;display:flex;flex-direction:column;gap:8px"><div class="changesbar"><span><b>1 file</b> · <span class="add">+2</span> <span class="del">−1</span></span><span class="sp"></span><button class="b sm secondary lift">Review</button><button class="b sm primary lift">Commit…</button></div>${composer('Describe a task…', false, discIdle)}</div>
+</div>`;
+document.getElementById('vsStage').innerHTML = melodyCol({ suggest:false }) + vsSession;
+
+document.getElementById('vsStage').innerHTML = melodyCol({ suggest:false }) + vsSession;
+(function iconGrid(){ const g=document.getElementById('iconGrid');
+  const groups=[
+    ['Panes — one icon per pane, wherever it shows', {'p-files':'Files · folder-open','p-editor':'Editor · code-bracket-square','p-changes':'Changes · document-plus-minus','l-terminal':'Terminal · command-line','p-git':'Git · branch','h-globe':'Browser · globe-alt','h-doc':'Markdown · document-text','p-agents':'Agents · users','p-artifact':'Artifact · cube','p-review':'Review · clipboard-check','p-telemetry':'Telemetry · chart-bar'}],
+    ['Places', {takes:'Melody · the mark','h-chat':'Chats','h-book':'Library · book-open','h-bolt':'Automate · bolt','p-board':'Board · view-columns','p-routine':'Routines · clock','p-ext':'Extensions · puzzle-piece','h-cog':'Settings · cog','p-palette':'Palette ⌘K · command'}],
+    ['Actions', {'h-up':'send','h-clip':'attach','l-plus':'new','l-search':'search','l-ellipsis':'more','l-panel-left':'hide Melody','h-left':'back','h-right':'forward','h-refresh':'refresh','h-share':'share','h-pencil':'edit','h-copy':'copy','h-play':'run','h-undo':'undo','h-trash':'delete','h-x':'close','h-down':'expand','l-chevron-r':'open'}],
+    ['Status', {'h-ok':'passed','h-bad':'failed','h-warn':'warning','h-check':'check','h-lock':'secure','p-info':'info'}],
+  ];
+  g.style.display='block';
+  g.innerHTML=groups.map(([t,m])=>`<div class="cap" style="margin:6px 0 6px">${t}</div><div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(112px,1fr));gap:8px;margin-bottom:10px">`+Object.entries(m).map(([id,n])=>`<div style="display:flex;flex-direction:column;align-items:center;gap:6px;padding:10px 4px;border-radius:10px;background:var(--bg-2);text-align:center"><svg width="16" height="16" fill="currentColor"><use href="#${id}"/></svg><span class="cap">${n}</span></div>`).join('')+'</div>').join(''); })();
+
+const SW = (on) => `<span class="sw-t ${on ? 'on' : ''}" role="switch" aria-checked="${!!on}"></span>`;
+const SEG = (opts, on) => `<span class="seg">${opts.map((o, i) => `<span class="${i === on ? 'on' : ''}">${o}</span>`).join('')}</span>`;
+const SEL = (v) => `<span class="field select" style="min-width:200px">${v} <svg><use href="#h-down"/></svg></span>`;
+const ROW = (b, d, ctl) => `<div class="srow"><div class="l"><b>${b}</b>${d ? `<span>${d}</span>` : ''}</div>${ctl}</div>`;
+const GRP = (t, rows) => `<div class="sgroup"><div class="t">${t}</div><div class="box">${rows.join('')}</div></div>`;
+const SEAT = (name, word, st, ctl) => `<div class="srow"><div class="seat"><span class="dot ${st}"></span><div class="l"><b>${name}</b><span>${word}</span></div></div>${ctl}</div>`;
+const SETTINGS = [
+  ['general', 'h-cog', 'General', 'How Melody looks and when she tells you things.', [
+    GRP('Appearance', [ROW('Theme', 'Studio light, Charcoal Monokai, or follow macOS', SEG(['Light','Dark','System'], 2)), ROW('Controls', 'Easy shows attach and send; Advanced adds the runtime, mode, worktree and model chips', SEG(['Easy','Advanced'], 0)), ROW('Motion', 'System follows macOS Reduce motion', SEG(['System','Full','Reduced'], 0))]),
+    GRP('Notifications', [ROW('When something needs you', 'A question, a plan to accept, a tool to allow', SW(true)), ROW('When a session finishes', null, SW(true)), ROW('When a session fails', null, SW(true)), ROW('Sound', null, SW(false))]),
+    GRP('System', [ROW('Open at login', null, SW(false)), ROW('Keep the Mac awake while a session runs', 'Only while something is Running', SW(true))]),
+  ]],
+  ['melody', 'takes', 'Melody', 'What she runs on and what she may do without asking.', [
+    GRP('Her seat', [ROW('Runtime and model', 'Melody herself; the sessions she starts pick their own', SEL('Claude · claude-opus-5')), ROW('Show Melody at launch', 'Hidden, she still works and counts on her pin', SW(true))]),
+    GRP('What she may do', [ROW('Start sessions', 'In a repository she has worked in before', SW(true)), ROW('Start sessions in a new repository', 'Otherwise she asks first', SW(false)), ROW('Message a session you started', 'She reads them either way', SW(true)), ROW('Archive the sessions she started', null, SEL('After a week'))]),
+    GRP('What she remembers', [ROW('Her memory', '14 notes · summarised, never cleared on its own', `<span style="display:flex;gap:8px"><button class="b sm secondary lift">View</button><button class="b sm danger lift">Clear…</button></span>`)]),
+  ]],
+  ['seats', 'p-agents', 'Seats', 'The runtimes on this Mac, checked with their own CLIs.', [
+    GRP('Runtimes', [SEAT('Claude', 'Ready · Max plan · resets in 3 h', 'done', `<button class="b sm ghost">Details</button>`), SEAT('Codex', 'Signed out', 'needs', `<button class="b sm primary lift">Sign in to Codex</button>`), SEAT('Cursor', 'Ready · grok-4.6', 'done', `<button class="b sm ghost">Details</button>`), SEAT('agy', 'Not installed', 'idle', `<button class="b sm secondary lift">Install agy</button>`)]),
+    `<div style="display:flex;justify-content:flex-end"><button class="b sm secondary lift"><svg><use href="#h-refresh"/></svg>Recheck</button></div>`,
+  ]],
+  ['projects', 'p-files', 'Projects', 'Where sessions start, and how each repository runs.', [
+    GRP('New sessions', [ROW('Start in', null, SEL('~/github')), ROW('Use a worktree', 'Each new session on its own wt/ branch', SW(false))]),
+    GRP('Repositories', [ROW('melody-agent2', '~/github/melody-agent2 · 12 sessions · plan gate on', `<button class="b sm ghost">Settings</button>`), ROW('compo', '~/github/compo · 5 sessions · plan gate on', `<button class="b sm ghost">Settings</button>`), ROW('ux_tests', '~/github/ux_tests · 2 sessions · plan gate off', `<button class="b sm ghost">Settings</button>`)]),
+  ]],
+  ['extensions', 'p-ext', 'Extensions', 'Tools every session can call.', [
+    GRP('Built in', [ROW('Developer', 'Read, write and run in the session\'s folder', SW(true)), ROW('Summon', 'Delegation · Melody needs this', `<span class="why">Always on</span>`), ROW('Memory', null, SW(true)), ROW('Computer controller', 'Drives apps on this Mac', SW(false))]),
+    GRP('Added', [ROW('GitHub', 'MCP · 24 tools', SW(true)), ROW('Linear', 'MCP · signed out', `<button class="b sm primary lift">Sign in to Linear</button>`)]),
+    `<button class="b sm secondary lift"><svg><use href="#l-plus"/></svg>Add extension</button>`,
+  ]],
+  ['keyboard', 'p-key', 'Keyboard', 'Shortcuts. Click one to change it.', [
+    GRP('Everywhere', [ROW('Show or hide Melody', null, `<span class="keys"><kbd>⌘</kbd><kbd>J</kbd></span>`), ROW('Palette', null, `<span class="keys"><kbd>⌘</kbd><kbd>K</kbd></span>`), ROW('New chat', null, `<span class="keys"><kbd>⌘</kbd><kbd>N</kbd></span>`), ROW('Focus Sessions · Chat · Work', null, `<span class="keys"><kbd>⌘</kbd><kbd>1</kbd><kbd>2</kbd><kbd>3</kbd></span>`)]),
+    GRP('In a composer', [ROW('Send', null, `<span class="keys"><kbd>⌘</kbd><kbd>↵</kbd></span>`), ROW('Cancel the turn', null, `<span class="keys"><kbd>esc</kbd></span>`)]),
+  ]],
+  ['phone', 'p-phone', 'Phone', 'Open Melody on your phone over Tailscale.', [
+    GRP('Address', [ROW('On your tailnet', '<span class="mono">http://mac.tail9a1.ts.net:7788/?key=…</span>', `<button class="b sm secondary lift"><svg><use href="#h-copy"/></svg>Copy</button>`), `<div class="srow"><div class="l"><b>Scan</b><span>The code is black on white in either theme</span></div><span class="qr"><i></i></span></div>`, ROW('Port', null, `<span class="field typed" style="min-width:90px">7788</span>`)]),
+  ]],
+  ['privacy', 'p-shield', 'Privacy and data', 'What stays on this Mac.', [
+    GRP('Records', [ROW('Work ledger', 'One file per repository, outside the repo · 2.1 MB', `<button class="b sm danger lift">Clear…</button>`), ROW('Session transcripts', '312 sessions · 48 MB', `<button class="b sm ghost">Show in Finder</button>`)]),
+    GRP('Sharing', [ROW('Send crash reports', null, SW(false)), ROW('Share anonymous usage', null, SW(false))]),
+  ]],
+  ['about', 'p-info', 'Updates and about', 'Melody 1.50.0 · built 2026-09-22.', [
+    GRP('Updates', [ROW('Channel', 'Releases from hoaqbui/melody-agent2', SEG(['Stable','Beta'], 0)), ROW('Up to date', 'Checked 10 minutes ago', `<button class="b sm secondary lift"><svg><use href="#h-refresh"/></svg>Check now</button>`)]),
+    GRP('About', [ROW('Melody', 'A fork of goose 1.50.0 · Apache 2.0', `<button class="b sm link">Licenses</button>`)]),
+  ]],
+];
+function settings(id) {
+  const nav = document.getElementById('setNav'), main = document.getElementById('setMain');
+  nav.innerHTML = `<button class="back">${I('h-left')}Back to workspace</button><div class="hd">${I('h-cog')}Settings</div>` + SETTINGS.map(([k, ic, name]) => `<button data-k="${k}" class="${k === id ? 'on' : ''}">${ic === 'takes' ? `<span class="emblem sm"><svg><use href="#takes"/></svg></span>` : I(ic)}${name}</button>`).join('') + '<span class="sp"></span><span class="ver">Melody 1.50.0</span>';
+  const [, ic, name, blurb, body] = SETTINGS.find(([k]) => k === id);
+  main.classList.remove('swap'); void main.offsetWidth; main.classList.add('swap');
+  main.innerHTML = `<h3>${name}</h3><p>${blurb}</p>` + body.join('');
+  nav.querySelectorAll('button[data-k]').forEach(b => b.onclick = () => settings(b.dataset.k));
+}
+settings('general');
+(function toc(){ document.getElementById('toc').innerHTML=[...document.querySelectorAll('section[id] > h2')].map(h=>{ const t=h.textContent.split(' — ')[0]; return `<a href="#${h.parentElement.id}">${t}</a>`; }).join(''); })();
+
+</script>
+</body>
+</html>
