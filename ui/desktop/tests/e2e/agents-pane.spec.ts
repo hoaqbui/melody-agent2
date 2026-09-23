@@ -5,6 +5,7 @@ import {
   openPane,
   setAdvancedControls,
   provisionRoleRepo,
+  trustRecipeIfAsked,
 } from './fixtures';
 
 // Task 28 (PRD step 10): the Agents pane under ⋯ is empty before any delegation; the lever's
@@ -58,6 +59,7 @@ test.describe('agents pane', { tag: '@seat' }, () => {
 
     try {
       await hard.click();
+      await trustRecipeIfAsked(goosePage);
       await expect(goosePage).toHaveURL(/resumeSessionId=/, { timeout: 30000 });
       await expect(lever).toHaveAttribute('data-stop', /hard|custom/, { timeout: 15000 });
 

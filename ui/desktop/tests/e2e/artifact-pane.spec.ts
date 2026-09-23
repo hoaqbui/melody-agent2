@@ -1,5 +1,5 @@
 import { execFileSync } from 'child_process';
-import { test, expect, emptyDock, openPane, provisionRoleRepo } from './fixtures';
+import { test, expect, emptyDock, openPane, provisionRoleRepo, trustRecipeIfAsked } from './fixtures';
 
 // Task 30: an Orchestrate session (lever Hard) delegates once to the `spike-echo` role in
 // GOOSE_TEST_DIR's `.agents/agents/` (its body: "Begin every reply with the token
@@ -41,6 +41,7 @@ test.describe('artifact pane', { tag: '@seat' }, () => {
     await expect(shell).toHaveAttribute('data-orchestrator-role', 'present');
     await expect(hard).not.toHaveAttribute('data-blocked', 'true');
     await hard.click();
+    await trustRecipeIfAsked(goosePage);
     await expect(goosePage).toHaveURL(/resumeSessionId=/, { timeout: 30000 });
     const parentId = /resumeSessionId=([^&]+)/.exec(goosePage.url())?.[1];
     console.log(`parent session ${parentId}`);

@@ -1,4 +1,4 @@
-import { test, expect, emptyDock, setAdvancedControls, provisionRoleRepo } from './fixtures';
+import { test, expect, emptyDock, setAdvancedControls, provisionRoleRepo, trustRecipeIfAsked } from './fixtures';
 
 // Task 29 (PRD step 11): no strip before any delegation; the lever's Hard starts an
 // Orchestrate session, a prompt that delegates once to the `researcher` role lights Research
@@ -37,6 +37,7 @@ test.describe('rpi strip', { tag: '@seat' }, () => {
       await expect(shell).toHaveAttribute('data-orchestrator-role', 'present');
       await expect(hard).not.toHaveAttribute('data-blocked', 'true');
       await hard.click();
+      await trustRecipeIfAsked(goosePage);
       await expect(goosePage).toHaveURL(/resumeSessionId=/, { timeout: 30000 });
       // A Direct session, or an Orchestrate session before its first delegate, shows nothing.
       await expect(strip).toHaveCount(0);
