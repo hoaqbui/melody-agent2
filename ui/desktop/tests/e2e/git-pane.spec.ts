@@ -275,3 +275,66 @@ test.describe('open pr', () => {
     });
   });
 });
+
+// Task 172: a standalone Push button shows when the branch is ahead of its upstream,
+// with the same running-tool guard as "Push and open PR…". The test creates a bare origin,
+// pushes the feature branch to it, and verifies the push succeeded by reading the remote's ref.
+const pushScratchPreviousEnv = { GOOSE_TEST_DIR: process.env.GOOSE_TEST_DIR };
+let pushScratch = '';
+let pushRepo = '';
+let pushOrigin = '';
+
+test.describe('push', () => {
+  test.beforeAll(() => {
+    pushScratch = realpathSync(mkdtempSync(join(tmpdir(), 'goose-push-')));
+    pushRepo = join(pushScratch, 'repo');
+    pushOrigin = join(pushScratch, 'origin.git');
+    mkdirSync(pushRepo);
+    git(pushScratch, ['init', '-q', '--bare', '-b', 'main', pushOrigin]);
+    git(pushRepo, ['init', '-q', '-b', 'main']);
+    git(pushRepo, ['config', 'user.name', 'push-test']);
+    git(pushRepo, ['config', 'user.email', 'push@test']);
+    writeFileSync(join(pushRepo, 'notes.md'), 'one\n');
+    git(pushRepo, ['add', 'notes.md']);
+    git(pushRepo, ['commit', '-q', '-m', 'base']);
+    git(pushRepo, ['remote', 'add', 'origin', pushOrigin]);
+    git(pushRepo, ['push', '-q', '-u', 'origin', 'main']);
+    git(pushRepo, ['checkout', '-q', '-b', 'feature']);
+    writeFileSync(join(pushRepo, 'notes.md'), 'one\ntwo\n');
+    git(pushRepo, ['commit', '-q', '-am', 'feature: add two']);
+    process.env.GOOSE_TEST_DIR = pushRepo;
+  });
+
+  test.afterAll(() => {
+    for (const [key, value] of Object.entries(pushScratchPreviousEnv)) {
+      if (value === undefined) delete process.env[key];
+      else process.env[key] = value;
+    }
+    rmSync(pushScratch, { recursive: true, force: true });
+  });
+
+  test('pushes the branch when ahead of upstream', async ({ goosePage }) => {
+    await expect(goosePage.locator('[data-testid="workspace-shell"]')).toBeVisible({
+      timeout: 30000,
+    });
+    await openPane(goosePage, 'git');
+
+    const pane = goosePage.locator('[data-testid="git-pane"]');
+    await expect(pane).toHaveAttribute('data-state', 'ready', { timeout: 15000 });
+    await expect(goosePage.locator('[data-testid="git-branch"]')).toHaveText('feature');
+    const pushButton = goosePage.locator('[data-testid="git-push"]');
+    await expect(pushButton).toBeVisible();
+    await expect(pushButton).toHaveText('Push');
+    await expect(pushButton).toBeEnabled();
+
+    await pushButton.click();
+    await expect(pushButton).toHaveCount(0, { timeout: 15000 });
+
+    expect(git(pushOrigin, ['rev-parse', 'feature']).trim()).toBe(
+      git(pushRepo, ['rev-parse', 'HEAD']).trim()
+    );
+    expect(git(pushRepo, ['rev-parse', '--abbrev-ref', 'feature@{upstream}']).trim()).toBe(
+      'origin/feature'
+    );
+  });
+});

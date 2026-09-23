@@ -81,6 +81,7 @@ const i18n = defineMessages({
     defaultMessage: 'Write a message to commit',
   },
   pr: { id: 'gitPane.pr', defaultMessage: 'PR' },
+  push: { id: 'gitPane.push', defaultMessage: 'Push' },
   prOpen: { id: 'gitPane.prOpen', defaultMessage: 'Push and open PR…' },
   prPushing: { id: 'gitPane.prPushing', defaultMessage: 'Pushing…' },
   prChecking: { id: 'gitPane.prChecking', defaultMessage: 'Checking for a PR…' },
@@ -418,6 +419,20 @@ export function GitPane() {
       .finally(() => setPushing(false));
   };
 
+  const canPush = status !== null && (status.upstream === null || status.ahead > 0);
+  const push = () => {
+    if (!status || !canPush || prBlock || pushing) return;
+    setActionError(null);
+    setPushing(true);
+    sidecarFetch('/git/push', {
+      cwd,
+      setUpstream: status.upstream === null,
+    } satisfies GitPushRequest)
+      .then(refresh)
+      .catch((cause: Error) => setActionError(cause.message))
+      .finally(() => setPushing(false));
+  };
+
   const onCreated = (pr: GitPrCreateResponse) => {
     setCreated(pr);
     recheckPr();
@@ -669,6 +684,17 @@ export function GitPane() {
                   )}
                 </>
               ) : null}
+              {canPush && (
+                <Button
+                  size="xs"
+                  variant="outline"
+                  disabled={prBlock !== null || pushing}
+                  data-testid="git-push"
+                  onClick={push}
+                >
+                  {intl.formatMessage(pushing ? i18n.prPushing : i18n.push)}
+                </Button>
+              )}
               {status.branch && (
                 <Button
                   className="ml-auto"
