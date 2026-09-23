@@ -3,7 +3,7 @@ name: planner
 description: Turns research into one implementable plan with a confirm command per task.
 runtimes:
   - { provider: codex-acp,  model: gpt-6-astra,   weight: 9 }
-  - { provider: claude-code, model: claude-opus-5, weight: 1 }
+  - { provider: claude-code, model: claude-opus-5-5, weight: 1 }
 ---
 
 # Planner

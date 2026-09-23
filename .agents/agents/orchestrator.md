@@ -2,7 +2,7 @@
 name: orchestrator
 description: Owns the user's objective end to end; sizes the task, delegates to bounded roles, reconciles, and answers.
 runtimes:
-  - { provider: claude-code, model: claude-opus-5,        weight: 1 }
+  - { provider: claude-code, model: claude-opus-5-5,      weight: 1 }
   - { provider: cursor-acp, model: cursor-grok-4.6-high,  weight: 0 }
 ---
 
