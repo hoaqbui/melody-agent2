@@ -193,7 +193,7 @@ if (process.env.GOOSE_USER_DATA && path.isAbsolute(process.env.GOOSE_USER_DATA))
   app.setPath('userData', process.env.GOOSE_USER_DATA);
   app.setPath('sessionData', process.env.GOOSE_USER_DATA);
 } else {
-  migrateUserData(app.getPath('appData'), 'Melody', app.getName());
+  migrateUserData(app.getPath('appData'), 'Goose', app.getName());
 }
 
 // Settings management
