@@ -45,7 +45,7 @@ test.describe('rpi strip', { tag: '@seat' }, () => {
       const input = goosePage.locator('[data-testid="chat-input"]');
       await expect(input).toHaveCount(1, { timeout: 15000 });
       await input.fill(
-        "Delegate exactly once to the researcher role with instructions 'In one sentence, what does scripts/check-spine.sh check? Do not run anything.', then reply DONE"
+        "Delegate exactly once to the researcher role with instructions 'In one sentence, what does notes.md contain? Do not run anything.', then reply DONE"
       );
       await input.press('Enter');
 

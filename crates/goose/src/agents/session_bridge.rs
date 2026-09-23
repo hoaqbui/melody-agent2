@@ -33,6 +33,10 @@ use crate::session::SessionType;
 pub const BRIDGE_EXTENSION_NAME: &str = "goose";
 pub const SECRET_HEADER: &str = "X-Secret-Key";
 const SUMMON_EXTENSION: &str = "summon";
+/// A sync `delegate` sends no byte back until the child finishes, so the extension needs the
+/// longest per-request HTTP timeout an external runtime will honor. Claude Code CLI caps its
+/// `request_timeout_ms` at 5 minutes regardless of what's requested here.
+const BRIDGE_HTTP_TIMEOUT_SECS: u64 = 5 * 60;
 // Same class of loss as the dispatch channel's 32-slot `try_send`: a lagging
 // subscriber drops the oldest events, never blocks a tool call.
 const EVENT_CAPACITY: usize = 64;
@@ -135,7 +139,7 @@ impl SessionBridge {
             envs: Default::default(),
             env_keys: Vec::new(),
             headers: HashMap::from([(SECRET_HEADER.to_string(), self.state.secret.clone())]),
-            timeout: None,
+            timeout: Some(BRIDGE_HTTP_TIMEOUT_SECS),
             socket: None,
             client_id: None,
             client_secret_key: None,

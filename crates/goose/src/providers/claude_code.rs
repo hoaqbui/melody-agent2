@@ -543,13 +543,25 @@ fn claude_mcp_config_json(extensions: &[ExtensionConfig]) -> Option<String> {
 
     for extension in extensions {
         match extension {
-            ExtensionConfig::StreamableHttp { uri, headers, .. } => {
+            ExtensionConfig::StreamableHttp {
+                uri,
+                headers,
+                timeout,
+                ..
+            } => {
                 let key = extension.key();
                 let mut config = serde_json::Map::new();
                 config.insert("type".to_string(), json!("http"));
                 config.insert("url".to_string(), json!(uri));
                 if !headers.is_empty() {
                     config.insert("headers".to_string(), json!(headers));
+                }
+                // Claude Code has no byte to send while a sync tool call's child runs, so its
+                // default per-request fetch budget aborts long calls well before MCP_TOOL_TIMEOUT
+                // would. `request_timeout_ms` raises that budget (capped by Claude Code at 5min).
+                if let Some(secs) = timeout {
+                    let request_timeout_ms = secs.saturating_mul(1000).min(300_000);
+                    config.insert("request_timeout_ms".to_string(), json!(request_timeout_ms));
                 }
                 mcp_servers.insert(key, Value::Object(config));
             }
@@ -1303,6 +1315,56 @@ mod tests {
             }
         }}))
         ; "resolved_name_used_as_key"
+    )]
+    #[test_case(
+        vec![ExtensionConfig::StreamableHttp {
+            name: "goose".into(),
+            description: String::new(),
+            uri: "http://127.0.0.1:0/mcp/session".into(),
+            envs: Envs::default(),
+            env_keys: vec![],
+            headers: HashMap::new(),
+            timeout: Some(300),
+            socket: None,
+            client_id: None,
+            client_secret_key: None,
+            scopes: vec![],
+            bundled: None,
+            available_tools: vec![],
+        }],
+        Some(json!({ "mcpServers": {
+            "goose": {
+                "type": "http",
+                "url": "http://127.0.0.1:0/mcp/session",
+                "request_timeout_ms": 300_000
+            }
+        }}))
+        ; "timeout_converted_to_request_timeout_ms"
+    )]
+    #[test_case(
+        vec![ExtensionConfig::StreamableHttp {
+            name: "slow".into(),
+            description: String::new(),
+            uri: "http://localhost/mcp".into(),
+            envs: Envs::default(),
+            env_keys: vec![],
+            headers: HashMap::new(),
+            timeout: Some(3600),
+            socket: None,
+            client_id: None,
+            client_secret_key: None,
+            scopes: vec![],
+            bundled: None,
+            available_tools: vec![],
+        }],
+        Some(json!({ "mcpServers": {
+            "slow": {
+                "type": "http",
+                "url": "http://localhost/mcp",
+                "request_timeout_ms": 300_000
+            }
+        }}))
+        ; "request_timeout_ms_capped_at_five_minutes"
     )]
     fn test_claude_mcp_config_json(extensions: Vec<ExtensionConfig>, expected: Option<Value>) {
         let result = claude_mcp_config_json(&extensions)
