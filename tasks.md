@@ -295,9 +295,6 @@ gone — git holds them (`git log -S"hand checks" -- tasks.md`), the walks cover
 - **The look at Light** and the four `DESIGN.md` §Open decisions (runtime colour, Esc as pane-close, phone breakpoint, dark canvas off macOS) — one sitting with the app; tranche 11 waits on it. `STUDIO_SHOT=<path> just walk "studio light"` writes the record.
 - **`ARCHITECTURE.md` sign-off** — one word deletes §Bootstrap Status (task 108 drafted the paragraph).
 - **Iconography** — lucide (upstream's set, the panes) vs Heroicons 16 solid (the composer row, ux_tests) on one app: keep both by surface, or converge.
-- **Accept commits tracked changes only** (task 53) — a run that only creates files cannot be Accepted; acceptable, or queue `add -A` behind the protected line?
-- **A routine inherits the session's mode** (task 63) — an Approve session's routine stalls unattended on its first ask; force Auto for routines, or leave it?
-- **Esc mid-tool-call leaves Git's Commit disabled** (task 16) — the orphaned `toolRequest` never gets a terminal status; spec (the Running row) or bug?
 - **Recipe consent on the fork's own roles** (tasks 70 · 28) — Reviewer, Orchestrator and delegated children pop upstream's "New Recipe Warning" once per hash; skip it for sessions the app itself starts, or keep the gate?
 - **`since session start` omits untracked files** (task 14) — `git diff HEAD` shape; accepted gap, or queue?
 - **Re-adding a worktree slug fails until its branch is deleted** (task 48) — delete the branch on Remove, or leave `wt/<slug>` as a record?
