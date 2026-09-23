@@ -299,7 +299,7 @@ mod tests {
     }
 
     #[tokio::test]
-    async fn dropping_a_prompt_future_releases_the_shared_run() {
+    async fn dropping_a_prompt_future_keeps_the_server_owned_run() {
         let root = tempfile::tempdir().unwrap();
         let server = server(root.path().to_path_buf(), false);
 
@@ -310,7 +310,6 @@ mod tests {
             .await
             .unwrap();
 
-        running.test_drop_active_run_guard("session-1", "run-1");
         tokio::task::yield_now().await;
 
         let second = server.create_agent().await.unwrap();
@@ -318,9 +317,8 @@ mod tests {
             second
                 .test_require_active_run("session-1", "run-1")
                 .await
-                .is_err(),
-            "a dropped prompt future must release its run so later \
-             connections are not permanently locked out of the session"
+                .is_ok(),
+            "dropping the request future must not release a server-owned run"
         );
     }
 

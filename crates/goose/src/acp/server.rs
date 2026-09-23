@@ -80,7 +80,7 @@ use std::collections::{HashMap, HashSet};
 use std::panic::AssertUnwindSafe;
 use std::path::{Path, PathBuf};
 use std::sync::Arc;
-use tokio::sync::{mpsc, Mutex, OnceCell};
+use tokio::sync::{mpsc, oneshot, Mutex, Notify, OnceCell};
 use tokio_util::compat::{TokioAsyncReadCompatExt as _, TokioAsyncWriteCompatExt as _};
 use tokio_util::sync::CancellationToken;
 use tracing::{debug, error, info, warn};
@@ -248,6 +248,34 @@ struct AgentStreamOutcome {
     output_token_limit_reached: bool,
 }
 
+const RUN_REATTACH_TIMEOUT: std::time::Duration = std::time::Duration::from_secs(10 * 60);
+
+#[derive(Clone)]
+struct RunConnection {
+    generation: u64,
+    replayed_messages: usize,
+    cx: ConnectionTo<Client>,
+    server: Arc<GooseAcpAgent>,
+}
+
+struct RunAttachmentState {
+    run_id: String,
+    history_boundary: usize,
+    turn_messages: Vec<Message>,
+    connection: Option<RunConnection>,
+    next_generation: u64,
+}
+
+struct RunAttachment {
+    state: Mutex<RunAttachmentState>,
+    attached: Notify,
+}
+
+#[derive(Default)]
+struct RunAttachmentRegistry {
+    sessions: Mutex<HashMap<String, Arc<RunAttachment>>>,
+}
+
 /// Releases a registry entry if the task consuming an agent stream is dropped
 /// without reaching its explicit `clear_active_run` — e.g. a roaming
 /// connection is revoked or lost mid-turn. Without this, the shared registry
@@ -331,6 +359,7 @@ pub struct SharedAcpState {
     pub session_manager: Arc<SessionManager>,
     pub permission_manager: Arc<PermissionManager>,
     pub agent_manager: Arc<AgentManager>,
+    run_attachments: Arc<RunAttachmentRegistry>,
 }
 
 pub struct GooseAcpAgent {
@@ -339,6 +368,7 @@ pub struct GooseAcpAgent {
     live_voice: Arc<LiveVoiceService>,
     closed_session_ids: Arc<Mutex<HashSet<String>>>,
     agent_manager: Arc<AgentManager>,
+    run_attachments: Arc<RunAttachmentRegistry>,
     provider_factory: AcpProviderFactory,
     builtin_selection: AcpBuiltinSelection,
     client_fs_capabilities: OnceCell<FileSystemCapabilities>,
@@ -867,17 +897,110 @@ impl SharedAcpState {
             session_manager,
             permission_manager,
             agent_manager,
+            run_attachments: Arc::new(RunAttachmentRegistry::default()),
         })
     }
 }
 
 impl GooseAcpAgent {
-    #[cfg(test)]
-    pub(crate) async fn test_session_agent(&self, session_id: &str) -> Arc<Agent> {
+    async fn begin_run_attachment(
+        self: &Arc<Self>,
+        session_id: &str,
+        run_id: &str,
+        history_boundary: usize,
+        cx: &ConnectionTo<Client>,
+    ) -> Arc<RunAttachment> {
+        let attachment = Arc::new(RunAttachment {
+            state: Mutex::new(RunAttachmentState {
+                run_id: run_id.to_string(),
+                history_boundary,
+                turn_messages: Vec::new(),
+                connection: Some(RunConnection {
+                    generation: 0,
+                    replayed_messages: 0,
+                    cx: cx.clone(),
+                    server: Arc::clone(self),
+                }),
+                next_generation: 1,
+            }),
+            attached: Notify::new(),
+        });
+        self.run_attachments
+            .sessions
+            .lock()
+            .await
+            .insert(session_id.to_string(), attachment.clone());
+        attachment
+    }
+
+    async fn finish_run_attachment(&self, session_id: &str, run_id: &str) {
+        let mut attachments = self.run_attachments.sessions.lock().await;
+        let should_remove = match attachments.get(session_id) {
+            Some(attachment) => attachment.state.lock().await.run_id == run_id,
+            None => false,
+        };
+        if should_remove {
+            attachments.remove(session_id);
+        }
+    }
+
+    async fn current_run_connection(&self, attachment: &RunAttachment) -> Option<RunConnection> {
+        attachment.state.lock().await.connection.clone()
+    }
+
+    async fn wait_for_run_connection(
+        &self,
+        attachment: &RunAttachment,
+        failed_generation: u64,
+        cancel_token: &CancellationToken,
+    ) -> Result<RunConnection, agent_client_protocol::Error> {
+        loop {
+            let notified = attachment.attached.notified();
+            {
+                let mut state = attachment.state.lock().await;
+                if state
+                    .connection
+                    .as_ref()
+                    .is_some_and(|connection| connection.generation == failed_generation)
+                {
+                    state.connection = None;
+                }
+                if let Some(connection) = state.connection.clone() {
+                    return Ok(connection);
+                }
+            }
+            tokio::select! {
+                _ = cancel_token.cancelled() => {
+                    return Err(agent_client_protocol::Error::internal_error().data("Active run cancelled while detached"));
+                }
+                result = tokio::time::timeout(RUN_REATTACH_TIMEOUT, notified) => {
+                    if result.is_err() {
+                        cancel_token.cancel();
+                        return Err(agent_client_protocol::Error::internal_error().data("Timed out waiting for an ACP client to reattach"));
+                    }
+                }
+            }
+        }
+    }
+
+    async fn buffer_turn_message(&self, attachment: &RunAttachment, message: &Message) -> usize {
+        let mut state = attachment.state.lock().await;
+        let index = state.turn_messages.len();
+        state.turn_messages.push(message.clone());
+        index
+    }
+
+    #[doc(hidden)]
+    pub async fn session_agent_for_test(&self, session_id: &str) -> Arc<Agent> {
         self.agent_manager
             .get_or_create_agent(session_id.to_string())
             .await
-            .unwrap()
+            .expect("test session agent should be available")
+    }
+
+    #[cfg(test)]
+    pub(crate) async fn test_session_agent(&self, session_id: &str) -> Arc<Agent> {
+        self.session_agent_for_test(session_id).await
     }
 
     #[cfg(test)]
@@ -894,17 +1017,6 @@ impl GooseAcpAgent {
     ) -> Result<(), agent_client_protocol::Error> {
         self.start_active_run(session_id, run_id, CancellationToken::new(), agent)
             .await
-    }
-
-    #[cfg(test)]
-    pub(crate) fn test_drop_active_run_guard(&self, session_id: &str, run_id: &str) {
-        drop(ActiveRunDropGuard {
-            registry: self.active_runs.clone(),
-            agent_manager: self.agent_manager.clone(),
-            session_id: session_id.to_string(),
-            run_id: run_id.to_string(),
-            cancel_token: CancellationToken::new(),
-        });
     }
 
     #[cfg(test)]
@@ -1005,28 +1117,31 @@ impl GooseAcpAgent {
     }
 
     pub async fn new(options: GooseAcpAgentOptions) -> Result<Self> {
-        let (session_manager, permission_manager, agent_manager) = match options.shared {
-            Some(shared) => (
-                Arc::clone(&shared.session_manager),
-                Arc::clone(&shared.permission_manager),
-                Arc::clone(&shared.agent_manager),
-            ),
-            None => {
-                let shared = SharedAcpState::build(
-                    options.data_dir,
-                    options.config_dir.clone(),
-                    options.scheduler,
-                    options.disable_session_naming,
-                    options.goose_platform.clone(),
-                )
-                .await?;
-                (
-                    shared.session_manager,
-                    shared.permission_manager,
-                    shared.agent_manager,
-                )
-            }
-        };
+        let (session_manager, permission_manager, agent_manager, run_attachments) =
+            match options.shared {
+                Some(shared) => (
+                    Arc::clone(&shared.session_manager),
+                    Arc::clone(&shared.permission_manager),
+                    Arc::clone(&shared.agent_manager),
+                    Arc::clone(&shared.run_attachments),
+                ),
+                None => {
+                    let shared = SharedAcpState::build(
+                        options.data_dir,
+                        options.config_dir.clone(),
+                        options.scheduler,
+                        options.disable_session_naming,
+                        options.goose_platform.clone(),
+                    )
+                    .await?;
+                    (
+                        shared.session_manager,
+                        shared.permission_manager,
+                        shared.agent_manager,
+                        shared.run_attachments,
+                    )
+                }
+            };
         let provider_inventory = ProviderInventoryService::new(session_manager.storage().clone());
         let (thinking_effort_update_tx, thinking_effort_update_rx) = mpsc::unbounded_channel();
 
@@ -1036,6 +1151,7 @@ impl GooseAcpAgent {
             live_voice: options.live_voice,
             closed_session_ids: Arc::new(Mutex::new(HashSet::new())),
             agent_manager,
+            run_attachments,
             provider_factory: options.provider_factory,
             builtin_selection: options.builtin_selection,
             client_fs_capabilities: OnceCell::new(),
@@ -2147,6 +2263,67 @@ impl GooseAcpAgent {
         ))
     }
 
+    async fn send_active_run_update_to_attachment(
+        &self,
+        attachment: &RunAttachment,
+        session_id: &SessionId,
+        active_run_id: Option<&str>,
+        cancel_token: &CancellationToken,
+    ) -> Result<(), agent_client_protocol::Error> {
+        let mut connection = match self.current_run_connection(attachment).await {
+            Some(connection) => connection,
+            None => {
+                self.wait_for_run_connection(attachment, u64::MAX, cancel_token)
+                    .await?
+            }
+        };
+        loop {
+            if Self::send_active_run_update(&connection.cx, session_id, active_run_id).is_ok() {
+                return Ok(());
+            }
+            connection = self
+                .wait_for_run_connection(attachment, connection.generation, cancel_token)
+                .await?;
+        }
+    }
+
+    async fn send_final_usage_to_attachment(
+        &self,
+        attachment: &RunAttachment,
+        acp_session_id: &SessionId,
+        session_id: &str,
+        agent: &Arc<Agent>,
+        cancel_token: &CancellationToken,
+    ) -> Result<Session, agent_client_protocol::Error> {
+        let mut connection = match self.current_run_connection(attachment).await {
+            Some(connection) => connection,
+            None => {
+                self.wait_for_run_connection(attachment, u64::MAX, cancel_token)
+                    .await?
+            }
+        };
+        loop {
+            match connection
+                .server
+                .send_session_usage_updates(
+                    &connection.cx,
+                    acp_session_id,
+                    session_id,
+                    agent,
+                    &mut None,
+                )
+                .await
+            {
+                Ok(session) => return Ok(session),
+                Err(_) => {
+                    connection = self
+                        .wait_for_run_connection(attachment, connection.generation, cancel_token)
+                        .await?;
+                }
+            }
+        }
+    }
+
     fn send_queued_steer_update(
         cx: &ConnectionTo<Client>,
         session_id: &SessionId,
@@ -2266,11 +2443,11 @@ impl GooseAcpAgent {
 
     async fn forward_agent_stream(
         &self,
-        cx: &ConnectionTo<Client>,
         acp_session_id: &SessionId,
         session_id: &str,
         agent: &Arc<Agent>,
         cancel_token: &CancellationToken,
+        attachment: &Arc<RunAttachment>,
         mut stream: BoxStream<'_, Result<crate::agents::AgentEvent>>,
     ) -> Result<AgentStreamOutcome, agent_client_protocol::Error> {
         let mut was_cancelled = false;
@@ -2293,15 +2470,15 @@ impl GooseAcpAgent {
             match event {
                 Ok(crate::agents::AgentEvent::Message(mut message)) => {
                     update_output_token_limit_reached(&mut output_token_limit_reached, &message);
-
-                    let sessions = self.sessions.lock().await;
-                    if !sessions.contains_key(session_id) {
-                        return Err(agent_client_protocol::Error::invalid_params()
-                            .data(format!("Session not found: {session_id}")));
-                    }
-                    drop(sessions);
-
                     populate_output_token_limit_content(&mut message);
+                    let message_index = self.buffer_turn_message(attachment, &message).await;
+                    let mut connection = match self.current_run_connection(attachment).await {
+                        Some(connection) => connection,
+                        None => {
+                            self.wait_for_run_connection(attachment, u64::MAX, cancel_token)
+                                .await?
+                        }
+                    };
                     for content_item in &message.content {
                         if let Some(error) = prompt_error_from_message_content(content_item) {
                             return Err(error);
@@ -2311,15 +2488,29 @@ impl GooseAcpAgent {
                             tool_requests.insert(tool_request.id.clone(), tool_request.clone());
                         }
 
-                        self.handle_message_content(
-                            content_item,
-                            &message,
-                            acp_session_id,
-                            &target,
-                            &tool_requests,
-                            cx,
-                        )
-                        .await?;
+                        while connection.replayed_messages <= message_index {
+                            let result = connection
+                                .server
+                                .handle_message_content(
+                                    content_item,
+                                    &message,
+                                    acp_session_id,
+                                    &target,
+                                    &tool_requests,
+                                    &connection.cx,
+                                )
+                                .await;
+                            if result.is_ok() {
+                                break;
+                            }
+                            connection = self
+                                .wait_for_run_connection(
+                                    attachment,
+                                    connection.generation,
+                                    cancel_token,
+                                )
+                                .await?;
+                        }
 
                         let ready_chain = match content_item {
                             MessageContent::ToolRequest(tool_request) => {
@@ -2336,7 +2527,12 @@ impl GooseAcpAgent {
                         };
 
                         if let Some(chain) = ready_chain {
-                            self.spawn_ready_chain_summary(chain, agent, acp_session_id, cx);
+                            connection.server.spawn_ready_chain_summary(
+                                chain,
+                                agent,
+                                acp_session_id,
+                                &connection.cx,
+                            );
                         }
                     }
                 }
@@ -2344,27 +2540,71 @@ impl GooseAcpAgent {
                     if let Some(update) =
                         tool_notifications::tool_notification_update(request_id, notification)
                     {
-                        let tool_call_notifier = ToolCallNotifier::new(cx, acp_session_id);
-                        tool_call_notifier.send_update(update)?;
+                        let mut connection = match self.current_run_connection(attachment).await {
+                            Some(connection) => connection,
+                            None => {
+                                self.wait_for_run_connection(attachment, u64::MAX, cancel_token)
+                                    .await?
+                            }
+                        };
+                        loop {
+                            let notifier = ToolCallNotifier::new(&connection.cx, acp_session_id);
+                            if notifier.send_update(update.clone()).is_ok() {
+                                break;
+                            }
+                            connection = self
+                                .wait_for_run_connection(
+                                    attachment,
+                                    connection.generation,
+                                    cancel_token,
+                                )
+                                .await?;
+                        }
                     }
                 }
                 Ok(crate::agents::AgentEvent::MessageUsage { message_id, usage }) => {
-                    if self.supports_goose_custom_notifications() {
-                        cx.send_notification(GooseSessionNotification {
-                            session_id: session_id.to_string(),
-                            update: GooseSessionUpdate::MessageUsage(message_usage_update(
-                                message_id, &usage,
-                            )),
-                        })?;
+                    let mut connection = match self.current_run_connection(attachment).await {
+                        Some(connection) => connection,
+                        None => {
+                            self.wait_for_run_connection(attachment, u64::MAX, cancel_token)
+                                .await?
+                        }
+                    };
+                    loop {
+                        let result = if connection.server.supports_goose_custom_notifications() {
+                            connection.cx.send_notification(GooseSessionNotification {
+                                session_id: session_id.to_string(),
+                                update: GooseSessionUpdate::MessageUsage(message_usage_update(
+                                    message_id.clone(),
+                                    &usage,
+                                )),
+                            })
+                        } else {
+                            Ok(())
+                        };
+                        if result.is_ok() {
+                            break;
+                        }
+                        connection = self
+                            .wait_for_run_connection(
+                                attachment,
+                                connection.generation,
+                                cancel_token,
+                            )
+                            .await?;
                     }
                 }
                 Ok(crate::agents::AgentEvent::Usage(_)) => {
                     // Both agent loops persist usage before emitting this event. A failed
                     // mid-turn update must not abort the turn; the end-of-turn update
                     // still reports errors.
-                    if let Err(error) = self
+                    let Some(connection) = self.current_run_connection(attachment).await else {
+                        continue;
+                    };
+                    if let Err(error) = connection
+                        .server
                         .send_session_usage_updates(
-                            cx,
+                            &connection.cx,
                             acp_session_id,
                             session_id,
                             agent,
@@ -2389,7 +2629,14 @@ impl GooseAcpAgent {
 
         if !was_cancelled {
             if let Some(chain) = chain_tracker.close_current_chain() {
-                self.spawn_ready_chain_summary(chain, agent, acp_session_id, cx);
+                if let Some(connection) = self.current_run_connection(attachment).await {
+                    connection.server.spawn_ready_chain_summary(
+                        chain,
+                        agent,
+                        acp_session_id,
+                        &connection.cx,
+                    );
+                }
             }
         }
 
@@ -2408,7 +2655,7 @@ impl GooseAcpAgent {
     }
 
     async fn on_prompt(
-        &self,
+        self: &Arc<Self>,
         cx: &ConnectionTo<Client>,
         args: PromptRequest,
     ) -> Result<PromptResponse, agent_client_protocol::Error> {
@@ -2422,6 +2669,17 @@ impl GooseAcpAgent {
         // which agent owns it; registration stays atomic, so the cross-connection
         // guard still admits only one run per session.
         let agent = self.get_session_agent(&session_id).await?;
+        // Capture before reply persists the prompt. The live AgentEvent::Message
+        // buffer owns every message in this turn, including the user prompt.
+        let history_boundary = self
+            .session_manager
+            .get_session(&session_id, true)
+            .await
+            .internal_err_ctx("Failed to load session before prompt")?
+            .conversation
+            .as_ref()
+            .map(|conversation| conversation.messages().len())
+            .unwrap_or_default();
         self.start_active_run(
             &session_id,
             run_id.clone(),
@@ -2429,90 +2687,119 @@ impl GooseAcpAgent {
             agent.clone(),
         )
         .await?;
-
-        // Frees the run if this future is dropped mid-prompt (e.g. the roaming
-        // connection carrying it is revoked or lost); a normal completion's
-        // explicit clear wins and makes the guard's cleanup a no-op.
-        let _run_guard = ActiveRunDropGuard {
-            registry: self.active_runs.clone(),
-            agent_manager: self.agent_manager.clone(),
-            session_id: session_id.clone(),
-            run_id: run_id.clone(),
-            cancel_token: cancel_token.clone(),
-        };
-
-        if cancel_token.is_cancelled() {
-            self.clear_active_run(&session_id, &run_id).await;
-            Self::send_active_run_update(cx, &args.session_id, None)?;
-            return Ok(PromptResponse::new(StopReason::Cancelled));
-        }
-
-        if let Err(error) = Self::send_active_run_update(cx, &args.session_id, Some(&run_id)) {
-            self.clear_active_run(&session_id, &run_id).await;
-            return Err(error);
-        }
-
-        if let Err(error) = self
-            .send_local_inference_progress_update(cx, &args.session_id, &session_id, &agent)
-            .await
-        {
-            self.clear_active_run(&session_id, &run_id).await;
-            let _ = Self::send_active_run_update(cx, &args.session_id, None);
-            return Err(error);
-        }
-
-        let user_message = Self::convert_acp_prompt_to_message(&args.prompt);
-        let use_state_machine = use_state_machine_from_meta(args.meta.as_ref());
-        let session_config = SessionConfig {
-            id: session_id.clone(),
-            schedule_id: None,
-            max_turns: None,
-            retry_config: None,
-        };
-
-        let stream = match agent
-            .reply(
-                user_message,
-                session_config,
-                use_state_machine,
-                Some(cancel_token.clone()),
-            )
-            .await
-        {
-            Ok(stream) => stream,
-            Err(error) => {
-                self.clear_active_run(&session_id, &run_id).await;
-                let _ = Self::send_active_run_update(cx, &args.session_id, None);
-                return Err(agent_client_protocol::Error::internal_error()
-                    .data(format!("Error getting agent reply: {error}")));
-            }
-        };
-        let stream_result = self
-            .forward_agent_stream(
-                cx,
-                &args.session_id,
-                &session_id,
-                &agent,
-                &cancel_token,
-                stream,
-            )
+        let attachment = self
+            .begin_run_attachment(&session_id, &run_id, history_boundary, cx)
             .await;
-        self.clear_active_run(&session_id, &run_id).await;
-        Self::send_active_run_update(cx, &args.session_id, None)?;
-        let outcome = stream_result?;
+        let (result_tx, result_rx) = oneshot::channel();
+        let server = Arc::clone(self);
+        let acp_session_id = args.session_id.clone();
+        tokio::spawn(async move {
+            let _run_guard = ActiveRunDropGuard {
+                registry: server.active_runs.clone(),
+                agent_manager: server.agent_manager.clone(),
+                session_id: session_id.clone(),
+                run_id: run_id.clone(),
+                cancel_token: cancel_token.clone(),
+            };
+            let result = async {
+                server
+                    .send_active_run_update_to_attachment(
+                        &attachment,
+                        &acp_session_id,
+                        Some(&run_id),
+                        &cancel_token,
+                    )
+                    .await?;
 
-        let session = self
-            .send_session_usage_updates(cx, &args.session_id, &session_id, &agent, &mut None)
-            .await?;
+                if let Some(connection) = server.current_run_connection(&attachment).await {
+                    connection
+                        .server
+                        .send_local_inference_progress_update(
+                            &connection.cx,
+                            &acp_session_id,
+                            &session_id,
+                            &agent,
+                        )
+                        .await?;
+                }
 
-        let stop_reason =
-            prompt_stop_reason(outcome.was_cancelled, outcome.output_token_limit_reached);
+                let user_message = Self::convert_acp_prompt_to_message(&args.prompt);
+                let use_state_machine = use_state_machine_from_meta(args.meta.as_ref());
+                let session_config = SessionConfig {
+                    id: session_id.clone(),
+                    schedule_id: None,
+                    max_turns: None,
+                    retry_config: None,
+                };
+                let stream = agent
+                    .reply(
+                        user_message,
+                        session_config,
+                        use_state_machine,
+                        Some(cancel_token.clone()),
+                    )
+                    .await
+                    .map_err(|error| {
+                        agent_client_protocol::Error::internal_error()
+                            .data(format!("Error getting agent reply: {error}"))
+                    })?;
+                let outcome = server
+                    .forward_agent_stream(
+                        &acp_session_id,
+                        &session_id,
+                        &agent,
+                        &cancel_token,
+                        &attachment,
+                        stream,
+                    )
+                    .await?;
+                server
+                    .send_active_run_update_to_attachment(
+                        &attachment,
+                        &acp_session_id,
+                        None,
+                        &cancel_token,
+                    )
+                    .await?;
+                let session = server
+                    .send_final_usage_to_attachment(
+                        &attachment,
+                        &acp_session_id,
+                        &session_id,
+                        &agent,
+                        &cancel_token,
+                    )
+                    .await?;
+                server.clear_active_run(&session_id, &run_id).await;
+                let stop_reason =
+                    prompt_stop_reason(outcome.was_cancelled, outcome.output_token_limit_reached);
+                let mut response = PromptResponse::new(stop_reason);
+                if let Some(usage) = build_prompt_usage(&session) {
+                    response = response.usage(usage);
+                }
+                Ok(response)
+            }
+            .await;
 
-        let mut response = PromptResponse::new(stop_reason);
-        if let Some(usage) = build_prompt_usage(&session) {
-            response = response.usage(usage);
-        }
-        Ok(response)
+            if server.active_runs.agent_run(&session_id).is_some() {
+                let _ = server
+                    .send_active_run_update_to_attachment(
+                        &attachment,
+                        &acp_session_id,
+                        None,
+                        &cancel_token,
+                    )
+                    .await;
+                server.clear_active_run(&session_id, &run_id).await;
+            }
+            server.finish_run_attachment(&session_id, &run_id).await;
+            let _ = result_tx.send(result);
+        });
+
+        result_rx.await.map_err(|_| {
+            agent_client_protocol::Error::internal_error()
+                .data("Prompt task ended without a result")
+        })?
     }
 
     async fn on_steer_session(
