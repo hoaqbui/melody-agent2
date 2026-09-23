@@ -270,17 +270,6 @@ Order: 154 (above) ∥ 155–157 (mockups, session) ∥ wave 1 (158 · 160 · 16
 
 Order: 184 (migration) → 183 (identity); 185 ∥ 186 ∥ 187 ∥ 189 ∥ 190 ∥ 191 on disjoint files; 188 after 187; 192 last; 193 waits on the user's pick. Commits stage only the task's paths (`Lever.tsx` is the user's, uncommitted).
 
-- 192. Build and launch `Melody.app` with `just make-ui`, and run the smoke walks.
-  - status: doing · agent: session · worker: medium
-  - blocked-by: 183–191
-  - card: as the user, I want the packaged app rebuilt and proven so that the rename is real, not
-    a diff
-  - context:
-    - quit Goose.app first (`osascript -e 'tell application "Goose" to quit'`); never overwrite a
-      live bundle (AGENTS.md §Never)
-    - the old `out/Goose-darwin-arm64/` is left in place
-  - confirm: `source bin/activate-hermit && just make-ui >/dev/null && defaults read "$PWD/ui/desktop/out/Melody-darwin-arm64/Melody.app/Contents/Info" CFBundleIdentifier && defaults read "$PWD/ui/desktop/out/Melody-darwin-arm64/Melody.app/Contents/Info" CFBundleName && just smoke 2>&1 | tail -2` → `com.melody.desktop`, `Melody`, smoke 10 passed
-
 - 193. Draw Melody artwork for the goose drawings: `ui/desktop/src/components/FlyingBird.tsx` (the streaming loader), `ui/desktop/src/components/icons/Geese.tsx` (the recipe modal) and `Rain` in `ui/desktop/src/components/icons/Goose.tsx` (the logo's hover).
   - status: todo · agent: — · worker: high
   - card: as the user, I want no goose drawn anywhere in Melody so that the rebrand is whole (user, 2026-09-22: "Approve, include drawings")
@@ -313,7 +302,7 @@ Order: 184 (migration) → 183 (identity); 185 ∥ 186 ∥ 187 ∥ 189 ∥ 190 �
 
 ## Waiting on the user
 
-- 192 — after Melody.app launches: your theme, layout and workspace are kept; the app menu shows Settings…; the microphone prompt names Melody; Browser pane logins survived or not; `goose://` links open Melody (move or delete `ui/desktop/out/Goose-darwin-arm64/Goose.app` if they open Goose); then say whether `~/Library/Application Support/Goose` can go.
+- 192 — after Melody.app launches: your theme, layout and workspace are kept; the app menu shows Settings…; the microphone prompt names Melody; Browser pane logins survived or not; `goose://` links open Melody (move or delete `ui/desktop/out/Goose-darwin-arm64/Goose.app` if they open Goose); then say whether `~/Library/Application Support/Goose` and `…/Melody.first-launch-2026-09-22` (the empty profile of the first, failed copy) can go.
 - 193 — pick the Melody artwork for the loader, the recipe modal and the logo hover from mockups.
 
 ### Handoff — one line, one command each (2026-09-20, closeout; the decisions moved under §Notes and hand checks 2026-09-21)
