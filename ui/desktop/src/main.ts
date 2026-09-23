@@ -45,6 +45,7 @@ import { expandTilde, sanitizeGoosePathRoot } from './utils/pathUtils';
 import log from './utils/logger';
 import { ensureWinShims } from './utils/winShims';
 import { addRecentDir, loadRecentDirs } from './utils/recentDirs';
+import { migrateUserData } from './utils/migrateUserData';
 import { formatAppName, errorMessage, formatErrorForLogging } from './utils/conversionUtils';
 import { isRetiredGooseChatApp } from './utils/retiredApps';
 import type { Settings, SettingKey } from './utils/settings';
@@ -191,6 +192,8 @@ function translateMenuLabels(items: MenuItem[]): void {
 if (process.env.GOOSE_USER_DATA && path.isAbsolute(process.env.GOOSE_USER_DATA)) {
   app.setPath('userData', process.env.GOOSE_USER_DATA);
   app.setPath('sessionData', process.env.GOOSE_USER_DATA);
+} else {
+  migrateUserData(app.getPath('appData'), 'Goose', app.getName());
 }
 
 // Settings management
