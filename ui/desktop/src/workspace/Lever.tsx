@@ -55,6 +55,9 @@ export interface LeverProps {
 }
 
 const STOP_WIDTH_PX = 36;
+// The knob is twice the 16 px track (user, 2026-09-22: "make the teal dot … bigger? like 2x",
+// "keep the rail half the size").
+const KNOB_PX = 32;
 
 export function Lever({ stop, providers, canOrchestrate, busy, model, onPick, seats }: LeverProps) {
   const intl = useIntl();
@@ -203,7 +206,7 @@ export function Lever({ stop, providers, canOrchestrate, busy, model, onPick, se
         aria-disabled={busy || undefined}
         title={summary}
         className={cn(
-          'relative flex h-5 items-center rounded-chip bg-background-secondary shadow-[var(--shadow-sm)] outline-none focus-visible:ring-2 focus-visible:ring-ring-primary',
+          'relative flex h-4 items-center rounded-chip bg-background-secondary shadow-[var(--shadow-sm)] outline-none focus-visible:ring-2 focus-visible:ring-ring-primary',
           busy ? 'opacity-50' : 'cursor-pointer hover:shadow-[var(--shadow-md)]'
         )}
         onClick={click}
@@ -255,15 +258,15 @@ export function Lever({ stop, providers, canOrchestrate, busy, model, onPick, se
         {/* The knob slides between stops (Into Rule: it goes to the stop, never jumps). */}
         <span
           className={cn(
-            'pointer-events-none absolute top-0.5 flex size-4 items-center justify-center rounded-chip bg-background-inverse text-text-inverse shadow-[var(--shadow-md)] transition-[left] duration-150 ease-[var(--ease-g2)]',
+            'pointer-events-none absolute top-1/2 -translate-y-1/2 flex size-8 items-center justify-center rounded-chip bg-background-inverse text-text-inverse shadow-[var(--shadow-md)] transition-[left] duration-150 ease-[var(--ease-g2)]',
             stop === 'custom' && 'opacity-60'
           )}
-          style={{ left: index * STOP_WIDTH_PX + (STOP_WIDTH_PX - 16) / 2 }}
+          style={{ left: index * STOP_WIDTH_PX + (STOP_WIDTH_PX - KNOB_PX) / 2 }}
           data-testid="workspace-lever-knob"
         >
           {/* A plain handle (user, 2026-09-20): the three dots are the stops, the tooltip
-              names the one under the knob; no glyph to read at 16 px. */}
-          <span aria-hidden className="size-1.5 rounded-chip bg-text-inverse/90" />
+              names the one under the knob; no glyph on the knob. */}
+          <span aria-hidden className="size-3 rounded-chip bg-text-inverse/90" />
         </span>
       </div>
       <span
