@@ -172,6 +172,12 @@ describe('acceptPaths', () => {
   it('is empty for an empty diff', () => {
     expect(acceptPaths('')).toEqual([]);
   });
+
+  it('includes untracked files only when creating new files', () => {
+    const diff = '';
+    const untrackedPaths = ['new-file.txt', 'another.js'];
+    expect(acceptPaths(diff, untrackedPaths)).toEqual(['new-file.txt', 'another.js']);
+  });
 });
 
 describe('acceptMessage', () => {

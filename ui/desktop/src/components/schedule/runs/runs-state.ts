@@ -106,12 +106,25 @@ export function runActionError(cause: unknown, fallback: string): RunActionError
   return { message, conflicts };
 }
 
-// The paths a diff touches, both sides of a rename so the old name's deletion stages too.
-export function acceptPaths(diff: string): string[] {
+// Untracked files from git status: entries where both index and worktree are '?'.
+export function untracked(
+  entries: { readonly index: string; readonly worktree: string; readonly path: string }[]
+): string[] {
+  return entries
+    .filter((entry) => entry.index === '?' && entry.worktree === '?')
+    .map((entry) => entry.path);
+}
+
+// The paths a diff touches, both sides of a rename so the old name's deletion stages too,
+// plus untracked files from git status.
+export function acceptPaths(diff: string, untrackedPaths: readonly string[] = []): string[] {
   const paths = new Set<string>();
   for (const file of parseUnifiedDiff(diff)) {
     if (file.oldPath && file.oldPath !== file.path) paths.add(file.oldPath);
     paths.add(file.path);
+  }
+  for (const path of untrackedPaths) {
+    paths.add(path);
   }
   return [...paths];
 }

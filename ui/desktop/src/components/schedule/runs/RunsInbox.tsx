@@ -24,6 +24,8 @@ import {
   type GitPathsRequest,
   type GitRevParseRequest,
   type GitRevParseResponse,
+  type GitStatusRequest,
+  type GitStatusResponse,
   type GitWorktreeRemoveRequest,
   type SidecarConfig,
 } from '../../../native/sidecar';
@@ -44,6 +46,7 @@ import {
   runOutcome,
   runWorktreePlace,
   saveSeen,
+  untracked,
   visibleRuns,
   type RunActionError,
   type SeenMap,
@@ -178,7 +181,12 @@ export function RunsInbox({ schedules }: RunsInboxProps) {
       const revParse: GitRevParseRequest = { cwd, rev: `HEAD@{${run.startedAt}}` };
       const { sha } = await sidecarFetch<GitRevParseResponse>('/git/rev-parse', revParse);
       const diff: GitDiffRequest = { cwd, base: sha, context: 0 };
-      const paths = acceptPaths((await sidecarFetch<GitDiffResponse>('/git/diff', diff)).diff);
+      const status: GitStatusRequest = { cwd };
+      const [diffResponse, statusResponse] = await Promise.all([
+        sidecarFetch<GitDiffResponse>('/git/diff', diff),
+        sidecarFetch<GitStatusResponse>('/git/status', status),
+      ]);
+      const paths = acceptPaths(diffResponse.diff, untracked(statusResponse.entries));
       if (paths.length === 0 && !place) throw new Error(intl.formatMessage(i18n.noChanges));
       let output = '';
       if (paths.length > 0) {
