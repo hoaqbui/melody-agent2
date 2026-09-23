@@ -71,7 +71,7 @@ const SETTING_WHY: Record<string, { why: string; from: string }> = {
     from: 'thinking_effort config option',
   },
   gate: {
-    why: "Goose's own permission gate. Delegated workers always run Auto regardless.",
+    why: "Melody's own permission gate. Delegated workers always run Auto regardless.",
     from: 'session.goose_mode · summon.rs',
   },
   context: {

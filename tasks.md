@@ -309,25 +309,6 @@ Order: 184 (migration) → 183 (identity); 185 ∥ 186 ∥ 187 ∥ 189 ∥ 190 �
       (`AppSettingsSection.tsx:831`), which is intended
   - confirm: `cd ui/desktop && grep -cE "['\`][^'\`]*\bGoose\b" src/main.ts src/utils/autoUpdater.ts; grep -c "UPDATES_ENABLED = false" src/updates.ts; pnpm run typecheck` → main.ts 0, autoUpdater.ts 0 (13 today), 1, typecheck 0
 
-- 186. Rename the renderer's hard-coded words in `ui/desktop/src/components/BaseChat.tsx`,
-     `ui/desktop/src/toasts.tsx`, `ui/desktop/src/workspace/panes/telemetry/TelemetryNow.tsx`,
-     `ui/desktop/src/gooseServeLeaseRegistry.ts` and `ui/desktop/src/acp/errors.ts`, with their tests.
-  - status: doing · agent: session (worker: claude -p haiku) · worker: low
-  - card: as the user, I want the chat's corner mark, the recovery button and the error texts to
-    say Melody so that no screen still names Goose
-  - context:
-    - BaseChat.tsx:520-532 the watermark: text `goose` → `Melody`, the `<a href="https://goose-docs.ai">`
-      becomes a plain `<div>` with the same classes minus `hover:opacity-80 transition-opacity`
-      (Melody has no docs site); the comment "Goose watermark" → "Melody watermark"
-    - toasts.tsx:202 "Ask goose" → "Ask Melody"
-    - TelemetryNow.tsx:74 "Goose's own permission gate." → "Melody's own permission gate."
-    - gooseServeLeaseRegistry.ts:4 "This window's Goose backend stopped" → "This window's Melody
-      backend stopped", "restart Goose Desktop" → "restart Melody" (acpConnection.ts:211 matches the
-      constant, not the text)
-    - errors.ts:20 "The connected Goose server" → "The connected Melody server"; update
-      `App.test.tsx:309` and `__tests__/createSession.test.ts:220` to the new text
-  - confirm: `cd ui/desktop && pnpm exec vitest run src/App.test.tsx src/__tests__/createSession.test.ts && grep -c "Melody" src/components/BaseChat.tsx src/toasts.tsx src/gooseServeLeaseRegistry.ts src/acp/errors.ts && pnpm run typecheck` → tests pass, each file ≥ 1, typecheck 0
-
 - 187. Rename the brand in the English messages at their `defaultMessage` sources under
      `ui/desktop/src`, regenerate `ui/desktop/src/i18n/messages/en.json`, and update the tests that
      assert them.
