@@ -270,26 +270,6 @@ Order: 154 (above) ∥ 155–157 (mockups, session) ∥ wave 1 (158 · 160 · 16
 
 Order: 184 (migration) → 183 (identity); 185 ∥ 186 ∥ 187 ∥ 189 ∥ 190 ∥ 191 on disjoint files; 188 after 187; 192 last; 193 waits on the user's pick. Commits stage only the task's paths (`Lever.tsx` is the user's, uncommitted).
 
-- 183. Rename the app's packaging identity in `ui/desktop/package.json`, `ui/desktop/forge.config.ts`,
-     `ui/desktop/forge.{deb,rpm}.desktop`, `ui/desktop/vite.main.config.mts`, `ui/desktop/index.html`,
-     `ui/desktop/public/manifest.webmanifest` and `justfile`.
-  - status: doing · agent: session (worker: claude -p haiku) · worker: low
-  - blocked-by: 184 (a launch under the new name before the migration exists creates `.../Melody`
-    and the copy is then skipped for good)
-  - card: as the user, I want the dock, window and installer to say Melody so that the app I run
-    is the product I named
-  - context:
-    - package.json:3 from: `"productName": "Goose"` / to: `"productName": "Melody"`; :5 from:
-      `"Goose App"` / to: `"Melody"`; :26-28 `${GOOSE_BUNDLE_NAME:-Goose}` → `${GOOSE_BUNDLE_NAME:-Melody}`
-    - vite.main.config.mts:8 from: `|| 'Goose'` / to: `|| 'Melody'`
-    - forge.config.ts packagerConfig: add `appBundleId: 'com.melody.desktop'`; :41 and :43 "Goose
-      needs access" → "Melody needs access"; deb/rpm `name`/`bin` and flatpak `bin` 'Goose' →
-      'Melody' (flatpak `id` stays, :125); the `goose` protocol stays (:22-27)
-    - .desktop files: `Name=Melody`; `Exec=/usr/lib/melody/Melody %U` (deb), `/usr/lib/Melody/Melody %U` (rpm)
-    - index.html:9 `<title>Melody</title>`; manifest `name` and `short_name` "Melody"
-    - justfile:139-140 `out/Goose-darwin-arm64/Goose.app` → `out/Melody-darwin-arm64/Melody.app`
-  - confirm: `cd ui/desktop && grep -c 'Melody' package.json forge.config.ts index.html public/manifest.webmanifest vite.main.config.mts && grep -c "appBundleId: 'com.melody.desktop'" forge.config.ts && pnpm run typecheck` → package.json 5, forge.config.ts ≥ 6, index.html 1, manifest 2, vite 1, the bundle ID 1, typecheck 0
-
 - 185. Rename the main process's words and turn the updater off in `ui/desktop/src/main.ts`,
      `ui/desktop/src/utils/autoUpdater.ts` and `ui/desktop/src/updates.ts`.
   - status: doing · agent: session (worker: claude -p haiku) · worker: low

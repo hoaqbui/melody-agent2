@@ -6,6 +6,7 @@ const isLinuxVulkanBuild = process.env.GOOSE_DESKTOP_LINUX_VARIANT === 'vulkan';
 
 let cfg = {
   asar: true,
+  appBundleId: 'com.melody.desktop',
   // ../sidecar/out/sidecar is produced by `pnpm --filter @melody/sidecar run bundle`
   // (chained into `package` and `make`) and lands at Contents/Resources/sidecar.
   extraResource: ['src/bin', 'src/images', 'src/app-update.yml', '../sidecar/out/sidecar'],
@@ -38,9 +39,9 @@ let cfg = {
     ],
     // Usage descriptions for macOS TCC (Transparency, Consent, and Control)
     NSMicrophoneUsageDescription:
-      'Goose needs access to your microphone for voice dictation.',
+      'Melody needs access to your microphone for voice dictation.',
     NSAppleEventsUsageDescription:
-      'Goose needs access to send Apple Events to control other apps on your behalf.',
+      'Melody needs access to send Apple Events to control other apps on your behalf.',
   },
 };
 
@@ -89,8 +90,8 @@ module.exports = {
     {
       name: '@electron-forge/maker-deb',
       config: {
-        name: 'Goose',
-        bin: 'Goose',
+        name: 'Melody',
+        bin: 'Melody',
         maintainer: 'AAIF (Agentic AI Foundation)',
         homepage: 'https://goose-docs.ai/',
         categories: ['Development'],
@@ -105,8 +106,8 @@ module.exports = {
     {
       name: '@electron-forge/maker-rpm',
       config: {
-        name: 'Goose',
-        bin: 'Goose',
+        name: 'Melody',
+        bin: 'Melody',
         maintainer: 'AAIF (Agentic AI Foundation)',
         homepage: 'https://goose-docs.ai/',
         categories: ['Development'],
@@ -132,7 +133,7 @@ module.exports = {
           homepage: 'https://goose-docs.ai/',
           runtimeVersion: '25.08',
           baseVersion: '25.08',
-          bin: 'Goose',
+          bin: 'Melody',
           modules: [
             {
               name: 'libbz2-shim',
