@@ -6179,6 +6179,21 @@
   "toolConfirmation.gooseWouldLikeToCallWithName": {
     "defaultMessage": "goose가 {toolName}을 호출하려고 합니다. 허용하시겠습니까?"
   },
+  "turnDiffCard.error": {
+    "defaultMessage": "Failed to load diff"
+  },
+  "turnDiffCard.loading": {
+    "defaultMessage": "Loading…"
+  },
+  "turnDiffCard.newContent": {
+    "defaultMessage": "new content"
+  },
+  "turnDiffCard.openInChanges": {
+    "defaultMessage": "Open in Changes"
+  },
+  "turnDiffCard.openInEditor": {
+    "defaultMessage": "Open in Editor"
+  },
   "updateSection.autoDownload": {
     "defaultMessage": "goose가 백그라운드에서 업데이트를 다운로드하며, 종료하거나 다시 시작할 때 설치합니다."
   },

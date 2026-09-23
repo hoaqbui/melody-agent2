@@ -123,6 +123,8 @@ import {
 } from './project-storage';
 import { intersects, laterTurns, parseDiffFileSet, type TurnSnapshots } from './turn-undo';
 import { TurnUndoSlot, type TurnUndoTarget } from './turn-undo-slot';
+import { ToolCardSlot, type ToolCardSlotContext } from './tool-card-slot';
+import { presetDiffPath } from './panes/diff/diff-store';
 import {
   MODE_MESSAGES,
   RoutineChip,
@@ -1587,29 +1589,44 @@ export function WorkspaceShell({ chat, children, panes, paneStore }: WorkspaceSh
   );
   const chatIdle = snapshot?.chatState === ChatState.Idle;
 
+  const toolCardSlotValue = useMemo<ToolCardSlotContext>(
+    () => ({
+      turnId: currentTurnId ?? '',
+      snapshots: currentTurnId ? turnSnapshots[currentTurnId] : undefined,
+      cwd,
+      gitToplevel: gitStatus?.toplevel ?? cwd,
+      openPane,
+      openFile,
+      presetDiffPath,
+    }),
+    [currentTurnId, turnSnapshots, cwd, gitStatus?.toplevel, openPane, openFile]
+  );
+
   const chatBody = (
     <SessionChipsSlot.Provider value={chipsFor}>
       <WorkspaceComposerSlot.Provider value={workspaceComposer}>
         <FileLinkSlot.Provider value={fileLinkContext}>
           <TurnUndoSlot.Provider value={turnUndoTarget}>
             <ChangesBarTarget.Provider value={changesBarTarget}>
-              <NextChat.Provider value={nextChat}>
-                <div className="flex min-h-0 min-w-0 flex-1 flex-col">
-                  {isWorkspaceRoute && sessionId && (
-                    <RpiStrip
-                      sessionId={sessionId}
-                      openArtifact={openArtifact}
-                      chatIdle={chatIdle}
-                      gateOn={planGate}
-                      cwd={cwd}
-                    />
-                  )}
-                  <div className="relative min-h-0 min-w-0 flex-1">
-                    {children}
-                    <div className={isOnPairRoute ? 'contents' : 'hidden'}>{chat}</div>
+              <ToolCardSlot.Provider value={toolCardSlotValue}>
+                <NextChat.Provider value={nextChat}>
+                  <div className="flex min-h-0 min-w-0 flex-1 flex-col">
+                    {isWorkspaceRoute && sessionId && (
+                      <RpiStrip
+                        sessionId={sessionId}
+                        openArtifact={openArtifact}
+                        chatIdle={chatIdle}
+                        gateOn={planGate}
+                        cwd={cwd}
+                      />
+                    )}
+                    <div className="relative min-h-0 min-w-0 flex-1">
+                      {children}
+                      <div className={isOnPairRoute ? 'contents' : 'hidden'}>{chat}</div>
+                    </div>
                   </div>
-                </div>
-              </NextChat.Provider>
+                </NextChat.Provider>
+              </ToolCardSlot.Provider>
             </ChangesBarTarget.Provider>
           </TurnUndoSlot.Provider>
         </FileLinkSlot.Provider>

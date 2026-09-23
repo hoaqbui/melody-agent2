@@ -6179,6 +6179,21 @@
   "toolConfirmation.gooseWouldLikeToCallWithName": {
     "defaultMessage": "Goose 想要呼叫 {toolName}。要允許嗎？"
   },
+  "turnDiffCard.error": {
+    "defaultMessage": "Failed to load diff"
+  },
+  "turnDiffCard.loading": {
+    "defaultMessage": "Loading…"
+  },
+  "turnDiffCard.newContent": {
+    "defaultMessage": "new content"
+  },
+  "turnDiffCard.openInChanges": {
+    "defaultMessage": "Open in Changes"
+  },
+  "turnDiffCard.openInEditor": {
+    "defaultMessage": "Open in Editor"
+  },
   "updateSection.autoDownload": {
     "defaultMessage": "Goose 會在背景下載更新，並於您下次結束或重新啟動時安裝。"
   },

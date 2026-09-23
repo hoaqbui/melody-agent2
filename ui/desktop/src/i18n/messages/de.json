@@ -6179,6 +6179,21 @@
   "toolConfirmation.gooseWouldLikeToCallWithName": {
     "defaultMessage": "Goose möchte {toolName} aufrufen. Erlauben?"
   },
+  "turnDiffCard.error": {
+    "defaultMessage": "Failed to load diff"
+  },
+  "turnDiffCard.loading": {
+    "defaultMessage": "Loading…"
+  },
+  "turnDiffCard.newContent": {
+    "defaultMessage": "new content"
+  },
+  "turnDiffCard.openInChanges": {
+    "defaultMessage": "Open in Changes"
+  },
+  "turnDiffCard.openInEditor": {
+    "defaultMessage": "Open in Editor"
+  },
   "updateSection.autoDownload": {
     "defaultMessage": "Goose lädt das Update im Hintergrund herunter und installiert es beim nächsten Beenden oder Neustart."
   },

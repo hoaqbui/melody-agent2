@@ -6179,6 +6179,21 @@
   "toolConfirmation.gooseWouldLikeToCallWithName": {
     "defaultMessage": "Goose 想调用 {toolName}，允许吗？"
   },
+  "turnDiffCard.error": {
+    "defaultMessage": "Failed to load diff"
+  },
+  "turnDiffCard.loading": {
+    "defaultMessage": "Loading…"
+  },
+  "turnDiffCard.newContent": {
+    "defaultMessage": "new content"
+  },
+  "turnDiffCard.openInChanges": {
+    "defaultMessage": "Open in Changes"
+  },
+  "turnDiffCard.openInEditor": {
+    "defaultMessage": "Open in Editor"
+  },
   "updateSection.autoDownload": {
     "defaultMessage": "更新将在后台自动下载。"
   },

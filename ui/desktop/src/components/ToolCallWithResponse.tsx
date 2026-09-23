@@ -22,6 +22,9 @@ import type { ContentBlock } from '../types/message';
 import McpAppRenderer from './McpApps/McpAppRenderer';
 import { ToolConfirmationBody } from './ToolCallConfirmation';
 import { defineMessages, useIntl } from '../i18n';
+import { useToolCardSlot } from '../workspace/tool-card-slot';
+import { TurnDiffCard } from './TurnDiffCard';
+import { turnDiffFromToolCall } from './turn-diff';
 
 type LoadingStatus = 'loading' | 'success' | 'error';
 
@@ -243,6 +246,8 @@ export default function ToolCallWithResponse({
   confirmationDiff,
   isApprovalClicked,
 }: ToolCallWithResponseProps) {
+  const toolCardSlot = useToolCardSlot();
+
   // Handle both the wrapped ToolResult format and the unwrapped format
   // The server serializes ToolResult<T> as { status: "success", value: T } or { status: "error", error: string }
   const toolCallData = toolRequest.toolCall as Record<string, unknown>;
@@ -259,6 +264,13 @@ export default function ToolCallWithResponse({
   const hasMcpAppResourceURI = Boolean(resultWithMeta?.value?._meta?.ui?.resourceUri);
 
   const shouldShowMcpContent = !isPendingApproval;
+
+  const turnDiff = toolCardSlot ? turnDiffFromToolCall(toolRequest, toolResponse) : null;
+  const locations = toolRequest.metadata?.locations;
+  const diffLine =
+    Array.isArray(locations) && typeof locations[0]?.line === 'number'
+      ? (locations[0].line as number)
+      : undefined;
 
   // The card stays once decided, reading "<tool> · Denied once" like the standalone card.
   const showInlineApproval =
@@ -299,6 +311,12 @@ export default function ToolCallWithResponse({
           </div>
         )}
       </div>
+
+      {turnDiff && (
+        <div className="mt-2">
+          <TurnDiffCard diff={turnDiff} line={diffLine} />
+        </div>
+      )}
 
       {/* MCP App */}
       {shouldShowMcpContent && hasMcpAppResourceURI && sessionId && (
