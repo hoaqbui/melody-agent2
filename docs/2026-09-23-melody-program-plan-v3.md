@@ -1,8 +1,17 @@
 # Melody, the main agent — program plan
 
-Dated 2026-09-23. v2 after Codex's review (gpt-6-astra, read-only, verdict REWORK: "retain option A, but rebase M0 and specify session execution, recovery, and approval contracts before approving M1"). Companions: `docs/2026-09-23-melody-main-agent-research-v1.md` (pick A), the design `docs/mockups/2026-09-22-melody-visual-design.html` (`08a3c1ebe`; §20 all settled), and the memory PRD from parallel work, `docs/2026-09-22-agent-memory-prd-v1.md` (untracked; it owns what Melody and her friends remember; the research lists four conflicts with this plan). Six tranches, walked one at a time; only M0's tasks are drafted here.
+Dated 2026-09-23. **v3 (user, 2026-09-23: "do must should and could, and we should be v0.9 and ready for alpha testing")** — scope is every Must, Should and Could below; the program ends at **Melody v0.9, alpha**. v2 followed Codex's review (gpt-6-astra, read-only, verdict REWORK: "retain option A, but rebase M0 and specify session execution, recovery, and approval contracts before approving M1"). Companions: `docs/2026-09-23-melody-main-agent-research-v1.md` (pick A), the design `docs/mockups/2026-09-22-melody-visual-design.html` (`08a3c1ebe`; §20 all settled), and the memory PRD from parallel work, `docs/2026-09-22-agent-memory-prd-v1.md` (untracked; it owns what Melody and her friends remember; the research lists four conflicts with this plan). Six tranches, walked one at a time; only M0's tasks are drafted here.
 
 User direction (2026-09-23): a vertical slice first; friends are real manager sessions; fix desktop delegation first; the design questions answered.
+
+## Scope — MoSCoW × FURPS (the sheet: `docs/2026-09-23-melody-roadmap.xlsx`)
+
+| | Items |
+|---|---|
+| **Must** | 197 R · 198 R · 200 R U (task 181) · M1a F R · M1b F U |
+| **Should** | 199 R F (now beside M1b, not before M1a) · M2 F · M3 U · **P1 — Melody's cost and concurrency budget** (P; M1b): an idle Melody or manager makes no model calls; a combined limit on running managers and workers; seat usage per turn in the ledger, checked by a test |
+| **Could** | M4 U S · **S1 — diagnosing what Melody starts** (S; M2): the chain Melody → manager → worker, and why a session she started failed, in Session controls › Diagnostics and Telemetry |
+| **Won't (now)** | 181 option (c) · the amber count on the pin · the phone beyond its tab order · cloud and remote workers |
 
 ## Approach
 
@@ -17,6 +26,7 @@ User direction (2026-09-23): a vertical slice first; friends are real manager se
 - **M1b — the smallest real Melody.** Her tab in Work bound to her session (id kept in settings), her pin and her row pinned at the top of Today, the Work toggle and ⋯ in the Chat header with the collapse rules, and the lever removed (composer attach · send; a new Easy session starts in the orchestrator setup, direct Opus without a role). One minimal repository manager, so the slice proves Melody → manager → worker end to end. The pane picker, tab keyboard control and overflow move to M3 (Codex #7); the lever stays in M1b because the user's slice includes it.
 - **M2 — friends.** Names and marks (Melody proposes, the user renames), friend rows and the friend view, "Started by Tempo", `send_to_session` with busy · retry · cancel (never a synchronous manager-to-manager wait), aggregate limits on managers and workers, and the manager role file. Starts only after the memory PRD's four conflicts are settled (research §Conflicts).
 - **M3 — the visual language and Work polish.** `DESIGN.md` amendments (ink tokens; teal focus + activity; amber needs you; blue links; green/red outcomes; the hover rule; card outlines; **Needs you** replacing **Needs review**); the Heroicons 16 solid sweep; the runtime colour palette (designed first, avoiding teal, amber, green, red and blue); the teal tint on Melody's tab; teal progress and "on"; the eight locked motion picks; the pane picker, tab keyboard and overflow. Runs beside M2; shared files are listed at M2/M3's planning gate.
+- **A — v0.9 alpha.** Melody gets her own version line — `0.9.0-alpha.1` in `ui/desktop/package.json` (the crates keep goose's 1.52 for upstream merges); a signed-off build published as a GitHub release on `hoaqbui/melody-agent2` (task 195, which also points the updater there); an alpha checklist (who tests, what to try, known issues, where feedback goes) in `docs/`. Installs of the old 1.52.0 won't see 0.9 as newer — alpha testers install fresh.
 - **M4 — first run and Settings.** The walkthrough (welcome · seats · projects · meet Melody), seats signing in through a Terminal tab that closes into its row and rechecks by itself, API providers behind "Use an API key instead", the Settings route, the phone's tab order.
 
 ## Gates — each a named, runnable check with a failure it must catch
@@ -26,7 +36,8 @@ User direction (2026-09-23): a vertical slice first; friends are real manager se
 - **M1b → M2 ∥ M3:** `just walk "melody starts a session"`: ask Melody to start work in a repository → the session appears in the rail with her as parent, its manager delegates to a worker, and she reports it done; and a session the user starts from the UI shows in her next answer.
 - **M2 → M4:** `just walk "friend"`: a friend is reused on the second request in its repository, delegates, is reachable as an ordinary session, and a worker's attempt to delegate is refused.
 - **M3 → M4:** `DESIGN.md`'s checks green; `theme-tokens.test.ts` green; screenshot checks of the settled design's window states (§4) at 1512 px in both themes.
-- **M4 done:** a fresh profile walks first run → seats (one signed in) → Melody's first message.
+- **M4 → A:** a fresh profile walks first run → seats (one signed in) → Melody's first message.
+- **A done (v0.9 alpha):** every Must, Should and Could task closed in `tasks.md`; `just test-full` green; `gh release view v0.9.0-alpha.1 --repo hoaqbui/melody-agent2` shows the build; the installed alpha opens on Melody and an update from `0.9.0-alpha.1` to `.2` arrives through the updater.
 
 ## Out of scope
 
@@ -43,4 +54,4 @@ User direction (2026-09-23): a vertical slice first; friends are real manager se
 
 ## Tasks
 
-Approved 2026-09-23 (user: "approved and start ochestrating") → moved to `tasks.md` under `### docs/2026-09-23-melody-program-plan-v2.md — Melody, the main agent: M0` — 196 (M0-a, re-prove 154) and 181 (M0-b, already in the ledger; appended there).
+M0 in `tasks.md` under `### docs/2026-09-23-melody-program-plan-v3.md — Melody, the main agent: M0`: 196 done; 181's plan (`docs/2026-09-23-task181-shared-run-plan-v1.md`) approved with v3's scope → 197–200. Later tranches' tasks are written at their gates.

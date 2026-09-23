@@ -251,7 +251,7 @@ Order: 152 → 139 b/c → 145 → 153 (needs the merged tree; a spine patch). 1
 
 Order: 154 (above) ∥ 155–157 (mockups, session) ∥ wave 1 (158 · 160 · 161 · 162 · 163 · 170 · 173 · 174 · 175 · 179, disjoint files; 180 session) → 159 · 169 · 172 → 93 (above, after 158) → user picks → 164–168 · 171 → 176 last. Mockups for the pick: `docs/mockups/2026-09-22-lever-words.html` (164), `-turn-failure.html` (165), `-states-sheet.html` (166–168, 171). Two calls made under "orchestrate" that were the user's: 179 resolves the sidebar spec-vs-rule as the spec, 174 picks "Describe a task…". Workers per AGENTS.md chain; the session reruns every confirm. Evidence: `docs/2026-09-22-ux-pass-research-v1.md`, screenshots in `docs/2026-09-22-ux-pass/`.
 
-- 181. A reconnect during a turn loses the turn's reply: every ACP connection builds its own `AgentManager` (`acp/server.rs:2784` → `create_agent()`, `server.rs:969`), so after the desktop's socket recovers (`acpConnection.ts:72-184`) and `ChatSessionsContainer.tsx:44-53` restores each open session, `execution/manager.rs:212` "Restoring evicted" builds a fresh Agent and the running turn's stream has no listener — the parent keeps only the user message. Found under task 154 (2026-09-22), where the reconnects came from the session's own workers editing renderer files under the dev app (Vite hot updates); in the product the trigger is a system resume (`reconnectAcpAfterSystemResume`) or a dropped socket.
+- 181. A reconnect during a turn loses the turn's reply (umbrella for 197–200, plan `docs/2026-09-23-task181-shared-run-plan-v1.md`; closes when 200 passes): every ACP connection builds its own `AgentManager` (`acp/server.rs:2784` → `create_agent()`, `server.rs:969`), so after the desktop's socket recovers (`acpConnection.ts:72-184`) and `ChatSessionsContainer.tsx:44-53` restores each open session, `execution/manager.rs:212` "Restoring evicted" builds a fresh Agent and the running turn's stream has no listener — the parent keeps only the user message. Found under task 154 (2026-09-22), where the reconnects came from the session's own workers editing renderer files under the dev app (Vite hot updates); in the product the trigger is a system resume (`reconnectAcpAfterSystemResume`) or a dropped socket.
   - status: todo · agent: — · worker: high
   - card: as the user, keep a long orchestrated turn's answer when my laptop sleeps or the connection blips, so that a reconnect is not a lost turn
   - context: options from 154 — (b) share one `AgentManager` across ACP connections as `active_runs` is (`server_factory.rs:87-89`), keeping `--roam`'s per-connection cwd, and re-attach a load to an in-flight run (`load_session.rs:461-483`); (c) the desktop skips `restoreSession` for a session with an active run (stops the duplicate agents, does not recover the stream). (b) is a spine change and an upstream issue; a plan gate first
@@ -301,10 +301,36 @@ Order: 184 (migration) → 183 (identity); 185 ∥ 186 ∥ 187 ∥ 189 ∥ 190 �
     - the fork has no releases today (`gh release list --repo hoaqbui/melody-agent2` → empty, 2026-09-22)
   - confirm: `cd ui/desktop && grep -c "hoaqbui" src/utils/autoUpdater.ts src/utils/githubUpdater.ts && grep -c "UPDATES_ENABLED = true" src/updates.ts && grep -c "^release-melody" ../../Justfile && pnpm run typecheck` → each ≥ 1 (0 today), typecheck 0; then one published release that an older installed Melody offers and installs (the user's hand check)
 
-### docs/2026-09-23-melody-program-plan-v2.md — Melody, the main agent: M0 (approved 2026-09-23, user: "approved and start ochestrating")
+### docs/2026-09-23-melody-program-plan-v3.md — Melody, the main agent: M0 (approved 2026-09-23, user: "approved and start ochestrating"; v3 scope 2026-09-23: "do must should and could, and we should be v0.9 and ready for alpha testing")
 
-Order: 181 next (its own plan gate first). 196 done 2026-09-23 (forced-sync delegate → SLEPT after 183 s; `just walk "rpi strip"` → 1 passed). M1a is planned at M0's gate. Research: `docs/2026-09-23-melody-main-agent-research-v1.md`; design: `docs/mockups/2026-09-22-melody-visual-design.html`.
+Order: 197 → 198 → 200 (199 runs beside M1b). 196 done 2026-09-23 (forced-sync delegate → SLEPT after 183 s; `just walk "rpi strip"` → 1 passed). 181 is the umbrella; its plan: `docs/2026-09-23-task181-shared-run-plan-v1.md`. M1a is planned at 200's gate.
 
+
+- 197. One server-owned `AgentManager` across ACP connections; agents with a running turn pinned against eviction (181, step 1)
+  - status: doing · agent: claude-session-2026-09-23 · worker: high
+  - card: as the user, I want one agent per session however many times the app reconnects, so that a reconnect never runs a second copy of my turn (FURPS R · MoSCoW Must)
+  - context:
+    - plan §The change, first bullet: `docs/2026-09-23-task181-shared-run-plan-v1.md`; per-connection construction at `acp/server.rs:2784` → `server.rs:969`, `server_factory.rs:124`; LRU and creation locks `execution/manager.rs:127`, `:203`, `:274`; not `AgentManager::instance()` (the orchestrator's singleton)
+    - nothing in `agent.rs` or `state_machine/` (`ARCHITECTURE.md:119`)
+  - confirm: `cargo test -p goose --lib task181_shared_ownership` → 3 passed (one agent across two connections; concurrent creation makes one; an agent in a run survives eviction) — 0 tests or a fail on today's tree
+
+- 198. The server owns each run; a load re-attaches to it without gaps (181, step 2)
+  - status: todo · agent: — · worker: high
+  - card: as the user, I want a long reply to keep coming after my laptop sleeps or the Wi-Fi drops, so that Melody's long turns are never lost (FURPS R · MoSCoW Must)
+  - context: plan §The change, bullets 2–5; `acp/server.rs:2409`, `:2251`, `:266`, `:2373`; `load_session.rs:392-467`; tests on the duplex harness `tests/acp_fixtures/mod.rs:332`, `acp_fixtures/server.rs:236`
+  - confirm: `cargo test -p goose --test acp_server_test task181_reconnect` → 2 passed, one per agent loop (connection A drops after BEFORE; B loads and gets the prefix once, then AFTER and the end; one turn persisted; `Arc::ptr_eq` on the agent) — today the run is cancelled
+
+- 199. Two clients, cancel, close, permission hand-over and isolation on a shared run (181, step 3; beside M1b)
+  - status: todo · agent: — · worker: high
+  - card: as the user, I want two windows or a reconnect mid-permission to behave, so that a prompt waiting on me is never silently rejected (FURPS R F · MoSCoW Should)
+  - context: plan §The change, bullets 6–7 and §Risks; `acp/server.rs:1684`, `:1688`, `:1120`, `:2496`, `:2707`
+  - confirm: `cargo test -p goose --test acp_server_test task181_multi_connection` → 6 passed
+
+- 200. The desktop recovers a turn mid-reconnect, and a walk proves it (181, step 4)
+  - status: todo · agent: — · worker: high
+  - card: as the user, I want the reply to show once and Stop to still work after a reconnect, so that recovery is visible (FURPS R U · MoSCoW Must)
+  - context: `chatSessionController.ts:145`, `chatSessionStore.ts:230`, `:684`; the walk calls `import('/src/acp/acpConnection.ts').then(m => m.reconnectAcpAfterSystemResume())` mid-turn (dev walk only), extending `tests/e2e/agents-pane.spec.ts`
+  - confirm: `just walk "reconnect during a Hard turn"` → 1 passed with the parent's reply exactly once (today: the reply never lands); `just smoke` → passes; then 181 closes
 
 ## Waiting on the user
 
