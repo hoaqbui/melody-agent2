@@ -63,8 +63,14 @@ export function applyToolCallUpdate(
   const isFinished = toolCallState.status === 'completed' || toolCallState.status === 'failed';
 
   if (!isFinished) {
+    const renamed =
+      (update.title != null || update.rawInput !== undefined) &&
+      updateExistingToolRequest(state, update);
     const notificationChange = toolNotificationChange(update);
-    return notificationChange ? [notificationChange] : [];
+    return [
+      ...(renamed ? messagesChange(state) : []),
+      ...(notificationChange ? [notificationChange] : []),
+    ];
   }
 
   if (hasToolResponse(state, update.toolCallId)) {
@@ -160,6 +166,24 @@ function hasToolResponse(state: AdapterState, toolCallId: string): boolean {
   return state.messages.some((message) =>
     message.content.some((content) => content.type === 'toolResponse' && content.id === toolCallId)
   );
+}
+
+function updateExistingToolRequest(state: AdapterState, update: ToolCallUpdate): boolean {
+  for (const message of state.messages) {
+    for (const content of message.content) {
+      if (content.type !== 'toolRequest' || content.id !== update.toolCallId) continue;
+      const value = content.toolCall.value;
+      if (content.toolCall.status !== 'success' || !isRecord(value)) return false;
+      if (update.title != null && !toolIdentity(update).toolName) {
+        value.name = update.title;
+      }
+      if (update.rawInput !== undefined) {
+        value.arguments = rawInputToArguments(update.rawInput);
+      }
+      return true;
+    }
+  }
+  return false;
 }
 
 function toolRequestMetadata(

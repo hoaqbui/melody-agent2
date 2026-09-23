@@ -856,6 +856,60 @@ describe('createAcpSessionNotificationAdapter', () => {
           },
         });
       });
+
+      it("keeps the adapter's later title and input on a tool row", () => {
+        const adapter = createAcpSessionNotificationAdapter();
+
+        adapter.apply(
+          acpUpdate({
+            sessionUpdate: 'tool_call',
+            toolCallId: 'tool-1',
+            title: 'Read file',
+            status: 'pending',
+            rawInput: { path: 'initial.md' },
+          })
+        );
+
+        adapter.apply(
+          acpUpdate({
+            sessionUpdate: 'tool_call_update',
+            toolCallId: 'tool-1',
+            title: 'Edit README.md',
+            status: 'in_progress',
+            rawInput: { path: 'README.md' },
+          })
+        );
+
+        const messages = expectOnlyMessagesChange(
+          adapter.apply(
+            acpUpdate({
+              sessionUpdate: 'tool_call_update',
+              toolCallId: 'tool-1',
+              status: 'completed',
+            })
+          )
+        );
+
+        expect(messages).toHaveLength(2);
+        expect(messages[0].content[0]).toMatchObject({
+          type: 'toolRequest',
+          id: 'tool-1',
+          toolCall: {
+            value: {
+              name: 'Edit README.md',
+              arguments: { path: 'README.md' },
+            },
+          },
+        });
+        expect(messages[1].content[0]).toMatchObject({
+          type: 'toolResponse',
+          id: 'tool-1',
+          metadata: {
+            title: 'Edit README.md',
+            status: 'completed',
+          },
+        });
+      });
     });
   });
 
