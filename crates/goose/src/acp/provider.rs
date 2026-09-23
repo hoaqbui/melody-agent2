@@ -7,7 +7,7 @@ use agent_client_protocol::schema::v1::{
     SessionConfigOption, SessionConfigOptionCategory, SessionConfigSelectOption,
     SessionConfigSelectOptions, SessionId, SessionModeState, SessionNotification, SessionUpdate,
     SetSessionConfigOptionRequest, SetSessionModeRequest, SetSessionModeResponse, StopReason,
-    TextContent, ToolCallContent, ToolCallStatus, ToolKind,
+    TextContent, ToolCall, ToolCallContent, ToolCallStatus, ToolCallUpdate, ToolKind,
 };
 use agent_client_protocol::schema::ProtocolVersion;
 use agent_client_protocol::{Agent, Client, ConnectionTo};
@@ -206,12 +206,156 @@ fn provider_error_from_acp(error: agent_client_protocol::Error) -> ProviderError
     }
 }
 
+/// claude-agent-acp opens a tool call with `rawInput: {}` while the input still streams, so an
+/// empty object is no input yet.
+fn has_input(raw_input: &Option<serde_json::Value>) -> bool {
+    match raw_input {
+        None | Some(serde_json::Value::Null) => false,
+        Some(serde_json::Value::Object(map)) => !map.is_empty(),
+        Some(_) => true,
+    }
+}
+
 /// Per-tool-call buffer for accumulating ACP ToolCallUpdate fields across
 /// non-terminal updates, drained on the terminal status update.
+///
+/// `name`, `kind` and `raw_input` track the latest values the adapter has
+/// reported so far. The initial `ToolCall` notification often carries a
+/// generic title and an empty `raw_input` (the adapter fills these in via a
+/// later `ToolCallUpdate`), so `started` records whether `ToolCallStart` has
+/// already been emitted for this id: emission is deferred until a real
+/// `raw_input` shows up or the terminal status arrives, whichever comes
+/// first, so the synthesized tool request is named and argued by the latest
+/// data rather than the placeholder the adapter opens with.
 #[derive(Debug, Default)]
 struct AccumulatedToolCall {
     raw_output: Option<serde_json::Value>,
     content: Vec<ToolCallContent>,
+    name: String,
+    kind: ToolKind,
+    raw_input: Option<serde_json::Value>,
+    started: bool,
+}
+
+/// Applies an initial `SessionUpdate::ToolCall` notification to the
+/// per-call buffer and returns the `AcpUpdate`s it should produce.
+///
+/// `ToolCallStart` is emitted immediately if the notification already
+/// carries a `raw_input`, or if the call arrives already terminal
+/// (synchronous tool, no follow-up update coming) — otherwise it is
+/// deferred until `process_tool_call_update_notification` sees one of those
+/// conditions. Never emits more than one `ToolCallStart` per id.
+fn process_tool_call_notification(
+    buffer: &mut HashMap<String, AccumulatedToolCall>,
+    tool_call: ToolCall,
+) -> Vec<AcpUpdate> {
+    let id = tool_call.tool_call_id.0.to_string();
+    let terminal = matches!(
+        tool_call.status,
+        ToolCallStatus::Completed | ToolCallStatus::Failed
+    );
+    let is_error = matches!(tool_call.status, ToolCallStatus::Failed);
+
+    let entry = buffer.entry(id.clone()).or_default();
+    entry.name = tool_call.title;
+    entry.kind = tool_call.kind;
+    if tool_call.raw_input.is_some() {
+        entry.raw_input = tool_call.raw_input;
+    }
+    if tool_call.raw_output.is_some() {
+        entry.raw_output = tool_call.raw_output;
+    }
+    entry.content.extend(tool_call.content);
+
+    let mut updates = Vec::new();
+    if !entry.started && (has_input(&entry.raw_input) || terminal) {
+        entry.started = true;
+        updates.push(AcpUpdate::ToolCallStart {
+            id: id.clone(),
+            name: entry.name.clone(),
+            kind: entry.kind,
+            raw_input: entry.raw_input.clone(),
+        });
+    }
+
+    if terminal {
+        let accumulated = buffer.remove(&id).unwrap_or_default();
+        let content = if accumulated.content.is_empty() {
+            None
+        } else {
+            Some(accumulated.content)
+        };
+        updates.push(AcpUpdate::ToolCallComplete {
+            id,
+            raw_output: accumulated.raw_output,
+            content,
+            is_error,
+        });
+    }
+    updates
+}
+
+/// Applies a `SessionUpdate::ToolCallUpdate` notification to the per-call
+/// buffer and returns the `AcpUpdate`s it should produce.
+///
+/// If `ToolCallStart` hasn't fired yet for this id (see
+/// `process_tool_call_notification`), this flushes it as soon as the update
+/// supplies a `raw_input`, or unconditionally once the terminal status
+/// arrives (the last chance to emit it at all). A call whose start already
+/// fired only accumulates `raw_output`/`content`, as before.
+fn process_tool_call_update_notification(
+    buffer: &mut HashMap<String, AccumulatedToolCall>,
+    update: ToolCallUpdate,
+) -> Vec<AcpUpdate> {
+    let id = update.tool_call_id.0.to_string();
+    let terminal_status = update
+        .fields
+        .status
+        .filter(|s| matches!(s, ToolCallStatus::Completed | ToolCallStatus::Failed));
+
+    let entry = buffer.entry(id.clone()).or_default();
+    if let Some(title) = update.fields.title {
+        entry.name = title;
+    }
+    if let Some(kind) = update.fields.kind {
+        entry.kind = kind;
+    }
+    if update.fields.raw_input.is_some() {
+        entry.raw_input = update.fields.raw_input;
+    }
+    if update.fields.raw_output.is_some() {
+        entry.raw_output = update.fields.raw_output;
+    }
+    if let Some(content) = update.fields.content {
+        entry.content.extend(content);
+    }
+
+    let mut updates = Vec::new();
+    if !entry.started && (has_input(&entry.raw_input) || terminal_status.is_some()) {
+        entry.started = true;
+        updates.push(AcpUpdate::ToolCallStart {
+            id: id.clone(),
+            name: entry.name.clone(),
+            kind: entry.kind,
+            raw_input: entry.raw_input.clone(),
+        });
+    }
+
+    if let Some(status) = terminal_status {
+        let accumulated = buffer.remove(&id).unwrap_or_default();
+        let content = if accumulated.content.is_empty() {
+            None
+        } else {
+            Some(accumulated.content)
+        };
+        updates.push(AcpUpdate::ToolCallComplete {
+            id,
+            raw_output: accumulated.raw_output,
+            content,
+            is_error: matches!(status, ToolCallStatus::Failed),
+        });
+    }
+    updates
 }
 
 /// The single ACP session backing this provider instance.
@@ -1302,100 +1446,38 @@ impl AcpClientLoop {
                                 }) => {
                                     let _ = tx.try_send(AcpUpdate::Thought(text));
                                 }
+                                // ACP carries no canonical tool name to clients — only
+                                // `title` (display) and `kind` (category). We pass `title`
+                                // for renderer affordance, surface `kind` separately via
+                                // tool_meta for stable categorization, and the
+                                // goose.external_dispatch marker keeps `name` off the
+                                // agent loop's routing/auth paths. The initial `ToolCall`
+                                // notification often carries a placeholder title and an
+                                // empty `raw_input`, so `ToolCallStart` is deferred (see
+                                // `process_tool_call_notification`) until the adapter fills
+                                // those in via a `ToolCallUpdate`, or until the call reaches
+                                // a terminal status — whichever comes first.
                                 SessionUpdate::ToolCall(tool_call) => {
-                                    let id = tool_call.tool_call_id.0.to_string();
-                                    let initial_status = tool_call.status;
-                                    let synchronous_terminal = matches!(
-                                        initial_status,
-                                        ToolCallStatus::Completed | ToolCallStatus::Failed
-                                    );
-                                    // Seed the buffer; drain immediately if the call is
-                                    // already terminal (synchronous tool, no follow-up).
-                                    let synchronous_accumulated =
+                                    let updates =
                                         if let Ok(mut buffer) = pending_tool_updates.lock() {
-                                            let entry = buffer.entry(id.clone()).or_default();
-                                            if let Some(raw_output) = tool_call.raw_output.clone() {
-                                                entry.raw_output = Some(raw_output);
-                                            }
-                                            entry.content.extend(tool_call.content.clone());
-                                            if synchronous_terminal {
-                                                buffer.remove(&id)
-                                            } else {
-                                                None
-                                            }
+                                            process_tool_call_notification(&mut buffer, tool_call)
                                         } else {
-                                            None
+                                            Vec::new()
                                         };
-                                    // ACP carries no canonical tool name to clients — only
-                                    // `title` (display) and `kind` (category). We pass `title`
-                                    // for renderer affordance, surface `kind` separately via
-                                    // tool_meta for stable categorization, and the
-                                    // goose.external_dispatch marker keeps `name` off the
-                                    // agent loop's routing/auth paths.
-                                    let _ = tx.try_send(AcpUpdate::ToolCallStart {
-                                        id: id.clone(),
-                                        name: tool_call.title.clone(),
-                                        kind: tool_call.kind,
-                                        raw_input: tool_call.raw_input.clone(),
-                                    });
-                                    if let Some(accumulated) = synchronous_accumulated {
-                                        let content = if accumulated.content.is_empty() {
-                                            None
-                                        } else {
-                                            Some(accumulated.content)
-                                        };
-                                        let _ = tx.try_send(AcpUpdate::ToolCallComplete {
-                                            id,
-                                            raw_output: accumulated.raw_output,
-                                            content,
-                                            is_error: matches!(
-                                                initial_status,
-                                                ToolCallStatus::Failed
-                                            ),
-                                        });
+                                    for update in updates {
+                                        let _ = tx.try_send(update);
                                     }
                                 }
                                 SessionUpdate::ToolCallUpdate(update) => {
-                                    let id = update.tool_call_id.0.to_string();
-                                    // Merge patch-like fields; only emit on terminal status.
-                                    let terminal_status = update.fields.status.filter(|s| {
-                                        matches!(
-                                            s,
-                                            ToolCallStatus::Completed | ToolCallStatus::Failed
-                                        )
-                                    });
-                                    let accumulated = if let Ok(mut buffer) =
+                                    let updates = if let Ok(mut buffer) =
                                         pending_tool_updates.lock()
                                     {
-                                        let entry = buffer.entry(id.clone()).or_default();
-                                        if let Some(raw_output) = update.fields.raw_output.clone() {
-                                            entry.raw_output = Some(raw_output);
-                                        }
-                                        if let Some(content) = update.fields.content.clone() {
-                                            entry.content.extend(content);
-                                        }
-                                        if terminal_status.is_some() {
-                                            buffer.remove(&id)
-                                        } else {
-                                            None
-                                        }
+                                        process_tool_call_update_notification(&mut buffer, update)
                                     } else {
-                                        None
+                                        Vec::new()
                                     };
-                                    if let (Some(accumulated), Some(status)) =
-                                        (accumulated, terminal_status)
-                                    {
-                                        let content = if accumulated.content.is_empty() {
-                                            None
-                                        } else {
-                                            Some(accumulated.content)
-                                        };
-                                        let _ = tx.try_send(AcpUpdate::ToolCallComplete {
-                                            id,
-                                            raw_output: accumulated.raw_output,
-                                            content,
-                                            is_error: matches!(status, ToolCallStatus::Failed),
-                                        });
+                                    for update in updates {
+                                        let _ = tx.try_send(update);
                                     }
                                 }
                                 _ => {}
@@ -2419,7 +2501,7 @@ mod tests {
     use crate::agents::extension::Envs;
     use agent_client_protocol::schema::v1::{
         ConfigOptionUpdate, ErrorCode, SessionConfigSelectGroup, SessionConfigSelectOption,
-        SessionMode, SessionModeId,
+        SessionMode, SessionModeId, ToolCallUpdateFields,
     };
 
     use test_case::test_case;
@@ -4793,5 +4875,157 @@ mod tests {
                 "goose.acp.kind serialized wrong for kind={kind:?}"
             );
         }
+    }
+
+    /// A generic-title `ToolCall` with an empty `raw_input` (the adapter's
+    /// opening notification) must not produce `ToolCallStart` yet — only the
+    /// later `ToolCallUpdate` carrying the real title and `raw_input`, paired
+    /// with the terminal status, should flush it. Exactly one `ToolCallStart`
+    /// (named and argued by the latest data) and one `ToolCallComplete` come
+    /// out, not two starts.
+    #[test]
+    fn deferred_tool_call_start_uses_latest_title_and_raw_input() {
+        let mut buffer: HashMap<String, AccumulatedToolCall> = HashMap::new();
+
+        let opening = ToolCall::new("call-1", "Edit")
+            .status(ToolCallStatus::Pending)
+            .raw_input(serde_json::json!({}));
+        let updates = process_tool_call_notification(&mut buffer, opening);
+        assert!(
+            updates.is_empty(),
+            "claude-agent-acp's opening `rawInput: {{}}` must defer ToolCallStart, got {updates:?}"
+        );
+        assert!(
+            buffer.contains_key("call-1"),
+            "the call should still be buffered while deferred"
+        );
+
+        let fields = ToolCallUpdateFields::new()
+            .title(Some("Edit notes.md".to_string()))
+            .raw_input(Some(serde_json::json!({"file_path": "notes.md"})))
+            .status(Some(ToolCallStatus::Completed));
+        let update = ToolCallUpdate::new("call-1", fields);
+        let updates = process_tool_call_update_notification(&mut buffer, update);
+
+        assert_eq!(
+            updates.len(),
+            2,
+            "expected one ToolCallStart and one ToolCallComplete, got {updates:?}"
+        );
+        match &updates[0] {
+            AcpUpdate::ToolCallStart {
+                id,
+                name,
+                raw_input,
+                ..
+            } => {
+                assert_eq!(id, "call-1");
+                assert_eq!(name, "Edit notes.md", "start must use the later title");
+                assert_eq!(
+                    raw_input.as_ref(),
+                    Some(&serde_json::json!({"file_path": "notes.md"})),
+                    "start must use the later raw_input"
+                );
+            }
+            other => panic!("expected ToolCallStart first, got {other:?}"),
+        }
+        match &updates[1] {
+            AcpUpdate::ToolCallComplete { id, is_error, .. } => {
+                assert_eq!(id, "call-1");
+                assert!(!is_error);
+            }
+            other => panic!("expected ToolCallComplete second, got {other:?}"),
+        }
+        assert!(
+            !buffer.contains_key("call-1"),
+            "the buffer entry must be drained once the call is terminal"
+        );
+    }
+
+    /// A `ToolCall` that already carries a `raw_input` starts immediately,
+    /// exactly as before this change, and a later update that only adds
+    /// content/terminal status must not emit a second `ToolCallStart`.
+    #[test]
+    fn tool_call_start_with_raw_input_present_emits_immediately_unchanged() {
+        let mut buffer: HashMap<String, AccumulatedToolCall> = HashMap::new();
+
+        let opening = ToolCall::new("call-2", "Read file.txt")
+            .kind(ToolKind::Read)
+            .status(ToolCallStatus::InProgress)
+            .raw_input(Some(serde_json::json!({"path": "file.txt"})));
+        let updates = process_tool_call_notification(&mut buffer, opening);
+
+        assert_eq!(
+            updates.len(),
+            1,
+            "a raw_input already present must start immediately, got {updates:?}"
+        );
+        match &updates[0] {
+            AcpUpdate::ToolCallStart {
+                id,
+                name,
+                raw_input,
+                ..
+            } => {
+                assert_eq!(id, "call-2");
+                assert_eq!(name, "Read file.txt");
+                assert_eq!(
+                    raw_input.as_ref(),
+                    Some(&serde_json::json!({"path": "file.txt"}))
+                );
+            }
+            other => panic!("expected ToolCallStart, got {other:?}"),
+        }
+
+        let fields = ToolCallUpdateFields::new().status(Some(ToolCallStatus::Completed));
+        let update = ToolCallUpdate::new("call-2", fields);
+        let updates = process_tool_call_update_notification(&mut buffer, update);
+
+        assert_eq!(
+            updates.len(),
+            1,
+            "an already-started call must only ever emit ToolCallComplete afterward, got {updates:?}"
+        );
+        assert!(matches!(&updates[0], AcpUpdate::ToolCallComplete { id, .. } if id == "call-2"));
+    }
+
+    /// A synchronous tool call — already `Completed` on the very first
+    /// `ToolCall` notification, with no follow-up `ToolCallUpdate` coming —
+    /// must still flush a `ToolCallStart` (using whatever title/raw_input it
+    /// has, even if `raw_input` is still empty) immediately followed by
+    /// `ToolCallComplete`, since deferring further would mean it never fires.
+    #[test]
+    fn synchronous_terminal_tool_call_flushes_start_and_complete_together() {
+        let mut buffer: HashMap<String, AccumulatedToolCall> = HashMap::new();
+
+        let synchronous = ToolCall::new("call-3", "Terminal")
+            .status(ToolCallStatus::Completed)
+            .content(vec![ToolCallContent::Content(
+                agent_client_protocol::schema::v1::Content::new(ContentBlock::Text(
+                    TextContent::new("done"),
+                )),
+            )]);
+        let updates = process_tool_call_notification(&mut buffer, synchronous);
+
+        assert_eq!(
+            updates.len(),
+            2,
+            "a synchronous terminal call must flush both events in one shot, got {updates:?}"
+        );
+        match &updates[0] {
+            AcpUpdate::ToolCallStart {
+                id,
+                name,
+                raw_input,
+                ..
+            } => {
+                assert_eq!(id, "call-3");
+                assert_eq!(name, "Terminal");
+                assert_eq!(raw_input, &None, "raw_input was never supplied");
+            }
+            other => panic!("expected ToolCallStart first, got {other:?}"),
+        }
+        assert!(matches!(&updates[1], AcpUpdate::ToolCallComplete { id, .. } if id == "call-3"));
+        assert!(!buffer.contains_key("call-3"));
     }
 }
