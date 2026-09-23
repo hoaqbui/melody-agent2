@@ -1,0 +1,400 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>Melody main agent — prototype</title>
+<style>
+  /* Tokens from ui/desktop/src/theme/theme-tokens.ts: Studio light (default) and charcoal Monokai. */
+  :root {
+    --page:#ffffff; --insp:#f8f7f3; --side:#f1efe9; --t1:#1e1d1a; --t2:#5a5851; --t3:#6f6c64;
+    --hair:#e3dfd6; --accent:#0b7a72; --on-accent:#fff; --ok:#2f8f5b; --warn:#d9a012; --warn-bg:#fbbf2433;
+    --shadow-sm:0 1px 2px rgba(0,0,0,.1),0 2px 6px rgba(0,0,0,.08);
+    --shadow-md:0 1px 2px rgba(0,0,0,.06),0 6px 18px rgba(0,0,0,.12);
+    --shadow-lg:0 10px 28px rgba(0,0,0,.16),0 0 0 .5px rgba(0,0,0,.1);
+    --spring:cubic-bezier(.34,1.56,.64,1); --ease:cubic-bezier(.2,.8,.2,1);
+  }
+  :root[data-theme="dark"] {
+    --page:#1c1c1c; --insp:#242424; --side:#141414; --t1:#f8f8f2; --t2:#c8c8c2; --t3:#7a7a72;
+    --hair:rgba(248,248,242,.06); --accent:#ae81ff; --on-accent:#1c1c1c; --ok:#a6e22e; --warn:#e6db74; --warn-bg:#e6db7422;
+    --shadow-sm:0 1px 2px 0 rgba(0,0,0,.5);
+    --shadow-md:0 4px 6px -1px rgba(0,0,0,.65),0 2px 4px -2px rgba(0,0,0,.5);
+    --shadow-lg:0 10px 15px -3px rgba(0,0,0,.65),0 4px 6px -4px rgba(0,0,0,.5);
+  }
+  * { box-sizing:border-box; }
+  html,body { height:100%; }
+  body { margin:0; background:var(--side); color:var(--t1); font:13px/1.45 -apple-system,"Inter",system-ui,sans-serif; overflow:hidden; transition:background .3s; }
+  button { font:inherit; color:inherit; background:none; border:0; cursor:pointer; padding:0; }
+  svg.i { width:16px; height:16px; fill:none; stroke:currentColor; stroke-width:1.6; stroke-linecap:round; stroke-linejoin:round; flex:none; }
+
+  .app { display:flex; height:100vh; padding:10px; gap:10px; }
+
+  /* Floating Button Rule: shadow at rest, lift on hover, press on click. */
+  .lift { box-shadow:var(--shadow-sm); transition:transform .22s var(--spring),box-shadow .22s var(--ease),background .2s; }
+  .lift:hover { transform:translateY(-2px); box-shadow:var(--shadow-md); }
+  .lift:active { transform:translateY(0) scale(.97); transition-duration:.08s; }
+
+  /* Sidebar */
+  .side { width:228px; flex:none; display:flex; flex-direction:column; gap:10px; padding:6px 2px; }
+  .brand { display:flex; align-items:center; gap:8px; padding:6px 8px 2px; color:var(--t2); font-weight:600; }
+  .melody-pin { display:flex; align-items:center; gap:10px; padding:10px 12px; border-radius:14px; background:var(--page); text-align:left; width:100%; }
+  .melody-pin.on { box-shadow:var(--shadow-md), inset 0 0 0 1.5px var(--accent); }
+  .emblem { width:28px; height:28px; border-radius:50%; background:var(--accent); color:var(--on-accent); display:grid; place-items:center; flex:none; }
+  .emblem svg { width:16px; height:16px; fill:currentColor; }
+  .pin-text b { display:block; font-size:13px; }
+  .pin-text span { color:var(--t3); font-size:11px; }
+  .badge { margin-left:auto; min-width:18px; height:18px; padding:0 5px; border-radius:9px; background:var(--accent); color:var(--on-accent); font-size:11px; font-weight:600; display:grid; place-items:center; transform:scale(0); transition:transform .3s var(--spring); }
+  .badge.show { transform:scale(1); }
+  .projects { flex:1; overflow:auto; padding:2px 4px 8px; }
+  .proj { margin-top:10px; }
+  .proj-h { display:flex; align-items:center; gap:6px; padding:4px 6px; color:var(--t3); font-size:11px; font-weight:600; letter-spacing:.02em; }
+  .proj-h .add { margin-left:auto; width:20px; height:20px; border-radius:6px; display:grid; place-items:center; opacity:0; transition:opacity .15s,background .15s; }
+  .proj:hover .add { opacity:1; }
+  .proj-h .add:hover { background:var(--page); color:var(--t1); }
+  .sess { display:flex; align-items:center; gap:8px; width:100%; padding:7px 8px; border-radius:10px; text-align:left; color:var(--t2); transition:background .15s,transform .22s var(--spring),box-shadow .22s; }
+  .sess:hover { background:var(--page); box-shadow:var(--shadow-sm); transform:translateX(2px); }
+  .sess.on { background:var(--page); color:var(--t1); box-shadow:var(--shadow-sm); }
+  .sess .t { flex:1; min-width:0; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
+  .sess .by { font-size:10px; color:var(--t3); }
+  .sess.enter { animation:grow .45s var(--spring) both; }
+  @keyframes grow { from { opacity:0; transform:translateX(-10px) scale(.95); max-height:0; } to { opacity:1; max-height:40px; } }
+  .dot { width:8px; height:8px; border-radius:50%; flex:none; background:var(--t3); opacity:.5; transition:background .3s; }
+  .dot.running { background:var(--accent); opacity:1; animation:pulse 1.4s ease-in-out infinite; }
+  .dot.needs { background:var(--warn); opacity:1; }
+  .dot.done { background:var(--ok); opacity:1; }
+  @keyframes pulse { 50% { box-shadow:0 0 0 4px color-mix(in srgb,var(--accent) 25%,transparent); } }
+  .side-foot { display:flex; gap:6px; padding:0 4px; }
+  .side-foot button { flex:1; display:flex; align-items:center; justify-content:center; gap:6px; height:32px; border-radius:10px; background:var(--page); color:var(--t2); font-size:12px; }
+
+  /* Melody sidecar */
+  .sidecar { width:360px; flex:none; display:flex; flex-direction:column; background:var(--insp); border-radius:18px; box-shadow:var(--shadow-md); overflow:hidden; transition:width .38s var(--ease),opacity .25s,margin .38s var(--ease); }
+  .sidecar.closed { width:0; opacity:0; margin-left:-10px; }
+  .sc-head { display:flex; align-items:center; gap:10px; padding:14px 16px 10px; white-space:nowrap; }
+  .sc-head b { font-size:14px; }
+  .sc-head span { color:var(--t3); font-size:11px; }
+  .sc-head .x { margin-left:auto; width:26px; height:26px; border-radius:8px; display:grid; place-items:center; color:var(--t3); }
+  .sc-head .x:hover { background:var(--page); color:var(--t1); }
+  .feed { flex:1; overflow:auto; padding:6px 14px 14px; display:flex; flex-direction:column; gap:10px; min-width:360px; }
+  .msg { max-width:92%; padding:9px 12px; border-radius:14px; animation:rise .35s var(--spring) both; }
+  .msg.me { align-self:flex-end; background:var(--page); box-shadow:var(--shadow-sm); border-bottom-right-radius:5px; }
+  .msg.mel { align-self:flex-start; color:var(--t1); padding-left:2px; }
+  @keyframes rise { from { opacity:0; transform:translateY(8px) scale(.98); } }
+  .mini { display:flex; align-items:center; gap:8px; margin-top:7px; padding:8px 10px; border-radius:11px; background:var(--page); width:100%; text-align:left; }
+  .mini .t { flex:1; min-width:0; }
+  .mini .t b { display:block; font-weight:500; font-size:12px; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
+  .mini .t span { font-size:11px; color:var(--t3); }
+  .mini .go { color:var(--t3); transition:transform .2s var(--spring); }
+  .mini:hover .go { transform:translateX(3px); color:var(--accent); }
+  .typing { display:inline-flex; gap:4px; padding:10px 4px; }
+  .typing i { width:6px; height:6px; border-radius:50%; background:var(--t3); animation:bob 1s infinite; }
+  .typing i:nth-child(2) { animation-delay:.15s; } .typing i:nth-child(3) { animation-delay:.3s; }
+  @keyframes bob { 30% { transform:translateY(-4px); opacity:1; } 0%,60%,100% { opacity:.4; } }
+  .suggest { display:flex; gap:6px; flex-wrap:wrap; padding:0 14px 8px; min-width:360px; }
+  .suggest button { font-size:11.5px; padding:5px 10px; border-radius:999px; background:var(--page); color:var(--t2); }
+
+  /* Composer — attach · send only */
+  .composer { margin:0 12px 12px; background:var(--page); border-radius:16px; padding:12px 12px 10px 14px; box-shadow:var(--shadow-md); transition:box-shadow .25s,transform .25s var(--spring); min-width:0; }
+  .composer:focus-within { box-shadow:var(--shadow-lg); transform:translateY(-2px); }
+  .composer textarea { width:100%; border:0; outline:0; resize:none; background:transparent; color:var(--t1); font:inherit; font-size:14px; min-height:22px; max-height:120px; }
+  .composer textarea::placeholder { color:var(--t3); }
+  .c-row { display:flex; align-items:center; gap:8px; margin-top:6px; }
+  .c-row .sp { flex:1; }
+  .ico { width:30px; height:30px; border-radius:50%; display:grid; place-items:center; color:var(--t3); background:var(--page); }
+  .send { width:32px; height:32px; border-radius:50%; display:grid; place-items:center; background:var(--accent); color:var(--on-accent); }
+  .send[disabled] { opacity:.35; box-shadow:none; transform:none; cursor:default; }
+  .send:not([disabled]):hover svg { animation:nudge .45s ease; }
+  @keyframes nudge { 40% { transform:translateY(-3px); } }
+
+  /* Main session */
+  .main { flex:1; min-width:0; display:flex; flex-direction:column; background:var(--page); border-radius:18px; box-shadow:var(--shadow-md); overflow:hidden; }
+  .m-head { display:flex; align-items:center; gap:10px; padding:14px 18px; border-bottom:1px solid var(--hair); }
+  .crumb { display:flex; align-items:center; gap:6px; color:var(--t3); font-size:12px; }
+  .m-title { font-size:15px; font-weight:600; }
+  .origin { font-size:11px; padding:2px 8px; border-radius:999px; background:var(--insp); color:var(--t2); display:inline-flex; align-items:center; gap:5px; }
+  .origin .emblem { width:14px; height:14px; } .origin .emblem svg { width:9px; height:9px; }
+  .m-head .sp { flex:1; }
+  .status { font-size:11px; color:var(--t2); display:inline-flex; align-items:center; gap:6px; }
+  .m-head .more { width:28px; height:28px; border-radius:8px; display:grid; place-items:center; color:var(--t3); background:var(--page); }
+  .m-body { flex:1; overflow:auto; padding:22px 0; }
+  .m-body .col { max-width:720px; margin:0 auto; padding:0 24px; display:flex; flex-direction:column; gap:14px; }
+  .m-body.swap .col { animation:swap .4s var(--ease) both; }
+  @keyframes swap { from { opacity:0; transform:translateY(10px); } }
+  .turn.me { align-self:flex-end; max-width:80%; background:var(--insp); padding:9px 13px; border-radius:14px; border-bottom-right-radius:5px; animation:rise .35s var(--spring) both; }
+  .turn.agent { animation:rise .35s var(--spring) both; line-height:1.6; }
+  .tool { display:flex; align-items:center; gap:8px; font-size:12px; color:var(--t3); padding:6px 10px; border-radius:10px; background:var(--insp); width:max-content; animation:rise .35s var(--spring) both; }
+  .ask { border-radius:14px; padding:12px 14px; background:var(--warn-bg); animation:rise .35s var(--spring) both; }
+  .ask b { display:block; margin-bottom:6px; }
+  .ask .opts { display:flex; gap:8px; margin-top:8px; }
+  .ask .opts button { padding:6px 12px; border-radius:999px; background:var(--page); font-size:12px; }
+  .main .composer { width:min(720px,calc(100% - 48px)); margin:0 auto 18px; }
+  .empty { color:var(--t3); text-align:center; margin-top:18vh; }
+
+  .toast { position:fixed; left:50%; bottom:22px; transform:translate(-50%,20px); opacity:0; background:var(--t1); color:var(--page); padding:8px 14px; border-radius:999px; font-size:12px; box-shadow:var(--shadow-lg); transition:all .35s var(--spring); pointer-events:none; }
+  .toast.show { opacity:1; transform:translate(-50%,0); }
+
+  @media (max-width:900px) {
+    body { overflow:auto; }
+    .app { flex-direction:column; height:auto; padding:8px 16px; }
+    .side { width:auto; } .sidecar { width:auto; height:70vh; } .sidecar.closed { height:0; margin:0; }
+    .feed, .suggest { min-width:0; } .main { min-height:80vh; }
+  }
+</style>
+</head>
+<body>
+<svg width="0" height="0" style="position:absolute">
+  <symbol id="takes" viewBox="0 0 24 24"><rect x="8.7" y="2.5" width="6.6" height="19" rx="2.4"/><rect x="2" y="7.5" width="4.6" height="9" rx="1.7" opacity=".6"/><rect x="17.4" y="7.5" width="4.6" height="9" rx="1.7" opacity=".6"/></symbol>
+  <symbol id="i-folder" viewBox="0 0 24 24"><path d="M3 7a2 2 0 0 1 2-2h4l2 2h8a2 2 0 0 1 2 2v8a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/></symbol>
+  <symbol id="i-plus" viewBox="0 0 24 24"><path d="M12 5v14M5 12h14"/></symbol>
+  <symbol id="i-clip" viewBox="0 0 24 24"><path d="m15 7-6.5 6.5a1.5 1.5 0 0 0 3 3L18 10a3 3 0 0 0-6-6l-6.5 6.5a4.5 4.5 0 0 0 9 9L21 13"/></symbol>
+  <symbol id="i-up" viewBox="0 0 24 24"><path d="M12 19V5M6 11l6-6 6 6"/></symbol>
+  <symbol id="i-x" viewBox="0 0 24 24"><path d="M15 6l-6 6 6 6"/></symbol>
+  <symbol id="i-more" viewBox="0 0 24 24"><path d="M5 12h.01M12 12h.01M19 12h.01" stroke-width="3"/></symbol>
+  <symbol id="i-go" viewBox="0 0 24 24"><path d="M9 6l6 6-6 6"/></symbol>
+  <symbol id="i-moon" viewBox="0 0 24 24"><path d="M20 14.5A8 8 0 0 1 9.5 4 8 8 0 1 0 20 14.5z"/></symbol>
+  <symbol id="i-tool" viewBox="0 0 24 24"><path d="M4 17l6-6-6-6M12 19h8"/></symbol>
+</svg>
+
+<div class="app">
+  <aside class="side">
+    <div class="brand"><svg width="18" height="18" fill="currentColor"><use href="#takes"/></svg>Melody</div>
+    <button class="melody-pin lift on" id="pin" title="Melody (⌘J)">
+      <span class="emblem"><svg><use href="#takes"/></svg></span>
+      <span class="pin-text"><b>Melody</b><span>Knows every session</span></span>
+      <span class="badge" id="badge">0</span>
+    </button>
+    <div class="projects" id="projects"></div>
+    <div class="side-foot">
+      <button class="lift" id="newSess"><svg class="i"><use href="#i-plus"/></svg>New session</button>
+      <button class="lift" id="theme" title="Theme" style="flex:0 0 32px"><svg class="i"><use href="#i-moon"/></svg></button>
+    </div>
+  </aside>
+
+  <section class="sidecar" id="sidecar">
+    <div class="sc-head">
+      <span class="emblem"><svg><use href="#takes"/></svg></span>
+      <div><b>Melody</b><br><span id="scSub">4 sessions · 1 needs you</span></div>
+      <button class="x" id="closeSc" title="Hide (⌘J)"><svg class="i"><use href="#i-x"/></svg></button>
+    </div>
+    <div class="feed" id="feed"></div>
+    <div class="suggest" id="suggest">
+      <button class="lift">What needs me?</button>
+      <button class="lift">Start a session to fix the compo export bug</button>
+    </div>
+    <div class="composer">
+      <textarea id="melIn" rows="1" placeholder="Ask Melody, or hand her a task…"></textarea>
+      <div class="c-row"><span class="sp"></span>
+        <button class="ico lift" title="Attach"><svg class="i"><use href="#i-clip"/></svg></button>
+        <button class="send lift" id="melSend" disabled title="Send"><svg class="i"><use href="#i-up"/></svg></button>
+      </div>
+    </div>
+  </section>
+
+  <main class="main">
+    <header class="m-head" id="mHead"></header>
+    <div class="m-body" id="mBody"><div class="col" id="mCol"></div></div>
+    <div class="composer">
+      <textarea id="sIn" rows="1" placeholder="Describe a task…"></textarea>
+      <div class="c-row"><span class="sp"></span>
+        <button class="ico lift" title="Attach"><svg class="i"><use href="#i-clip"/></svg></button>
+        <button class="send lift" id="sSend" disabled title="Send"><svg class="i"><use href="#i-up"/></svg></button>
+      </div>
+    </div>
+  </main>
+</div>
+<div class="toast" id="toast"></div>
+
+<script>
+const $ = (id) => document.getElementById(id);
+const el = (tag, cls, text) => { const n = document.createElement(tag); if (cls) n.className = cls; if (text != null) n.textContent = text; return n; };
+const icon = (id) => { const s = document.createElementNS('http://www.w3.org/2000/svg','svg'); s.setAttribute('class','i'); const u = document.createElementNS('http://www.w3.org/2000/svg','use'); u.setAttribute('href','#'+id); s.appendChild(u); return s; };
+const STATUS = { running:'Working', needs:'Needs you', done:'Done', idle:'Idle' };
+
+const projects = ['melody-agent2','compo','ux_tests'];
+let seq = 0;
+const sessions = [
+  { id:++seq, project:'melody-agent2', title:'Composer cleanup', by:'you', status:'running', turns:[
+    { k:'me', t:'Help me clean up the composer row so it matches the rest of the UX.' },
+    { k:'tool', t:'Read Lever.tsx, WorkspaceShell.tsx' },
+    { k:'agent', t:'The lever is the tallest thing in the row and the only control with its own look. Dropping it leaves attach and send, so there is nothing left to line up.' } ] },
+  { id:++seq, project:'melody-agent2', title:'Delegation timeout', by:'melody', status:'needs', turns:[
+    { k:'agent', t:'The agy child is created with the role and the task but never writes a reply; the orchestrator gives up after 63 s. Headless, the same prompt returns in 33 s.' },
+    { k:'ask', t:'Which should I try first?', opts:['Forward child stderr at info','Raise the delegate timeout'] } ] },
+  { id:++seq, project:'compo', title:'Export pipeline', by:'melody', status:'done', turns:[
+    { k:'agent', t:'Exports now render at 1104 wide @2x. Three files changed; the sheet PNG is regenerated.' } ] },
+  { id:++seq, project:'ux_tests', title:'Style guide refresh', by:'melody', status:'idle', turns:[] },
+];
+let current = 1;
+let unread = 0;
+const feed = [
+  { k:'mel', t:'Morning. Four sessions across three projects. One needs you:', card:2 },
+  { k:'mel', t:'Export pipeline in compo finished overnight.', card:3 },
+];
+
+function renderSide(enterId) {
+  const box = $('projects'); box.textContent = '';
+  for (const p of projects) {
+    const g = el('div','proj');
+    const h = el('div','proj-h'); h.append(icon('i-folder'), el('span',null,p));
+    const add = el('button','add'); add.title = 'New session in ' + p; add.append(icon('i-plus'));
+    add.onclick = () => userSpawn(p); h.append(add); g.append(h);
+    for (const s of sessions.filter(s => s.project === p)) {
+      const b = el('button','sess' + (s.id === current ? ' on' : '') + (s.id === enterId ? ' enter' : ''));
+      b.append(el('span','dot ' + s.status), el('span','t',s.title), el('span','by', s.by === 'melody' ? 'M' : ''));
+      b.title = STATUS[s.status] + ' · started by ' + (s.by === 'melody' ? 'Melody' : 'you');
+      b.onclick = () => open(s.id); g.append(b);
+    }
+    box.append(g);
+  }
+  const needs = sessions.filter(s => s.status === 'needs').length;
+  $('scSub').textContent = sessions.length + ' sessions' + (needs ? ' · ' + needs + ' needs you' : '');
+}
+
+function miniCard(id) {
+  const s = sessions.find(x => x.id === id);
+  const b = el('button','mini lift');
+  const t = el('span','t'); t.append(el('b',null,s.title), el('span',null, s.project + ' · ' + STATUS[s.status]));
+  const go = el('span','go'); go.append(icon('i-go'));
+  b.append(el('span','dot ' + s.status), t, go);
+  b.onclick = () => open(id);
+  return b;
+}
+
+function renderFeed() {
+  const f = $('feed'); f.textContent = '';
+  for (const m of feed) {
+    if (m.k === 'typing') { const d = el('div','msg mel'); const ty = el('span','typing'); ty.append(el('i'),el('i'),el('i')); d.append(ty); f.append(d); continue; }
+    const d = el('div','msg ' + m.k, m.t);
+    if (m.card) d.append(miniCard(m.card));
+    f.append(d);
+  }
+  f.scrollTop = f.scrollHeight;
+}
+
+function renderMain(swap) {
+  const s = sessions.find(x => x.id === current);
+  const h = $('mHead'); h.textContent = '';
+  const left = el('div');
+  const crumb = el('div','crumb'); crumb.append(icon('i-folder'), el('span',null,s.project));
+  const title = el('div','m-title',s.title);
+  left.append(crumb, title);
+  const origin = el('span','origin');
+  if (s.by === 'melody') { const e = el('span','emblem'); e.innerHTML = '<svg><use href="#takes"/></svg>'; origin.append(e, el('span',null,'Started by Melody')); }
+  else origin.append(el('span',null,'Started by you'));
+  const st = el('span','status'); st.append(el('span','dot ' + s.status), el('span',null,STATUS[s.status]));
+  const more = el('button','more lift'); more.title = 'Session menu'; more.append(icon('i-more'));
+  h.append(left, origin, el('span','sp'), st, more);
+
+  const col = $('mCol'); col.textContent = '';
+  if (!s.turns.length) col.append(el('div','empty','Nothing here yet. Describe a task, or ask Melody to pick this up.'));
+  for (const t of s.turns) {
+    if (t.k === 'tool') { const d = el('div','tool'); d.append(icon('i-tool'), el('span',null,t.t)); col.append(d); continue; }
+    if (t.k === 'ask') {
+      const d = el('div','ask'); d.append(el('b',null,t.t));
+      const o = el('div','opts');
+      for (const label of t.opts) { const b = el('button','lift',label); b.onclick = () => answer(s, label); o.append(b); }
+      d.append(o); col.append(d); continue;
+    }
+    col.append(el('div','turn ' + t.k, t.t));
+  }
+  const body = $('mBody');
+  if (swap) { body.classList.remove('swap'); void body.offsetWidth; body.classList.add('swap'); }
+  body.scrollTop = body.scrollHeight;
+}
+
+function open(id) { current = id; renderSide(); renderMain(true); }
+
+function setStatus(s, status, note) {
+  s.status = status; renderSide(); if (s.id === current) renderMain();
+  if (note) melodySays(note, s.id, 700);
+}
+
+function melodySays(text, card, delay = 900) {
+  feed.push({ k:'typing' }); renderFeed();
+  setTimeout(() => {
+    feed.pop(); feed.push({ k:'mel', t:text, card }); renderFeed();
+    if ($('sidecar').classList.contains('closed')) { unread++; $('badge').textContent = unread; $('badge').classList.add('show'); }
+  }, delay);
+}
+
+function toast(t) { const n = $('toast'); n.textContent = t; n.classList.add('show'); clearTimeout(toast.h); toast.h = setTimeout(() => n.classList.remove('show'), 2200); }
+
+function answer(s, label) {
+  s.turns = s.turns.filter(t => t.k !== 'ask');
+  s.turns.push({ k:'me', t:label }, { k:'tool', t:'Edit acp/provider.rs' });
+  setStatus(s, 'running');
+  setTimeout(() => { s.turns.push({ k:'agent', t:'Done: child stderr now shows at info. The next walk will say why the child stalls.' }); setStatus(s, 'done', s.title + ' is done. You picked "' + label + '".'); }, 2600);
+}
+
+function userSpawn(project) {
+  const s = { id:++seq, project, title:'New session', by:'you', status:'idle', turns:[] };
+  sessions.push(s); current = s.id; renderSide(s.id); renderMain(true);
+  $('sIn').focus();
+  melodySays('I see you started a session in ' + project + '. I\'ll keep it in view.', s.id, 1100);
+}
+
+function guessProject(text) {
+  const t = text.toLowerCase();
+  if (t.includes('compo')) return 'compo';
+  if (t.includes('ux') || t.includes('style')) return 'ux_tests';
+  return sessions.find(s => s.id === current).project;
+}
+function titleFrom(text) {
+  const m = text.replace(/^(please\s+)?(start|spin up|open)?\s*(a\s+)?(session\s+)?(to\s+)?/i, '').replace(/\s+in\s+\S+$/i, '').trim();
+  const w = m.split(/\s+/).slice(0, 5).join(' ');
+  return w.charAt(0).toUpperCase() + w.slice(1) || 'New task';
+}
+
+function melodyTurn(text) {
+  feed.push({ k:'me', t:text }); renderFeed();
+  $('suggest').style.display = 'none';
+  if (/need|status|what'?s up|going on/i.test(text) && !/start|fix|build|add|make/i.test(text)) {
+    const needs = sessions.filter(s => s.status === 'needs');
+    const run = sessions.filter(s => s.status === 'running').length;
+    if (needs.length) melodySays(run + ' working, ' + needs.length + ' waiting on you:', needs[0].id);
+    else melodySays('Nothing is waiting on you. ' + run + ' session' + (run === 1 ? ' is' : 's are') + ' working.');
+    return;
+  }
+  const project = guessProject(text);
+  const s = { id:++seq, project, title:titleFrom(text), by:'melody', status:'running', turns:[
+    { k:'agent', t:'Melody handed me this: "' + text + '". Reading the project first.' }, { k:'tool', t:'Read ARCHITECTURE.md, tasks.md' } ] };
+  setTimeout(() => { sessions.push(s); renderSide(s.id); }, 700);
+  melodySays('Started it in ' + project + '. I\'ll tell you when it needs you.', s.id, 1000);
+  setTimeout(() => {
+    s.turns.push({ k:'ask', t:'Two ways to do this. Which one?', opts:['The small fix','The full rewrite'] });
+    setStatus(s, 'needs', s.title + ' needs a decision from you.');
+  }, 5200);
+}
+
+function wireComposer(input, btn, onSend) {
+  const sync = () => { btn.disabled = !input.value.trim(); input.style.height = 'auto'; input.style.height = input.scrollHeight + 'px'; };
+  input.addEventListener('input', sync);
+  const go = () => { const v = input.value.trim(); if (!v) return; input.value = ''; sync(); onSend(v); };
+  btn.onclick = go;
+  input.addEventListener('keydown', (e) => { if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); go(); } });
+}
+
+wireComposer($('melIn'), $('melSend'), melodyTurn);
+wireComposer($('sIn'), $('sSend'), (v) => {
+  const s = sessions.find(x => x.id === current);
+  if (s.title === 'New session') { s.title = titleFrom(v); }
+  s.turns.push({ k:'me', t:v }); setStatus(s, 'running');
+  setTimeout(() => { s.turns.push({ k:'tool', t:'Read the project' }); renderMain(); }, 700);
+  setTimeout(() => { s.turns.push({ k:'agent', t:'Done. I kept it to the files this task touches.' }); setStatus(s, 'done', s.title + ' in ' + s.project + ' is done.'); }, 3000);
+});
+$('suggest').querySelectorAll('button').forEach(b => b.onclick = () => melodyTurn(b.textContent));
+
+function toggleSidecar(force) {
+  const sc = $('sidecar'); const closed = force != null ? !force : !sc.classList.contains('closed');
+  sc.classList.toggle('closed', closed); $('pin').classList.toggle('on', !closed);
+  if (!closed) { unread = 0; $('badge').classList.remove('show'); $('melIn').focus(); }
+}
+$('pin').onclick = () => toggleSidecar();
+$('closeSc').onclick = () => toggleSidecar(false);
+$('newSess').onclick = () => userSpawn(sessions.find(s => s.id === current).project);
+$('theme').onclick = () => { const r = document.documentElement; r.dataset.theme = r.dataset.theme === 'dark' ? '' : 'dark'; };
+document.addEventListener('keydown', (e) => { if ((e.metaKey || e.ctrlKey) && e.key.toLowerCase() === 'j') { e.preventDefault(); toggleSidecar(); } });
+
+renderSide(); renderFeed(); renderMain(true);
+</script>
+</body>
+</html>
