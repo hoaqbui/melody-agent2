@@ -258,6 +258,7 @@ struct AgentStreamOutcome {
 /// because the entry (matched by run id) is already gone.
 struct ActiveRunDropGuard {
     registry: Arc<ActiveRunRegistry>,
+    agent_manager: Arc<AgentManager>,
     session_id: String,
     run_id: String,
     cancel_token: CancellationToken,
@@ -269,6 +270,9 @@ impl Drop for ActiveRunDropGuard {
         let session_id = std::mem::take(&mut self.session_id);
         let run_id = std::mem::take(&mut self.run_id);
         let agent = self.registry.remove_agent_run(&session_id, &run_id);
+        if let Some(agent) = &agent {
+            self.agent_manager.unpin(&session_id, agent);
+        }
         if let Ok(handle) = tokio::runtime::Handle::try_current() {
             if let Some(agent) = agent {
                 handle.spawn(async move {
@@ -317,6 +321,16 @@ pub struct GooseAcpAgentOptions {
     /// delegated agent runs for each session.
     pub active_runs: Arc<ActiveRunRegistry>,
     pub live_voice: Arc<LiveVoiceService>,
+    /// Server-wide state every connection shares, so one session has one
+    /// agent however many connections load it (task 181). `None` builds
+    /// connection-local state, as tests and single-connection hosts do.
+    pub shared: Option<Arc<SharedAcpState>>,
+}
+
+pub struct SharedAcpState {
+    pub session_manager: Arc<SessionManager>,
+    pub permission_manager: Arc<PermissionManager>,
+    pub agent_manager: Arc<AgentManager>,
 }
 
 pub struct GooseAcpAgent {
@@ -823,7 +837,49 @@ pub(super) fn validate_absolute_cwd(cwd: &Path) -> Result<(), agent_client_proto
     Ok(())
 }
 
+impl SharedAcpState {
+    pub async fn build(
+        data_dir: PathBuf,
+        config_dir: PathBuf,
+        scheduler: Option<Arc<dyn SchedulerTrait>>,
+        disable_session_naming: bool,
+        goose_platform: GoosePlatform,
+    ) -> Result<Self> {
+        let session_manager = Arc::new(SessionManager::new(data_dir));
+
+        // Eagerly initialize the SQLite pool so it's ready when providers/sessions need it.
+        let storage_clone = session_manager.storage().clone();
+        tokio::spawn(async move {
+            let _ = storage_clone.pool().await;
+        });
+
+        let permission_manager = Arc::new(PermissionManager::new(config_dir));
+        let agent_config = AgentConfig::new(
+            Arc::clone(&session_manager),
+            Arc::clone(&permission_manager),
+            scheduler,
+            Config::global().get_goose_mode().unwrap_or_default(),
+            disable_session_naming,
+            goose_platform,
+        );
+        let agent_manager = Arc::new(AgentManager::new(agent_config, None).await?);
+        Ok(Self {
+            session_manager,
+            permission_manager,
+            agent_manager,
+        })
+    }
+}
+
 impl GooseAcpAgent {
+    #[cfg(test)]
+    pub(crate) async fn test_session_agent(&self, session_id: &str) -> Arc<Agent> {
+        self.agent_manager
+            .get_or_create_agent(session_id.to_string())
+            .await
+            .unwrap()
+    }
+
     #[cfg(test)]
     pub(crate) fn active_run_registry(&self) -> &Arc<ActiveRunRegistry> {
         &self.active_runs
@@ -844,6 +900,7 @@ impl GooseAcpAgent {
     pub(crate) fn test_drop_active_run_guard(&self, session_id: &str, run_id: &str) {
         drop(ActiveRunDropGuard {
             registry: self.active_runs.clone(),
+            agent_manager: self.agent_manager.clone(),
             session_id: session_id.to_string(),
             run_id: run_id.to_string(),
             cancel_token: CancellationToken::new(),
@@ -948,25 +1005,29 @@ impl GooseAcpAgent {
     }
 
     pub async fn new(options: GooseAcpAgentOptions) -> Result<Self> {
-        let session_manager = Arc::new(SessionManager::new(options.data_dir));
-
-        // Eagerly initialize the SQLite pool so it's ready when providers/sessions need it.
-        let storage_clone = session_manager.storage().clone();
-        tokio::spawn(async move {
-            let _ = storage_clone.pool().await;
-        });
-
-        let permission_manager = Arc::new(PermissionManager::new(options.config_dir.clone()));
+        let (session_manager, permission_manager, agent_manager) = match options.shared {
+            Some(shared) => (
+                Arc::clone(&shared.session_manager),
+                Arc::clone(&shared.permission_manager),
+                Arc::clone(&shared.agent_manager),
+            ),
+            None => {
+                let shared = SharedAcpState::build(
+                    options.data_dir,
+                    options.config_dir.clone(),
+                    options.scheduler,
+                    options.disable_session_naming,
+                    options.goose_platform.clone(),
+                )
+                .await?;
+                (
+                    shared.session_manager,
+                    shared.permission_manager,
+                    shared.agent_manager,
+                )
+            }
+        };
         let provider_inventory = ProviderInventoryService::new(session_manager.storage().clone());
-        let agent_config = AgentConfig::new(
-            Arc::clone(&session_manager),
-            Arc::clone(&permission_manager),
-            options.scheduler,
-            Config::global().get_goose_mode().unwrap_or_default(),
-            options.disable_session_naming,
-            options.goose_platform.clone(),
-        );
-        let agent_manager = Arc::new(AgentManager::new(agent_config, None).await?);
         let (thinking_effort_update_tx, thinking_effort_update_rx) = mpsc::unbounded_channel();
 
         Ok(Self {
@@ -1989,7 +2050,7 @@ impl GooseAcpAgent {
         }
 
         self.active_runs
-            .start_prompt_run(session_id, run_id, cancel_token, agent)
+            .start_prompt_run(session_id, run_id, cancel_token, agent.clone())
             .map_err(|error| match error {
                 StartRunError::AgentRunExists { run_id } => {
                     let message = format!(
@@ -2001,6 +2062,7 @@ impl GooseAcpAgent {
                     .data("session already has an active Live run"),
                 StartRunError::LiveVoiceInteractionMissing => unreachable!("prompt runs do not require Live"),
             })?;
+        self.agent_manager.pin(session_id, agent);
         Ok(())
     }
 
@@ -2010,6 +2072,7 @@ impl GooseAcpAgent {
         // Discard steers on the agent that owned the run; under roaming it may
         // not be this connection's agent.
         if let Some(agent) = agent {
+            self.agent_manager.unpin(session_id, &agent);
             agent.discard_pending_steers(session_id).await;
         }
 
@@ -2372,6 +2435,7 @@ impl GooseAcpAgent {
         // explicit clear wins and makes the guard's cleanup a no-op.
         let _run_guard = ActiveRunDropGuard {
             registry: self.active_runs.clone(),
+            agent_manager: self.agent_manager.clone(),
             session_id: session_id.clone(),
             run_id: run_id.clone(),
             cancel_token: cancel_token.clone(),
@@ -3722,6 +3786,7 @@ print(\"hello, world\")
                 session_cwd: None,
                 active_runs,
                 live_voice,
+                shared: None,
             })
             .await
             .unwrap(),

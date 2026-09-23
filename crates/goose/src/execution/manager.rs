@@ -44,6 +44,10 @@ pub struct AgentManager {
     /// `Arc<Mutex<()>>` stays alive as long as any caller still holds it,
     /// even after the HashMap entry is removed.
     creation_locks: Arc<Mutex<HashMap<String, Arc<Mutex<()>>>>>,
+    /// Agents with a turn in flight. The LRU may evict one, but a pinned agent
+    /// stays findable here, so a later lookup for its session returns the same
+    /// agent instead of building a second one beside the running turn.
+    pinned: Arc<std::sync::Mutex<HashMap<String, Arc<Agent>>>>,
 }
 
 impl AgentManager {
@@ -57,6 +61,7 @@ impl AgentManager {
             default_provider: Arc::new(RwLock::new(None)),
             cancel_tokens: Arc::new(RwLock::new(HashMap::new())),
             creation_locks: Arc::new(Mutex::new(HashMap::new())),
+            pinned: Arc::new(std::sync::Mutex::new(HashMap::new())),
         };
 
         Ok(manager)
@@ -100,6 +105,52 @@ impl AgentManager {
         *self.default_provider.write().await = Some(provider);
     }
 
+    /// Keep `agent` as the one agent for `session_id` while a turn runs on it.
+    pub fn pin(&self, session_id: &str, agent: Arc<Agent>) {
+        self.pinned
+            .lock()
+            .expect("pinned agents lock poisoned")
+            .insert(session_id.to_string(), agent);
+    }
+
+    /// Release the pin, unless a different agent has been pinned since.
+    pub fn unpin(&self, session_id: &str, agent: &Arc<Agent>) {
+        let mut pinned = self.pinned.lock().expect("pinned agents lock poisoned");
+        if pinned
+            .get(session_id)
+            .is_some_and(|current| Arc::ptr_eq(current, agent))
+        {
+            pinned.remove(session_id);
+        }
+    }
+
+    fn pinned_agent(&self, session_id: &str) -> Option<Arc<Agent>> {
+        self.pinned
+            .lock()
+            .expect("pinned agents lock poisoned")
+            .get(session_id)
+            .cloned()
+    }
+
+    /// Put a pinned agent back into the LRU after eviction dropped it.
+    async fn reinstate_pinned(&self, session_id: &str, agent: Arc<Agent>) -> AgentManagerGetResult {
+        let evicted = self
+            .sessions
+            .write()
+            .await
+            .push(session_id.to_string(), Arc::clone(&agent))
+            .map(|(k, _)| k)
+            .filter(|k| k != session_id);
+        if let Some(evicted_id) = evicted {
+            self.prune_creation_lock(&evicted_id).await;
+        }
+        AgentManagerGetResult {
+            agent,
+            agent_created: false,
+            extension_results: Vec::new(),
+        }
+    }
+
     pub async fn get_or_create_agent(&self, session_id: String) -> Result<Arc<Agent>> {
         Ok(self
             .get_or_create_agent_with_runtime_context(session_id, RuntimeContext::default())
@@ -122,6 +173,9 @@ impl AgentManager {
                     extension_results: Vec::new(),
                 });
             }
+        }
+        if let Some(agent) = self.pinned_agent(&session_id) {
+            return Ok(self.reinstate_pinned(&session_id, agent).await);
         }
 
         // Slow path: serialize creation per session so concurrent callers
@@ -182,6 +236,9 @@ impl AgentManager {
                     extension_results: Vec::new(),
                 });
             }
+        }
+        if let Some(agent) = self.pinned_agent(session_id) {
+            return Ok(self.reinstate_pinned(session_id, agent).await);
         }
 
         let mut mode = self.agent_config.goose_mode;
@@ -311,6 +368,10 @@ impl AgentManager {
         if let Some(token) = self.cancel_tokens.write().await.remove(session_id) {
             token.cancel();
         }
+        self.pinned
+            .lock()
+            .expect("pinned agents lock poisoned")
+            .remove(session_id);
         let mut sessions = self.sessions.write().await;
         sessions
             .pop(session_id)
@@ -408,6 +469,39 @@ mod tests {
     use crate::session::SessionManager;
 
     use super::AgentManager;
+
+    #[tokio::test]
+    async fn task181_shared_ownership_running_agent_survives_eviction() {
+        let temp_dir = TempDir::new().unwrap();
+        let session_manager = Arc::new(SessionManager::new(temp_dir.path().to_path_buf()));
+        let agent_config = AgentConfig::new(
+            session_manager,
+            PermissionManager::instance(),
+            None,
+            GooseMode::default(),
+            false,
+            GoosePlatform::GooseDesktop,
+        );
+        let manager = AgentManager::new(agent_config, Some(1)).await.unwrap();
+
+        let running = manager.get_or_create_agent("running".into()).await.unwrap();
+        manager.pin("running", running.clone());
+        manager.get_or_create_agent("other".into()).await.unwrap();
+
+        let again = manager.get_or_create_agent("running".into()).await.unwrap();
+        assert!(
+            Arc::ptr_eq(&running, &again),
+            "an agent with a turn in flight must not be rebuilt after LRU eviction"
+        );
+
+        manager.unpin("running", &running);
+        manager.get_or_create_agent("other".into()).await.unwrap();
+        let rebuilt = manager.get_or_create_agent("running".into()).await.unwrap();
+        assert!(
+            !Arc::ptr_eq(&running, &rebuilt),
+            "once unpinned, eviction behaves as before"
+        );
+    }
 
     async fn create_test_manager(temp_dir: &TempDir) -> AgentManager {
         let session_manager = Arc::new(SessionManager::new(temp_dir.path().to_path_buf()));

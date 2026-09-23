@@ -1,6 +1,6 @@
 use crate::acp::server::{
     AcpBuiltinSelection, AcpProviderFactory, ActiveRunRegistry, GooseAcpAgent,
-    GooseAcpAgentOptions, LiveVoiceService,
+    GooseAcpAgentOptions, LiveVoiceService, SharedAcpState,
 };
 use crate::agents::GoosePlatform;
 use crate::config::paths::Paths;
@@ -30,6 +30,7 @@ pub struct AcpServer {
     scheduler: OnceCell<Arc<dyn SchedulerTrait>>,
     active_runs: Arc<ActiveRunRegistry>,
     live_voice: Arc<crate::acp::server::LiveVoiceService>,
+    shared: OnceCell<Arc<SharedAcpState>>,
 }
 
 impl AcpServer {
@@ -43,7 +44,31 @@ impl AcpServer {
             scheduler: OnceCell::new(),
             active_runs,
             live_voice,
+            shared: OnceCell::new(),
         }
+    }
+
+    /// One agent manager for every connection, so a reconnect finds the agent
+    /// already running the session's turn instead of building another (task 181).
+    async fn shared(
+        &self,
+        scheduler: Option<Arc<dyn SchedulerTrait>>,
+        disable_session_naming: bool,
+    ) -> Result<Arc<SharedAcpState>> {
+        self.shared
+            .get_or_try_init(|| async {
+                SharedAcpState::build(
+                    self.data_dir.clone(),
+                    self.config.config_dir.clone(),
+                    scheduler,
+                    disable_session_naming,
+                    self.config.goose_platform.clone(),
+                )
+                .await
+                .map(Arc::new)
+            })
+            .await
+            .cloned()
     }
 
     /// Start the scheduler now instead of on first client connect, so a
@@ -121,6 +146,9 @@ impl AcpServer {
             },
         );
 
+        let shared = self
+            .shared(scheduler.clone(), disable_session_naming)
+            .await?;
         let agent = GooseAcpAgent::new(GooseAcpAgentOptions {
             provider_factory,
             builtin_selection: self.config.builtins.clone(),
@@ -133,6 +161,7 @@ impl AcpServer {
             scheduler,
             active_runs: self.active_runs.clone(),
             live_voice: self.live_voice.clone(),
+            shared: Some(shared),
         })
         .await?;
         info!("Created new ACP agent");
@@ -153,6 +182,7 @@ impl AcpServer {
             scheduler: OnceCell::new(),
             active_runs,
             live_voice,
+            shared: OnceCell::new(),
         }
     }
 }
@@ -203,6 +233,41 @@ mod tests {
         assert!(
             Arc::ptr_eq(a.active_run_registry(), b.active_run_registry()),
             "each connection's agent must share one per-session run registry"
+        );
+    }
+
+    #[tokio::test]
+    async fn task181_shared_ownership_one_agent_across_connections() {
+        let root = tempfile::tempdir().unwrap();
+        let server = server(root.path().to_path_buf(), false);
+
+        let first = server.create_agent().await.unwrap();
+        let reconnected = server.create_agent().await.unwrap();
+
+        assert!(
+            Arc::ptr_eq(
+                &first.test_session_agent("session-1").await,
+                &reconnected.test_session_agent("session-1").await
+            ),
+            "a reconnecting client must find the session's existing agent, not build a second"
+        );
+    }
+
+    #[tokio::test]
+    async fn task181_shared_ownership_concurrent_creation_makes_one() {
+        let root = tempfile::tempdir().unwrap();
+        let server = server(root.path().to_path_buf(), false);
+
+        let a = server.create_agent().await.unwrap();
+        let b = server.create_agent().await.unwrap();
+        let (from_a, from_b) = tokio::join!(
+            a.test_session_agent("session-2"),
+            b.test_session_agent("session-2")
+        );
+
+        assert!(
+            Arc::ptr_eq(&from_a, &from_b),
+            "two connections loading one session at once must end with one agent"
         );
     }
 
