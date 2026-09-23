@@ -302,7 +302,7 @@ Order: 154 (above) ∥ 155–157 (mockups, session) ∥ wave 1 (158 · 160 · 16
   - card: as a first-run user, start Hard without a security prompt about a file that ships in my repo (user: yes, 2026-09-22; `tasks.md` §Notes recipe consent)
   - confirm: `grep -c "trustedRole: true" ui/desktop/src/workspace/WorkspaceShell.tsx ui/desktop/src/workspace/panes/review/review-session.ts | grep -v ':0$' | wc -l` → `2` (untouched: `0`); `just walk "rpi strip"` → 1 passed with `trustRecipeIfAsked` finding no dialog (log line)
 - 178. A routine never stalls on an approval: a scheduled run whose recipe carries `Approve` or `SmartApprove` runs as `Auto` (`crates/goose/src/scheduler.rs:1157`; `Chat` stays `Chat`); the Save as routine sheet (`ui/desktop/src/workspace/routine/RoutineSheet.tsx:178-180`) shows the mode it will run with; one Rust unit test.
-  - status: todo · agent: — · worker: low
+  - status: doing · agent: session → haiku worker · worker: low
   - card: as the user, have a routine finish while I am away — its worktree and the Runs inbox are the review, not a prompt no one answers (user: yes, 2026-09-22; `tasks.md` §Notes routine mode)
   - confirm: `cargo test -p goose --lib scheduler -- routine_mode` → `≥ 1 passed` (untouched: no test matches)
 
