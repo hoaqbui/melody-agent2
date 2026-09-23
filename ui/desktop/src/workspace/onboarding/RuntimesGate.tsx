@@ -4,7 +4,13 @@ import { Loader2 } from 'lucide-react';
 import { defineMessages, useIntl } from '../../i18n';
 import { Button } from '../../components/ui/button';
 import { probeRuntimes } from '../../native/runtimes.js';
-import { seatState, overallGateState, SEAT_STATE_TO_DOM, type SeatStates, type RuntimesGateState } from './seat-state';
+import {
+  seatState,
+  overallGateState,
+  SEAT_STATE_TO_DOM,
+  type SeatStates,
+  type RuntimesGateState,
+} from './seat-state';
 
 export const RUNTIMES_GATE_TESTID = 'runtimes-gate';
 
@@ -20,6 +26,10 @@ const i18n = defineMessages({
   agyName: { id: 'runtimesGate.agyName', defaultMessage: 'agy' },
   install: { id: 'runtimesGate.install', defaultMessage: 'Install' },
   signIn: { id: 'runtimesGate.signIn', defaultMessage: 'Sign in' },
+  signInInTerminal: {
+    id: 'runtimesGate.signInInTerminal',
+    defaultMessage: 'Run agy once in a terminal to sign in',
+  },
   recheck: { id: 'runtimesGate.recheck', defaultMessage: 'Recheck' },
   done: { id: 'runtimesGate.done', defaultMessage: 'Done' },
   couldntCheck: { id: 'runtimesGate.couldntCheck', defaultMessage: "Couldn't check" },
@@ -34,14 +44,19 @@ interface Seat {
   key: keyof SeatStates;
   name: keyof typeof i18n;
   installCmd: string;
-  signInCmd: string;
+  signInCmd: string | null;
 }
 
 const SEATS: Seat[] = [
   { key: 'claude', name: 'claudeName', installCmd: 'claude', signInCmd: 'claude login' },
   { key: 'codex', name: 'codexName', installCmd: 'codex', signInCmd: 'codex login' },
-  { key: 'cursor', name: 'cursorName', installCmd: 'cursor-agent', signInCmd: 'cursor-agent login' },
-  { key: 'agy', name: 'agyName', installCmd: 'agy', signInCmd: 'sign in through `agy` once in a terminal' },
+  {
+    key: 'cursor',
+    name: 'cursorName',
+    installCmd: 'cursor-agent',
+    signInCmd: 'cursor-agent login',
+  },
+  { key: 'agy', name: 'agyName', installCmd: 'agy', signInCmd: null },
 ];
 
 export default function RuntimesGate() {
@@ -75,7 +90,11 @@ export default function RuntimesGate() {
   };
 
   return (
-    <div className="h-screen w-full bg-background-default flex items-center justify-center" data-testid={RUNTIMES_GATE_TESTID} data-state={state}>
+    <div
+      className="h-screen w-full bg-background-default flex items-center justify-center"
+      data-testid={RUNTIMES_GATE_TESTID}
+      data-state={state}
+    >
       <div className="max-w-2xl w-full mx-auto px-4">
         <div className="mb-8">
           <h1 className="text-3xl font-light mb-2">{intl.formatMessage(i18n.title)}</h1>
@@ -122,28 +141,35 @@ export default function RuntimesGate() {
                       data-testid={`runtimes-gate-install-${seat.key}`}
                       className={floating}
                       onClick={() => {
-                        const url = seat.key === 'claude'
-                          ? 'https://claude.ai/download'
-                          : seat.key === 'codex'
-                            ? 'https://codex.withexo.com'
-                            : seat.key === 'cursor'
-                              ? 'https://www.cursor.com'
-                              : 'https://github.com/aaif-goose/agy';
+                        const url =
+                          seat.key === 'claude'
+                            ? 'https://claude.ai/download'
+                            : seat.key === 'codex'
+                              ? 'https://github.com/openai/codex'
+                              : seat.key === 'cursor'
+                                ? 'https://www.cursor.com'
+                                : 'https://github.com/aaif-goose/agy';
                         openExternal(url);
                       }}
                     >
                       {intl.formatMessage(i18n.install)}
                     </Button>
                   ) : seatStatus?.state === 'signin' ? (
-                    <Button
-                      size="xs"
-                      variant="outline"
-                      data-testid={`runtimes-gate-sign-in-${seat.key}`}
-                      className={floating}
-                      onClick={() => openTerminalWithInput(seat.signInCmd)}
-                    >
-                      {intl.formatMessage(i18n.signIn)}
-                    </Button>
+                    seat.signInCmd ? (
+                      <Button
+                        size="xs"
+                        variant="outline"
+                        data-testid={`runtimes-gate-sign-in-${seat.key}`}
+                        className={floating}
+                        onClick={() => seat.signInCmd && openTerminalWithInput(seat.signInCmd)}
+                      >
+                        {intl.formatMessage(i18n.signIn)}
+                      </Button>
+                    ) : (
+                      <span className="text-xs text-text-secondary">
+                        {intl.formatMessage(i18n.signInInTerminal)}
+                      </span>
+                    )
                   ) : null}
                 </div>
               </div>

@@ -443,6 +443,9 @@
   "chatInput.contextWindow": {
     "defaultMessage": "컨텍스트 창"
   },
+  "chatInput.describeTask": {
+    "defaultMessage": "Describe a task…"
+  },
   "chatInput.dictationError": {
     "defaultMessage": "받아쓰기 오류"
   },
@@ -1868,6 +1871,9 @@
   "gitPane.prStateOpen": {
     "defaultMessage": "Open"
   },
+  "gitPane.push": {
+    "defaultMessage": "Push"
+  },
   "gitPane.refresh": {
     "defaultMessage": "Refresh"
   },
@@ -2258,14 +2264,32 @@
   "keyboardShortcuts.categoryWindowDescription": {
     "defaultMessage": "창 동작을 제어하는 단축키입니다."
   },
+  "keyboardShortcuts.categoryWorkspace": {
+    "defaultMessage": "Workspace Shortcuts"
+  },
+  "keyboardShortcuts.categoryWorkspaceDescription": {
+    "defaultMessage": "These shortcuts help you navigate and work in the Goose workspace"
+  },
   "keyboardShortcuts.change": {
     "defaultMessage": "변경"
+  },
+  "keyboardShortcuts.columnNavigationDescription": {
+    "defaultMessage": "Switch between Sessions (⌘1), Chat (⌘2), and Work (⌘3) columns"
+  },
+  "keyboardShortcuts.columnNavigationLabel": {
+    "defaultMessage": "Column Navigation"
   },
   "keyboardShortcuts.disabled": {
     "defaultMessage": "사용 안 함"
   },
   "keyboardShortcuts.dismiss": {
     "defaultMessage": "닫기"
+  },
+  "keyboardShortcuts.filesDescription": {
+    "defaultMessage": "Open the Files pane to browse project files"
+  },
+  "keyboardShortcuts.filesLabel": {
+    "defaultMessage": "Files"
   },
   "keyboardShortcuts.findDescription": {
     "defaultMessage": "대화 내 검색을 엽니다."
@@ -2312,6 +2336,12 @@
   "keyboardShortcuts.openDirectoryLabel": {
     "defaultMessage": "디렉터리 열기"
   },
+  "keyboardShortcuts.paletteDescription": {
+    "defaultMessage": "Open the command palette to search sessions and schedules"
+  },
+  "keyboardShortcuts.paletteLabel": {
+    "defaultMessage": "Command Palette"
+  },
   "keyboardShortcuts.quickLauncherDescription": {
     "defaultMessage": "빠른 실행기 오버레이를 엽니다."
   },
@@ -2344,6 +2374,12 @@
   },
   "keyboardShortcuts.restartRequired": {
     "defaultMessage": "다시 시작 필요"
+  },
+  "keyboardShortcuts.searchChatsDescription": {
+    "defaultMessage": "Focus the search field in the Chats panel"
+  },
+  "keyboardShortcuts.searchChatsLabel": {
+    "defaultMessage": "Search Chats"
   },
   "keyboardShortcuts.settingsDescription": {
     "defaultMessage": "설정 패널을 엽니다."
@@ -4378,6 +4414,9 @@
   },
   "runtimesGate.signIn": {
     "defaultMessage": "Sign in"
+  },
+  "runtimesGate.signInInTerminal": {
+    "defaultMessage": "Run agy once in a terminal to sign in"
   },
   "runtimesGate.signedOut": {
     "defaultMessage": "Signed out"

@@ -443,6 +443,9 @@
   "chatInput.contextWindow": {
     "defaultMessage": "Context window"
   },
+  "chatInput.describeTask": {
+    "defaultMessage": "Describe a task…"
+  },
   "chatInput.dictationError": {
     "defaultMessage": "Dictation Error"
   },
@@ -1868,6 +1871,9 @@
   "gitPane.prStateOpen": {
     "defaultMessage": "Open"
   },
+  "gitPane.push": {
+    "defaultMessage": "Push"
+  },
   "gitPane.refresh": {
     "defaultMessage": "Refresh"
   },
@@ -2258,14 +2264,32 @@
   "keyboardShortcuts.categoryWindowDescription": {
     "defaultMessage": "These shortcuts control window behavior"
   },
+  "keyboardShortcuts.categoryWorkspace": {
+    "defaultMessage": "Workspace Shortcuts"
+  },
+  "keyboardShortcuts.categoryWorkspaceDescription": {
+    "defaultMessage": "These shortcuts help you navigate and work in the Goose workspace"
+  },
   "keyboardShortcuts.change": {
     "defaultMessage": "Change"
+  },
+  "keyboardShortcuts.columnNavigationDescription": {
+    "defaultMessage": "Switch between Sessions (⌘1), Chat (⌘2), and Work (⌘3) columns"
+  },
+  "keyboardShortcuts.columnNavigationLabel": {
+    "defaultMessage": "Column Navigation"
   },
   "keyboardShortcuts.disabled": {
     "defaultMessage": "Disabled"
   },
   "keyboardShortcuts.dismiss": {
     "defaultMessage": "Dismiss"
+  },
+  "keyboardShortcuts.filesDescription": {
+    "defaultMessage": "Open the Files pane to browse project files"
+  },
+  "keyboardShortcuts.filesLabel": {
+    "defaultMessage": "Files"
   },
   "keyboardShortcuts.findDescription": {
     "defaultMessage": "Open search in conversation"
@@ -2312,6 +2336,12 @@
   "keyboardShortcuts.openDirectoryLabel": {
     "defaultMessage": "Open Directory"
   },
+  "keyboardShortcuts.paletteDescription": {
+    "defaultMessage": "Open the command palette to search sessions and schedules"
+  },
+  "keyboardShortcuts.paletteLabel": {
+    "defaultMessage": "Command Palette"
+  },
   "keyboardShortcuts.quickLauncherDescription": {
     "defaultMessage": "Open the quick launcher overlay"
   },
@@ -2344,6 +2374,12 @@
   },
   "keyboardShortcuts.restartRequired": {
     "defaultMessage": "Restart Required"
+  },
+  "keyboardShortcuts.searchChatsDescription": {
+    "defaultMessage": "Focus the search field in the Chats panel"
+  },
+  "keyboardShortcuts.searchChatsLabel": {
+    "defaultMessage": "Search Chats"
   },
   "keyboardShortcuts.settingsDescription": {
     "defaultMessage": "Open settings panel"
@@ -4378,6 +4414,9 @@
   },
   "runtimesGate.signIn": {
     "defaultMessage": "Sign in"
+  },
+  "runtimesGate.signInInTerminal": {
+    "defaultMessage": "Run agy once in a terminal to sign in"
   },
   "runtimesGate.signedOut": {
     "defaultMessage": "Signed out"

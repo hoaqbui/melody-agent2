@@ -194,6 +194,10 @@ const i18n = defineMessages({
     id: 'chatInput.viewEditRecipe',
     defaultMessage: 'View/Edit Recipe',
   },
+  describeTask: {
+    id: 'chatInput.describeTask',
+    defaultMessage: 'Describe a task…',
+  },
 });
 
 interface ChatInputProps {
@@ -1678,7 +1682,13 @@ export default function ChatInput({
             autoFocus
             id="dynamic-textarea"
             dir={composerDir}
-            placeholder={isRecording ? '' : getNavigationShortcutText(intl)}
+            placeholder={
+              isRecording
+                ? ''
+                : messages.length === 0
+                  ? intl.formatMessage(i18n.describeTask)
+                  : getNavigationShortcutText(intl)
+            }
             value={displayValue}
             onChange={handleChange}
             onCompositionStart={handleCompositionStart}

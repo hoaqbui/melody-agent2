@@ -99,6 +99,40 @@ const i18n = defineMessages({
     defaultMessage: 'Show or hide the navigation menu',
   },
 
+  // Fork-specific shortcuts
+  paletteLabel: {
+    id: 'keyboardShortcuts.paletteLabel',
+    defaultMessage: 'Command Palette',
+  },
+  paletteDescription: {
+    id: 'keyboardShortcuts.paletteDescription',
+    defaultMessage: 'Open the command palette to search sessions and schedules',
+  },
+  columnNavigationLabel: {
+    id: 'keyboardShortcuts.columnNavigationLabel',
+    defaultMessage: 'Column Navigation',
+  },
+  columnNavigationDescription: {
+    id: 'keyboardShortcuts.columnNavigationDescription',
+    defaultMessage: 'Switch between Sessions (⌘1), Chat (⌘2), and Work (⌘3) columns',
+  },
+  filesLabel: {
+    id: 'keyboardShortcuts.filesLabel',
+    defaultMessage: 'Files',
+  },
+  filesDescription: {
+    id: 'keyboardShortcuts.filesDescription',
+    defaultMessage: 'Open the Files pane to browse project files',
+  },
+  searchChatsLabel: {
+    id: 'keyboardShortcuts.searchChatsLabel',
+    defaultMessage: 'Search Chats',
+  },
+  searchChatsDescription: {
+    id: 'keyboardShortcuts.searchChatsDescription',
+    defaultMessage: 'Focus the search field in the Chats panel',
+  },
+
   // Category labels and descriptions
   categoryGlobal: {
     id: 'keyboardShortcuts.categoryGlobal',
@@ -131,6 +165,14 @@ const i18n = defineMessages({
   categoryWindowDescription: {
     id: 'keyboardShortcuts.categoryWindowDescription',
     defaultMessage: 'These shortcuts control window behavior',
+  },
+  categoryWorkspace: {
+    id: 'keyboardShortcuts.categoryWorkspace',
+    defaultMessage: 'Workspace Shortcuts',
+  },
+  categoryWorkspaceDescription: {
+    id: 'keyboardShortcuts.categoryWorkspaceDescription',
+    defaultMessage: 'These shortcuts help you navigate and work in the Goose workspace',
   },
 
   // UI strings
@@ -179,8 +221,7 @@ const i18n = defineMessages({
   },
   shortcutConflictToggleMessage: {
     id: 'keyboardShortcuts.shortcutConflictToggleMessage',
-    defaultMessage:
-      'The shortcut {shortcut} is already assigned to "{conflictLabel}".',
+    defaultMessage: 'The shortcut {shortcut} is already assigned to "{conflictLabel}".',
   },
   shortcutConflictToggleDetail: {
     id: 'keyboardShortcuts.shortcutConflictToggleDetail',
@@ -215,10 +256,12 @@ const i18n = defineMessages({
 });
 
 interface ShortcutConfig {
-  key: keyof KeyboardShortcuts;
+  key: keyof KeyboardShortcuts | string;
   label: MessageDescriptor;
   description: MessageDescriptor;
-  category: 'global' | 'application' | 'search' | 'window';
+  category: 'global' | 'application' | 'search' | 'window' | 'workspace';
+  readOnly?: boolean;
+  shortcutValue?: string;
 }
 
 const shortcutConfigs: ShortcutConfig[] = [
@@ -288,6 +331,39 @@ const shortcutConfigs: ShortcutConfig[] = [
     description: i18n.toggleNavigationDescription,
     category: 'application',
   },
+  // Fork-specific read-only shortcuts
+  {
+    key: 'palette',
+    label: i18n.paletteLabel,
+    description: i18n.paletteDescription,
+    category: 'workspace',
+    readOnly: true,
+    shortcutValue: '⌘K',
+  },
+  {
+    key: 'columnNavigation',
+    label: i18n.columnNavigationLabel,
+    description: i18n.columnNavigationDescription,
+    category: 'workspace',
+    readOnly: true,
+    shortcutValue: '⌘1 · ⌘2 · ⌘3',
+  },
+  {
+    key: 'files',
+    label: i18n.filesLabel,
+    description: i18n.filesDescription,
+    category: 'workspace',
+    readOnly: true,
+    shortcutValue: '⇧⌘F',
+  },
+  {
+    key: 'searchChats',
+    label: i18n.searchChatsLabel,
+    description: i18n.searchChatsDescription,
+    category: 'workspace',
+    readOnly: true,
+    shortcutValue: '/',
+  },
 ];
 
 const needsRestart = new Set<keyof KeyboardShortcuts>([
@@ -324,6 +400,7 @@ const categoryLabelMessages: Record<string, MessageDescriptor> = {
   application: i18n.categoryApplication,
   search: i18n.categorySearch,
   window: i18n.categoryWindow,
+  workspace: i18n.categoryWorkspace,
 };
 
 const categoryDescriptionMessages: Record<string, MessageDescriptor> = {
@@ -331,6 +408,7 @@ const categoryDescriptionMessages: Record<string, MessageDescriptor> = {
   application: i18n.categoryApplicationDescription,
   search: i18n.categorySearchDescription,
   window: i18n.categoryWindowDescription,
+  workspace: i18n.categoryWorkspaceDescription,
 };
 
 export default function KeyboardShortcutsSection() {
@@ -371,10 +449,7 @@ export default function KeyboardShortcutsSection() {
             conflictLabel: getShortcutLabel(conflictingKey, intl.formatMessage),
             targetLabel: getShortcutLabel(key, intl.formatMessage),
           }),
-          buttons: [
-            intl.formatMessage(i18n.reassignShortcut),
-            intl.formatMessage(i18n.cancel),
-          ],
+          buttons: [intl.formatMessage(i18n.reassignShortcut), intl.formatMessage(i18n.cancel)],
           defaultId: 1,
         });
 
@@ -421,10 +496,7 @@ export default function KeyboardShortcutsSection() {
           conflictLabel: getShortcutLabel(conflictingKey, intl.formatMessage),
           targetLabel: getShortcutLabel(editingKey, intl.formatMessage),
         }),
-        buttons: [
-          intl.formatMessage(i18n.reassignShortcut),
-          intl.formatMessage(i18n.cancel),
-        ],
+        buttons: [intl.formatMessage(i18n.reassignShortcut), intl.formatMessage(i18n.cancel)],
         defaultId: 1,
       });
 
@@ -459,10 +531,7 @@ export default function KeyboardShortcutsSection() {
       title: intl.formatMessage(i18n.resetShortcutsTitle),
       message: intl.formatMessage(i18n.resetShortcutsMessage),
       detail: intl.formatMessage(i18n.resetShortcutsDetail),
-      buttons: [
-        intl.formatMessage(i18n.resetToDefaultsHeading),
-        intl.formatMessage(i18n.cancel),
-      ],
+      buttons: [intl.formatMessage(i18n.resetToDefaultsHeading), intl.formatMessage(i18n.cancel)],
       defaultId: 1,
     });
 
@@ -525,8 +594,11 @@ export default function KeyboardShortcutsSection() {
           </CardHeader>
           <CardContent className="pt-4 space-y-4 px-4">
             {configs.map((config) => {
-              const shortcut = shortcuts[config.key];
+              const shortcut = config.readOnly
+                ? config.shortcutValue
+                : shortcuts[config.key as keyof KeyboardShortcuts];
               const isEditing = editingKey === config.key;
+              const isReadOnly = config.readOnly;
 
               return (
                 <div key={config.key} className="flex items-center justify-between">
@@ -539,7 +611,11 @@ export default function KeyboardShortcutsSection() {
                     </p>
                   </div>
                   <div className="flex items-center gap-2">
-                    {!isEditing ? (
+                    {isReadOnly ? (
+                      <span className="text-xs font-mono px-2 py-1 bg-background-secondary rounded min-w-[120px] text-center">
+                        {shortcut}
+                      </span>
+                    ) : !isEditing ? (
                       <>
                         {shortcut ? (
                           <span className="text-xs font-mono px-2 py-1 bg-background-secondary rounded min-w-[120px] text-center">
@@ -553,14 +629,16 @@ export default function KeyboardShortcutsSection() {
                         <Button
                           variant="secondary"
                           size="sm"
-                          onClick={() => handleEdit(config.key)}
+                          onClick={() => handleEdit(config.key as keyof KeyboardShortcuts)}
                           className="text-xs"
                         >
                           {intl.formatMessage(i18n.change)}
                         </Button>
                         <Switch
                           checked={shortcut !== null}
-                          onCheckedChange={(checked) => handleToggle(config.key, checked)}
+                          onCheckedChange={(checked) =>
+                            handleToggle(config.key as keyof KeyboardShortcuts, checked)
+                          }
                           variant="mono"
                         />
                       </>
@@ -570,7 +648,7 @@ export default function KeyboardShortcutsSection() {
                         onSave={handleSave}
                         onCancel={handleCancel}
                         allShortcuts={shortcuts}
-                        currentKey={config.key}
+                        currentKey={config.key as keyof KeyboardShortcuts}
                       />
                     )}
                   </div>
