@@ -52,7 +52,7 @@ const session: Session = {
 };
 
 describe('sessionSettings', () => {
-  it('names the runtime, the model, the stop, the gate and the context, ids beneath', () => {
+  it('names the runtime, the model, the gate and the context, ids beneath', () => {
     const rows = sessionSettings(session, [], 'high', {
       accumulatedInputTokens: 0,
       accumulatedOutputTokens: 0,
@@ -65,7 +65,6 @@ describe('sessionSettings', () => {
     const byId = Object.fromEntries(rows.map((r) => [r.id, r]));
     expect(byId.runtime).toMatchObject({ value: 'Claude', detail: 'claude-acp' });
     expect(byId.model).toMatchObject({ value: 'Opus', detail: 'claude-opus-5' });
-    expect(byId.lever).toMatchObject({ value: 'Medium', detail: 'direct' });
     expect(byId.effort).toMatchObject({ value: 'high', detail: 'thinking_effort' });
     expect(byId.gate).toMatchObject({ value: 'Autonomous', detail: 'GOOSE_MODE=auto' });
     expect(byId.context).toMatchObject({ value: '64.2k / 200k', detail: '32% of context_limit' });

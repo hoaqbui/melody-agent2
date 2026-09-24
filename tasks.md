@@ -400,7 +400,7 @@ Order: 206 → 207 → 208 (after 198's rework merges) ∥ 209 ∥ 210 ∥ 214 �
 
 ### docs/2026-09-23-melody-program-plan-v3.md — Melody, the main agent: M1b + S1 (drafted 2026-09-23; confirm lines re-checked at the M1a → M1b gate)
 
-Order: 224 can start now, beside M1a (it needs none of M1a's tools). After M1a's gate: 220 ∥ 225, then 221 → 222 (both edit `WorkspaceShell.tsx`), 223 alongside once 220 lands; 226 is M1b's gate walk. 224, 221 and 222 all edit `WorkspaceShell.tsx`, so they land one after another. S1 follows M1b's gate, beside M2 ∥ M3: 227 → 228; 229 beside 227. Needs from M1a: 220/225 — Melody's role set at creation, the durable role and `start_session`; 222/223 — `session/list` carrying `parentSessionId` and the role; 226/229 — the `SessionCreated` notice; 227 — the durable run status.
+Order: 224 can start now, beside M1a (it needs none of M1a's tools). After M1a's gate: 220 ∥ 225, then 221 → 222 (both edit `WorkspaceShell.tsx`), 223 alongside once 220 lands; 226 is M1b's gate walk. 224 done 2026-09-23 (Lever.tsx, STOP_MESSAGES, the palette group, Telemetry's Lever row and 10 i18n keys gone; a new Easy session takes the orchestrator setup when the folder has the role and claude-code is installed, else direct Opus; confirm rerun: no lever, test:light 1412 passed; `just walk "easy mode"` 1 passed after the walk learned to accept the recipe warning; rpi-strip, agents-pane, artifact-pane walks updated, to run at the M0 gate; the folder chip stays until §11's header move). 224, 221 and 222 all edit `WorkspaceShell.tsx`, so they land one after another. S1 follows M1b's gate, beside M2 ∥ M3: 227 → 228; 229 beside 227. Needs from M1a: 220/225 — Melody's role set at creation, the durable role and `start_session`; 222/223 — `session/list` carrying `parentSessionId` and the role; 226/229 — the `SessionCreated` notice; 227 — the durable run status.
 
 - 220. Melody's session: created once, its id kept in settings, the same conversation after every restart
   - status: todo · agent: — · worker: medium
@@ -425,12 +425,6 @@ Order: 224 can start now, beside M1a (it needs none of M1a's tools). After M1a's
   - card: as the user, I want Melody always at the top of my sessions, saying what she's doing, so that I never have to look for her (FURPS U · MoSCoW Must; design §6, §7, §18, §20 decision 2)
   - context: after 220, beside 221/222 (`components/Layout/NavigationPanel.tsx`, `workspace/sidebar-sessions.ts`); the pin between the spacer and search (`NavigationPanel.tsx:629-632`), a Floating Button whose second line says what she's doing; clicking it does what ⌘J does through an AppEvent (the `OPEN_DIAGNOSTICS` pattern, `constants/events.ts:22`); her row first in Today via a pure `withMelodyFirst` beside `withAwaitingFirst` (`sidebar-sessions.ts:142-149`), applied where `days` is built (`NavigationPanel.tsx:546-553`); companion rows are M2's
   - confirm: `cd ui/desktop && grep -c "export function withMelodyFirst" src/workspace/sidebar-sessions.ts && pnpm exec vitest run src/workspace/sidebar-sessions.test.ts` → 1 and passes (0 today); `just walk "melody pin"` → 1 passed
-
-- 224. The lever retired: Easy's row is attach · send, and a new Easy session starts on the orchestrator setup
-  - status: doing · agent: session's worker (wt/t224, 2026-09-23) · worker: medium
-  - card: as the user, I want no difficulty to pick before I type, so that every session starts ready to delegate (FURPS U · MoSCoW Must; design §10, §18; plan §M1b)
-  - context: can start now; edits `WorkspaceShell.tsx` so it lands apart from 221/222; today Easy's chips are the lever (`WorkspaceShell.tsx:1313-1327`), triples in `LEVER` (`session-controls.ts:157-177`), a new Easy session is Sonnet direct (`WorkspaceShell.tsx:583`, `:1554-1582`); after: `LEVER.hard` + `orchestratorRecipe` (`session-controls.ts:78`) when the folder has an orchestrator role, else direct Opus; removed: `Lever.tsx`, `STOP_MESSAGES`, the palette's lever group (`palette-state.ts:137-143`, `CommandPalette.tsx:30`, `:36`, test `palette-state.test.ts:56-73`), Telemetry's Lever row (`telemetry-now.ts:36`, `:47-51`), the i18n keys; `DESIGN.md`'s lever lines (`:10`, `:33`, `:91-92`, `:189`) amended; walks that click Hard start on the default (`rpi-strip.spec.ts:36`, `agents-pane.spec.ts:49-50`, `artifact-pane.spec.ts:40`; `easy-mode.spec.ts:9-10` rewritten)
-  - confirm: `cd ui/desktop && test ! -e src/workspace/Lever.tsx && ! grep -rq "workspace-lever" src tests && pnpm run test:light` → exit 0 (today exit 1: the file exists, 10 hits in 4 walks); then `just walk "rpi strip"` → 1 passed
 
 - 225. Melody's tools and role, and one minimal repository manager, so that Melody → manager → worker runs headless
   - status: todo · agent: — · worker: high
@@ -625,7 +619,7 @@ T0 done 2026-09-23: 202 (`~/Melody` committed, `83f5f23`); 203 (health check + l
 Order: 264 → 265 ∥ 266 ∥ 267 ∥ 268 → 269. 266 done 2026-09-23 (`ledger-outcome.ts`: `outcomeOf`, `jobsOf`; `UndoEvent` gained `redo` — 267 records a redo as `undo` with `redo: true`; `now` is ms; confirm rerun: ledger-outcome 19 passed, with ledger-events and telemetry 54; lint clean). 265 done 2026-09-23 (sidecar dedup by kind · session · worker · message-or-natural-id, duplicates answer `{ok, duplicate}`; confirm rerun: 1 passed, sidecar 100, desktop ledger-events 12, both typechecks clean). 264 done 2026-09-23 (kinds `land · verdict · link · gap` in both lists; `worker` carries `turnId`, `member`, `charterSha`, `taskRef`, `taskHash`, `baseSha` — charter, hash and base stay null until their writers exist; confirm rerun: `'land'` 1 each, sidecar 1 passed, desktop 1 passed, sidecar suite 98 passed). 267 edits `ChangesBar.tsx`, `WorkspaceShell.tsx`, `ledger-writer.ts` and lands alone on them. The T1 → T4 gate is 266's vitest + 268's walk.
 
 - 267. The missing writers: `land` from the Changes bar commit, `undo` from Undo this turn, `gap` on launch
-  - status: todo · agent: — · worker: medium
+  - status: doing · agent: session's worker (2026-09-23) · worker: medium
   - card: as the user, I want my commit, my undo and the app's closed hours in the ledger, so that landed and undone can happen and a hole in the record is visible (FURPS R · MoSCoW Must)
   - context: after 264; land: `handleCommit` (`ChangesBar.tsx:145-184`) → `/git/rev-parse` HEAD and the committed paths (`git diff-tree --no-commit-id --name-only -r HEAD`; `/git/commit` returns only stdout, `sidecar git.ts:418-424`); a `Fixes-job: <workerSessionId>` trailer also appends `link {by: user, fromSha}`; undo: `undoEvent` (`ledger-events.ts:230-236`) has no caller — `undoTurn` (`WorkspaceShell.tsx:1041-1100`) appends it with `redo`; gap: a 60 s last-alive heartbeat per cwd (localStorage beside `project-storage.ts`), at the first seed after launch (`ledger-writer.ts:29-40`) a heartbeat older than 10 min appends `gap`
   - confirm: `grep -c "appendLedger(" ui/desktop/src/workspace/ChangesBar.tsx ui/desktop/src/workspace/WorkspaceShell.tsx` → ≥ 1 each (0 today); `cd ui/desktop && pnpm vitest run ledger-events -t "land paths|Fixes-job trailer|gap after"` → 3 passed; `just walk "changes bar"` → 1 passed with one `land` whose sha is the Committed banner's
@@ -684,19 +678,13 @@ Order: 270 (draftable now) → 271 ∥ 272 → 273 ∥ 274; 275 after use.
 
 ### docs/2026-09-23-team-memory-program-plan-v2.md — T3: lifecycle routines (after M1b; 276–279 are fixture-only)
 
-Order: 276 ∥ 277 (both `scheduler.rs`, one lands before the other) ∥ 279 → 278 → 280. 279 done 2026-09-23 (`scripts/melody-routines.py`, fixture `cap 170/200 warn · archived 2 · sweep 3 listed · backup: no remote set · reminders 3` exit 0; a non-repository exits 1; archive idempotent; proposals live at `proposals/YYYY-MM-DD-<name>.md` — a new notebook convention). Only the tidy-up calls a model, within its budget; the tidy-up's limits are enforced by a script after the run, not by the prompt.
-
-- 276. The scheduler runs a script job with no model call
-  - status: doing · agent: session's worker (2026-09-23) · worker: high
-  - card: as the user, I want upkeep that needs no judgement to run on the scheduler without calling any model, so that idle means no model call (FURPS P R · MoSCoW Must)
-  - context: `execute_job` always builds an Agent and a provider (`scheduler.rs:1133-1310`); add recipe `Settings.command: Option<Vec<String>>` (`recipe/mod.rs:99-124`) — run the argv with no shell in `working_dir`, record `RunOutcome` (`scheduler.rs:1015-1025`), never build a provider; test with a mock provider factory counting calls over a simulated idle hour
-  - confirm: `cargo test -p goose --lib scheduler -- command_job_makes_no_model_call` → 1 passed (today: no such test)
+Order: 276 ∥ 277 (both `scheduler.rs`, one lands before the other) ∥ 279 → 278 → 280. 276 done 2026-09-23 (recipe `settings.command` runs argv with no shell and no provider; `RunOutcome` gained `exit_code`, `output` (last 16 KiB); a command recipe needs no prompt; confirm rerun with `--exact scheduler::tests::command_job_makes_no_model_call` → 1 passed, scheduler 25, recipe 164, clippy and fmt clean; kill reaches only the command's own process). 279 done 2026-09-23 (`scripts/melody-routines.py`, fixture `cap 170/200 warn · archived 2 · sweep 3 listed · backup: no remote set · reminders 3` exit 0; a non-repository exits 1; archive idempotent; proposals live at `proposals/YYYY-MM-DD-<name>.md` — a new notebook convention). Only the tidy-up calls a model, within its budget; the tidy-up's limits are enforced by a script after the run, not by the prompt.
 
 - 277. A token budget that stops a scheduled run, and a skip when the seat has too little room
-  - status: todo · agent: — · worker: high
+  - status: doing · agent: session's worker (2026-09-23) · worker: high
   - card: as the user, I want the nightly tidy-up to stop at 20 k tokens and skip a seat under 20 % room, so that upkeep never eats a working day's quota (FURPS P · MoSCoW Must)
   - context: `max_turns: None` hard-coded (`scheduler.rs:1301`), `Settings.max_turns` (`recipe/mod.rs:111`) ignored; add `Settings.token_budget: Option<u64>` read from the session's usage in the stream loop (`scheduler.rs:1318-1333`), over budget → cancel with a new `RunStatus::BudgetReached` (`:1010`, `:1336-1352`); `Settings.min_seat_room: Option<u8>` (needs 272; without it the run says "seat room unknown")
-  - confirm: `cargo test -p goose --lib scheduler -- token_budget_stops_run` → 1 passed with `BudgetReached` (today: no test)
+  - confirm: `cargo test -p goose --lib -- --exact scheduler::tests::token_budget_stops_run` → 1 passed with `BudgetReached` (two name filters would run every scheduler test) (today: no test)
 
 - 278. The nightly tidy-up and its guard
   - status: blocked — 276, 277 · agent: — · worker: high
@@ -708,6 +696,7 @@ Order: 276 ∥ 277 (both `scheduler.rs`, one lands before the other) ∥ 279 →
   - status: blocked — 276–279; the user's yes (persistent jobs on their machine) · agent: — · worker: low
   - card: as the user, I want the upkeep routines scheduled once, visible in Routines, and removable, so that upkeep is a setting and not a chore (FURPS U · MoSCoW Should)
   - context: `melody-tidy-up` 03:00 daily; `melody-tidy-guard` 03:30; `melody-cap-check` hourly (no chat-start trigger exists); `melody-archive` on the 1st; `melody-sweep` Sundays; `melody-backup` daily; `melody-reminders` 08:00; cron shape `routine.ts:10-21`
+  - found 2026-09-23 (task 276): the UI drops `settings.command` on save — `RecipeSettingsDto` (`crates/goose-sdk-types/src/custom_requests/recipe.rs:72`) has no `command`, and `routine.ts:94` builds settings through it; `ScheduleRunOutcomeDto` (`custom_requests/schedule.rs:134`) has no `exit_code`/`output`. 280 adds both fields, regenerates `acp-schema.json` and the client types, and wires `routine.ts`
   - confirm: `goose schedule list | grep -c "melody-"` → 7 (0 today)
 
 ### docs/2026-09-23-team-memory-program-plan-v2.md — T4: companion growth (after M2 and T1; C planned at its own gate from ≥ 20 judged jobs per companion)

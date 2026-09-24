@@ -1222,6 +1222,7 @@ fn test_new_session_honors_recipe_model_without_recipe_provider() {
                 goose_mode: None,
                 working_dir: None,
                 worktree: false,
+                command: None,
             })
             .build()
             .unwrap();

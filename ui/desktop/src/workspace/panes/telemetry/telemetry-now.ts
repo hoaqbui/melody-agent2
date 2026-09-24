@@ -7,7 +7,7 @@ import type { LedgerEvent } from '../../../native/ledger';
 import type { TokenState } from '../../../types/chat';
 import type { Message } from '../../../types/message';
 import type { Session } from '../../../types/session';
-import { modeOfSession, runtimeLabel, stopOfSession } from '../../session-controls';
+import { runtimeLabel } from '../../session-controls';
 import type { ProviderDetails } from '../../../types/providers';
 import { getToolRequests } from '../../../types/message';
 import { fmtK } from './charts';
@@ -34,7 +34,6 @@ export function sessionSettings(
   if (!session) return [];
   const providerId = session.provider_name ?? '';
   const model = session.model_config?.model_name ?? '';
-  const stop = stopOfSession(session);
   const used = tokens?.totalTokens ?? session.usage?.total_tokens ?? 0;
   const limit = tokens?.contextLimit ?? session.model_config?.context_limit ?? undefined;
   return [
@@ -45,12 +44,6 @@ export function sessionSettings(
       detail: providerId,
     },
     { id: 'model', label: 'Model', value: shortModel(model), detail: model },
-    {
-      id: 'lever',
-      label: 'Lever',
-      value: stop === 'custom' ? 'Custom' : capitalize(stop),
-      detail: modeOfSession(session),
-    },
     {
       id: 'effort',
       label: 'Thinking effort',

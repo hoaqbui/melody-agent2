@@ -112,6 +112,7 @@ impl From<RecipeSettingsDto> for Settings {
             goose_mode: dto.goose_mode.map(goose_mode_from_dto),
             working_dir: dto.working_dir,
             worktree: dto.worktree,
+            command: None,
         }
     }
 }

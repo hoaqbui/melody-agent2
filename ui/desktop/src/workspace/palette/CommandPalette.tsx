@@ -27,13 +27,12 @@ interface CommandPaletteProps {
 }
 
 type GroupName = Command['group'];
-const GROUP_ORDER: GroupName[] = ['panes', 'session', 'sessions', 'routines', 'lever', 'go-to'];
+const GROUP_ORDER: GroupName[] = ['panes', 'session', 'sessions', 'routines', 'go-to'];
 const GROUP_TITLES: Record<GroupName, string> = {
   panes: 'Panes',
   session: 'Session',
   sessions: 'Sessions',
   routines: 'Routines',
-  lever: 'Lever',
   'go-to': 'Go to',
 };
 
