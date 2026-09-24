@@ -1346,7 +1346,18 @@ impl AcpClientLoop {
         let transport =
             agent_client_protocol::ByteStreams::new(stdin.compat_write(), stdout.compat());
         let result = self.run(transport, rx, init_tx).await;
-        let _ = child.kill().await;
+        #[cfg(unix)]
+        let killed_group = if let Some(pid) = child.id() {
+            crate::subprocess::terminate_process_group(pid);
+            true
+        } else {
+            false
+        };
+        #[cfg(not(unix))]
+        let killed_group = false;
+        if !killed_group {
+            let _ = child.kill().await;
+        }
         let _ = child.wait().await;
         result
     }

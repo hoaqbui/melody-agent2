@@ -248,6 +248,11 @@ impl CliProcess {
 impl Drop for CliProcess {
     fn drop(&mut self) {
         self.stderr_handle.abort();
+        #[cfg(unix)]
+        if let Some(pid) = self.child.id() {
+            crate::subprocess::terminate_process_group(pid);
+            return;
+        }
         let _ = self.child.start_kill();
     }
 }
