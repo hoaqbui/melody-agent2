@@ -82,6 +82,159 @@ describe('ledgerRoutes', () => {
     }
   });
 
+  it('accepts land, verdict, link and gap', async () => {
+    const cwd = path.join(scratch, 'job-events');
+    await mkdir(cwd, { recursive: true });
+    await sh(cwd, ['init', '-q', '-b', 'main']);
+    const jobRoutes = ledgerRoutes(cwd, ledgerDir);
+    const events = [
+      {
+        at: '2026-09-23T10:00:00Z',
+        kind: 'land',
+        sessionId: 's1',
+        sha: 'abc123',
+        paths: ['a.ts'],
+        message: 'fix',
+      },
+      {
+        at: '2026-09-23T10:01:00Z',
+        kind: 'verdict',
+        sessionId: 's1',
+        workerSessionId: 'w1',
+        verdict: 'good',
+      },
+      {
+        at: '2026-09-23T10:02:00Z',
+        kind: 'link',
+        sessionId: 's1',
+        workerSessionId: 'w1',
+        by: 'user',
+        fromSha: 'abc123',
+      },
+      {
+        at: '2026-09-23T10:03:00Z',
+        kind: 'gap',
+        sessionId: 's1',
+        from: '2026-09-22T00:00:00Z',
+        to: '2026-09-23T09:00:00Z',
+      },
+    ];
+    for (const event of events) {
+      await jobRoutes['POST /ledger/append']({ event });
+    }
+    const { events: written } = (await jobRoutes['POST /ledger/read']({})) as {
+      events: { kind: string }[];
+    };
+    expect(written.map((e) => e.kind)).toEqual(['land', 'verdict', 'link', 'gap']);
+  });
+
+  it('replayed append writes nothing twice', async () => {
+    const cwd = path.join(scratch, 'replay');
+    await mkdir(cwd, { recursive: true });
+    await sh(cwd, ['init', '-q', '-b', 'main']);
+    const replayRoutes = ledgerRoutes(cwd, ledgerDir);
+    const worker = {
+      at: '2026-09-23T12:00:00Z',
+      kind: 'worker',
+      sessionId: 's1',
+      workerSessionId: 'w1',
+      status: 'done',
+    };
+    const first = await replayRoutes['POST /ledger/append']({ event: worker });
+    const second = await replayRoutes['POST /ledger/append']({ event: worker });
+    expect(first).toMatchObject({ ok: true });
+    expect(first).not.toHaveProperty('duplicate');
+    expect(second).toEqual({ ok: true, duplicate: true });
+
+    // A reconnect, a second window or a re-seed replays the same events into the same file — a
+    // freshly built routes object (a new closure, standing in for a new sidecar process) still
+    // catches the duplicate once it has loaded the file's keys.
+    const reloadedRoutes = ledgerRoutes(cwd, ledgerDir);
+    const replayed = await reloadedRoutes['POST /ledger/append']({ event: worker });
+    expect(replayed).toEqual({ ok: true, duplicate: true });
+
+    const file = ledgerFileFor(ledgerDir, cwd);
+    const lines = (await readFile(file, 'utf8')).trim().split('\n');
+    expect(lines).toHaveLength(1);
+  });
+
+  it('falls back to the natural id when an event carries no messageId', async () => {
+    const cwd = path.join(scratch, 'natural-ids');
+    await mkdir(cwd, { recursive: true });
+    await sh(cwd, ['init', '-q', '-b', 'main']);
+    const natRoutes = ledgerRoutes(cwd, ledgerDir);
+    const cases: Record<string, unknown>[] = [
+      {
+        at: '2026-09-23T13:00:00Z',
+        kind: 'correction',
+        sessionId: 's1',
+        workerSessionId: 'w1',
+        path: 'a.ts',
+        toolCallId: 't1',
+      },
+      {
+        at: '2026-09-23T13:01:00Z',
+        kind: 'land',
+        sessionId: 's1',
+        sha: 'sha1',
+        paths: ['a.ts'],
+        message: 'fix',
+      },
+      {
+        at: '2026-09-23T13:02:00Z',
+        kind: 'undo',
+        sessionId: 's1',
+        turnId: 'turn1',
+      },
+      {
+        at: '2026-09-23T13:03:00Z',
+        kind: 'verdict',
+        sessionId: 's1',
+        workerSessionId: 'w1',
+        verdict: 'good',
+      },
+      {
+        at: '2026-09-23T13:04:00Z',
+        kind: 'gap',
+        sessionId: 's1',
+        from: '2026-09-22T00:00:00Z',
+        to: '2026-09-23T09:00:00Z',
+      },
+    ];
+    for (const event of cases) {
+      const first = await natRoutes['POST /ledger/append']({ event });
+      const second = await natRoutes['POST /ledger/append']({ event });
+      expect(first).not.toHaveProperty('duplicate');
+      expect(second).toEqual({ ok: true, duplicate: true });
+    }
+    const file = ledgerFileFor(ledgerDir, cwd);
+    const lines = (await readFile(file, 'utf8')).trim().split('\n');
+    expect(lines).toHaveLength(cases.length);
+  });
+
+  it('keeps a redo that shares its undo turnId', async () => {
+    const cwd = path.join(scratch, 'undo-redo');
+    await mkdir(cwd, { recursive: true });
+    await sh(cwd, ['init', '-q', '-b', 'main']);
+    const undoRoutes = ledgerRoutes(cwd, ledgerDir);
+    const undo = {
+      at: '2026-09-23T13:10:00Z',
+      kind: 'undo',
+      sessionId: 's1',
+      turnId: 'turn1',
+      redo: false,
+    };
+    const redo = { ...undo, at: '2026-09-23T13:11:00Z', redo: true };
+    expect(await undoRoutes['POST /ledger/append']({ event: undo })).not.toHaveProperty(
+      'duplicate'
+    );
+    expect(await undoRoutes['POST /ledger/append']({ event: redo })).not.toHaveProperty(
+      'duplicate'
+    );
+    const lines = (await readFile(ledgerFileFor(ledgerDir, cwd), 'utf8')).trim().split('\n');
+    expect(lines).toHaveLength(2);
+  });
+
   it('reads an empty list when no ledger exists yet and drops a torn last line', async () => {
     expect(await readLedger(path.join(scratch, 'missing.jsonl'))).toEqual([]);
     const torn = path.join(scratch, 'torn.jsonl');

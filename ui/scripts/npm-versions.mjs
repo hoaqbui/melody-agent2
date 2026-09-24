@@ -60,15 +60,11 @@ function setVersions(version) {
 }
 
 function checkVersions() {
+  // ui/desktop/package.json tracks the Melody app's own alpha versioning
+  // (0.9.0-alpha.N) and is intentionally not required to match Cargo.toml;
+  // see tasks.md #195.
   const expectedVersion = readCargoVersion();
   const errors = [];
-  const desktop = readJson(resolve(uiDirectory, "desktop/package.json"));
-
-  if (desktop.version !== expectedVersion) {
-    errors.push(
-      `goose-app is ${desktop.version}; expected ${expectedVersion} from Cargo.toml`,
-    );
-  }
 
   for (const path of packagePaths) {
     const manifest = readJson(path);

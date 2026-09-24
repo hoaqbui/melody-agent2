@@ -291,7 +291,8 @@ Order: 184 (migration) → 183 (identity); 185 ∥ 186 ∥ 187 ∥ 189 ∥ 190 �
   - confirm: `cd ui/desktop && find src tests -iname "*goose*" | grep -viE "gooseServe|gooseAcpClient|gooseSessionNotifications|Goosehints|src/bin/goose" | wc -l && pnpm run typecheck && pnpm run lint:check && pnpm exec vitest run` → 0 (6 today), typecheck 0, lint and i18n green, unit tests pass
 
 - 195. Publish Melody builds as GitHub releases on `hoaqbui/melody-agent2` and point the updater at them: `ui/desktop/src/utils/autoUpdater.ts`, `ui/desktop/src/utils/githubUpdater.ts`, `ui/desktop/src/updates.ts`, `Justfile`.
-  - status: todo · agent: — · worker: medium
+  - status: todo — code merged 2026-09-23; publishing the first release waits for the M4 → A gate and the user's word · agent: — · worker: medium
+  - progress: code done 2026-09-23 (confirm rerun by the session: hoaqbui in all three, 'Melody' 1, UPDATES_ENABLED 1, 0.9.0-alpha.1 1, manifest step 1, npm-versions exit 0, githubUpdater 28 passed, lint clean); also fixed: `generate-mac-update-manifest.js` hard-coded Goose.zip; `MACOSX_DEPLOYMENT_TARGET` defaults to 12.0 in the recipe. Open: `just bump-version` still sets ui/desktop's version (would clobber the alpha line); `gh release create` needs `--notes`
   - card: as the user, I want an installed Melody to pull down my own builds so that a new build reaches the app without a manual copy (user, 2026-09-22: "is there a way where I can run a build, and it pulls down releases?" → option A → "let's add A to tasks for now")
   - context:
     - the updater's two paths: electron-updater first (`autoUpdater.ts:343-351`, feed `aaif-goose/goose`), which needs an Apple-signed app and fails on ad-hoc builds; then the GitHub fallback (`autoUpdater.ts:123-195`, `githubUpdater.ts:458-460`, `:556-584`) that downloads `<bundleName>.zip` and swaps the running `.app` (`:229-240`) — the fallback is the path an unsigned fork uses
@@ -300,6 +301,13 @@ Order: 184 (migration) → 183 (identity); 185 ∥ 186 ∥ 187 ∥ 189 ∥ 190 �
     - a `just release-melody` recipe: bump the version, `just make-ui`, `gh release create v<version> ui/desktop/out/Melody-darwin-arm64/Melody.zip`; publishing is outward-facing, so each release runs on the user's word
     - the fork has no releases today (`gh release list --repo hoaqbui/melody-agent2` → empty, 2026-09-22)
   - confirm: `cd ui/desktop && grep -c "hoaqbui" src/utils/autoUpdater.ts src/utils/githubUpdater.ts && grep -c "UPDATES_ENABLED = true" src/updates.ts && grep -c "^release-melody" ../../Justfile && pnpm run typecheck` → each ≥ 1 (0 today), typecheck 0; then one published release that an older installed Melody offers and installs (the user's hand check)
+  - 2026-09-23 (planning, plan v3 A): now A's first task; the version scheme is `0.9.0-alpha.N` in `ui/desktop/package.json` only (`:4`, today `1.52.0`), the crates keep 1.52
+  - correction: `githubUpdater.ts:460` still defaults `bundleName` to `'Goose'`; a packaged app has no `GOOSE_BUNDLE_NAME`, so it would look for `Goose.zip` while `bundle:default` writes `Melody.zip`
+  - found: `githubUpdater.ts:461` reads `releases/latest`, which skips prereleases and drafts; `autoUpdater.ts:347` asks `releaseType: 'release'`; `forge.config.ts:71-76` publishes to `aaif-goose/goose` as a draft — settled: the updater lists releases and takes the highest semver including prereleases
+  - found: every macOS check needs a `mac-update-requirements.json` asset whose `version` equals the tag minus `v` (`githubUpdater.ts:527-545`); `release-melody` runs `scripts/generate-mac-update-manifest.js --version <v>` and uploads it beside `Melody.zip`
+  - found: `just bump-version` also sets Cargo.toml (`Justfile:353-360`) and `get-tag-version` reads Cargo (`:386-388`) — `release-melody` reads and sets `ui/desktop/package.json` alone; `ui/scripts/npm-versions.mjs:65-69` (run in CI, `.github/workflows/ci.yml:48`) drops the desktop ≠ Cargo check
+  - found: builds aren't Apple-signed without `APPLE_TEAM_ID` (`forge.config.ts:50`); an update's swap strips quarantine (`githubUpdater.ts:358`), a first download does not — 258 carries the install step
+  - confirm (amended 2026-09-23): `grep -c "hoaqbui" ui/desktop/src/utils/autoUpdater.ts ui/desktop/src/utils/githubUpdater.ts ui/desktop/forge.config.ts | grep -c ':0$'` → 0 (3 today); `grep -c "'Melody'" ui/desktop/src/utils/githubUpdater.ts` → ≥ 1; `grep -c "UPDATES_ENABLED = true" ui/desktop/src/updates.ts` → 1; `grep -c '"version": "0.9.0-alpha.1"' ui/desktop/package.json` → 1; `grep -A12 "^release-melody" Justfile | grep -c "generate-mac-update-manifest"` → 1; `node ui/scripts/npm-versions.mjs check` → exit 0; `cd ui/desktop && pnpm vitest run src/utils/githubUpdater` → passes with `0.9.0-alpha.2` offered over `0.9.0-alpha.1` from a prerelease-only list
 
 ### docs/2026-09-23-melody-program-plan-v3.md — Melody, the main agent: M0 (approved 2026-09-23, user: "approved and start ochestrating"; v3 scope 2026-09-23: "do must should and could, and we should be v0.9 and ready for alpha testing")
 
@@ -308,7 +316,7 @@ Order: 198 (rework) → 200 (199 runs beside M1b); 197 done 2026-09-23 (one serv
 
 
 - 198. The server owns each run; a load re-attaches to it without gaps (181, step 2)
-  - status: todo · agent: — (released 2026-09-23; resume the rework from 655130d6d on wt/t198) · worker: high
+  - status: doing · agent: session's worker (claude, wt/t198, 2026-09-23 — resuming the rework from 655130d6d) · worker: high
   - progress: first pass 98f2fcf85 merged 2026-09-23 on the user's call ("merge as-is now") — `task181_reconnect` 2 passed, `acp_server_test` 61, lib `acp::` 342 / `execution::` 21, clippy clean; the opus review said rework (stale permission replay, no user prompt on reload, producer blocks on delivery and cancels at 10 min, any error treated as a disconnect, weak tests): review and rework brief in `docs/2026-09-23-task198-review-v1.md`; the rework WIP 655130d6d on wt/t198 (Codex hit its usage limit mid-run, resets 18:44; unverified, adds permission reconnect tests) must pass `task181_reconnect` → 8 passed (4 scenarios × 2 loops), the full `acp_server_test`, clippy, and a second review before 198 closes
   - card: as the user, I want a long reply to keep coming after my laptop sleeps or the Wi-Fi drops, so that Melody's long turns are never lost (FURPS R · MoSCoW Must)
   - context: plan §The change, bullets 2–5; `acp/server.rs:2409`, `:2251`, `:266`, `:2373`; `load_session.rs:392-467`; tests on the duplex harness `tests/acp_fixtures/mod.rs:332`, `acp_fixtures/server.rs:236`
@@ -326,8 +334,407 @@ Order: 198 (rework) → 200 (199 runs beside M1b); 197 done 2026-09-23 (one serv
   - context: `chatSessionController.ts:145`, `chatSessionStore.ts:230`, `:684`; the walk calls `import('/src/acp/acpConnection.ts').then(m => m.reconnectAcpAfterSystemResume())` mid-turn (dev walk only), extending `tests/e2e/agents-pane.spec.ts`
   - confirm: `just walk "reconnect during a Hard turn"` → 1 passed with the parent's reply exactly once (today: the reply never lands); `just smoke` → passes; then 181 closes
 
+### docs/2026-09-23-melody-program-plan-v3.md — Melody, the main agent: M1a + P1 (drafted 2026-09-23; confirm lines re-checked at 200's gate)
+
+Order: 206 → 207 → 208 (after 198's rework merges) ∥ 209 ∥ 210 ∥ 214 → 211 (after 208, beside 199) ∥ 212 (after 208) ∥ 213 (after 208); 215 after 210. Shared files: 206 and 214 both add a migration to `session_manager.rs` (214 takes the next number); 207 and 209 both edit `session_bridge.rs`'s dispatch; 208 and 210 both edit `acp/server.rs` — parallel only in separate worktrees, merged in order. Each Rust confirm is its own integration target (`crates/goose/tests/melody_*.rs`); the gate runs them together with `cargo test -p goose --test 'melody_*'` (quoted for zsh); a filtered run reporting 0 tests is a failure. Loop parity (AGENTS.md): 208, 211, 212, 213 run turns — each test runs once per loop, following `assert_task181_reconnect(use_state_machine)` (`acp_server_test.rs:364`, `:503-509`). **M1a starts after 198's rework merges** (a run with no client attached must keep going).
+
+- 206. Durable roles and repository identity: Melody, manager or none, and a canonical repository for each session, with one manager per repository even when two starts race
+  - status: todo · agent: — · worker: medium
+  - card: as the user, I want Melody to know, across restarts, which session is hers, which one manages each repository, and which repository a session belongs to, so that she never starts a second manager for the same project or confuses who is who (FURPS R · MoSCoW Must)
+  - context: `SessionType` has no role (`crates/goose/src/session/session_manager.rs:47-56`); `Session` has `project_id` and `parent_session_id` (`:93-95`), builder setters `:305-313`; schema v16 (`:27`), migrations add columns defensively (v15 `:1572-1588`, v16 `:1616-1622`); canonical repository = the git toplevel's realpath as summon computes it (`summon.rs:2762-2801`, `git_toplevel` `:2790`), a `.worktrees/<slug>` cwd belongs to its repository; one manager per repository enforced by the store (unique rule), not read-then-insert; a fork-owned side table vs upstream's `sessions` table decided at review (keeps upstream's next migration mergeable)
+  - confirm: `cargo test -p goose --test melody_identity` → 2 passed (role and repository survive reopening the store; two concurrent get-or-create-manager calls for one repository, one from its `.worktrees/x`, return one id) — today: no test target
+
+- 207. Melody's session tools on the bridge: `list_sessions`, `start_session(repo, task, mode, provider, model, extensions)` and `session_status`; creates the manager session but runs nothing (208 runs it); ARCHITECTURE.md gains the entry
+  - status: todo · agent: — · worker: high
+  - card: as the user, I want Melody to see every session, including the ones I start from the UI, and to open work in a repository with a setup she chose on purpose, so that she manages my projects without my naming session ids (FURPS F · MoSCoW Must)
+  - context: the bridge lists only summon's tools (`agents/session_bridge.rs:282-286`) and dispatches into the session's own `Agent` (`:288-327`); create and activate need a client connection (`acp/server/new_session.rs:36-73`, `acp/server.rs:1322-1337`, `:1563-1573`; `get_session_agent` errors without `client_cx` `:2138-2141`) — so the tools live at the server layer over `SharedAcpState` (`server.rs:358-363`, `acp/server_factory.rs` `shared()`) with activation needing no client; never a silent mode (`new_session.rs:50`; summon's children are Auto `summon.rs:837-849`) — a start missing mode, provider/model or extensions is refused; started sessions are `User` with parent Melody and role manager (206); `session/new` gains `_meta.role` (`new_session.rs:281-291`) for M1b; `list_sessions` reads stored rows incl. empty ones (`server.rs:145-150`): id, title, repository, role, parent, running; ARCHITECTURE.md: the Melody surface entry, `:118`'s stale cites → `summon.rs:1622-1624`, `:2609-2621`
+  - confirm: `cargo test -p goose --test melody_surface` → 3 passed (a `User` session with Melody as parent, role manager and the asked mode/provider/model; a start without a mode refused; a `session/new` session appears in her `list_sessions` by title) — today: no test target; `grep -c "Melody surface" ARCHITECTURE.md` → ≥ 1 (0 today)
+
+- 208. The task Melody hands a manager runs at once with no window open, reaches any window that loads it, and a busy manager says so instead of waiting
+  - status: todo · agent: — · worker: high
+  - card: as the user, I want the task Melody hands a manager to start at once and stream into whatever window I open on it, so that work she starts is live, not parked until I open its chat (FURPS R F · MoSCoW Must)
+  - context: a prompt's run needs the connection that sent it (`on_prompt`, `server.rs:2657-2803`, `begin_run_attachment` `:2690-2692`); `forward_agent_stream` waits for a connection and cancels after `RUN_REATTACH_TIMEOUT` (`server.rs:251`, `:951-984`) — 198 review item 3, so after 198's rework; loads re-attach via `attach_active_run` (`acp/server/load_session.rs:246-333`); one run per session (`server.rs:2168-2180`) → busy with its run id, nobody waits; loop parity: a headless run takes the loop of the Melody turn that called it (`server.rs:467-472`, `:2727`; the desktop always sends the flag `ui/desktop/src/acp/prompt.ts:15`)
+  - confirm: `cargo test -p goose --test melody_run` → 4 passed, 2 per loop (a client loads the manager mid-run and gets the prefix once, then the rest, one turn persisted; a run with no client finishes, persists and frees the session at once) — today: no test target
+
+- 209. Server-side authorization by caller role and target: only Melody calls her tools; a manager sees only its repository; each session gets its own bridge secret
+  - status: todo · agent: — · worker: medium
+  - card: as the user, I want only Melody to start and inspect sessions across my projects, so that a worker or a stray session can't spawn work or read another repository through her tools (FURPS R · MoSCoW Must)
+  - context: one process-wide secret for every adapter (`session_bridge.rs:76-80`, `:141`, checked `:243-249`); the URL's session id picks whose tools run (`:233-238`); dispatch runs any tool the agent has, not only the listed ones (`:288-314` vs `:282-286`); the only role check skips delegated children (`:182`); rule: melody → all three tools; manager → `session_status` for its own repository; none or `SubAgent` → refused and not listed
+  - confirm: `cargo test -p goose --test melody_authz` → 3 passed (role-none `start_session` errors, no row created; a manager's `session_status` on another repository refused; session A's secret on B's URL → 401) — today: no test target
+
+- 210. A `SessionCreated` notice to every connected window, and `session/list` carrying parent and role, with empty and older role sessions still listed
+  - status: todo · agent: — · worker: medium
+  - card: as the user, I want a session Melody starts to appear in my window the moment it exists, marked as hers, and to still be there after a reconnect even before it has said anything, so that nothing she runs is invisible (FURPS F U · MoSCoW Must)
+  - context: no created notice exists; `GooseSessionUpdate` is `crates/goose-sdk-types/src/custom_notifications.rs:34-40`; `DelegationUpdate` is per session per connection (`server.rs:1462-1506`) — this one reaches every connection with custom notifications (`:1035-1040`); `SessionMeta` has neither parent nor role (`acp/response_builder.rs:30-54`); the list hides message-less sessions (`acp/server/list_sessions.rs:207`; JOIN `session_manager.rs:2125-2129`) and pages at 50 (`list_sessions.rs:15`) — Melody and manager sessions list regardless; the desktop polls 10 s after `SESSION_CREATED` (`ui/desktop/src/hooks/useNavigationSessions.ts:106-138`), switching to the notice is M1b's; `just generate-acp-types` (`Justfile:180-182`)
+  - confirm: `cargo test -p goose --test melody_list` → 2 passed (a second connection gets `SessionCreated` with `parentSessionId` and `role`; after a reconnect `session/list` returns an empty manager and one behind 50 newer sessions, both with parent and role) — today: no test target; `just check-acp-artifacts` → no diff
+
+- 211. Approvals from a session Melody started reach the user when no window has that chat open; approve, reject and disconnect each resolve exactly once
+  - status: todo · agent: — · worker: high
+  - card: as the user, I want a permission request from a session Melody started to reach me even when its chat isn't open, and to settle exactly once however I answer or if I disconnect, so that her work neither stalls silently nor runs unapproved (FURPS R U · MoSCoW Must)
+  - context: a permission request goes only to the run's own connection (`server.rs:1824-1890`); a failed request becomes `Permission::Cancel` (`:1863-1868`); the test client answers from a set decision (`crates/goose/tests/acp_fixtures/server.rs:236-250`); split with 199 — 199 owns hand-over between two clients on a shared run, 211 owns no client having the session loaded; the desktop's display of it is M1b's; a disconnect re-asks when a client attaches (recommended) rather than rejecting
+  - confirm: `cargo test -p goose --test melody_approvals` → 6 passed (approve, reject, client-disconnected, each on both loops; each resolves once and the tool runs only on approve) — today: no test target
+
+- 212. A restart never reports a cut-short task as complete, and Melody rebuilds her picture from saved state
+  - status: todo · agent: — · worker: medium
+  - card: as the user, I want Melody to tell me a task was interrupted when Melody restarted mid-turn, never that it finished, and to know my sessions again from what was saved, so that I can trust her status after a crash or a compaction (FURPS R · MoSCoW Must)
+  - context: running turns live only in memory (`server.rs:350`, `:2168`; summon's background tasks `summon.rs:808`); a turn cut short leaves the user's message with no reply; `session_status` = saved state + the live registry — no live run and an unanswered last turn = interrupted; after compaction, what Melody knows comes from `list_sessions`
+  - confirm: `cargo test -p goose --test melody_restart` → 2 passed, one per loop (tear down mid-turn on a manager; a fresh server on the same data dir → `session_status` says `interrupted`, `list_sessions` still names the manager with role and parent) — today: no test target
+
+- 213. P1 budget: idle Melody and idle managers make no model calls, and one combined limit caps running managers plus workers
+  - status: todo · agent: — · worker: medium
+  - card: as the user paying for seats, I want Melody and her managers to cost nothing while idle and never run more at once than I allow, so that a quiet afternoon doesn't burn my quota (FURPS P · MoSCoW Should)
+  - context: summon caps async background delegations at `GOOSE_MAX_BACKGROUND_TASKS` = 5 per session (`summon.rs:786-790`, `:2473-2479`); sync delegates (`:1597`) and Melody's starts are uncapped; nothing counts managers and workers together; model calls outside a prompt: session naming (`server.rs:1252-1253`), tool-chain label summaries (`:1752-1771`); count calls with a stub provider (`session_bridge.rs:498-528`); over the limit a start or delegate is refused naming the count, nothing queues silently; the one allowed idle call is T3's budgeted nightly tidy-up (team-memory plan §Decisions 1)
+  - confirm: `cargo test -p goose --test melody_budget` → 3 passed (per loop: 0 provider calls over an idle window after Melody's and a manager's turns; with a limit of 2, a third start or delegate is refused with "2 of 2") — today: no test target
+
+- 214. P1 seat usage per turn: every recorded model call names its seat (provider), for sessions no window has open too
+  - status: todo · agent: — · worker: low
+  - card: as the user, I want every turn Melody or a manager takes to record which seat and model it used and what it cost, even when no window is open on it, so that I can see what she costs me per seat (FURPS P · MoSCoW Should)
+  - context: `usage_ledger` rows carry model, no provider (`session_manager.rs:1590-1606`, insert `:914-940`, written `:2455`); both loops write through `record_usage_metrics` (`agents/reply_parts.rs:768`; `agents/state_machine/usage.rs:70`) — read the seat inside `session_manager.rs`, leave the signature alone (`state_machine/` untouched, ARCHITECTURE.md `:119`); usage totals sum children via `parent_session_id` (`:2480-2495`), so the desktop's context ring must not read that sum as her context; T1 shares this work
+  - confirm: `cargo test -p goose --test melody_usage` → 1 passed (a manager turn on a stub provider leaves `usage_ledger` rows with provider `stub`, model and tokens, joinable to role manager and parent Melody) — today: no test target
+
+- 215. P1 in the work ledger: a turn event says whose turn it was (Melody, a manager, or an ordinary session) and its parent
+  - status: todo · agent: — · worker: low
+  - card: as the user, I want the Telemetry ledger to tell Melody's turns and her managers' turns apart, seat by seat, so that I can see what orchestration costs next to my own sessions (FURPS P · MoSCoW Should)
+  - context: `TurnEvent.who` is `'session' | 'worker'` (`ui/desktop/src/native/ledger.ts:24-39`), built by `turnEvents` (`workspace/panes/telemetry/ledger-events.ts:21-46`); written only for the chat on screen (`ledger-writer.ts:11-17`, mounted `WorkspaceShell.tsx:995`) — 214's rows are the durable record for unopened managers; role and parent from 210's list meta; 229 edits the same files and lands after
+  - confirm: `cd ui/desktop && pnpm vitest run src/workspace/panes/telemetry/ledger-events.test.ts -t "melody"` → 2 passed (a Melody turn and a manager turn, each with role, seat and parent) — today: 0 passed; `pnpm run typecheck` → 0
+
+### docs/2026-09-23-melody-program-plan-v3.md — Melody, the main agent: M1b + S1 (drafted 2026-09-23; confirm lines re-checked at the M1a → M1b gate)
+
+Order: 224 can start now, beside M1a (it needs none of M1a's tools). After M1a's gate: 220 ∥ 225, then 221 → 222 (both edit `WorkspaceShell.tsx`), 223 alongside once 220 lands; 226 is M1b's gate walk. 224, 221 and 222 all edit `WorkspaceShell.tsx`, so they land one after another. S1 follows M1b's gate, beside M2 ∥ M3: 227 → 228; 229 beside 227. Needs from M1a: 220/225 — Melody's role set at creation, the durable role and `start_session`; 222/223 — `session/list` carrying `parentSessionId` and the role; 226/229 — the `SessionCreated` notice; 227 — the durable run status.
+
+- 220. Melody's session: created once, its id kept in settings, the same conversation after every restart
+  - status: todo · agent: — · worker: medium
+  - card: as the user, I want one Melody conversation that is always there and still the same one after a restart, so that she knows where we left off (FURPS F R · MoSCoW Must)
+  - context: `createSession` (`ui/desktop/src/sessions.ts:84`, options `:28-37`) has no role field today; a new setting `melody.sessionId` beside `workspace.planGate` (`utils/settings.ts:62-63`, default `:108-109`) and in main's allowlist (`main.ts:2083-2105`); her session runs in `~/Melody` (T0) on `claude-code`; pure decision in `src/workspace/melody/melody-session.ts` — stored id × session list → reuse or create; a stored id that no longer loads makes a new one and says so; two concurrent calls make one session; no Archive, no Delete (design §14)
+  - confirm: `cd ui/desktop && pnpm exec vitest run src/workspace/melody/melody-session.test.ts && grep -c "'melody.sessionId'" src/utils/settings.ts src/main.ts` → the test passes (reuse · create when unset · create when the stored id is gone · one create under two concurrent calls) and each grep ≥ 1 (today: no test file)
+
+- 221. The Work toggle and ⋯ in the Chat header; Work collapses when it has no tabs
+  - status: todo · agent: — · worker: medium
+  - card: as the user, I want Chat to take the full width when Work has nothing in it, and one button that brings Work back, so that an empty column never takes space from the chat (FURPS U · MoSCoW Must; design §4, §5, §19, §20)
+  - context: Work always renders today (`WorkspaceShell.tsx:1739-1762`); ⋯ is the bar's `trailing` (`WorkColumn.tsx:129-137`, `:480`; built `WorkspaceShell.tsx:1531-1552`); the Chat header's top right is the watermark (`components/BaseChat.tsx:520-529`); rules as pure store logic beside `openPane`/`closePane` (`pane-store.ts:245`, `:281`; `settle` `:138`) — no tabs collapses Work, the toggle shows/hides it (`aria-pressed`), pressed with no tabs it opens a Terminal; hidden flag saved with the dock (`WorkColumn.tsx:109-117`); ⌘3 shows Work first (`WorkspaceShell.tsx:1433-1460`); walks updated in the same commit: `three-columns.spec.ts:33-38`, `pane-menu.spec.ts:8`, `dock.spec.ts:28`, `session-menu.spec.ts:25`
+  - confirm: `cd ui/desktop && pnpm exec vitest run src/workspace/pane-store.test.ts && grep -c "collapse" src/workspace/pane-store.test.ts` → passes, ≥ 1 (0 today); `just walk "work toggle"` → 1 passed (today: no tests found); then `just smoke` passes
+
+- 222. Melody's tab in Work: bottom panel by default, × hides her, ⌘J opens and closes
+  - status: todo · agent: — · worker: high
+  - card: as the user, I want Melody one keystroke away beside whatever I'm working on, so that I can hand her a task without leaving the session I'm in (FURPS U · MoSCoW Must; design §8, §14, §19)
+  - context: after 220, 221; a `'melody'` PaneId (`pane-store.ts:4-29`) left out of the + menu (`WorkColumn.tsx:420-470`) and `PRIMARY_PANES`/`MORE_PANES` (`WorkspaceShell.tsx:226-227`); opens bottom (`pane-store.ts:198`); × hides her and keeps the chat mounted; her body is `BaseChat` on her session id (`ChatSessionsContainer.tsx:66-75`, panes handed in `App.tsx:737-748`), no chips, placeholder "Ask Melody, or hand her a task…"; her line "N sessions · N need you" (§8); ⌘J beside ⌘1–3 (`WorkspaceShell.tsx:1433-1460`); tabpanel labelled Melody, feed `role="log"`; reconnect restore covers her (`ChatSessionsContainer.tsx:44-53`); risk: two `BaseChat` mounted at once
+  - confirm: `just walk "melody tab"` → 1 passed: ⌘J shows `melody-tab` bottom with her input focused; a draft survives × and ⌘J; after a reload the same id as `melody.sessionId` (today: no tests found)
+
+- 223. Melody's pin above search, and her row pinned at the top of Today
+  - status: todo · agent: — · worker: medium
+  - card: as the user, I want Melody always at the top of my sessions, saying what she's doing, so that I never have to look for her (FURPS U · MoSCoW Must; design §6, §7, §18, §20 decision 2)
+  - context: after 220, beside 221/222 (`components/Layout/NavigationPanel.tsx`, `workspace/sidebar-sessions.ts`); the pin between the spacer and search (`NavigationPanel.tsx:629-632`), a Floating Button whose second line says what she's doing; clicking it does what ⌘J does through an AppEvent (the `OPEN_DIAGNOSTICS` pattern, `constants/events.ts:22`); her row first in Today via a pure `withMelodyFirst` beside `withAwaitingFirst` (`sidebar-sessions.ts:142-149`), applied where `days` is built (`NavigationPanel.tsx:546-553`); companion rows are M2's
+  - confirm: `cd ui/desktop && grep -c "export function withMelodyFirst" src/workspace/sidebar-sessions.ts && pnpm exec vitest run src/workspace/sidebar-sessions.test.ts` → 1 and passes (0 today); `just walk "melody pin"` → 1 passed
+
+- 224. The lever retired: Easy's row is attach · send, and a new Easy session starts on the orchestrator setup
+  - status: doing · agent: session's worker (wt/t224, 2026-09-23) · worker: medium
+  - card: as the user, I want no difficulty to pick before I type, so that every session starts ready to delegate (FURPS U · MoSCoW Must; design §10, §18; plan §M1b)
+  - context: can start now; edits `WorkspaceShell.tsx` so it lands apart from 221/222; today Easy's chips are the lever (`WorkspaceShell.tsx:1313-1327`), triples in `LEVER` (`session-controls.ts:157-177`), a new Easy session is Sonnet direct (`WorkspaceShell.tsx:583`, `:1554-1582`); after: `LEVER.hard` + `orchestratorRecipe` (`session-controls.ts:78`) when the folder has an orchestrator role, else direct Opus; removed: `Lever.tsx`, `STOP_MESSAGES`, the palette's lever group (`palette-state.ts:137-143`, `CommandPalette.tsx:30`, `:36`, test `palette-state.test.ts:56-73`), Telemetry's Lever row (`telemetry-now.ts:36`, `:47-51`), the i18n keys; `DESIGN.md`'s lever lines (`:10`, `:33`, `:91-92`, `:189`) amended; walks that click Hard start on the default (`rpi-strip.spec.ts:36`, `agents-pane.spec.ts:49-50`, `artifact-pane.spec.ts:40`; `easy-mode.spec.ts:9-10` rewritten)
+  - confirm: `cd ui/desktop && test ! -e src/workspace/Lever.tsx && ! grep -rq "workspace-lever" src tests && pnpm run test:light` → exit 0 (today exit 1: the file exists, 10 hits in 4 walks); then `just walk "rpi strip"` → 1 passed
+
+- 225. Melody's tools and role, and one minimal repository manager, so that Melody → manager → worker runs headless
+  - status: todo · agent: — · worker: high
+  - card: as the user, I want to ask Melody for work in a repository and have that repository's manager and its workers do it, so that I talk to one agent and the work still happens where it belongs (FURPS F · MoSCoW Must)
+  - context: after M1a; Melody's tools are M1a's facade only (`list_sessions`, `start_session`, `session_status`), no developer or file tools; her instructions `~/Melody/AGENTS.md` plus a Melody role (where it lives is open: task 177's lesson, `summon.rs:595-633`); the manager is what `start_session` makes, one per repository, Hard's setup (`claude-code`, Opus, the repo's `orchestrator.md`); its workers are `SubAgent`s that never delegate (`.agents/agents/orchestrator.md:61`)
+  - confirm: `cargo test -p goose --test melody_chain` → passes: `start_session` in a fixture repo makes one manager (`User`, parent Melody, role manager); its `delegate` makes a `SubAgent` whose parent is the manager; Melody lists no developer tools (today: no test target)
+
+- 226. The M1b gate walk: Melody starts a session, its manager delegates to a worker, and she reports it done
+  - status: todo · agent: — · worker: high
+  - card: as the user, I want to see a request to Melody become a session, a manager and a worker, and come back to her as done, so that Melody works end to end in the app (FURPS F U · MoSCoW Must; plan §Gates M1b → M2 ∥ M3)
+  - context: after 220–225; `@seat`; builds on `agents-pane.spec.ts:18` and `fixtures.ts:396`; steps: ⌘J → ask her to start a session in a fixture repo → a `sidebar-session-*` row appears without a reload with her as parent → a worker row reads done → her tab says done → a ⌘N session appears in her next answer, named without its id
+  - confirm: `just walk "melody starts a session"` → 1 passed (today: no tests found); then `just smoke`
+
+- 227. The diagnostics report names the chain and why it failed (S1, server)
+  - status: todo · agent: — · worker: high
+  - card: as the user, when a session Melody started fails, I want to know who started it, which manager ran it, which worker failed and why, so that I fix the cause instead of guessing (FURPS S · MoSCoW Could)
+  - context: after M1b's gate; today the report is one session's JSON and logs (`crates/goose/src/session/diagnostics.rs:87-95`, served `acp/server/diagnostics.rs:5`); links exist: `parent_session_id` (`session_manager.rs:93-95`), `list_children` (`:494-505`); a `chain` field — ancestors to Melody, descendants — each {id, name, role, session_type, status, reason, provider, model}; `ui/goose-acp-client` regenerated
+  - confirm: `cargo test -p goose --lib session::diagnostics -- chain` → 1 passed: Melody → manager → a failed worker gives a three-link chain carrying the worker's reason (today: 0 passed)
+
+- 228. Session controls › Diagnostics shows the chain and the reason, before any download (S1, desktop)
+  - status: todo · agent: — · worker: medium
+  - card: as the user, I want Diagnostics to tell me in words which link failed and why, so that I don't have to read a JSON file (FURPS S U · MoSCoW Could)
+  - context: after 227; the row `workspace-config-diagnostics` (`SessionControls.tsx:201-205`) → `OPEN_DIAGNOSTICS` (`WorkspaceShell.tsx:1361`) → `DiagnosticsModal` (`components/ui/Diagnostics.tsx:87`, `:100-130`); above the download: "Started by Melody → <manager> → <worker>", each a link; a pure `chainRows(report)`
+  - confirm: `cd ui/desktop && pnpm exec vitest run src/workspace/diagnostics-chain.test.ts && pnpm run test:light` → passes (today: no test file)
+
+- 229. Telemetry records Melody's handoffs and shows the chain for the open session (S1, desktop)
+  - status: todo · agent: — · worker: medium
+  - card: as the user, I want Telemetry to show where a session came from and which worker failed, so that the chain behind the numbers is visible (FURPS S · MoSCoW Could)
+  - context: after M1b's gate, beside 227; the ledger's `handoff` kind has no shape (`native/ledger.ts:7-15`, `:83`; `ui/sidecar/src/ledger.ts:20`) — give it {from, managerSessionId, sessionId, repo}, appended on `SessionCreated` with Melody as parent; Telemetry › Now (`TelemetryNow.tsx:284-346`) gains a "Started by" row
+  - confirm: `cd ui/desktop && grep -c "export function handoffEvent" src/workspace/panes/telemetry/ledger-events.ts && pnpm exec vitest run src/workspace/panes/telemetry/ledger-events.test.ts src/workspace/panes/telemetry/telemetry-now.test.ts` → 1 and both pass (0 today); then `just walk "telemetry pane"`
+
+### docs/2026-09-23-melody-program-plan-v3.md — M2 companions (drafted 2026-09-23; confirm lines re-checked at the M1b → M2 ∥ M3 gate)
+
+Order: three lanes. **Rust A:** 234 → 236 → 237 (the role file, the folder it reads, the fence around that folder). **Rust B:** 235; separately 238 (239 is P1's, drafted with M1a). **UI:** 240 (the user picks the marks first) → 241 → 242 (both edit `NavigationPanel.tsx`), after 235's list fields. 243 last: the M2 → M4 gate. All build on M1a's surface (start_session · session_status, authorization by caller role, durable role metadata, one manager per repository, `session/list` with parent link and role) and M1b's pin and minimal manager (225). Files shared with M3, settled at M2/M3's gate: `NavigationPanel.tsx`, `WorkspaceShell.tsx` (chat header `:1675-1690`, `:1728-1736`), `sidebar-sessions.ts`, `components/icons/Goose.tsx`, i18n.
+
+- 234. The manager role: `.agents/agents/manager.md`, shipped with Melody; a companion always gets this role body, never a `manager.md` from the repository it manages
+  - status: todo · agent: — · worker: high
+  - card: as the user, I want every companion to work the same way in any repository, delegating and never editing repository files itself, so that a cloned repository can't rewrite what my manager does (FURPS F · MoSCoW Should)
+  - context: summon finds roles in the session's folder (`crates/goose/src/agents/platform_extensions/summon.rs:595-640`); a companion's folder is someone else's repository (task 177's lesson); the body: understand, delegate, never edit repository files, write memory only in `~/Melody/<name>/` and drafts under `memories/`, never wait on another manager (use `send_to_session`, 238), re-read your folder when context was lost; `runtimes:` is `claude-code` only (ACP seats drop the system prompt, `acp/provider.rs:970`); `.agents/agents/orchestrator.md:61` stays
+  - confirm: `test -f .agents/agents/manager.md && cargo test -p goose --test melody_companions manager_role` → 2 passed: a repository's own `manager.md` containing `SENTINEL-HOSTILE` is ignored for the bundled body; the bundled `runtimes:` lists only `claude-code` (today: `test -f` exits 1)
+
+- 235. Companion names and marks: when a manager is first created for a repository, Melody proposes an unused musical name and mark, stored with the session; her reply names it; the user can rename it
+  - status: todo · agent: — · worker: high
+  - card: as the user, I want each repository's manager to have a name I recognise and can change, so that "Tempo" means compo's manager everywhere (design §20 #5; FURPS F U · MoSCoW Should)
+  - context: a `companion` `ExtensionState` v0 {name, mark, repo key} on the manager session (`crates/goose/src/session/extension_data.rs:43`, pattern `:103-109`) unless M1a's role metadata holds it; `session/list` meta gains `companion: {name, mark}` (`acp/response_builder.rs:30-54`); the title is the name with `user_set_name` (`session_manager.rs:68`); rename through `acpRenameSession` (`NavigationPanel.tsx:324`), a clash refused; `start_session`'s result carries `companion_created`; Harmony · Tempo · Chord drawn (`docs/mockups/2026-09-22-melody-visual-design.html:1096`), the pool beyond from 240
+  - confirm: `cargo test -p goose --test melody_companions names` → 4 passed: two repositories get two pool names; both survive a restart; a rename updates the list meta, a clash is refused; `session/list` carries `companion.name` and `mark` (today: no test target)
+
+- 236. Each companion's folder `~/Melody/<name>/` (`charter.md`, `MEMORY.md`, `journal/`) is created with the companion and read into its system prompt at start and on every restore
+  - status: todo · agent: — · worker: high
+  - card: as the user, I want a companion to remember its repository across days, compactions and restarts, so that it doesn't relearn the repository every time (PRD v2 step 6; FURPS R · MoSCoW Should)
+  - context: on creation the three entries from 234's charter template, one commit in `~/Melody` (`memory: <name> joins for <repo>`); not a git repository → the companion starts, the folder is skipped, Melody says why; a rename is one `git mv`; `MELODY_HOME` override for tests; read as a `companion` system-prompt extra via `Agent::extend_system_prompt` (`agent.rs:3564`, called not edited; also `acp/server/manage_sessions.rs:90`) at creation and every restore (`execution/manager.rs:271`); `claude-code` gets the system prompt file on every spawn (`claude_code.rs:378`, `:396`); never loads Melody's `USER.md` or `MEMORY.md`
+  - confirm: `cargo test -p goose --test melody_companions folder` → 4 passed: a new companion has the three entries and one commit; the system prompt contains a sentinel from `charter.md`; an edit after an eviction appears after the restore; `~/Melody/USER.md`'s text is absent (today: no test target)
+
+- 237. Two permissions: a manager writes only inside `~/Melody/<name>/` and `~/Melody/memories/`; any other write is refused on the server; workers keep their role's repository permissions
+  - status: todo · agent: — · worker: high
+  - card: as the user, I want a manager that can keep notes but can't touch my code, so that only reviewed worker diffs change a repository (team-memory plan §Decisions 1; FURPS F R · MoSCoW Should)
+  - context: every `claude-code` `can_use_tool` request carries the tool and `input.path` (`claude_code.rs:969-1006`, test `:1659`) and arrives as a `ToolConfirmation` at `acp/server.rs:1665-1683` → `handle_tool_permission_request` (`:1824`) — outside `agent.rs`; for a manager, Write/Edit/MultiEdit/NotebookEdit are answered from the path's realpath, checked like the sidecar's `requestPath`; needs the manager's seat in an asking mode per session (mode is process-wide today, `claude_code.rs:349-365`, `:727-737` — M1a's explicit mode); Bash: none, or only `git -C ~/Melody` (open)
+  - confirm: `cargo test -p goose --test melody_companions fence` → 5 passed: a manager's Write to `<repo>/README.md` is denied with no client prompt; a Write to its journal is allowed; a `../` escape and an outward symlink are denied; a worker's repository Write is decided as today (today: no test target)
+
+- 238. `send_to_session(target, text)` · `cancel_send(target, run_id)`: returns at once with a run id or a structured busy; never waits for the target's turn
+  - status: todo · agent: — · worker: high
+  - card: as the user, I want Melody and my companions to pass work to each other without one blocking on another, so that a busy companion makes a retry, never a hung turn (FURPS F R · MoSCoW Should)
+  - context: avoid `orchestrator.rs:558-599` (runs the target's loop inside the caller's call, fails when busy `:537-546`); busy is atomic: `ActiveRunRegistry::start_prompt_run` (`execution/active_run.rs:32-45`) → `AgentRunExists` (`acp/server.rs:2168-2176`) → `{busy: {active_run_id}}`, no server queue; cancel via `agent_cancel_token` (`acp/server.rs:2854`) for runs the caller started; the run starts through `on_prompt` (`:2657-2800`) so an open window streams it; the bridge's 5-minute timeout (`session_bridge.rs:36-39`) never applies; authorization is M1a's (Melody → any; manager → its sessions and other managers, async only; worker refused); exposed only on the Melody surface (`session_bridge.rs:282-330`)
+  - confirm: `cargo test -p goose --test melody_send` → 5 passed: an idle target sleeping 30 s returns a run id in < 1 s; a busy target returns `busy` and no second run; cancel ends the target's run and the caller goes on; manager → manager returns at once; a `SubAgent` caller is refused (today: no test target)
+
+- 240. One mark component that takes the member (Melody, or a companion's mark), plus a pool of marks for companions after the first three
+  - status: todo · agent: — · worker: medium
+  - card: as the user, I want each companion's mark to be its own at every size, so that a row, a chip and a pin name it without words (design §0, §20 #5; FURPS U · MoSCoW Should)
+  - context: options first — mockups of the pool beside `m-harmony`/`m-tempo`/`m-chord` (`docs/mockups/2026-09-22-melody-visual-design.html:691`), the user picks before any source edit (as task 193); `components/icons/Goose.tsx` → one component that takes the member; sizes 16/22/28/32, a working state with the teal halo (§16 row 01, and under Reduce motion); the pool matches 235's
+  - confirm: `cd ui/desktop && pnpm exec vitest run src/components/icons/member-mark.test.tsx && pnpm run typecheck` → each pool mark renders at 16 and 22 px with an accessible name; typecheck 0 (today: no test file)
+
+- 241. Companion rows under Melody's pin, and the companion view: its conversation in Chat, with the list filtered to its repository
+  - status: todo · agent: — · worker: medium
+  - card: as the user, I want to see my companions under Melody and open one like a chat, so that each repository's manager is one click away (design §6, §7; FURPS F U · MoSCoW Should)
+  - context: under M1b's pin (`NavigationPanel.tsx:629`); a row is mark · name · "repo · N sessions · status word" · dot (design `:1099-1100`); click → its session in Chat, header name / "Manages <repo> · <runtime> · <model>", composer "Ask <name>…" (design `:1157-1166`), the repository chip pressed (`filterSessions`, `sidebar-sessions.ts:126-139`); companions and Melody leave the day groups (§7); data from 235's meta and M1a's role
+  - confirm: `cd ui/desktop && pnpm exec vitest run src/workspace/companions.test.ts` → passes: rows built from list meta with count and status word; companion and Melody sessions left out of day groups; picking a companion filters to its repository (today: no test file)
+
+- 242. "Started by Tempo" · "Started by Melody" · "Started by you" in the session header, and the manager's mark in the row's meta line
+  - status: todo · agent: — · worker: medium
+  - card: as the user, I want every session to say who started it, so that I know whether a companion, Melody or I own it (design §7, §11, §18; FURPS U · MoSCoW Should)
+  - context: the chip in the chat header (`WorkspaceShell.tsx:1675-1690`) as `session-origin[data-origin=melody|<name>|you]` (design `:1039-1040`, `:1155`); from the parent link — parent is Melody → Melody; a companion → its name and mark; none → you; a parent missing from the list → no chip; the row's second line (`NavigationPanel.tsx:367-370`) gains the manager's mark
+  - confirm: `cd ui/desktop && pnpm exec vitest run src/workspace/session-origin.test.ts` → 4 passed (no parent → you; Melody; Tempo with its mark; unknown parent → none) (today: no test file)
+
+- 243. The M2 → M4 gate: the `companion` walk, and v3's gate line amended from "friend" to "companion"
+  - status: todo · agent: — · worker: high
+  - card: as the user, I want one run to prove that companions are real, reused, reachable managers, so that M4 builds on something that works (v3 §Gates; FURPS F R · MoSCoW Should)
+  - context: `tests/e2e/companion.spec.ts` (@seat) in a fixture repository — ask Melody to start work → a companion row with a proposed name, its manager delegates (a worker row); a second request → the same companion id, no second row; open the row → it takes a message and replies; the worker's refused delegation is checked headless (`summon.rs:1622-1624`, no `delegate` in its tools `:2609-2621`); amend `docs/2026-09-23-melody-program-plan-v3.md:38`
+  - confirm: `just walk "companion" && cargo test -p goose --test melody_companions worker_cannot_delegate` → 1 passed, 1 passed (today: no tests found)
+
+### docs/2026-09-23-melody-program-plan-v3.md — M3 visual language (drafted 2026-09-23; starts at M1b's gate, beside M2)
+
+Order: 246 first (the contract) → 247 ∥ 249 ∥ 251 → 248 (after 247; both edit `components/board/*`) → 250 (needs M1b's tab and pin; motion 01's companion marks after M2) → 252 (the M3 → M4 gate). Motion 06 is 254's. Files shared with M2 (`WorkColumn.tsx`, `NavigationPanel.tsx`, `BoardCard.tsx`, `components/icons/Goose.tsx`) listed at the M2/M3 gate.
+
+- 246. The ink language in `DESIGN.md` and the tokens — teal focus and activity, amber needs you, blue links only, green/red outcomes, everything filled is ink; teal for progress and "on" (§20 decision 4); the Upstream Rule line brought in line with `ARCHITECTURE.md:98`
+  - status: todo · agent: — · worker: high
+  - card: as the user, I want each colour to mean one thing wherever it shows, so that a glance tells me the state without reading (FURPS U · MoSCoW Should)
+  - context: targets are the design's `TOKENS` table (`docs/mockups/2026-09-22-melody-visual-design.html:1236-1257`); light: `theme-tokens.ts:102` `background-inverse` `#0b7a72` → ink `#1e1d1a`, `:116` `text-info` `#2277cc` → `#44c1b8`, `:135` `ring-primary` → `#44c1b8`; dark: `:163` `#ae81ff` → `#f8f8f2`, `:165`/`:177` `#66d9ef` → `#44c1b8`, `:168`/`:180` `#e6db74` → `#fbbf24`, `:196` → `#44c1b8`; the focus ring keeps a 1 px `#0b7a72` edge on paper, light teal never text; `main.css` `:1108`, `:1140`, `:1117` still paint blue; `text-text-info` used as text in 5 files (`TelemetryRoles.tsx`, `TelemetryNow.tsx`, `RunRow.tsx`, `SubRecipeEditor.tsx`, `UsageRing.tsx`) — re-pointed by meaning; switch checked (`ui/switch.tsx:15-16`) and usage ring (`UsageRing.tsx:158`) → teal (§20 wins over §3); `DESIGN.md` §Tokens `:164`, `:168`, §Principles `:9`, §Open decisions `:225`; the light snapshot (`theme-tokens.test.ts:101`) regenerated on purpose
+  - confirm: `grep -c "'--color-ring-primary': '#44c1b8'" ui/desktop/src/theme/theme-tokens.ts` → 2 (0 today); `grep -c "#2277cc" ui/desktop/src/styles/main.css` → 0 (2 today); `grep -c "composed not restyled" DESIGN.md` → 0 (1 today); `cd ui/desktop && pnpm vitest run src/theme/theme-tokens.test.ts` → passes incl. a light focus-edge ≥ 3:1 case; `just walk "studio light"` → 1 passed
+
+- 247. **Needs you** replaces **Needs review**; one status dot beside its word everywhere, the card's 3 px status outline, and the hover rule (lift 1 px + a 4 px outline in the item's own colour; a wash only on ghost buttons, menu items, tabs)
+  - status: todo · agent: — · worker: medium
+  - card: as the user, I want the word for work waiting on me, and the mark beside it, to be the same on every surface, so that I never translate between "review", "waiting" and a colour (FURPS U · MoSCoW Should)
+  - context: §20 #1, §18, §3 parts table (`visual-design.html:788-790`), hover §16 `:1007`; copy: `BoardCard.tsx:18`, `BoardView.tsx:60`, `:76`, `en.json:237`, `:267`, `:306` + 15 locales (35 files carry "Needs review"), `board.spec.ts:94`, `DESIGN.md` §Vocabulary `:105-107`; internal ids stay (`board-state.ts:28-33`); three dot maps to one (`BoardCard.tsx:41-46`, `AgentRow.tsx:34-39`, `RpiStrip.tsx:57`); lift `button.tsx:8-9`; §Vocabulary's `check:` (`:135`) becomes runnable
+  - confirm: `grep -rl "Needs review" ui/desktop/src ui/desktop/tests | wc -l` → 0 (35 today); `grep -rl "const STATUS_DOT" ui/desktop/src | wc -l` → 0 (3 today); `cd ui/desktop && pnpm run i18n:check` → green; `just walk "sidebar|agents pane"` → passed
+
+- 248. One icon set: Heroicons 16 solid replace lucide app-wide (16 px buttons, 14 px rows and chips); `DESIGN.md` §Iconography becomes a lucide → Heroicons table
+  - status: todo · agent: — · worker: medium
+  - card: as the user, I want every glyph drawn in one style with the same weight as the mark, so that the app reads as one thing and not two libraries (FURPS U · MoSCoW Should)
+  - context: §1 (Icon A), §17 `:1030`, the icon grid `visual-design.html:1546-1551`; 95 files import `lucide-react` (86 names); `@heroicons/react` `package.json:70`, `lucide-react` `:109`; each name checked against `ui/node_modules/@heroicons/react/16/solid` (`document-plus-minus` has no 16-solid export); replaces `DESIGN.md:178`'s list; after 247; Settings swept here so 255 starts on one set
+  - confirm: `grep -rl "from 'lucide-react'" ui/desktop/src | wc -l` → 0 (95 today); `grep -c '"lucide-react"' ui/desktop/package.json` → 0; `cd ui/desktop && pnpm run lint:check` → green; `just smoke` → passed
+
+- 249. The runtime colour palette — designed first, avoiding teal, amber, green, red and blue; the user picks; then each runtime's written name carries its colour wherever it shows
+  - status: todo · agent: — · worker: high
+  - card: as the user, I want to tell Claude's work from Codex's, Cursor's and agy's at a glance when several run at once, so that I never read every row to find one seat's work (FURPS U · MoSCoW Should; §20 decision 4)
+  - context: a mockup `docs/mockups/<date>-runtime-palette.html` in both themes first, the user picks (193's pattern); never colour alone (`DESIGN.md:13`); names in `AgentRow.tsx`, `BoardCard.tsx`, `SessionChips.tsx`, companions' lines (M2); a pure `runtime-colours.ts` with a ΔE test; closes `DESIGN.md:225`; a table in `runtime-colours.ts`, not new theme roles (§17 adds none)
+  - confirm: `ls docs/mockups/*-runtime-palette.html` → 1 file; `cd ui/desktop && pnpm vitest run src/workspace/runtime-colours.test.ts` → each hue ≥ ΔE 20 from teal, amber, green, red, blue in both themes (today: no file); `just walk "agents pane"` → passed
+
+- 250. The locked motion picks (01 family working · 03 Work gives way · 05 answered ask settles · 07 Running → Done · 08 Needs you draws its outline · 09C send launches · 10 counts roll) and Melody's tab tint; every pick stops under Reduce motion
+  - status: todo (after M1b's gate; 01's companion marks after M2) · agent: — · worker: high
+  - card: as the user, I want every change of state to come from somewhere and go somewhere, so that I can follow what moved without hunting for it (FURPS U · MoSCoW Should)
+  - context: §16's locked table (`visual-design.html:1012-1024`), `docs/mockups/2026-09-22-melody-motion-proposals.html`; no new duration roles (`main.css:248-251`); surfaces: 05 `ToolCallConfirmation.tsx` and the plan gate; 07/08 `BoardCard.tsx` and M1b's session card; 09C `.send-disc` (`main.css:1116`, `:1155-1170`); 10 `ChangesBar.tsx` and the pin's count; 03 `WorkColumn.tsx`/`pane-store.ts`; 01 one mark component (§3 `:787`); reduced motion `main.css:380-392`; `DESIGN.md` §Motion gains the table
+  - confirm: `grep -cE "@keyframes (ask-settle|outline-draw|send-launch|count-roll|family-)" ui/desktop/src/styles/main.css` → ≥ 5 (0 today); `just walk "changes bar|board"` → passed incl. a `prefers-reduced-motion` run with `animation-name: none`
+
+- 251. Work's tab bar from the keyboard: the pane picker, tab keyboard control and tab overflow
+  - status: todo · agent: — · worker: medium
+  - card: as the user, I want to reach, switch and close every open tab, and every pane not yet open, without the pointer and without a tab falling off the bar's edge, so that Work is as usable from the keys as the chat is (FURPS U · MoSCoW Should)
+  - context: the bar is `role="toolbar"` with `aria-pressed` buttons (`WorkColumn.tsx:318-330`, `:428-433`), no arrows, `overflow-x-auto` (`:435`); `+` lists closed panes (`:440-470`); `DESIGN.md:80`, `:199`, `:151`; ⌘1–3 and ⌘J are taken; keys: ← → between tabs, Enter shows, Delete closes, ⌥↓/⌥↑ between panels (the Codex UX pass in memory); the walk extends `pane-menu.spec.ts`
+  - confirm: `grep -c 'role="tablist"' ui/desktop/src/workspace/WorkColumn.tsx` → ≥ 1 (0 today); `just walk "pane menu"` → passed with arrows, Enter, Delete and a 360 px overflow list
+
+- 252. The M3 → M4 gate walk: the settled window states (§4) at 1512 px in both themes, computed colours checked against 246's roles
+  - status: todo (last in M3) · agent: — · worker: medium
+  - card: as the user, I want the window to look like the design I settled, in light and dark, so that M4 builds on the look I approved and not on drift (FURPS U S · MoSCoW Should)
+  - context: plan v3 `:39`; §4 states (`visual-design.html:805-826`): two panels with Melody bottom · bottom empty · no tabs (Work collapses) · Melody hidden; pattern `studio-light.spec.ts:12`; asserts focus ring and active tab icon `#44c1b8`, filled controls ink, Running teal, Needs-you amber; eight screenshots for the user's eye (computed styles are the gate, no pixel baselines)
+  - confirm: `just walk "window states"` → 1 passed, 8 screenshots (today: no spec); every `check:` in `DESIGN.md` prints nothing
+
+### docs/2026-09-23-melody-program-plan-v3.md — M4 first run and Settings (after the M2 → M4 and M3 → M4 gates)
+
+Order: 254 first (the seat row and sign-in) → 253 ∥ 255 → 256 (after 255, M1a's checks, M1b's session; its memory row after T1); 257 any time after M1b. The M4 → A gate is 253's `@seat` walk.
+
+- 253. The first-run walkthrough: welcome → seats → projects → meet Melody, once on a fresh profile, before the Hub
+  - status: todo · agent: — · worker: high
+  - card: as a new alpha tester, I want to go from a fresh install to Melody's first message in one guided path, so that my first minutes set up a seat and a project instead of a provider form (FURPS U S · MoSCoW Could)
+  - context: today two guards in a row (`App.tsx:723-724`): `OnboardingGuard` (`OnboardingGuard.tsx:55`, `:165-166`) and `RuntimesGuard` (`RuntimesGuard.tsx:22-27`) — first run replaces both; a Ready seat or an API provider counts; Projects per §21 (`:1582-1585`); "Meet Melody" opens her tab and sends her first turn; a pure `first-run.ts` step machine; existing profiles don't see it; walks already run on fresh profiles (task 147); mock pattern `runtimes-gate.spec.ts:101-112`
+  - confirm: `cd ui/desktop && pnpm vitest run src/workspace/onboarding/first-run.test.ts` → passed (today: no file); `just walk "first run"` → 2 passed (seat-free steps; the `@seat` path to Melody's first message)
+
+- 254. Seats: signing in runs in a Terminal tab that closes back into its row and rechecks by itself (motion 06); API providers wait behind **Use an API key instead**; one seat list for first run and Settings › Seats
+  - status: todo · agent: — · worker: high
+  - card: as the user, I want to sign a seat in without leaving the app or pressing Recheck, and reach an API key only when I ask for one, so that the default path is my subscription seat (FURPS U S · MoSCoW Could)
+  - context: today Sign in navigates to `/` with `terminalInput` (`RuntimesGate.tsx:85`), typed into a shell (`TerminalPane.tsx:119-121`) that outlives the command; the pty's exit `terminal-session.ts:260-262`; argv per CLI from its `--help` (`RuntimesGate.tsx:51-59`; agy keeps its line); motion 06 §16 `:1018`; a pure `seat-sign-in.ts` (opening → running → exited 0 → closing → recheck → ready; non-zero → Error row with the CLI's last line + Try again); API key opens upstream's `ProviderSelector`/`ProviderConfigForm`; copy §21 Seats (`:1572-1575`); `DESIGN.md:117` amended
+  - confirm: `cd ui/desktop && pnpm vitest run src/workspace/onboarding/seat-sign-in.test.ts` → passed (today: no file); `just walk "runtimes gate"` → passed: a stub CLI exits 0, the tab closes, the row reads Ready without Recheck
+
+- 255. The Settings route with the design's categories (General · Seats · Projects · Extensions · Keyboard · Phone · Privacy and data · Updates and about); changes apply at once, no Save; the irreversible asks first
+  - status: todo · agent: — · worker: high
+  - card: as the user, I want every setting in a named place I can click through, so that I find a setting by what it is about and not by which upstream tab it came from (FURPS U · MoSCoW Could)
+  - context: `SettingsRoute` (`App.tsx:772`) renders upstream's eight tabs (`SettingsView.tsx:190-255`); every upstream row finds a category or is listed as retired; General takes Easy/Advanced (`DESIGN.md:88`); Phone keeps its ids (`:89`); Updates composes `settings/app/UpdateSection.tsx` gated on `UPDATES_ENABLED`; version from `app.getVersion()`; the settings-row part §3 `:797`
+  - confirm: `grep -c "TabsTrigger" ui/desktop/src/components/settings/SettingsView.tsx` → 0 (8 today); `just walk "settings"` → 1 passed through each category, no Save button; `just walk "phone card|runtimes gate"` → passed
+
+- 256. Settings › Melody: her seat, "Show Melody at launch", what she may do without asking (each switch enforced by the server), what she remembers
+  - status: todo (after 255, M1a's authorization, M1b's session; "Her memory" after T1) · agent: — · worker: medium
+  - card: as the user, I want to decide in one place what Melody may start and message without asking me, so that her reach is mine to set (FURPS U S · MoSCoW Could)
+  - context: rows §21 Melody (`:1567-1571`); each "may do" row maps to M1a's server check (plan v3 `:22`) — no check, no row; "Her memory" (View · Clear…) reads `~/Melody`; Clear… is a confirm dialog (§3 `:779`)
+  - confirm: `just walk "settings melody"` → 1 passed: "Start sessions in a new repository" off → Melody asks instead of starting (`@seat`; today: no spec)
+
+- 257. The phone's tab order: Melody, Chat, then the panes
+  - status: todo (after M1b's gate) · agent: — · worker: low
+  - card: as the user on my phone, I want Melody first on the tab rail, so that the phone opens on who knows everything (FURPS U · MoSCoW Could; §20 decision 3)
+  - context: the rail builds `[chat, ...PANE_IDS]` (`WorkspaceShell.tsx:366-373`); phone mode `visible: 'chat' | PaneId` (`pane-store.ts:67`); a pure `phoneTabOrder()`; the phone project runs by hand
+  - confirm: `cd ui/desktop && pnpm vitest run src/workspace/pane-store.test.ts -t "phone tab order"` → 1 passed, `['melody', 'chat', …]` (0 matching today)
+
+### docs/2026-09-23-melody-program-plan-v3.md — A v0.9 alpha (195 is A's first task; publishing only on the user's word each time)
+
+Order: 195 → 258 ∥ 259. 259's confirm is the A-done gate (plan v3 `:41`).
+
+- 258. The alpha checklist: who tests, how to install (fresh, with the quarantine step), what to try, known issues, where feedback goes
+  - status: todo (after 195) · agent: — · worker: low
+  - card: as an alpha tester, I want one page that tells me how to install, what to try and where to report, so that my first hour produces feedback and not questions (FURPS S · MoSCoW Must)
+  - context: plan v3 `:30`; 1.52.0 installs don't see 0.9 as newer, so testers install fresh; an unsigned first download is quarantined; "what to try" follows first run → seats → Melody's first message → a session she starts; known issues from open `tasks.md` entries at release time; who tests and where feedback goes are the user's answers (default: GitHub issues on `hoaqbui/melody-agent2`)
+  - confirm: `f=$(ls docs/*-melody-alpha-checklist-v1.md) && grep -cE "^## (Who tests|Install|What to try|Known issues|Where feedback goes)" "$f"` → 5 (today: no file)
+
+- 259. v0.9 alpha, done: `v0.9.0-alpha.1` published and installed fresh, it opens on Melody, and `v0.9.0-alpha.2` arrives through the updater
+  - status: todo (after the M4 → A gate, 195 and 258; each `gh release create` on the user's word) · agent: — · worker: medium
+  - card: as the user, I want an installed alpha to pull down the next build by itself, so that testers stay current without reinstalling (FURPS R S · MoSCoW Must)
+  - context: the gate is plan v3 `:41` (every Must/Should/Could closed, T1–T4's gates passed); `just test-full` before each tag; the swap path `githubUpdater.ts:229-240`, `:358`; log lines `GitHubUpdater: Update available:` (`:515`), `Current app version` (`:468`); the user's hand checks: opens on Melody's tab; Settings › Updates offers alpha.2; About reads `0.9.0-alpha.2` after relaunch
+  - confirm: `gh release view v0.9.0-alpha.1 --repo hoaqbui/melody-agent2 --json tagName -q .tagName` → `v0.9.0-alpha.1` (not found today); `gh release view v0.9.0-alpha.2 --repo hoaqbui/melody-agent2 --json assets -q '[.assets[].name]|sort|join(",")'` → `Melody.zip,mac-update-requirements.json`; `grep -c "Update available: true" ~/Library/Logs/Melody/main.log` → ≥ 1; `just test-full` → green
+
+### docs/2026-09-23-team-memory-program-plan-v2.md — team memory and growth: T0 (approved 2026-09-23, user: "continue" on the plan's decision 1 and 2 recommendations)
+
+T0 done 2026-09-23: 202 (`~/Melody` committed, `83f5f23`); 203 (health check + lifecycle in its `AGENTS.md`, `9cc819d`; a fresh `claude -p --model haiku` there, no tools → "Pulse, Memory, Gaps, Companions, Next week"); 204 (PRD v2, v1 retired, the four conflicts marked settled in the research and v3; `both loops` 0, `memories/` 6); 205 (`scripts/melody-notebook-week.py` — fixture `4 · 3 · 1` exit 0, journal removed exit 1, live `0 · 0 · 0`). T0's gate still needs a week of use (§Waiting on the user). T1–T4 are in v0.9's scope (2026-09-23); T1 is planned at T0's gate, beside M1a.
+
+### docs/2026-09-23-team-memory-program-plan-v2.md — T1: outcomes the scorecard can trust (drafted 2026-09-23; beside M1a, shares P1's ledger work)
+
+Order: 264 → 265 ∥ 266 ∥ 267 ∥ 268 → 269. 266 done 2026-09-23 (`ledger-outcome.ts`: `outcomeOf`, `jobsOf`; `UndoEvent` gained `redo` — 267 records a redo as `undo` with `redo: true`; `now` is ms; confirm rerun: ledger-outcome 19 passed, with ledger-events and telemetry 54; lint clean). 265 done 2026-09-23 (sidecar dedup by kind · session · worker · message-or-natural-id, duplicates answer `{ok, duplicate}`; confirm rerun: 1 passed, sidecar 100, desktop ledger-events 12, both typechecks clean). 264 done 2026-09-23 (kinds `land · verdict · link · gap` in both lists; `worker` carries `turnId`, `member`, `charterSha`, `taskRef`, `taskHash`, `baseSha` — charter, hash and base stay null until their writers exist; confirm rerun: `'land'` 1 each, sidecar 1 passed, desktop 1 passed, sidecar suite 98 passed). 267 edits `ChangesBar.tsx`, `WorkspaceShell.tsx`, `ledger-writer.ts` and lands alone on them. The T1 → T4 gate is 266's vitest + 268's walk.
+
+- 267. The missing writers: `land` from the Changes bar commit, `undo` from Undo this turn, `gap` on launch
+  - status: todo · agent: — · worker: medium
+  - card: as the user, I want my commit, my undo and the app's closed hours in the ledger, so that landed and undone can happen and a hole in the record is visible (FURPS R · MoSCoW Must)
+  - context: after 264; land: `handleCommit` (`ChangesBar.tsx:145-184`) → `/git/rev-parse` HEAD and the committed paths (`git diff-tree --no-commit-id --name-only -r HEAD`; `/git/commit` returns only stdout, `sidecar git.ts:418-424`); a `Fixes-job: <workerSessionId>` trailer also appends `link {by: user, fromSha}`; undo: `undoEvent` (`ledger-events.ts:230-236`) has no caller — `undoTurn` (`WorkspaceShell.tsx:1041-1100`) appends it with `redo`; gap: a 60 s last-alive heartbeat per cwd (localStorage beside `project-storage.ts`), at the first seed after launch (`ledger-writer.ts:29-40`) a heartbeat older than 10 min appends `gap`
+  - confirm: `grep -c "appendLedger(" ui/desktop/src/workspace/ChangesBar.tsx ui/desktop/src/workspace/WorkspaceShell.tsx` → ≥ 1 each (0 today); `cd ui/desktop && pnpm vitest run ledger-events -t "land paths|Fixes-job trailer|gap after"` → 3 passed; `just walk "changes bar"` → 1 passed with one `land` whose sha is the Committed banner's
+
+- 268. One-tap verdict on the worker row (good · fixed it · wrong, optional why), and "Fixes…" to link a job
+  - status: doing · agent: session's worker (2026-09-23) · worker: medium
+  - card: as the user, I want to judge a job in one tap and say which earlier job it fixes, so that the test set and rework come from my word and not a guess (FURPS U R · MoSCoW Must)
+  - context: after 264; the row `AgentRow.tsx:75-124` (`agents-row` `:83`) — a done row gets three buttons, "why" after `wrong`; the tap calls `appendLedger` directly; the latest verdict wins in 266; "Fixes…" lists this repository's earlier jobs, file overlap shown as a hint, never written as a link; walk `tests/e2e/job-verdict.spec.ts` seeds a done delegation through the dev module (task 200's trick), no seat
+  - confirm: `just walk "job verdict"` → 1 passed: one tap → one `verdict` event, a re-render adds none, "Fixes…" writes one `link` (today: no spec)
+
+- 269. Telemetry reads the fold: clean means landed, blocked is never clean, unknown shows as unknown
+  - status: doing · agent: session's worker (2026-09-23) · worker: medium
+  - card: as the user, I want Telemetry's clean-done to agree with the scorecard's rule, so that one job never reads two ways (FURPS R · MoSCoW Should)
+  - context: after 266; `telemetry-now.ts:98` (`OUTCOMES` gains `reworked`, `unknown`), `:214-228`; `telemetry-roles.ts:110-153`, `:202-219`; `telemetry-trends.ts:134-149`
+  - confirm: `cd ui/desktop && pnpm vitest run telemetry-now telemetry-roles -t "blocked is never clean|done without a land is not landed"` → 2 passed (today a done, unblocked worker reads landed, `telemetry-now.ts:226`)
+
+### docs/2026-09-23-team-memory-program-plan-v2.md — T2: Team health, Usage, Team Context (gated on M1b + M3; decision 2a: Work tabs first)
+
+Order: 270 (draftable now) → 271 ∥ 272 → 273 ∥ 274; 275 after use.
+
+- 270. T2a PRD: Team health and Usage as Work tabs
+  - status: todo · agent: — · worker: medium
+  - card: as the user, I want the two tabs' behaviour, states and criteria written and approved before any code, so that T2a builds what I picked (FURPS U · MoSCoW Must)
+  - context: mockups `docs/mockups/2026-09-23-team-health-panel.html` and `2026-09-23-usage-versions.html` version D; must decide how the tabs read `~/Melody` and other repositories' ledgers (the sidecar has one cwd, `main.ts:1315-1316`; `/ledger/*`, `/fs/*` 400 outside it, `sidecar ledger.ts:95-114`), where seat windows come from (`planLimits` is supplied nowhere, `UsageRing.tsx:46`, `:57`), what fixture the `team health` walk loads; template `docs/2026-09-22-agent-memory-prd-v2.md`
+  - confirm: `ls docs/*-team-tabs-prd-v1.md | wc -l && grep -c "^- \[ \]" docs/*-team-tabs-prd-v1.md` → 1 file, ≥ 6 criteria (0 today); then the user's approval
+
+- 271. Read-only paths to the notebook and to every ledger
+  - status: blocked — 270's pick and an `ARCHITECTURE.md` §Invariants amendment the user approves · agent: — · worker: medium
+  - card: as the user, I want Team health to see `~/Melody` and every companion's ledger from any project, so that the numbers aren't limited to the open repository (FURPS F · MoSCoW Must)
+  - context: `/notebook/read {path}` under a second root fixed at spawn (`~/Melody`, realpath, read-only, `..` refused); `/ledger/list` over `*.jsonl` in `defaultLedgerDir()` (`sidecar ledger.ts:32-37`); registered beside `ledgerRoutes` (`sidecar index.ts:80-85`); `/fs/*` unchanged
+  - confirm: `cd ui/sidecar && pnpm vitest run notebook` → reads a fixture file, refuses an escape and any write, lists two ledgers (today: no test file)
+
+- 272. Seat windows reach the renderer: each plan window's used, max and reset
+  - status: blocked — 270's pick; with or after task 182 (a spine patch) · agent: — · worker: high
+  - card: as the user, I want each seat's 5-hour, weekly and monthly windows with their reset times, so that Usage can say when one closes and the tidy-up can skip a seat that's nearly full (FURPS F · MoSCoW Should)
+  - context: goose folds rate limits into `CreditsExhausted` with no reset (`acp/provider.rs:183-207`); claude-agent-acp's `rate_limit_info` and codex-acp's `resetsAt` are never forwarded (task 182); the desktop reads `usage_update` only for context (`sessionNotificationAdapter.ts:109`); target type `UsageLimit` (`usage-ring.ts:4-12`); feeding `planLimits` also lights the send disc's ring
+  - confirm: `cargo test -p goose --lib acp:: -- seat_window` → a claude `rate_limit_info` and a codex `resetsAt` each reach the client as a window (0 match today)
+
+- 273. Team health tab
+  - status: blocked — M1b, M3, 270 approved, 271 · agent: — · worker: high
+  - card: as the user, I want the team's vital signs in one Work tab, and the check-in one click away, so that I see what's due without asking (FURPS U · MoSCoW Must)
+  - context: `PaneId` `'team-health'` (`pane-store.ts:4-29`), label/icon `WorkspaceShell.tsx:206`, `:221`; five tiles (memory lines vs cap, chats with a note — `scripts/melody-notebook-week.py`'s logic, waiting on you, jobs done clean from 266, stale notes); member cards from 266; "Start check-in" sends "check-in" to Melody's session (M1b); links to Team Context (T2b)
+  - confirm: `just walk "team health"` → 1 passed: opens from +, tiles read the fixture ledger and notebook, Start check-in reaches Melody's tab (today: no spec)
+
+- 274. Usage tab (mockup D)
+  - status: blocked — as 273; live windows need 272 · agent: — · worker: high
+  - card: as the user, I want to see which seat closes before it resets, and what each member costs per clean job, so that I move work before the quota wall (FURPS U · MoSCoW Must)
+  - context: pure `usage-projection.ts` — pace so far projected to the reset, "closes <day hh:mm>" when it crosses max first; the team table from 266 with each worker's tokens from the child session (`acp/sessions.ts:33-35`); three notes each ending in an action; `PaneId` `'usage'`
+  - confirm: `cd ui/desktop && pnpm vitest run usage-projection` → the "Codex weekly 84 % Tue 14:00 → closes Thu 11:00" case passes (today: no file); `just walk "team health"` shows the Usage closing time
+
+- 275. T2b: Team Context as a rich markdown editor over `~/Melody`, then the Reminders, Clean-up, Companions and Routines tabs
+  - status: blocked — T2a in use; the user's written rule first · agent: — · worker: high
+  - card: as the user, I want to read and edit everyone's memory in one editor where agents only suggest, so that I stay the one who approves what the team believes (FURPS U F · MoSCoW Could)
+  - context: the rule written first as the Team Context PRD — direct writes: journals, `MEMORY.md`; suggestions only: charters, `AGENTS.md`, `SOUL.md`, verified `memories/` pages; each save one commit; a stale save stops and asks; features per `docs/mockups/2026-09-23-team-context.html`; the other tabs per `2026-09-23-melody-home.html`; split one task per tab at this gate
+  - confirm: `ls docs/*-team-context-prd-v1.md | wc -l && grep -c "stale save" docs/*-team-context-prd-v1.md` → 1, ≥ 1 (0 today)
+
+### docs/2026-09-23-team-memory-program-plan-v2.md — T3: lifecycle routines (after M1b; 276–279 are fixture-only)
+
+Order: 276 ∥ 277 (both `scheduler.rs`, one lands before the other) ∥ 279 → 278 → 280. 279 done 2026-09-23 (`scripts/melody-routines.py`, fixture `cap 170/200 warn · archived 2 · sweep 3 listed · backup: no remote set · reminders 3` exit 0; a non-repository exits 1; archive idempotent; proposals live at `proposals/YYYY-MM-DD-<name>.md` — a new notebook convention). Only the tidy-up calls a model, within its budget; the tidy-up's limits are enforced by a script after the run, not by the prompt.
+
+- 276. The scheduler runs a script job with no model call
+  - status: doing · agent: session's worker (2026-09-23) · worker: high
+  - card: as the user, I want upkeep that needs no judgement to run on the scheduler without calling any model, so that idle means no model call (FURPS P R · MoSCoW Must)
+  - context: `execute_job` always builds an Agent and a provider (`scheduler.rs:1133-1310`); add recipe `Settings.command: Option<Vec<String>>` (`recipe/mod.rs:99-124`) — run the argv with no shell in `working_dir`, record `RunOutcome` (`scheduler.rs:1015-1025`), never build a provider; test with a mock provider factory counting calls over a simulated idle hour
+  - confirm: `cargo test -p goose --lib scheduler -- command_job_makes_no_model_call` → 1 passed (today: no such test)
+
+- 277. A token budget that stops a scheduled run, and a skip when the seat has too little room
+  - status: todo · agent: — · worker: high
+  - card: as the user, I want the nightly tidy-up to stop at 20 k tokens and skip a seat under 20 % room, so that upkeep never eats a working day's quota (FURPS P · MoSCoW Must)
+  - context: `max_turns: None` hard-coded (`scheduler.rs:1301`), `Settings.max_turns` (`recipe/mod.rs:111`) ignored; add `Settings.token_budget: Option<u64>` read from the session's usage in the stream loop (`scheduler.rs:1318-1333`), over budget → cancel with a new `RunStatus::BudgetReached` (`:1010`, `:1336-1352`); `Settings.min_seat_room: Option<u8>` (needs 272; without it the run says "seat room unknown")
+  - confirm: `cargo test -p goose --lib scheduler -- token_budget_stops_run` → 1 passed with `BudgetReached` (today: no test)
+
+- 278. The nightly tidy-up and its guard
+  - status: blocked — 276, 277 · agent: — · worker: high
+  - card: as the user, I want memory tidied overnight without ever touching past days or losing more than a quarter, so that I can let it run unattended (FURPS R · MoSCoW Must)
+  - context: `scripts/routines/tidy-up.yaml` — `working_dir: ~/Melody`, agy by default, `token_budget: 20000`, `min_seat_room: 20`; promote on two days, corrections overwrite, one `DREAMS.md` entry, commit `memory: tidy-up <date>` (`~/Melody/AGENTS.md` §Lifecycle); `scripts/melody-tidy-guard.py` (a script job at 03:30): every `journal/*.md` byte-identical, `MEMORY.md` loses ≤ 25 %, exactly one new `DREAMS.md` entry — a violation reverts the run's commits and writes the cause to `DREAMS.md`; fixture `scripts/fixtures/notebook-tidy/`
+  - confirm: `python3 scripts/melody-tidy-guard.py --fixture scripts/fixtures/notebook-tidy/ok` → `journal identical · dropped 12% · 1 dream`, exit 0; `…/journal-edited` → exit 1, reverted; `…/dropped-40` → exit 1 (today: no script)
+
+- 280. Install the routines on the scheduler
+  - status: blocked — 276–279; the user's yes (persistent jobs on their machine) · agent: — · worker: low
+  - card: as the user, I want the upkeep routines scheduled once, visible in Routines, and removable, so that upkeep is a setting and not a chore (FURPS U · MoSCoW Should)
+  - context: `melody-tidy-up` 03:00 daily; `melody-tidy-guard` 03:30; `melody-cap-check` hourly (no chat-start trigger exists); `melody-archive` on the 1st; `melody-sweep` Sundays; `melody-backup` daily; `melody-reminders` 08:00; cron shape `routine.ts:10-21`
+  - confirm: `goose schedule list | grep -c "melody-"` → 7 (0 today)
+
+### docs/2026-09-23-team-memory-program-plan-v2.md — T4: companion growth (after M2 and T1; C planned at its own gate from ≥ 20 judged jobs per companion)
+
+Order: 281 → 282 ∥ 283.
+
+- 281. A companion's test set, built from judged jobs
+  - status: blocked — M2 (`~/Melody/<name>/`), T1 (264, 266, 268) · agent: — · worker: medium
+  - card: as the user, I want each companion's tests taken only from jobs I judged, so that a charter change is measured against my standard (FURPS F R · MoSCoW Must)
+  - context: `scripts/melody-testset.py build <name>` writes `~/Melody/<name>/tests/<workerSessionId>.md` per judged job: the task (`taskRef`, `taskHash`), `baseSha`, the grader (the task's test command or the Reviewer's rubric), the expected result (the landed diff, or the correction for `fixed`); no task written by an agent; < 3 judged → "not enough history (N judged jobs)"
+  - confirm: `python3 scripts/melody-testset.py build tempo --ledger scripts/fixtures/testset/ledger.jsonl --out "$(mktemp -d)"` → `5 tasks`; the 2-verdict fixture → `not enough history (2 judged jobs)` (today: no script)
+
+- 282. Rerun the test set on the old and new charter, pass^3, each run in a fresh worktree
+  - status: blocked — 281; the scheduler gains `worktree_base` (keeps `.worktrees/` at two writers, `ARCHITECTURE.md:93`) · agent: — · worker: high
+  - card: as the user, I want a charter proposal to show both charters' scores per task before I say yes, so that I accept a change on evidence (PRD v2 step 7; FURPS R · MoSCoW Must)
+  - context: each task 3 runs per charter in a worktree at `baseSha`, the charter injected as the recipe's instructions, graded, the worktree removed; pass^3 = all three pass; `add_run_worktree` takes no base today (`scheduler.rs:1085-1096`), nor `/git/worktree/add` (`sidecar git.ts:474-481`); output: the Companions table — task, your verdict, v2, v3, tokens
+  - confirm: `python3 scripts/melody-testset.py run --fixture scripts/fixtures/testset/regress` → `scores lower on retina-scale`, then `git worktree list | grep -c "wt/ts-"` → 0; the 2-judged fixture → `not enough history` (today: no script)
+
+- 283. The Scorecard: throughput, lead time, change failure rate, rework rate, tokens per clean job
+  - status: blocked — T1 (266), M2 · agent: — · worker: medium
+  - card: as the user, I want five delivery numbers per companion from the same fold, so that "getting better" is a trend and not a feeling (FURPS F · MoSCoW Must)
+  - context: pure `scorecard.ts` over 266's fold, per member per week — throughput (landed jobs), lead time (`worker` at → `land` at), change failure rate (landed then reworked or undone / landed), rework rate (reworked / final-outcome jobs ≥ 7 days), tokens per clean job (child tokens `acp/sessions.ts:33-35` / landed); unknown jobs excluded and counted beside; feeds 274's team table
+  - confirm: `cd ui/desktop && pnpm vitest run scorecard` → passes on 266's fixtures incl. "unknown is excluded, not clean" (today: no file)
+
 ## Waiting on the user
 
+- T0 (team memory) — open Melody's chats in `~/Melody` for a week; then `python3 scripts/melody-notebook-week.py` counts chats · with a journal line · without, and say whether "where were we?" was answered from her notes. Decision 2c (tabs in the titlebar row) is also still open.
 - 192 — after Melody.app launches: your theme, layout and workspace are kept; the app menu shows Settings…; the microphone prompt names Melody; Browser pane logins survived or not; `goose://` links open Melody (move or delete `ui/desktop/out/Goose-darwin-arm64/Goose.app` if they open Goose); then say whether `~/Library/Application Support/Goose` and `…/Melody.first-launch-2026-09-22` (the empty profile of the first, failed copy) can go.
 - 193 — pick the Melody artwork for the loader, the recipe modal and the logo hover from mockups.
 

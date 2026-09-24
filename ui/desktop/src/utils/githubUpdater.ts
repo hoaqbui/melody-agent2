@@ -13,11 +13,28 @@ interface GitHubRelease {
   name: string;
   published_at: string;
   html_url: string;
+  draft: boolean;
+  prerelease: boolean;
   assets: Array<{
     name: string;
     browser_download_url: string;
     size: number;
   }>;
+}
+
+// The fork ships alpha builds as prereleases; take the highest semver tag
+// among published (non-draft) releases, prerelease or not.
+export function selectLatestRelease(releases: GitHubRelease[]): GitHubRelease | undefined {
+  return releases
+    .filter((release) => !release.draft)
+    .reduce<GitHubRelease | undefined>((latest, candidate) => {
+      if (!latest) {
+        return candidate;
+      }
+      const latestVersion = latest.tag_name.replace(/^v/, '');
+      const candidateVersion = candidate.tag_name.replace(/^v/, '');
+      return compareVersions(candidateVersion, latestVersion) > 0 ? candidate : latest;
+    }, undefined);
 }
 
 interface UpdateCheckResult {
@@ -455,10 +472,11 @@ export async function prepareUpdateInstall(options: {
 }
 
 export class GitHubUpdater {
-  private readonly owner = process.env.GITHUB_OWNER || 'aaif-goose';
-  private readonly repo = process.env.GITHUB_REPO || 'goose';
-  private readonly bundleName = process.env.GOOSE_BUNDLE_NAME || 'Goose';
-  private readonly apiUrl = `https://api.github.com/repos/${this.owner}/${this.repo}/releases/latest`;
+  private readonly owner = process.env.GITHUB_OWNER || 'hoaqbui';
+  private readonly repo = process.env.GITHUB_REPO || 'melody-agent2';
+  private readonly bundleName = process.env.GOOSE_BUNDLE_NAME || 'Melody';
+  // Lists all releases rather than /releases/latest, which skips prereleases.
+  private readonly apiUrl = `https://api.github.com/repos/${this.owner}/${this.repo}/releases`;
 
   async checkForUpdates(): Promise<UpdateCheckResult> {
     const startTime = Date.now();
@@ -495,10 +513,15 @@ export class GitHubUpdater {
         throw new Error(`GitHub API returned ${response.status}: ${response.statusText}`);
       }
 
-      const release: GitHubRelease = await safeJsonParse<GitHubRelease>(
+      const releases: GitHubRelease[] = await safeJsonParse<GitHubRelease[]>(
         response,
         'Failed to get GitHub release information'
       );
+      const release = selectLatestRelease(releases);
+      if (!release) {
+        log.info('GitHubUpdater: No published releases found');
+        return { updateAvailable: false };
+      }
       log.info(`GitHubUpdater: Found release: ${release.tag_name} (${release.name})`);
       log.info(`GitHubUpdater: Release published at: ${release.published_at}`);
       log.info(`GitHubUpdater: Release assets count: ${release.assets.length}`);

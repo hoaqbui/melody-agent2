@@ -23,9 +23,9 @@ Read this before research or a PRD; a PRD or plan that contradicts it is a findi
 
 ### 3.1 Lightweight
 
-- No separate control-plane service in V1. Avoid: Kubernetes, Redis, Kafka, Temporal, Postgres, distributed worker infrastructure, separate orchestration frameworks, a custom vector database, a custom task engine unless required.
+- No separate control-plane service in 0.9. Avoid: Kubernetes, Redis, Kafka, Temporal, Postgres, distributed worker infrastructure, separate orchestration frameworks, a custom vector database, a custom task engine unless required.
 - Goose's MCP support, unchanged — no custom gateway; all runtimes see the same project capabilities (filesystem, browser, git, project tools).
-- Goose's sqlite, unchanged — sessions, subagent sessions and tasks already exist there; no new tables in V0–V1, no memory system.
+- Goose's sqlite, unchanged — sessions, subagent sessions and tasks already exist there; no new tables. Agent memory is files, not a system: the notebook `~/Melody` (markdown in git) and the work ledger's JSONL (amended 2026-09-23, §12).
 - Worker processes start when delegated work starts and exit when it ends; the Claude session outlives them.
 
 ### 3.2 Claude owns the outcome
@@ -75,7 +75,7 @@ User → Claude ─┬─ agy            research
 
 - A runtime **is** a Goose provider: `AcpProvider` spawns the adapter, forwards Goose extensions as MCP servers, renders the agent's own tool calls through the normal path, and maps Goose modes to the adapter's permission modes. There is no separate `AgentRuntime` interface.
 - Grok has no subscription of its own here; it is a Cursor model, so `cursor-acp` is the Grok runtime and is required, not optional.
-- A Direct session on `claude-acp`, `codex-acp`, `cursor-acp` or `claude-code` runs gated by Goose's modes. Every delegated worker runs `Auto` whatever its runtime (`summon.rs:622,1400,2075,2373`; upstream forwards no child approvals yet) — the Reviewer gates the diff, not the mode. Forwarding child approvals is upstream work, out of V0.
+- A Direct session on `claude-acp`, `codex-acp`, `cursor-acp` or `claude-code` runs gated by Goose's modes. Every delegated worker runs `Auto` whatever its runtime (`summon.rs:622,1400,2075,2373`; upstream forwards no child approvals yet) — the Reviewer gates the diff, not the mode. Forwarding child approvals is upstream work, out of 0.9 unless M1a needs it.
 - A runtime whose binary is missing shows "Install" and does not start; not authenticated shows the provider's own sign-in step.
 
 ## 6. Roles and the map
@@ -403,21 +403,19 @@ Goose Desktop is the base; it becomes a coding workspace. The walk, states and c
 - **Two shells, one renderer:** the Electron desktop, and the same renderer served to the phone by a sidecar on the Mac over Tailscale (installable as a PWA). On a phone the workspace shows one pane at a time behind a tab rail; the terminal gets a key bar (Esc · Tab · Ctrl · arrows · paste) above the keyboard and a server-side session that survives the tab being backgrounded. The browser pane is the project's own dev server in an iframe; arbitrary sites wait for a native shell.
 - **Must:** chat, streaming output, tool-call rendering, Files, editor, Diff, Git, Terminal, runtime selector, session history, subagent visibility, task status, RPI phase visibility.
 - **Should:** Browser, Markdown, Plan pane, Task pane, flexible panes, agent transcript drill-down, accept/reject changes, worktree support, review results view (2026-09-16: Browser, Markdown, flexible panes, accept/reject per hunk, worktrees and the Runs inbox landed — tasks 31, 42, 50, 48/49/54, 53).
-- **Could:** visual delegation graph, persistent named agents, scheduled agents, mobile client, cloud execution, multi-machine workers. (2026-09-16: scheduled agents landed for the local case — routines, task 59; the phone web build is the mobile client at V0 — task 20.)
+- **Could:** visual delegation graph, persistent named agents (in 0.9 since 2026-09-23, §12), scheduled agents, mobile client, cloud execution, multi-machine workers. (2026-09-16: scheduled agents landed for the local case — routines, task 59; the phone web build is the mobile client at V0 — task 20.)
 - **Agent activity:** each delegated worker is a row — runtime · role · task · status (waiting / running / done / failed) — under the orchestrator, appearing when the `delegate` call starts; click → the worker's isolated transcript. Rows are a view over Goose's `tasks_update` notifications, and name the runtime the roll picked.
   - amended 2026-09-16 (task 27's pick, `docs/2026-09-16-agent-activity-research-v1.md` §Options → pick): `tasks_update` has no producer, so rows are not a view over it — the session bridge publishes per-session (`delegate_started` from summon, the child's tool activity, one terminal event with the outcome) and the ACP server forwards it as a `DelegationUpdate` on `_goose/unstable/session/update`; the tree is keyed by the child's `subagent_session_id` and rebuilt from a children read on load or reconnect; `waiting` has no producer yet (the row starts at `running`).
 - **Composer row** (amended 2026-09-20, tasks 121–124): quiet by default — Easy shows the lever, the folder, attach and send; the send disc carries the **usage ring** (the most spent limit, breakdown on hover); Advanced adds the model chip; cost, tokens, extensions and diagnostics live in Session controls.
 - **RPI strip:** Research · Plan · Implement · Review light up as a worker with that role starts; a phase with an artifact (Brief, Plan, Result, Review) is clickable; a re-run phase shows a counter.
 
-## 12. Scope by tier
+## 12. Scope — one target: Melody v0.9 alpha
 
-Tiers are what the user sees; the plan's tranches (`docs/2026-09-15-goose-fork-plan-v1.md`) are build order — roles land in tranche 3, before any pane, because the thesis is testable from the CLI.
+Amended 2026-09-23 (user: "delete the mvp. let's focus on 0.9 as our be all end all goal for the current time being"): the V0 / V0.5 / V1 ladder is retired; **v0.9 alpha is the only target**. Its scope is `docs/2026-09-23-melody-program-plan-v3.md` (every Must, Should and Could: M0 → M1a → M1b → M2 ∥ M3 → M4 → A, with P1 and S1) plus team memory and growth T0–T4 (`docs/2026-09-23-team-memory-program-plan-v2.md`). A plan or PRD that targets a tier is read as targeting 0.9.
 
-- **V0** — the fork; `claude-acp` default; `codex-acp`, `cursor-acp`, `agy` providers; `runtimes:` in the spine; the ten role files and the runtime matrix; the sidecar; chat, Files, editor, markdown preview, Terminal, Diff, Git, browser (project dev server); session and runtime selectors; the web build reachable from the phone with the one-pane layout. Basic delegation, no orchestration UI.
-- **V0.5** — Browser, Markdown, flexible pane layout, RPI strip, agent-activity tree, Direct vs Orchestrate in the header, research/plan artifact pane; amended 2026-09-16 (parity plan decision 3): local scheduling — routines saved from a session, a Runs inbox on the Schedules route, runs in their own worktree — moves here from Future; cloud and remote runs do not.
-- **V1** — the six roles and four specialists exercised end-to-end in the UI: RPI-aware delegation, review loops, task status, worker transcript navigation, summary handoffs, plan acceptance/revision UX.
-- **Future** (only after the lightweight product proves useful) — persistent named agents, agent memory, authority policies, scheduling (amended 2026-09-16: the local case moved up a tier, see above; only cloud and multi-machine scheduling stay here), iOS/Android clients, remote workers, cloud execution, multi-machine scheduling, durable background workflows.
-- **Landed** (amended 2026-09-16, parity plan tasks 47–54, 59, 61, 62) — worktree-per-task (Worktree chip, `<toplevel>/.worktrees/<slug>` on `wt/<slug>`, Merge and Remove in Changes; delegated children run in their own cwd); per-hunk review in Changes (Stage · Reject · Undo per chunk, Unstaged · Staged scope); scheduled runs record done / failed / killed and land in the Runs inbox (Open · Accept · Dismiss), each in its own worktree when the recipe says so (`settings.worktree`); Save as routine; the sidecar's per-launch key, fixed port and the Phone card with the keyed URL.
+- **Landed** (before 0.9 was the target) — the fork and its providers, the role files and `runtimes:`, the sidecar, chat with Files · Editor · Markdown · Terminal · Changes · Git · Browser, the RPI strip, the agent-activity tree, worktree-per-task, per-hunk review, routines and the Runs inbox, the phone web build, the work ledger and Telemetry, the notebook (`~/Melody`, T0).
+- **In 0.9** — delegation that survives reconnects (M0); Melody, the main agent, with her plumbing, tab and pin (M1a, M1b); companions as long-lived managers, one per repository (M2); the ink visual language (M3); first run and Settings (M4); the cost and concurrency budget (P1); diagnosing what Melody starts (S1); trustworthy job outcomes (T1); Team health, Usage and Team Context (T2); lifecycle routines — the weekly check-in and the budgeted nightly tidy-up (T3); companion growth — test sets, the scorecard, the time horizon and the autonomy ladder (T4); the `0.9.0-alpha.1` release (A).
+- **After 0.9** — the MCP memory server, shared skills, the offline optimizer, learned routing and auto-merge (team memory T5); authority policies; iOS/Android clients; cloud and remote workers; multi-machine scheduling; durable background workflows.
 
 ## 13. Success criteria
 

@@ -12,6 +12,10 @@ export const LEDGER_EVENT_KINDS = [
   'review',
   'undo',
   'handoff',
+  'land',
+  'verdict',
+  'link',
+  'gap',
 ] as const;
 export type LedgerEventKind = (typeof LEDGER_EVENT_KINDS)[number];
 
@@ -52,6 +56,15 @@ export interface WorkerEvent extends LedgerEventBase {
   // Paths under the return's `## Files Changed`; what a later session edit is checked against.
   filesChanged: string[];
   parentToolCallId?: string;
+  // Job identity (task 264): who ran it, under which charter, for which task, from which base —
+  // so an outcome can be traced and rerun later. `null` marks a field the builder cannot fill
+  // yet, not one that was skipped.
+  turnId?: string | null;
+  member?: string | null;
+  charterSha?: string | null;
+  taskRef?: string | null;
+  taskHash?: string | null;
+  baseSha?: string | null;
 }
 
 // The session edited a file a worker had returned as changed.
@@ -69,10 +82,36 @@ export interface ReviewEvent extends LedgerEventBase {
   base?: string;
 }
 
+// Undo this turn, or its Redo (`redo: true`) — the latest of the two for a turn decides whether
+// the turn's jobs read undone (266). Lines written before the flag existed read as undos.
 export interface UndoEvent extends LedgerEventBase {
   kind: 'undo';
   turnId: string;
+  redo: boolean;
 }
+
+// Task 264's four new kinds — a commit that took a job's files (written by 267), the user's
+// one-tap judgment on a worker row (268), a later job or commit named as fixing an earlier one
+// (267's commit trailer or 268's "Fixes…" — the only way a job reads reworked), and a gap
+// between two heartbeats while the app was closed (267, on launch). Typed by payload only: the
+// kind itself is this object's own key, so `land`/`verdict`/`link`/`gap` are spelled out once
+// each, in `LEDGER_EVENT_KINDS` above — a writer that wants one on its own narrows `LedgerEvent`
+// by that kind in its own file, not restated here.
+interface LedgerPayloadByKind {
+  land: { sha: string; paths: string[]; message: string };
+  verdict: { workerSessionId: string; verdict: 'good' | 'fixed' | 'wrong'; why?: string };
+  link: {
+    workerSessionId: string;
+    by: 'user' | 'melody';
+    fromWorkerSessionId?: string;
+    fromSha?: string;
+  };
+  gap: { from: string; to: string };
+}
+
+type LedgerPayloadEvent = {
+  [K in keyof LedgerPayloadByKind]: LedgerEventBase & { kind: K } & LedgerPayloadByKind[K];
+}[keyof LedgerPayloadByKind];
 
 export type LedgerEvent =
   | TurnEvent
@@ -80,6 +119,7 @@ export type LedgerEvent =
   | CorrectionEvent
   | ReviewEvent
   | UndoEvent
+  | LedgerPayloadEvent
   | (LedgerEventBase & { kind: 'confirm' | 'handoff'; [key: string]: unknown });
 
 export interface LedgerReadResponse {
