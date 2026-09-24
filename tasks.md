@@ -308,7 +308,7 @@ Order: 198 (rework) → 200 (199 runs beside M1b); 197 done 2026-09-23 (one serv
 
 
 - 198. The server owns each run; a load re-attaches to it without gaps (181, step 2)
-  - status: todo · agent: — (released 2026-09-23; resume the rework from 655130d6d on wt/t198) · worker: high
+  - status: doing · agent: session's worker (claude, wt/t198, 2026-09-23 — resuming the rework from 655130d6d) · worker: high
   - progress: first pass 98f2fcf85 merged 2026-09-23 on the user's call ("merge as-is now") — `task181_reconnect` 2 passed, `acp_server_test` 61, lib `acp::` 342 / `execution::` 21, clippy clean; the opus review said rework (stale permission replay, no user prompt on reload, producer blocks on delivery and cancels at 10 min, any error treated as a disconnect, weak tests): review and rework brief in `docs/2026-09-23-task198-review-v1.md`; the rework WIP 655130d6d on wt/t198 (Codex hit its usage limit mid-run, resets 18:44; unverified, adds permission reconnect tests) must pass `task181_reconnect` → 8 passed (4 scenarios × 2 loops), the full `acp_server_test`, clippy, and a second review before 198 closes
   - card: as the user, I want a long reply to keep coming after my laptop sleeps or the Wi-Fi drops, so that Melody's long turns are never lost (FURPS R · MoSCoW Must)
   - context: plan §The change, bullets 2–5; `acp/server.rs:2409`, `:2251`, `:266`, `:2373`; `load_session.rs:392-467`; tests on the duplex harness `tests/acp_fixtures/mod.rs:332`, `acp_fixtures/server.rs:236`
