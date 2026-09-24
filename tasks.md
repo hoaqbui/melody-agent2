@@ -327,6 +327,18 @@ Order: 200 next (199 runs beside M1b); 198 done 2026-09-23 (rework merged 297e67
   - context: `chatSessionController.ts:145`, `chatSessionStore.ts:230`, `:684`; the walk calls `import('/src/acp/acpConnection.ts').then(m => m.reconnectAcpAfterSystemResume())` mid-turn (dev walk only), extending `tests/e2e/agents-pane.spec.ts`
   - confirm: `just walk "reconnect during a Hard turn"` → 1 passed with the parent's reply exactly once (today: the reply never lands); `just smoke` → passes; then 181 closes
 
+- 284. A cancelled run's idle update says it was cancelled (found by 200's walk)
+  - status: todo · agent: — · worker: medium
+  - card: as the user, I want a window that re-attached to know a run was stopped, not finished, so that the chat and the ledger don't record a cancel as a completion (FURPS R · MoSCoW Should)
+  - context: after a re-attach the client never sees the prompt's `stopReason`; the run's idle notification carries no outcome; add the outcome (`end_turn · cancelled · refusal · max_tokens`) to it in both agent-loop paths, and have `chatSessionStore.ts` read it; 200's walk then asserts `cancelled` directly
+  - confirm: `cargo test -p goose --test acp_server_test task284` → a re-attached client's idle update carries `cancelled` after Stop (0 today)
+
+- 285. Cancelling a parent ends its delegates: a Done/Failed update per child and no orphaned process (found by 200's walk)
+  - status: todo · agent: — · worker: high
+  - card: as the user, I want Stop to stop the whole tree, so that no delegate row stays "running" and no shell keeps working after I stopped it (FURPS R · MoSCoW Must)
+  - context: 200's walk saw, after Stop, the delegate row still `running` (no terminal delegation update sent) and the Claude Code child's `zsh`/`python3` alive past the cancel and past app teardown; the delegate's process group must be killed on cancel, and a `failed`/`cancelled` delegation update sent
+  - confirm: `just walk "reconnect during a Hard turn"` extended → after Stop the delegate row leaves `running` within 10 s and `pgrep -f "time.sleep(307)"` finds nothing (today: row running, process alive)
+
 ### docs/2026-09-23-melody-program-plan-v3.md — Melody, the main agent: M1a + P1 (drafted 2026-09-23; confirm lines re-checked at 200's gate)
 
 Order: 206 → 207 → 208 (after 198's rework merges) ∥ 209 ∥ 210 ∥ 214 → 211 (after 208, beside 199) ∥ 212 (after 208) ∥ 213 (after 208); 215 after 210. Shared files: 206 and 214 both add a migration to `session_manager.rs` (214 takes the next number); 207 and 209 both edit `session_bridge.rs`'s dispatch; 208 and 210 both edit `acp/server.rs` — parallel only in separate worktrees, merged in order. Each Rust confirm is its own integration target (`crates/goose/tests/melody_*.rs`); the gate runs them together with `cargo test -p goose --test 'melody_*'` (quoted for zsh); a filtered run reporting 0 tests is a failure. Loop parity (AGENTS.md): 208, 211, 212, 213 run turns — each test runs once per loop, following `assert_task181_reconnect(use_state_machine)` (`acp_server_test.rs:364`, `:503-509`). **M1a starts after 198's rework merges** (a run with no client attached must keep going).
