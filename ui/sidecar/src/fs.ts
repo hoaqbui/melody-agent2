@@ -24,6 +24,25 @@ const HIDDEN = /(^|[\\/])\.goose-trash([\\/]|$)/;
 
 const resolveIn = (cwd: string, target: string): string => path.resolve(cwd, target);
 
+// A path that does not exist yet resolves through its nearest existing ancestor, so a
+// symlinked temp dir (/var → /private/var) cannot slip the new tail past a boundary. Shared
+// with `notebook.ts`, whose fixed root needs the same escape-proofing against a single
+// directory rather than a git toplevel.
+export const realpathThroughAncestor = async (target: string): Promise<string> => {
+  let existing = target;
+  const tail: string[] = [];
+  for (;;) {
+    try {
+      return path.join(await realpath(existing), ...tail);
+    } catch {
+      const parent = path.dirname(existing);
+      if (parent === existing) throw new Error('cannot find parent directory');
+      tail.unshift(path.basename(existing));
+      existing = parent;
+    }
+  }
+};
+
 // The sidecar is unauthenticated on the tailnet, so a request path may only be
 // inside the spawn cwd's repository or a sibling worktree of it. realpath the
 // path or its closest existing parent to catch symlink escapes.
@@ -39,21 +58,7 @@ const requestPath = async (
   try {
     // Outside any repository (the Hub on a home directory) the spawn cwd is the boundary.
     toplevel = await toplevelOf(spawnCwd).catch(() => realpath(spawnCwd));
-    // A path that does not exist yet resolves through its nearest existing ancestor, so a
-    // symlinked temp dir (/var → /private/var) cannot slip the new tail past the boundary.
-    let existing = requested;
-    const tail: string[] = [];
-    for (;;) {
-      try {
-        resolved = path.join(await realpath(existing), ...tail);
-        break;
-      } catch {
-        const parent = path.dirname(existing);
-        if (parent === existing) throw new Error('cannot find parent directory');
-        tail.unshift(path.basename(existing));
-        existing = parent;
-      }
-    }
+    resolved = await realpathThroughAncestor(requested);
   } catch (error) {
     throw new HttpError(400, `path is not usable: ${(error as Error).message}`);
   }
