@@ -82,6 +82,52 @@ describe('ledgerRoutes', () => {
     }
   });
 
+  it('accepts land, verdict, link and gap', async () => {
+    const cwd = path.join(scratch, 'job-events');
+    await mkdir(cwd, { recursive: true });
+    await sh(cwd, ['init', '-q', '-b', 'main']);
+    const jobRoutes = ledgerRoutes(cwd, ledgerDir);
+    const events = [
+      {
+        at: '2026-09-23T10:00:00Z',
+        kind: 'land',
+        sessionId: 's1',
+        sha: 'abc123',
+        paths: ['a.ts'],
+        message: 'fix',
+      },
+      {
+        at: '2026-09-23T10:01:00Z',
+        kind: 'verdict',
+        sessionId: 's1',
+        workerSessionId: 'w1',
+        verdict: 'good',
+      },
+      {
+        at: '2026-09-23T10:02:00Z',
+        kind: 'link',
+        sessionId: 's1',
+        workerSessionId: 'w1',
+        by: 'user',
+        fromSha: 'abc123',
+      },
+      {
+        at: '2026-09-23T10:03:00Z',
+        kind: 'gap',
+        sessionId: 's1',
+        from: '2026-09-22T00:00:00Z',
+        to: '2026-09-23T09:00:00Z',
+      },
+    ];
+    for (const event of events) {
+      await jobRoutes['POST /ledger/append']({ event });
+    }
+    const { events: written } = (await jobRoutes['POST /ledger/read']({})) as {
+      events: { kind: string }[];
+    };
+    expect(written.map((e) => e.kind)).toEqual(['land', 'verdict', 'link', 'gap']);
+  });
+
   it('reads an empty list when no ledger exists yet and drops a torn last line', async () => {
     expect(await readLedger(path.join(scratch, 'missing.jsonl'))).toEqual([]);
     const torn = path.join(scratch, 'torn.jsonl');

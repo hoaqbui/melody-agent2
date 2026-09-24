@@ -102,6 +102,51 @@ export function parseFilesChanged(text: string | null): string[] {
   return [...paths];
 }
 
+// The id of the user message that opened the turn holding a tool call: a turn runs from a user
+// message until the next one (telemetry-now.ts's `turnsOf`, `:123-150`) — a leading run of
+// assistant messages before any user message is its own turn, named `turn-<index>` like there.
+function turnIdFor(messages: readonly Message[], toolCallId: string): string | undefined {
+  let currentId: string | undefined;
+  for (const [index, message] of messages.entries()) {
+    if (message.role === 'user') {
+      currentId = message.id ?? `turn-${index}`;
+      continue;
+    }
+    if (currentId === undefined) currentId = `turn-${index}`;
+    for (const request of getToolRequests(message)) {
+      if (request.id === toolCallId) return currentId;
+    }
+  }
+  return undefined;
+}
+
+// The `instructions` argument of the `delegate` call a tool-request id names, if the call is
+// still in the transcript.
+function delegateInstructions(messages: readonly Message[], toolCallId: string): string | null {
+  for (const message of messages) {
+    for (const request of getToolRequests(message)) {
+      if (request.id !== toolCallId) continue;
+      const call = request.toolCall as { value?: { arguments?: unknown } };
+      const args = (call.value?.arguments ?? {}) as Record<string, unknown>;
+      return typeof args.instructions === 'string' ? args.instructions : null;
+    }
+  }
+  return null;
+}
+
+const TASK_REF = /\btask\s+(\d+)\b/i;
+
+// The first `task NNN` named in the delegate call's instructions — the pointer back to
+// `tasks.md`. `taskHash` (a hash of that task's card, to catch drift) waits on reading the
+// file, which this pure builder does not do.
+function taskRefOf(messages: readonly Message[], toolCallId: string | undefined): string | null {
+  if (!toolCallId) return null;
+  const instructions = delegateInstructions(messages, toolCallId);
+  if (!instructions) return null;
+  const match = TASK_REF.exec(instructions);
+  return match ? `task ${match[1]}` : null;
+}
+
 // A live `DelegationUpdate` carries no timestamp: the worker returned when the parent's
 // `delegate` call answered, so its `at` is the message holding that response; a row seeded
 // from the session record keeps its `updatedAt`; otherwise now.
@@ -130,6 +175,17 @@ export function workerEvent(
     blocked: delegation.status === 'done' && isBlockedReturn(text),
     filesChanged: parseFilesChanged(text),
     parentToolCallId: delegation.parentToolCallId,
+    // Job identity (task 264): turnId and taskRef read from what the transcript already holds;
+    // member stands in for a real team member until M2; charterSha, taskHash and baseSha need a
+    // git read or a run-start capture this pure builder does not have — null, not omitted.
+    turnId: delegation.parentToolCallId
+      ? (turnIdFor(messages, delegation.parentToolCallId) ?? null)
+      : null,
+    member: delegation.source ?? null,
+    charterSha: null,
+    taskRef: taskRefOf(messages, delegation.parentToolCallId),
+    taskHash: null,
+    baseSha: null,
   };
 }
 

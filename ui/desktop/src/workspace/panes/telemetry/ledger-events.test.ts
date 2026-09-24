@@ -155,6 +155,62 @@ describe('the worker return', () => {
     expect(workerEvent('s1', { ...delegation, status: 'running' }, messages)).toBeNull();
   });
 
+  it('job identity: turnId and taskRef read from the transcript today, member stands in for delegation.source, charterSha/taskHash/baseSha wait on M2', () => {
+    const delegation: Delegation = {
+      subagentSessionId: 'child-3',
+      parentSessionId: 's1',
+      source: 'implementer',
+      title: 'task 264',
+      status: 'done',
+      parentToolCallId: 'd3',
+    };
+    const messages = [
+      msg('user', [text('please pick up task 264 from tasks.md')], { id: 'u1', created: T0 }),
+      msg(
+        'assistant',
+        [
+          {
+            type: 'toolRequest',
+            id: 'd3',
+            toolCall: {
+              status: 'success',
+              value: {
+                name: 'delegate',
+                arguments: { instructions: 'implement task 264: ledger schema for jobs' },
+              },
+            },
+          } as ToolRequestContent,
+        ],
+        { created: T0 + 1 }
+      ),
+      msg('assistant', [response('d3', '## Files Changed\n- `ledger.ts`')], {
+        created: T0 + 90,
+      }),
+    ];
+    const event = workerEvent('s1', delegation, messages);
+    expect(event).toMatchObject({
+      turnId: 'u1',
+      member: 'implementer',
+      taskRef: 'task 264',
+      charterSha: null,
+      taskHash: null,
+      baseSha: null,
+    });
+  });
+
+  it('leaves the new worker fields null, not omitted, when the delegate call left no trace', () => {
+    const delegation: Delegation = {
+      subagentSessionId: 'child-4',
+      parentSessionId: 's1',
+      source: 'implementer',
+      title: 'ad hoc',
+      status: 'done',
+      updatedAt: '2026-09-20T10:00:00.000Z',
+    };
+    const event = workerEvent('s1', delegation, []);
+    expect(event).toMatchObject({ turnId: null, taskRef: null, charterSha: null });
+  });
+
   it('dates a live delegation by its delegate response, so a later session edit counts', () => {
     const live: Delegation = {
       subagentSessionId: 'child-2',
