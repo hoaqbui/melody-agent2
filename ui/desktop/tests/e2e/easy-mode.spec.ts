@@ -1,4 +1,4 @@
-import { test, expect, setAdvancedControls } from './fixtures';
+import { test, expect, setAdvancedControls, trustRecipeIfAsked } from './fixtures';
 
 // Task 58 (lever retired task 224): a fresh app starts as a chat — Easy's row is folder,
 // attach and send, no Runtime chip and no difficulty pick. The first prompt typed into the
@@ -42,6 +42,7 @@ test.describe('easy mode', { tag: '@seat' }, () => {
     const hubInput = goosePage.locator('[data-testid="chat-input"]');
     await hubInput.fill('Respond with the single word hello.');
     await hubInput.press('Enter');
+    await trustRecipeIfAsked(goosePage);
     await expect(goosePage).toHaveURL(/resumeSessionId=/, { timeout: 30000 });
     await expect(
       goosePage.locator('[data-testid="message-container"].assistant').last()
@@ -154,7 +155,9 @@ test.describe('easy mode', { tag: '@seat' }, () => {
     // Back in Easy: still no Runtime chip — the session it started on is fixed for its
     // lifetime (task 224 gives Easy no mid-session switch; Advanced's chips do that).
     await expect(goosePage.locator('[data-testid="workspace-runtime"]')).toHaveCount(0);
-    console.log(`resolved on ${canOrchestrate ? 'claude-code orchestrate' : 'claude-acp direct'}, opus listed: ${opusListed}`);
+    console.log(
+      `resolved on ${canOrchestrate ? 'claude-code orchestrate' : 'claude-acp direct'}, opus listed: ${opusListed}`
+    );
     await goosePage.screenshot({ path: test.info().outputPath('easy-no-lever-session.png') });
   });
 });
