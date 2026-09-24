@@ -326,6 +326,34 @@ Order: 198 (rework) → 200 (199 runs beside M1b); 197 done 2026-09-23 (one serv
   - context: `chatSessionController.ts:145`, `chatSessionStore.ts:230`, `:684`; the walk calls `import('/src/acp/acpConnection.ts').then(m => m.reconnectAcpAfterSystemResume())` mid-turn (dev walk only), extending `tests/e2e/agents-pane.spec.ts`
   - confirm: `just walk "reconnect during a Hard turn"` → 1 passed with the parent's reply exactly once (today: the reply never lands); `just smoke` → passes; then 181 closes
 
+### docs/2026-09-23-team-memory-program-plan-v2.md — team memory and growth: T0 (approved 2026-09-23, user: "continue" on the plan's decision 1 and 2 recommendations)
+
+Beside M0; no code in goose or the desktop. Order: 202 → 203 → 204, 205 any time.
+
+- 202. Commit `~/Melody/` as it stands — the notebook: charter, soul, about-you, memory index, journal, `memories/` (OKF v0.2) and the first-run interview.
+  - status: doing · agent: session · worker: low
+  - card: as the user, I want Melody's notebook under version control so that every change she makes can be read and undone (FURPS S · MoSCoW Must)
+  - context: plan §Tranches T0; `docs/2026-09-23-agent-memory-options-furps-v1.md` §Pick; `~/Melody/AGENTS.md`
+  - confirm: `git -C ~/Melody log --oneline | wc -l` → 1 (0 today: no commits)
+
+- 203. `~/Melody/AGENTS.md` gains **Weekly health check** (Pulse · Memory · Gaps · Companions · Next week, one commit at the end) and **Lifecycle** (promote on two days · refresh past 30 days or `stale_after` · retire unused 90 days · archive journal days past 90).
+  - status: doing · agent: session · worker: low
+  - card: as the user, I want one standard health check and clear upkeep rules so that Melody's memory stays small and true without me policing it (FURPS R · MoSCoW Must)
+  - context: plan §Tranches T0, T3; mockup `docs/mockups/2026-09-23-team-health-panel.html` (the five steps)
+  - confirm: a fresh `claude -p --model haiku` in `~/Melody`, no tools, asked for the weekly health check's five steps → names Pulse, Memory, Gaps, Companions, Next week (none today)
+
+- 204. `docs/2026-09-22-agent-memory-prd-v2.md`: the walk on the notebook and decision 1 — steps 1–3 and 9 by files, step 4 out, companions → friends (long-lived managers, one per repository), two permissions, `memories/` and `journal/` named, the test-set gate kept; v1 leaves.
+  - status: doing · agent: session · worker: low
+  - card: as the next planner, I want the memory PRD to match what was picked so that M2 and T1–T4 plan from one truth (FURPS S · MoSCoW Must)
+  - context: plan §Decisions; `docs/2026-09-23-melody-main-agent-research-v1.md` §Conflicts
+  - confirm: `grep -c "both loops\|GOOSE_STATE_MACHINE" docs/2026-09-22-agent-memory-prd-v2.md` → 0 and `grep -c "memories/" docs/2026-09-22-agent-memory-prd-v2.md` ≥ 3 (no v2 today)
+
+- 205. `scripts/melody-notebook-week.py` and its fixture: chats whose cwd is `~/Melody` (sessions DB, read-only) against journal commits during each chat → `chats · with a journal line · without`.
+  - status: doing · agent: session · worker: low
+  - card: as the user, I want the week of use measured so that the notebook's reliability is a number, not a feeling (FURPS R · MoSCoW Should)
+  - context: plan §Gates T0; `~/.local/share/goose/sessions/sessions.db` (`sessions.working_dir`, `messages.created_timestamp`)
+  - confirm: `python3 scripts/melody-notebook-week.py --fixture scripts/fixtures/notebook-week` → `4 · 3 · 1`, exit 0; with the fixture's journal removed → exit 1 (no script today)
+
 ## Waiting on the user
 
 - 192 — after Melody.app launches: your theme, layout and workspace are kept; the app menu shows Settings…; the microphone prompt names Melody; Browser pane logins survived or not; `goose://` links open Melody (move or delete `ui/desktop/out/Goose-darwin-arm64/Goose.app` if they open Goose); then say whether `~/Library/Application Support/Goose` and `…/Melody.first-launch-2026-09-22` (the empty profile of the first, failed copy) can go.
