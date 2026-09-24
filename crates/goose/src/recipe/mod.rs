@@ -123,6 +123,11 @@ pub struct Settings {
     // off, it runs on `working_dir` itself.
     #[serde(default, skip_serializing_if = "std::ops::Not::not")]
     pub worktree: bool,
+
+    // A scheduled run of this recipe executes this argv (no shell) in its working dir and
+    // never calls a model (scheduler.rs); `prompt` and `instructions` become optional.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub command: Option<Vec<String>>,
 }
 
 #[derive(Serialize, Deserialize, Debug, Clone)]
