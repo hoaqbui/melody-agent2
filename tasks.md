@@ -322,7 +322,7 @@ Order: 200 next (199 runs beside M1b); 198 done 2026-09-23 (rework merged 297e67
   - confirm: `cargo test -p goose --test acp_server_test task181_multi_connection` → 6 passed
 
 - 200. The desktop recovers a turn mid-reconnect, and a walk proves it (181, step 4)
-  - status: todo · agent: — · worker: high
+  - status: doing · agent: session's worker (2026-09-23) · worker: high
   - card: as the user, I want the reply to show once and Stop to still work after a reconnect, so that recovery is visible (FURPS R U · MoSCoW Must)
   - context: `chatSessionController.ts:145`, `chatSessionStore.ts:230`, `:684`; the walk calls `import('/src/acp/acpConnection.ts').then(m => m.reconnectAcpAfterSystemResume())` mid-turn (dev walk only), extending `tests/e2e/agents-pane.spec.ts`
   - confirm: `just walk "reconnect during a Hard turn"` → 1 passed with the parent's reply exactly once (today: the reply never lands); `just smoke` → passes; then 181 closes
