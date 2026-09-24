@@ -267,10 +267,19 @@ def _begin_locked(notebook: Path, state_file: Path) -> int:
     if added.returncode != 0:
         return _fail(state_file, f"could not create the tidy-up worktree: {added.stderr.strip()}")
 
+    history: list = []
+    if state_file.exists():
+        try:
+            previous = json.loads(state_file.read_text())
+            history = previous.get("history", []) + ([previous["last_check"]] if "last_check" in previous else [])
+        except (json.JSONDecodeError, OSError):
+            pass
     state_file.parent.mkdir(parents=True, exist_ok=True)
     state_file.write_text(
         json.dumps(
             {
+                # Earlier nights' outcomes survive a new run, capped so the file stays small.
+                "history": history[-30:],
                 "base": base,
                 "notebook": str(notebook),
                 "notebook_branch": notebook_branch,
@@ -454,7 +463,8 @@ def _quarantine_branch(notebook: Path, branch: str, sha: str) -> str | None:
     created = _git_ok(notebook, "update-ref", f"refs/heads/{quarantined}", sha)
     if created.returncode != 0:
         return None
-    _delete_branch_if_at(notebook, branch, sha)
+    if not _delete_branch_if_at(notebook, branch, sha):
+        return None
     return quarantined
 
 
@@ -477,6 +487,8 @@ def _fail_and_cleanup(notebook: Path, worktree: Path, tidy_branch: str, state_fi
         kept_as = _quarantine_branch(notebook, tidy_branch, tip.stdout.strip())
         if kept_as:
             message = f"{message} (evidence kept as {kept_as})"
+        else:
+            message = f"{message}; {tidy_branch} could not be quarantined — left as an active-run lock, needs a person"
     return _fail(state_file, message)
 
 
@@ -547,8 +559,14 @@ def _kept_after_refusal(notebook: Path, worktree: Path, branches_and_shas: list[
     read as an active-run lock.
     """
     if _remove_worktree(notebook, worktree, state_file):
-        kept = [_quarantine_branch(notebook, branch, sha) or branch for branch, sha in branches_and_shas]
-        return _fail(state_file, f"{reason} (evidence kept as {', '.join(kept)})")
+        kept = [(branch, _quarantine_branch(notebook, branch, sha)) for branch, sha in branches_and_shas]
+        stuck = [branch for branch, quarantined in kept if quarantined is None]
+        if stuck:
+            return _fail(
+                state_file,
+                f"{reason}; {', '.join(stuck)} could not be quarantined — left as an active-run lock, needs a person",
+            )
+        return _fail(state_file, f"{reason} (evidence kept as {', '.join(q for _, q in kept)})")
     names = ", ".join(branch for branch, _ in branches_and_shas)
     return _fail(
         state_file,
