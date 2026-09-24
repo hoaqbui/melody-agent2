@@ -328,7 +328,7 @@ Order: 198 (rework) → 200 (199 runs beside M1b); 197 done 2026-09-23 (one serv
 
 ### docs/2026-09-23-team-memory-program-plan-v2.md — team memory and growth: T0 (approved 2026-09-23, user: "continue" on the plan's decision 1 and 2 recommendations)
 
-T0 done 2026-09-23: 202 (`~/Melody` committed, `83f5f23`); 203 (health check + lifecycle in its `AGENTS.md`, `9cc819d`; a fresh `claude -p --model haiku` there, no tools → "Pulse, Memory, Gaps, Companions, Next week"); 204 (PRD v2, v1 retired, the four conflicts marked settled in the research and v3; `both loops` 0, `memories/` 6); 205 (`scripts/melody-notebook-week.py` — fixture `4 · 3 · 1` exit 0, journal removed exit 1, live `0 · 0 · 0`). T0's gate still needs a week of use (§Waiting on the user). T1 is planned at that gate, beside M1a.
+T0 done 2026-09-23: 202 (`~/Melody` committed, `83f5f23`); 203 (health check + lifecycle in its `AGENTS.md`, `9cc819d`; a fresh `claude -p --model haiku` there, no tools → "Pulse, Memory, Gaps, Companions, Next week"); 204 (PRD v2, v1 retired, the four conflicts marked settled in the research and v3; `both loops` 0, `memories/` 6); 205 (`scripts/melody-notebook-week.py` — fixture `4 · 3 · 1` exit 0, journal removed exit 1, live `0 · 0 · 0`). T0's gate still needs a week of use (§Waiting on the user). T1–T4 are in v0.9's scope (2026-09-23); T1 is planned at T0's gate, beside M1a.
 
 ## Waiting on the user
 

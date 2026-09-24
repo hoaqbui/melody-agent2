@@ -1,6 +1,6 @@
 # Melody, the main agent — program plan
 
-Dated 2026-09-23. **v3 (user, 2026-09-23: "do must should and could, and we should be v0.9 and ready for alpha testing")** — scope is every Must, Should and Could below; the program ends at **Melody v0.9, alpha**. v2 followed Codex's review (gpt-6-astra, read-only, verdict REWORK: "retain option A, but rebase M0 and specify session execution, recovery, and approval contracts before approving M1"). Companions: `docs/2026-09-23-melody-main-agent-research-v1.md` (pick A), the design `docs/mockups/2026-09-22-melody-visual-design.html` (`08a3c1ebe`; §20 all settled), and the memory PRD from parallel work, `docs/2026-09-22-agent-memory-prd-v2.md` (untracked; it owns what Melody and her friends remember; the research lists four conflicts with this plan). Six tranches, walked one at a time; only M0's tasks are drafted here.
+Dated 2026-09-23. **0.9 is the one target** (user, 2026-09-23: "delete the mvp. let's focus on 0.9 as our be all end all goal"; `PRODUCT.md` §12) and team memory T1–T4 joined its scope. **v3 (user, 2026-09-23: "do must should and could, and we should be v0.9 and ready for alpha testing")** — scope is every Must, Should and Could below; the program ends at **Melody v0.9, alpha**. v2 followed Codex's review (gpt-6-astra, read-only, verdict REWORK: "retain option A, but rebase M0 and specify session execution, recovery, and approval contracts before approving M1"). Companions: `docs/2026-09-23-melody-main-agent-research-v1.md` (pick A), the design `docs/mockups/2026-09-22-melody-visual-design.html` (`08a3c1ebe`; §20 all settled), and the memory PRD from parallel work, `docs/2026-09-22-agent-memory-prd-v2.md` (untracked; it owns what Melody and her friends remember; the research lists four conflicts with this plan). Six tranches, walked one at a time; only M0's tasks are drafted here.
 
 User direction (2026-09-23): a vertical slice first; friends are real manager sessions; fix desktop delegation first; the design questions answered.
 
@@ -11,6 +11,7 @@ User direction (2026-09-23): a vertical slice first; friends are real manager se
 | **Must** | 197 R · 198 R · 200 R U (task 181) · M1a F R · M1b F U |
 | **Should** | 199 R F (now beside M1b, not before M1a) · M2 F · M3 U · **P1 — Melody's cost and concurrency budget** (P; M1b): an idle Melody or manager makes no model calls; a combined limit on running managers and workers; seat usage per turn in the ledger, checked by a test |
 | **Could** | M4 U S · **S1 — diagnosing what Melody starts** (S; M2): the chain Melody → manager → worker, and why a session she started failed, in Session controls › Diagnostics and Telemetry |
+| **Team memory (in 0.9, 2026-09-23)** | T1 R (beside M1a; shares P1's ledger work) · T2 U (after M1b + M3) · T3 R P (after M1b) · T4 F R (after M2 and T1) — `docs/2026-09-23-team-memory-program-plan-v2.md`; T0 done |
 | **Won't (now)** | 181 option (c) · the amber count on the pin · the phone beyond its tab order · cloud and remote workers |
 
 ## Approach
@@ -37,7 +38,7 @@ User direction (2026-09-23): a vertical slice first; friends are real manager se
 - **M2 → M4:** `just walk "friend"`: a friend is reused on the second request in its repository, delegates, is reachable as an ordinary session, and a worker's attempt to delegate is refused.
 - **M3 → M4:** `DESIGN.md`'s checks green; `theme-tokens.test.ts` green; screenshot checks of the settled design's window states (§4) at 1512 px in both themes.
 - **M4 → A:** a fresh profile walks first run → seats (one signed in) → Melody's first message.
-- **A done (v0.9 alpha):** every Must, Should and Could task closed in `tasks.md`; `just test-full` green; `gh release view v0.9.0-alpha.1 --repo hoaqbui/melody-agent2` shows the build; the installed alpha opens on Melody and an update from `0.9.0-alpha.1` to `.2` arrives through the updater.
+- **A done (v0.9 alpha):** every Must, Should and Could task closed in `tasks.md`, and team memory T1–T4's gates passed; `just test-full` green; `gh release view v0.9.0-alpha.1 --repo hoaqbui/melody-agent2` shows the build; the installed alpha opens on Melody and an update from `0.9.0-alpha.1` to `.2` arrives through the updater.
 
 ## Out of scope
 
