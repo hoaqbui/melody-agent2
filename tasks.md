@@ -701,7 +701,7 @@ Order: 270 (draftable now) → 271 ∥ 272 → 273 ∥ 274; 275 after use.
 
 ### docs/2026-09-23-team-memory-program-plan-v2.md — T3: lifecycle routines (after M1b; 276–279 are fixture-only)
 
-Order: 276 ∥ 277 (both `scheduler.rs`, one lands before the other) ∥ 279 → 278 → 280. Only the tidy-up calls a model, within its budget; the tidy-up's limits are enforced by a script after the run, not by the prompt.
+Order: 276 ∥ 277 (both `scheduler.rs`, one lands before the other) ∥ 279 → 278 → 280. 279 done 2026-09-23 (`scripts/melody-routines.py`, fixture `cap 170/200 warn · archived 2 · sweep 3 listed · backup: no remote set · reminders 3` exit 0; a non-repository exits 1; archive idempotent; proposals live at `proposals/YYYY-MM-DD-<name>.md` — a new notebook convention). Only the tidy-up calls a model, within its budget; the tidy-up's limits are enforced by a script after the run, not by the prompt.
 
 - 276. The scheduler runs a script job with no model call
   - status: todo · agent: — · worker: high
@@ -720,12 +720,6 @@ Order: 276 ∥ 277 (both `scheduler.rs`, one lands before the other) ∥ 279 →
   - card: as the user, I want memory tidied overnight without ever touching past days or losing more than a quarter, so that I can let it run unattended (FURPS R · MoSCoW Must)
   - context: `scripts/routines/tidy-up.yaml` — `working_dir: ~/Melody`, agy by default, `token_budget: 20000`, `min_seat_room: 20`; promote on two days, corrections overwrite, one `DREAMS.md` entry, commit `memory: tidy-up <date>` (`~/Melody/AGENTS.md` §Lifecycle); `scripts/melody-tidy-guard.py` (a script job at 03:30): every `journal/*.md` byte-identical, `MEMORY.md` loses ≤ 25 %, exactly one new `DREAMS.md` entry — a violation reverts the run's commits and writes the cause to `DREAMS.md`; fixture `scripts/fixtures/notebook-tidy/`
   - confirm: `python3 scripts/melody-tidy-guard.py --fixture scripts/fixtures/notebook-tidy/ok` → `journal identical · dropped 12% · 1 dream`, exit 0; `…/journal-edited` → exit 1, reverted; `…/dropped-40` → exit 1 (today: no script)
-
-- 279. The routine scripts: cap check, journal archive, worktree sweep, backup push, reminders
-  - status: doing · agent: session's worker (wt/t279, 2026-09-23) · worker: medium
-  - card: as the user, I want the notebook kept within its cap, archived, backed up and reminding me what's due, at no model cost, so that upkeep happens without my asking (FURPS R P · MoSCoW Should)
-  - context: `scripts/melody-routines.py <routine>` — `cap-check` warns past 160/200 lines or 60 k boot characters, never cuts; `archive` `git mv`s journal days past 90 into `journal/archive/YYYY-MM/`; `sweep` lists merged `wt/*` older than 7 days, removes nothing; `backup` pushes when a remote exists, else "no remote set" exit 0; `reminders` writes `~/Melody/REMINDERS.md` from `memories/**` `stale_after`, proposals pending ≥ 2 days, and "check-in due" 7 days after the last `memory: check-in` commit
-  - confirm: `python3 scripts/melody-routines.py --fixture scripts/fixtures/notebook-routines all` → `cap 170/200 warn · archived 2 · sweep 3 listed · backup: no remote set · reminders 3`, exit 0 (today: no script)
 
 - 280. Install the routines on the scheduler
   - status: blocked — 276–279; the user's yes (persistent jobs on their machine) · agent: — · worker: low
