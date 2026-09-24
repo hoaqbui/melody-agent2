@@ -286,22 +286,29 @@ export function undoEvent(
   return { kind: 'undo', at, sessionId, turnId, redo };
 }
 
-// The key that makes an event idempotent across re-renders and app restarts.
+// The natural id a kind carries in place of `messageId`, when it has one — mirrors the
+// sidecar's own `NATURAL_ID_FIELD` (`ui/sidecar/src/ledger.ts`) exactly, field for field.
+const NATURAL_ID_FIELD: Partial<Record<LedgerEvent['kind'], string>> = {
+  correction: 'toolCallId',
+  land: 'sha',
+};
+// `undo` has no natural id: an undo and its redo share a turnId (task 266), so they key by `at`.
+
+// task 265: the key the sidecar dedups appends by — (kind, sessionId, workerSessionId,
+// messageId), the last slot falling back to the kind's natural id, then to `at`. This is now
+// only a cache of that key (`useLedgerWriter` skips sending what it already sent this session);
+// the sidecar's own key, computed the same way, is what actually keeps a replay from writing
+// twice.
 export function eventKey(event: LedgerEvent): string {
-  switch (event.kind) {
-    case 'turn':
-      return `turn:${event.sessionId}:${event.messageId ?? event.at}`;
-    case 'worker':
-      return `worker:${event.workerSessionId}`;
-    case 'correction':
-      return `correction:${event.toolCallId}:${event.path}`;
-    case 'review':
-      return `review:${event.sessionId}:${event.at}`;
-    case 'undo':
-      return `undo:${event.turnId}:${event.redo === true}:${event.at}`;
-    default:
-      return `${event.kind}:${event.sessionId}:${event.at}`;
-  }
+  const record = event as unknown as Record<string, unknown>;
+  const workerSessionId = typeof record.workerSessionId === 'string' ? record.workerSessionId : '';
+  const messageId = typeof record.messageId === 'string' ? record.messageId : undefined;
+  const naturalField = NATURAL_ID_FIELD[event.kind];
+  const natural =
+    naturalField && typeof record[naturalField] === 'string'
+      ? (record[naturalField] as string)
+      : undefined;
+  return [event.kind, event.sessionId, workerSessionId, messageId ?? natural ?? event.at].join(':');
 }
 
 // Everything a session's current state implies, minus what was already written.
