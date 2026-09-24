@@ -5,6 +5,10 @@
 # (2026-09-18); ui/desktop/package.json wants ^24.10.0 and this line makes it so.
 export PATH := justfile_directory() / "bin:" + env_var("PATH")
 
+# gate for release-melody: publishing is outward-facing, so it runs only as
+# `just publish=yes release-melody` — anything else prints the plan and stops.
+publish := "no"
+
 # list all tasks
 default:
   @just --list
@@ -399,6 +403,33 @@ tag-push: tag
 release-notes old:
     #!/usr/bin/env bash
     git log --pretty=format:"- %s" {{ old }}..v$(just get-tag-version)
+
+# Bump ui/desktop's own 0.9.0-alpha.N (not bump-version — crates keep 1.52),
+# build Melody and print the `gh release create` prerelease command; runs it
+# only as `just publish=yes release-melody` (publishing is the user's call)
+release-melody:
+    #!/usr/bin/env bash
+    set -euo pipefail
+    cd ui/desktop
+    current_version=$(node -p "require('./package.json').version")
+    [[ "$current_version" =~ ^([0-9]+\.[0-9]+\.[0-9]+)-alpha\.([0-9]+)$ ]] || { echo "[error] ui/desktop/package.json version '$current_version' is not <base>-alpha.<N>; bump it by hand first" >&2; exit 1; }
+    new_version="${BASH_REMATCH[1]}-alpha.$((${BASH_REMATCH[2]} + 1))"; npm pkg set "version=${new_version}"; echo "Bumped ui/desktop/package.json: ${current_version} -> ${new_version}"
+    cd ..
+    just make-ui
+    bundle_dir="ui/desktop/out/Melody-darwin-arm64"
+    node ui/desktop/scripts/mac-update-requirements.js "${bundle_dir}/Melody.app" "${bundle_dir}/Melody.zip.macos.json"
+    node ui/desktop/scripts/generate-mac-update-manifest.js --version "${new_version}" --directory "${bundle_dir}"
+
+    release_cmd=(gh release create "v${new_version}" --prerelease --repo hoaqbui/melody-agent2 "${bundle_dir}/Melody.zip" "${bundle_dir}/mac-update-requirements.json")
+
+    if [[ "{{ publish }}" != "yes" ]]; then
+      echo "Dry run — publishing is your call. Would run:"
+      printf '  %q' "${release_cmd[@]}"; echo
+      echo "Re-run as: just publish=yes release-melody"
+      exit 0
+    fi
+
+    "${release_cmd[@]}"
 
 ### s = file separator based on OS
 s := if os() == "windows" { "\\" } else { "/" }

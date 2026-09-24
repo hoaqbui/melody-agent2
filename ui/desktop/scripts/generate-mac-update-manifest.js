@@ -64,16 +64,24 @@ function yamlString(value) {
 }
 
 function writeManifest({ directory, version }) {
+  const bundleName = process.env.GOOSE_BUNDLE_NAME || 'Melody';
+  // A local single-arch build (`just make-ui`) only produces the arm64 zip;
+  // the intel one is only present when a CI matrix job or `bundle:intel`
+  // also ran, so it's included only when found.
   const files = [
     {
-      sourceName: 'Goose.zip',
-      updateName: 'Goose-darwin-arm64.zip',
+      sourceName: `${bundleName}.zip`,
+      updateName: `${bundleName}-darwin-arm64.zip`,
     },
     {
-      sourceName: 'Goose_intel_mac.zip',
-      updateName: 'Goose-darwin-x64.zip',
+      sourceName: `${bundleName}_intel_mac.zip`,
+      updateName: `${bundleName}-darwin-x64.zip`,
     },
-  ];
+  ].filter(({ sourceName }) => fs.existsSync(path.join(directory, sourceName)));
+
+  if (files.length === 0) {
+    throw new Error(`No ${bundleName}.zip or ${bundleName}_intel_mac.zip found in ${directory}`);
+  }
 
   const requirements = files.map(({ sourceName }) => {
     const metadata = JSON.parse(

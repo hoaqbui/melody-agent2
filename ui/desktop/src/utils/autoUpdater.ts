@@ -342,13 +342,16 @@ export function setupAutoUpdater(tray?: Tray) {
   // Set the feed URL for GitHub releases
   const feedConfig = {
     provider: 'github' as const,
-    owner: 'aaif-goose',
-    repo: 'goose',
-    releaseType: 'release' as const,
+    owner: 'hoaqbui',
+    repo: 'melody-agent2',
   };
 
   log.info('Setting feed URL with config:', feedConfig);
   autoUpdater.setFeedURL(feedConfig);
+
+  // The fork ships prereleases (0.9.0-alpha.N) during alpha testing; take the
+  // highest semver release electron-updater finds, including prereleases.
+  autoUpdater.allowPrerelease = true;
 
   // Log the feed URL after setting it
   try {

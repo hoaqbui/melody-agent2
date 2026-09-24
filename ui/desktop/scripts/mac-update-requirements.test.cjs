@@ -103,8 +103,8 @@ for (const {
 ]) {
   test(name, { skip: process.platform !== 'darwin' }, async (t) => {
     const directory = workspace(t);
-    recordBundle(directory, 'Goose.zip', appMinimum, backendMinimum);
-    recordBundle(directory, 'Goose_intel_mac.zip', intelMinimum, backendMinimum);
+    recordBundle(directory, 'Melody.zip', appMinimum, backendMinimum);
+    recordBundle(directory, 'Melody_intel_mac.zip', intelMinimum, backendMinimum);
     generateManifest(directory);
 
     const updateInfo = parseUpdateInfo(
@@ -130,10 +130,10 @@ for (const {
 test('does not publish a manifest if one architecture has no compatibility metadata', (t) => {
   const directory = workspace(t);
   fs.writeFileSync(
-    path.join(directory, 'Goose.zip.macos.json'),
+    path.join(directory, 'Melody.zip.macos.json'),
     JSON.stringify({ minimumMacOSVersion: '12.0.0' })
   );
-  for (const name of ['Goose.zip', 'Goose_intel_mac.zip']) {
+  for (const name of ['Melody.zip', 'Melody_intel_mac.zip']) {
     fs.writeFileSync(path.join(directory, name), 'archive fixture');
   }
   assert.throws(() => generateManifest(directory));
@@ -147,8 +147,8 @@ test(
   (t) => {
     for (const minimum of ['13.1', '13.0.1', '16.0']) {
       const directory = workspace(t);
-      assert.throws(() => recordBundle(directory, 'Goose.zip', minimum, '12.0'));
-      assert.equal(fs.existsSync(path.join(directory, 'Goose.zip.macos.json')), false);
+      assert.throws(() => recordBundle(directory, 'Melody.zip', minimum, '12.0'));
+      assert.equal(fs.existsSync(path.join(directory, 'Melody.zip.macos.json')), false);
     }
   }
 );

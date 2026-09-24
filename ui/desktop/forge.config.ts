@@ -68,8 +68,8 @@ module.exports = {
       name: '@electron-forge/publisher-github',
       config: {
         repository: {
-          owner: process.env.GITHUB_OWNER || 'aaif-goose',
-          name: process.env.GITHUB_REPO || 'goose',
+          owner: process.env.GITHUB_OWNER || 'hoaqbui',
+          name: process.env.GITHUB_REPO || 'melody-agent2',
         },
         prerelease: false,
         draft: true,
