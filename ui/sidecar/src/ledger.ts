@@ -18,6 +18,10 @@ export const EVENT_KINDS = [
   'review',
   'undo',
   'handoff',
+  'land',
+  'verdict',
+  'link',
+  'gap',
 ] as const;
 export type EventKind = (typeof EVENT_KINDS)[number];
 
@@ -26,6 +30,23 @@ export interface LedgerEvent {
   kind: EventKind;
   sessionId: string;
   [key: string]: unknown;
+}
+
+// Task 264's four payload shapes, keyed by kind rather than restating each kind as a literal
+// (the list above is the one place `kind` is spelled out). `requireEvent` below validates only
+// the fields every kind carries; a payload beyond that is between the writers that append it
+// (267, 268) and the fold that reads it (266) — the sidecar itself stores whatever object
+// arrives once its kind is known.
+export interface LedgerPayloadByKind {
+  land: { sha: string; paths: string[]; message: string };
+  verdict: { workerSessionId: string; verdict: 'good' | 'fixed' | 'wrong'; why?: string };
+  link: {
+    workerSessionId: string;
+    by: 'user' | 'melody';
+    fromWorkerSessionId?: string;
+    fromSha?: string;
+  };
+  gap: { from: string; to: string };
 }
 
 // The same root goose uses for its own state (`Paths::state_dir`: XDG on every platform).
