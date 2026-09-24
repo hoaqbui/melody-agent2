@@ -235,6 +235,8 @@ fn last_message_snippet(session: &SessionInfo) -> Option<&str> {
 
 struct ReconnectProvider {
     before_sent: Arc<Notify>,
+    release_middle: Arc<Notify>,
+    middle_consumed: Arc<Notify>,
     release_after: Arc<Notify>,
 }
 
@@ -294,10 +296,16 @@ impl Provider for ReconnectProvider {
         _tools: &[rmcp::model::Tool],
     ) -> Result<MessageStream, ProviderError> {
         let before_sent = self.before_sent.clone();
+        let release_middle = self.release_middle.clone();
+        let middle_consumed = self.middle_consumed.clone();
         let release_after = self.release_after.clone();
         Ok(Box::pin(async_stream::try_stream! {
             yield (Some(Message::assistant().with_text("BEFORE")), None);
             before_sent.notify_one();
+            release_middle.notified().await;
+            yield (Some(Message::assistant().with_text("MIDDLE")), None);
+            // Polled again only once the consumer has taken MIDDLE.
+            middle_consumed.notify_one();
             release_after.notified().await;
             yield (
                 Some(Message::assistant().with_text("AFTER")),
@@ -467,6 +475,22 @@ fn reconnect_user_text(updates: &[SessionNotification]) -> String {
         .collect()
 }
 
+fn reconnect_active_run_ids(updates: &[SessionNotification]) -> Vec<String> {
+    updates
+        .iter()
+        .filter_map(|notification| match &notification.update {
+            SessionUpdate::SessionInfoUpdate(info) => info
+                .meta
+                .as_ref()
+                .and_then(|meta| meta.get("goose"))
+                .and_then(|goose| goose.get("activeRunId"))
+                .and_then(serde_json::Value::as_str)
+                .map(str::to_string),
+            _ => None,
+        })
+        .collect()
+}
+
 fn reconnect_prompt_meta(use_state_machine: bool) -> serde_json::Map<String, serde_json::Value> {
     serde_json::json!({
         "goose": {
@@ -490,6 +514,8 @@ async fn assert_task181_reconnect(
 
     let provider = Arc::new(ReconnectProvider {
         before_sent: Arc::new(Notify::new()),
+        release_middle: Arc::new(Notify::new()),
+        middle_consumed: Arc::new(Notify::new()),
         release_after: Arc::new(Notify::new()),
     });
     let provider_factory: AcpProviderFactory = Arc::new({
@@ -590,8 +616,13 @@ async fn assert_task181_reconnect(
         .expect("connection A server did not exit")
         .unwrap();
 
+    let middle_consumed = provider.middle_consumed.notified();
+    provider.release_middle.notify_one();
+    tokio::time::timeout(std::time::Duration::from_secs(10), middle_consumed)
+        .await
+        .expect("provider did not emit MIDDLE while detached");
     if finish_while_detached {
-        provider.release_after.notify_waiters();
+        provider.release_after.notify_one();
         let deadline = tokio::time::Instant::now() + std::time::Duration::from_secs(10);
         while agent_a.has_active_run_for_test(&session_id.0) {
             tokio::time::timeout_at(
@@ -613,15 +644,27 @@ async fn assert_task181_reconnect(
         .unwrap();
     let reattached_agent = agent_b.session_agent_for_test(&session_id.0).await;
     assert!(Arc::ptr_eq(&running_agent, &reattached_agent));
-    if !finish_while_detached {
-        provider.release_after.notify_waiters();
+    if finish_while_detached {
+        assert!(
+            reconnect_active_run_ids(&client_b.updates.lock().unwrap()).is_empty(),
+            "a run that finished while detached must load as idle"
+        );
+    } else {
+        assert_eq!(
+            reconnect_active_run_ids(&client_b.updates.lock().unwrap()).len(),
+            1,
+            "the reattached client must see the run as active"
+        );
+        provider.release_after.notify_one();
         client_b.wait_for_active_run_cleared().await;
     }
 
     let text = reconnect_agent_text(&client_b.updates.lock().unwrap());
-    assert_eq!(text.matches("BEFORE").count(), 1, "{text}");
-    assert_eq!(text.matches("AFTER").count(), 1, "{text}");
-    assert!(text.find("BEFORE").unwrap() < text.find("AFTER").unwrap());
+    for chunk in ["BEFORE", "MIDDLE", "AFTER"] {
+        assert_eq!(text.matches(chunk).count(), 1, "{text}");
+    }
+    assert!(text.find("BEFORE").unwrap() < text.find("MIDDLE").unwrap());
+    assert!(text.find("MIDDLE").unwrap() < text.find("AFTER").unwrap());
     if seed_prior_turn {
         assert_eq!(text.matches("PRIOR_ASSISTANT").count(), 1, "{text}");
     }
@@ -643,7 +686,9 @@ async fn assert_task181_reconnect(
             message.role == rmcp::model::Role::Assistant
                 && message.content.iter().any(|content| match content {
                     goose::conversation::message::MessageContent::Text(text) => {
-                        text.text.contains("BEFORE") || text.text.contains("AFTER")
+                        ["BEFORE", "MIDDLE", "AFTER"]
+                            .iter()
+                            .any(|chunk| text.text.contains(chunk))
                     }
                     _ => false,
                 })
@@ -782,6 +827,21 @@ async fn assert_task181_reconnect_permission(use_state_machine: bool) {
     client_b.wait_for_active_run_cleared().await;
     assert_eq!(client_b.permission_requests.load(Ordering::SeqCst), 1);
     assert_eq!(provider.calls.load(Ordering::SeqCst), 2);
+    let stored = SessionManager::new(data_root.path().to_path_buf())
+        .get_session(&session_id.0, true)
+        .await
+        .unwrap();
+    assert!(
+        stored
+            .conversation
+            .unwrap()
+            .messages()
+            .iter()
+            .any(|message| serde_json::to_string(message)
+                .unwrap()
+                .contains("permission-ran")),
+        "the approved tool must have run, not been declined"
+    );
     assert!(prompt_task.await.unwrap().is_err());
     client_b.disconnect().await;
     tokio::time::timeout(std::time::Duration::from_secs(10), server_b)
@@ -801,12 +861,12 @@ fn task181_reconnect_state_machine_loop() {
 }
 
 #[test]
-fn task181_reconnect_detached_output_legacy_loop() {
+fn task181_reconnect_finished_while_detached_legacy_loop() {
     run_test(async { assert_task181_reconnect(false, true, false).await });
 }
 
 #[test]
-fn task181_reconnect_detached_output_state_machine_loop() {
+fn task181_reconnect_finished_while_detached_state_machine_loop() {
     run_test(async { assert_task181_reconnect(true, true, false).await });
 }
 

@@ -14,121 +14,113 @@ use crate::action_required_manager::ElicitationOutcome;
 use crate::session::SessionManager;
 
 impl super::GooseAcpAgent {
-    pub(super) async fn hold_run_elicitation(
-        self: &Arc<Self>,
+    /// Sends a held elicitation to the run's current connection. `Ok(false)`
+    /// means this connection can never answer it (no elicitation support, a URL
+    /// or an unreadable schema), and the caller settles it as cancelled, as a
+    /// directly sent elicitation would be.
+    pub(super) fn send_run_elicitation_request(
+        &self,
+        cx: &ConnectionTo<Client>,
         attachment: &Arc<super::RunAttachment>,
-        id: String,
-        message: String,
-        requested_schema: serde_json::Value,
-        meta: Meta,
-    ) {
-        let connection = {
-            let mut state = attachment.state.lock().await;
-            state.pending_elicitation = Some(super::PendingRunElicitation {
-                id,
-                message,
-                requested_schema,
-                meta,
-                issued_generation: None,
-            });
-            state.connection.clone()
-        };
-        if let Some(connection) = connection {
-            self.issue_run_elicitation(attachment, &connection).await;
-        }
-    }
-
-    pub(super) async fn issue_run_elicitation(
-        self: &Arc<Self>,
-        attachment: &Arc<super::RunAttachment>,
-        connection: &super::RunConnection,
-    ) {
+        session_id: &str,
+        elicitation: &super::PendingRunElicitation,
+        generation: u64,
+    ) -> Result<bool, agent_client_protocol::Error> {
         if !self.supports_acp_elicitation() {
-            return;
+            warn!(
+                session_id,
+                elicitation_id = %elicitation.id,
+                "ACP client does not support form elicitation"
+            );
+            return Ok(false);
         }
-        let pending = {
-            let mut state = attachment.state.lock().await;
-            let Some(pending) = state.pending_elicitation.as_mut() else {
-                return;
-            };
-            if pending.issued_generation.is_some() {
-                return;
-            }
-            pending.issued_generation = Some(connection.generation);
-            pending.clone()
-        };
-        if pending
+        if elicitation
             .requested_schema
             .get("url")
             .and_then(|url| url.as_str())
             .is_some()
         {
-            return;
+            warn!(
+                session_id,
+                elicitation_id = %elicitation.id,
+                "ACP URL elicitation is not supported"
+            );
+            return Ok(false);
         }
-        let Ok(schema) = serde_json::from_value::<ElicitationSchema>(pending.requested_schema)
-        else {
-            return;
-        };
+        let schema =
+            match serde_json::from_value::<ElicitationSchema>(elicitation.requested_schema.clone())
+            {
+                Ok(schema) => schema,
+                Err(error) => {
+                    warn!(
+                        session_id,
+                        elicitation_id = %elicitation.id,
+                        %error,
+                        "Failed to parse ACP elicitation schema"
+                    );
+                    return Ok(false);
+                }
+            };
         let request = CreateElicitationRequest::new(
-            ElicitationFormMode::new(
-                ElicitationSessionScope::new(connection_session_id(attachment).await),
-                schema,
-            ),
-            pending.message,
+            ElicitationFormMode::new(ElicitationSessionScope::new(session_id.to_string()), schema),
+            elicitation.message.clone(),
         )
-        .meta(pending.meta);
+        .meta(elicitation.meta.clone());
         let weak_attachment = Arc::downgrade(attachment);
-        let generation = connection.generation;
         let session_manager = Arc::clone(&self.session_manager);
-        let elicitation_id = pending.id;
-        let session_id = connection_session_id(attachment).await;
-        if connection
-            .cx
-            .send_request(CreateElicitationRequestMessage(request))
+        let session_id = session_id.to_string();
+        let elicitation_id = elicitation.id.clone();
+        cx.send_request(CreateElicitationRequestMessage(request))
             .on_receiving_result(move |result| async move {
                 let Some(attachment) = weak_attachment.upgrade() else {
                     return Ok(());
                 };
-                match result {
-                    Ok(response) => {
-                        let should_record = {
-                            let mut state = attachment.state.lock().await;
-                            if state.pending_elicitation.as_ref().is_some_and(|current| {
-                                current.id == elicitation_id
-                                    && current.issued_generation == Some(generation)
-                            }) {
-                                state.pending_elicitation = None;
-                                true
-                            } else {
-                                false
-                            }
-                        };
-                        if should_record {
-                            record_acp_elicitation_response(
-                                &session_manager,
-                                &session_id,
-                                &elicitation_id,
-                                elicitation_response_from_acp(response.0),
-                            )
-                            .await;
-                        }
+                let response = match result {
+                    Ok(response) => elicitation_response_from_acp(response.0),
+                    Err(error) if agent_client_protocol::is_incoming_transport_closed(&error) => {
+                        attachment.lock().detach(generation);
+                        return Ok(());
                     }
                     Err(error) => {
-                        tracing::debug!(?error, "ACP elicitation connection detached");
-                        super::GooseAcpAgent::detach_run_connection(
-                            &Arc::downgrade(&attachment),
-                            generation,
-                        )
-                        .await;
+                        warn!(
+                            error = %error,
+                            session_id = %session_id,
+                            elicitation_id = %elicitation_id,
+                            "ACP elicitation request failed"
+                        );
+                        ElicitationOutcome::Cancel
                     }
+                };
+                let answered = attachment
+                    .lock()
+                    .take_elicitation(&elicitation_id, generation);
+                if answered {
+                    record_acp_elicitation_response(
+                        &session_manager,
+                        &session_id,
+                        &elicitation_id,
+                        response,
+                    )
+                    .await;
                 }
                 Ok(())
-            })
-            .is_err()
-        {
-            super::GooseAcpAgent::detach_run_connection(&Arc::downgrade(attachment), generation)
+            })?;
+        Ok(true)
+    }
+
+    pub(super) fn cancel_run_elicitations(&self, session_id: String, elicitation_ids: Vec<String>) {
+        let session_manager = Arc::clone(&self.session_manager);
+        tokio::spawn(async move {
+            for elicitation_id in elicitation_ids {
+                record_acp_elicitation_response(
+                    &session_manager,
+                    &session_id,
+                    &elicitation_id,
+                    ElicitationOutcome::Cancel,
+                )
                 .await;
-        }
+            }
+        });
     }
 
     pub(super) async fn handle_form_elicitation(
@@ -270,10 +262,6 @@ impl super::GooseAcpAgent {
         )
         .await;
     }
-}
-
-async fn connection_session_id(attachment: &super::RunAttachment) -> String {
-    attachment.state.lock().await.session_id.clone()
 }
 
 #[derive(Debug, Clone)]

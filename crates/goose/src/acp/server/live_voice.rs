@@ -283,6 +283,7 @@ impl GooseAcpAgent {
             agent: agent.clone(),
             session_id: session_id.clone(),
             cancel_token: Some(cancel_token.clone()),
+            enrich_tool_titles: true,
         };
         while let Some(event) = stream.next().await {
             if cancel_token.is_cancelled() {
@@ -317,7 +318,6 @@ impl GooseAcpAgent {
                                 &target,
                                 &tool_requests,
                                 &cx,
-                                true,
                             )
                             .await;
                     }
