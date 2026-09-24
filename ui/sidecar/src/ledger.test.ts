@@ -5,7 +5,7 @@ import path from 'node:path';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 
 import { HttpError } from './http.js';
-import { ledgerFileFor, ledgerRoutes, readLedger } from './ledger.js';
+import { defaultLedgerDir, ledgerFileFor, ledgerRoutes, readLedger } from './ledger.js';
 
 const sh = (cwd: string, args: string[]): Promise<string> =>
   new Promise((resolve, reject) => {
@@ -266,5 +266,20 @@ describe('ledgerRoutes', () => {
   it('two checkouts with the same basename get different files', () => {
     expect(ledgerFileFor(ledgerDir, '/a/repo')).not.toBe(ledgerFileFor(ledgerDir, '/b/repo'));
     expect(path.basename(ledgerFileFor(ledgerDir, '/a/repo'))).toMatch(/^repo-[0-9a-f]{8}\.jsonl$/);
+  });
+});
+
+describe('defaultLedgerDir', () => {
+  it("keeps a walk's ledger under its own GOOSE_PATH_ROOT", () => {
+    expect(defaultLedgerDir({ GOOSE_PATH_ROOT: '/tmp/walks', XDG_STATE_HOME: '/x' })).toBe(
+      '/tmp/walks/state/ledger'
+    );
+  });
+
+  it('falls back to XDG state when the root is unset or relative', () => {
+    expect(defaultLedgerDir({ XDG_STATE_HOME: '/x' })).toBe('/x/goose/ledger');
+    expect(defaultLedgerDir({ GOOSE_PATH_ROOT: 'relative', XDG_STATE_HOME: '/x' })).toBe(
+      '/x/goose/ledger'
+    );
   });
 });
