@@ -46,10 +46,12 @@ const i18n = defineMessages({
   sessionWord: { id: 'telemetryNow.sessionWord', defaultMessage: 'Session' },
   outcomeRunning: { id: 'telemetryNow.outcomeRunning', defaultMessage: 'running' },
   outcomeLanded: { id: 'telemetryNow.outcomeLanded', defaultMessage: 'landed' },
+  outcomeReworked: { id: 'telemetryNow.outcomeReworked', defaultMessage: 'reworked' },
   outcomeCorrected: { id: 'telemetryNow.outcomeCorrected', defaultMessage: 'corrected' },
   outcomeBlocked: { id: 'telemetryNow.outcomeBlocked', defaultMessage: 'blocked' },
   outcomeUndone: { id: 'telemetryNow.outcomeUndone', defaultMessage: 'undone' },
   outcomeFailed: { id: 'telemetryNow.outcomeFailed', defaultMessage: 'failed' },
+  outcomeUnknown: { id: 'telemetryNow.outcomeUnknown', defaultMessage: 'unknown' },
 });
 
 // Why each setting matters and where it reads from — the tooltip's two lines.
@@ -61,10 +63,6 @@ const SETTING_WHY: Record<string, { why: string; from: string }> = {
   model: {
     why: 'The model the session asks for. What answered each turn is in the list below.',
     from: 'model_config.model_name',
-  },
-  lever: {
-    why: 'The stop the session matches: a (provider, model, mode) triple; Custom when none does.',
-    from: 'stopOfSession · LEVER · the orchestrator recipe',
   },
   effort: {
     why: 'Forwarded to the CLI once per session; nothing else about sampling is.',
@@ -102,29 +100,33 @@ const COLUMN_WHY: Record<string, { why: string; from: string }> = {
     from: 'usage.cost · costSource',
   },
   outcome: {
-    why: 'How the turn ended: landed · corrected by the session · blocked · undone · failed.',
-    from: 'ledger: correction · worker.blocked · undo · DelegationUpdate.status',
+    why: 'How the job ended, per the ledger fold: landed · reworked by a linked fix · corrected by the session · blocked · undone · failed · unknown until a land, correction or verdict decides it.',
+    from: 'ledger-outcome.outcomeOf: land · link · correction · verdict · worker.blocked · undo · DelegationUpdate.status',
   },
 };
 
 const OUTCOME_WHY: Record<Outcome, string> = {
   running: 'Still writing; usage lands when the turn ends.',
-  landed: 'Returned and stayed.',
+  landed: 'A commit after the job landed its files. Clean.',
+  reworked: 'A later job the user linked as its fix replaced this one — the seat did not land.',
   corrected:
     'Returned Done, then the session edited its files — the seat cost more than it saved here.',
   blocked:
     "Returned BLOCKED: the plan's assumption failed against the tree. A plan failure, not a seat failure.",
   undone: 'The user undid this turn; its files went back to how they were before it.',
   failed: 'The delegate call errored.',
+  unknown: 'Returned Done, but no land has matched its files yet — not landed until one does.',
 };
 
 const DOT: Record<Outcome, string> = {
   running: 'bg-text-info animate-pulse',
   landed: 'bg-text-success',
+  reworked: 'bg-text-warning',
   corrected: 'bg-text-warning',
   blocked: 'bg-text-warning',
   undone: 'bg-text-warning',
   failed: 'bg-text-danger',
+  unknown: 'bg-text-tertiary',
 };
 
 const clock = (seconds: number): string => new Date(seconds * 1000).toTimeString().slice(0, 8);
@@ -145,16 +147,17 @@ function SettingCell({ setting }: { setting: Setting }) {
 
 function Row({ row, providers }: { row: TurnRow; providers: readonly ProviderDetails[] }) {
   const intl = useIntl();
-  const outcomeLabel = intl.formatMessage(
-    {
-      running: i18n.outcomeRunning,
-      landed: i18n.outcomeLanded,
-      corrected: i18n.outcomeCorrected,
-      blocked: i18n.outcomeBlocked,
-      undone: i18n.outcomeUndone,
-      failed: i18n.outcomeFailed,
-    }[row.outcome]
-  );
+  const OUTCOME_LABEL: Record<Outcome, (typeof i18n)[keyof typeof i18n]> = {
+    running: i18n.outcomeRunning,
+    landed: i18n.outcomeLanded,
+    reworked: i18n.outcomeReworked,
+    corrected: i18n.outcomeCorrected,
+    blocked: i18n.outcomeBlocked,
+    undone: i18n.outcomeUndone,
+    failed: i18n.outcomeFailed,
+    unknown: i18n.outcomeUnknown,
+  };
+  const outcomeLabel = intl.formatMessage(OUTCOME_LABEL[row.outcome]);
   const running = row.outcome === 'running';
   const num = (value: number | undefined): string =>
     running || value === undefined ? '—' : fmtK(value);
@@ -266,7 +269,7 @@ export function TelemetryNow() {
   );
   const streaming =
     snapshot?.chatState === ChatState.Streaming || snapshot?.chatState === ChatState.Thinking;
-  const rows = turnRows(snapshot?.messages ?? [], delegations, events, streaming);
+  const rows = turnRows(snapshot?.messages ?? [], delegations, events, streaming, Date.now());
   const columns: { id: keyof typeof COLUMN_WHY; label: string; right?: boolean }[] = [
     { id: 'when', label: intl.formatMessage(i18n.when) },
     { id: 'who', label: intl.formatMessage(i18n.who) },

@@ -1011,6 +1011,7 @@ pub enum RunStatus {
     Done,
     Failed,
     Killed,
+    BudgetReached,
 }
 
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
@@ -1018,6 +1019,17 @@ pub struct RunOutcome {
     pub status: RunStatus,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub error: Option<String>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub exit_code: Option<i32>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub output: Option<String>,
+    // The conversation length when the token budget stopped the run.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub messages: Option<usize>,
+    // Set when the recipe asked for `min_seat_room`; until seat-window data exists
+    // (task 272) the run proceeds and this reads "unknown".
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub seat_room: Option<String>,
 }
 
 impl ExtensionState for RunOutcome {
@@ -1036,6 +1048,19 @@ pub struct RunWorktree {
 impl ExtensionState for RunWorktree {
     const EXTENSION_NAME: &'static str = "scheduler_worktree";
     const VERSION: &'static str = "v0";
+}
+
+async fn over_token_budget(
+    session_manager: &SessionManager,
+    session_id: &str,
+    token_budget: Option<u64>,
+) -> Result<bool> {
+    let Some(budget) = token_budget else {
+        return Ok(false);
+    };
+    let session = session_manager.get_session(session_id, false).await?;
+    let spent = session.accumulated_usage.total_tokens.unwrap_or(0);
+    Ok(u64::try_from(spent).unwrap_or(0) > budget)
 }
 
 // The update builder replaces the whole extension_data blob, so merge into the
@@ -1129,6 +1154,121 @@ fn routine_mode(mode: GooseMode) -> GooseMode {
     }
 }
 
+struct CommandJob {
+    job_id: String,
+    schedule_id: String,
+    recipe: Recipe,
+    command: Vec<String>,
+    run_cwd: PathBuf,
+    worktree: Option<RunWorktree>,
+    goose_mode: GooseMode,
+    jobs: Arc<Mutex<JobsMap>>,
+    cancel_token: CancellationToken,
+    session_manager: Arc<SessionManager>,
+}
+
+// Only the tail is kept: the outcome lives in the session record, and a chatty script on an
+// hourly cron would otherwise grow it without bound.
+const COMMAND_OUTPUT_LIMIT: usize = 16 * 1024;
+
+fn command_output_tail(stdout: &[u8], stderr: &[u8]) -> String {
+    let mut bytes = stdout.to_vec();
+    bytes.extend_from_slice(stderr);
+    let start = bytes.len().saturating_sub(COMMAND_OUTPUT_LIMIT);
+    String::from_utf8_lossy(&bytes[start..]).into_owned()
+}
+
+// A script job: the recipe's argv runs with no shell in the run's working dir, and no Agent
+// or provider is ever built, so an idle routine makes no model call. The session exists only
+// as the run record the Runs inbox and kill read.
+async fn run_command_job(run: CommandJob) -> Result<String> {
+    let session = run
+        .session_manager
+        .create_session(
+            run.run_cwd.clone(),
+            format!("Scheduled job: {}", run.schedule_id),
+            SessionType::Scheduled,
+            run.goose_mode,
+        )
+        .await?;
+    if let Some(worktree) = &run.worktree {
+        record_run_state(&run.session_manager, &session.id, worktree).await?;
+    }
+    run.session_manager
+        .update(&session.id)
+        .schedule_id(Some(run.schedule_id.clone()))
+        .recipe(Some(run.recipe))
+        .apply()
+        .await?;
+
+    let mut jobs_guard = run.jobs.lock().await;
+    if let Some((_, job_def)) = jobs_guard.get_mut(run.job_id.as_str()) {
+        job_def.current_session_id = Some(session.id.clone());
+    }
+    drop(jobs_guard);
+
+    let mut command = tokio::process::Command::new(&run.command[0]);
+    command
+        .args(&run.command[1..])
+        .current_dir(&run.run_cwd)
+        .stdin(std::process::Stdio::null())
+        .stdout(std::process::Stdio::piped())
+        .stderr(std::process::Stdio::piped())
+        .kill_on_drop(true);
+    crate::subprocess::configure_subprocess(&mut command);
+
+    let outcome = match command.spawn() {
+        Err(error) => RunOutcome {
+            status: RunStatus::Failed,
+            error: Some(format!("{}: {error}", run.command[0])),
+            exit_code: None,
+            output: None,
+            messages: None,
+            seat_room: None,
+        },
+        Ok(child) => {
+            tokio::select! {
+                _ = run.cancel_token.cancelled() => RunOutcome {
+                    status: RunStatus::Killed,
+                    error: None,
+                    exit_code: None,
+                    output: None,
+                    messages: None,
+                    seat_room: None,
+                },
+                result = child.wait_with_output() => match result {
+                    Err(error) => RunOutcome {
+                        status: RunStatus::Failed,
+                        error: Some(error.to_string()),
+                        exit_code: None,
+                        output: None,
+                        messages: None,
+                        seat_room: None,
+                    },
+                    Ok(output) => RunOutcome {
+                        status: if output.status.success() {
+                            RunStatus::Done
+                        } else {
+                            RunStatus::Failed
+                        },
+                        error: (!output.status.success()).then(|| output.status.to_string()),
+                        exit_code: output.status.code(),
+                        output: Some(command_output_tail(&output.stdout, &output.stderr)),
+                        messages: None,
+                        seat_room: None,
+                    },
+                },
+            }
+        }
+    };
+    record_run_state(&run.session_manager, &session.id, &outcome).await?;
+
+    match outcome.error {
+        Some(error) => Err(anyhow!("Command failed: {}", error)),
+        None => Ok(session.id),
+    }
+}
+
 #[allow(clippy::too_many_lines)]
 async fn execute_job(
     job: ScheduledJob,
@@ -1181,6 +1321,22 @@ async fn execute_job(
     let run_cwd = worktree
         .as_ref()
         .map_or(cwd, |worktree| worktree.path.clone());
+
+    if let Some(command) = settings.and_then(|settings| settings.command.clone()) {
+        return run_command_job(CommandJob {
+            job_id,
+            schedule_id: job.id.clone(),
+            recipe: recipe.clone(),
+            command,
+            run_cwd,
+            worktree,
+            goose_mode,
+            jobs,
+            cancel_token,
+            session_manager,
+        })
+        .await;
+    }
 
     let agent = Agent::with_config(AgentConfig::new(
         session_manager,
@@ -1298,16 +1454,25 @@ async fn execute_job(
     let session_config = SessionConfig {
         id: session.id.clone(),
         schedule_id: Some(job.id.clone()),
-        max_turns: None,
+        max_turns: settings
+            .and_then(|settings| settings.max_turns)
+            .and_then(|turns| u32::try_from(turns).ok()),
         retry_config: None,
     };
+    let token_budget = settings.and_then(|settings| settings.token_budget);
+    let seat_room = settings
+        .and_then(|settings| settings.min_seat_room)
+        .map(|_| "unknown".to_string());
 
+    // The budget cancels only this run's stream; the job's own token stays the kill signal
+    // `run_now` reads.
+    let run_token = cancel_token.child_token();
     let stream = agent
         .reply(
             user_message,
             session_config,
             crate::agents::state_machine::enabled(),
-            Some(cancel_token.clone()),
+            Some(run_token.clone()),
         )
         .await?;
 
@@ -1315,12 +1480,23 @@ async fn execute_job(
     let mut stream = std::pin::pin!(stream);
 
     let mut stream_error = None;
+    let mut budget_reached = false;
     while let Some(message_result) = stream.next().await {
         tokio::task::yield_now().await;
 
         match message_result {
             Ok(AgentEvent::Message(msg)) => {
                 conversation.push(msg);
+            }
+            // Both loops persist a call's usage before emitting its Usage event; the legacy loop
+            // yields the paid-for message after it, so the stream is drained, not dropped.
+            Ok(AgentEvent::Usage(_)) if !budget_reached => {
+                if over_token_budget(&agent.config.session_manager, &session.id, token_budget)
+                    .await?
+                {
+                    budget_reached = true;
+                    run_token.cancel();
+                }
             }
             Ok(AgentEvent::HistoryReplaced(updated)) => {
                 conversation = updated;
@@ -1334,20 +1510,41 @@ async fn execute_job(
         }
     }
 
-    let outcome = if cancel_token.is_cancelled() {
+    let outcome = if budget_reached {
+        RunOutcome {
+            status: RunStatus::BudgetReached,
+            error: None,
+            exit_code: None,
+            output: None,
+            messages: Some(conversation.len()),
+            seat_room,
+        }
+    } else if cancel_token.is_cancelled() {
         RunOutcome {
             status: RunStatus::Killed,
             error: None,
+            exit_code: None,
+            output: None,
+            messages: None,
+            seat_room,
         }
     } else {
         match stream_error {
             Some(error) => RunOutcome {
                 status: RunStatus::Failed,
                 error: Some(error),
+                exit_code: None,
+                output: None,
+                messages: None,
+                seat_room,
             },
             None => RunOutcome {
                 status: RunStatus::Done,
                 error: None,
+                exit_code: None,
+                output: None,
+                messages: None,
+                seat_room,
             },
         }
     };
@@ -1357,7 +1554,7 @@ async fn execute_job(
         let session_duration = start_time.elapsed();
         let exit_type = match outcome.status {
             RunStatus::Failed => "error",
-            RunStatus::Done | RunStatus::Killed => "normal",
+            RunStatus::Done | RunStatus::Killed | RunStatus::BudgetReached => "normal",
         };
         let (total_tokens, message_count) = agent
             .config
@@ -2088,6 +2285,10 @@ mod tests {
         let outcome = RunOutcome {
             status: RunStatus::Failed,
             error: Some("provider returned 500".to_string()),
+            exit_code: None,
+            output: None,
+            messages: None,
+            seat_room: None,
         };
         record_run_state(&session_manager, &session.id, &outcome)
             .await
@@ -2114,6 +2315,10 @@ mod tests {
         let done = RunOutcome {
             status: RunStatus::Done,
             error: None,
+            exit_code: None,
+            output: None,
+            messages: None,
+            seat_room: None,
         };
         record_run_state(&session_manager, &session.id, &done)
             .await
@@ -2194,6 +2399,10 @@ mod tests {
             &RunOutcome {
                 status: RunStatus::Done,
                 error: None,
+                exit_code: None,
+                output: None,
+                messages: None,
+                seat_room: None,
             },
         )
         .await
@@ -2221,6 +2430,233 @@ mod tests {
             stored.extension_data.get_extension_state("scheduler", "v0"),
             Some(&serde_json::json!({ "status": "done" }))
         );
+    }
+
+    const COUNTING_STUB: &str = "scheduler-counting-stub";
+    static STUB_BUILDS: std::sync::atomic::AtomicUsize = std::sync::atomic::AtomicUsize::new(0);
+
+    struct CountingStubProvider;
+
+    impl goose_providers::base::ProviderDescriptor for CountingStubProvider {
+        fn metadata() -> crate::providers::base::ProviderMetadata {
+            crate::providers::base::ProviderMetadata::new(
+                COUNTING_STUB,
+                "Counting stub",
+                "Counts every provider the registry builds",
+                "stub-model",
+                vec!["stub-model"],
+                "",
+                vec![],
+            )
+        }
+    }
+
+    impl crate::providers::base::ProviderDef for CountingStubProvider {
+        type Provider = crate::providers::testprovider::TestProvider;
+
+        fn from_env(
+            _extensions: Vec<crate::config::ExtensionConfig>,
+            _tls_config: Option<crate::providers::api_client::TlsConfig>,
+        ) -> futures::future::BoxFuture<'static, Result<Self::Provider>> {
+            STUB_BUILDS.fetch_add(1, std::sync::atomic::Ordering::SeqCst);
+            Box::pin(async { Err(anyhow!("the counting stub never answers")) })
+        }
+    }
+
+    #[tokio::test]
+    async fn command_job_makes_no_model_call() {
+        crate::providers::register_for_test::<CountingStubProvider>().await;
+        let temp_dir = tempdir().unwrap();
+        let project = temp_dir.path().join("project");
+        fs::create_dir_all(&project).unwrap();
+        let recipe_path = temp_dir.path().join("command_job.yaml");
+        fs::write(
+            &recipe_path,
+            format!(
+                "version: 1.0.0\n\
+                 title: command_job\n\
+                 description: Scheduler script job\n\
+                 prompt: a prompt the agent path would send\n\
+                 settings:\n  \
+                 goose_provider: {COUNTING_STUB}\n  \
+                 goose_model: stub-model\n  \
+                 working_dir: {}\n  \
+                 command: [\"sh\", \"-c\", \"touch ran-here; echo ran; exit 7\"]\n",
+                project.display()
+            ),
+        )
+        .unwrap();
+
+        let session_manager = Arc::new(SessionManager::new(temp_dir.path().to_path_buf()));
+        let scheduler = Scheduler::new(
+            temp_dir.path().join("schedule.json"),
+            session_manager.clone(),
+        )
+        .await
+        .unwrap();
+        let mut job = scheduled_job("command_job", &recipe_path);
+        job.cron = "0 0 0 1 1 *".to_string();
+        scheduler.add_scheduled_job(job, true).await.unwrap();
+
+        let error = scheduler.run_now("command_job").await.unwrap_err();
+        assert!(error.to_string().contains("exit status: 7"), "{error}");
+
+        let runs = scheduler.sessions("command_job", 10).await.unwrap();
+        assert_eq!(runs.len(), 1, "the run is recorded for the Runs inbox");
+        let session = session_manager
+            .get_session(&runs[0].0, false)
+            .await
+            .unwrap();
+        assert_eq!(session.session_type, SessionType::Scheduled);
+        assert_eq!(session.working_dir, project);
+        assert!(project.join("ran-here").is_file());
+        assert_eq!(session.provider_name, None);
+        assert_eq!(
+            RunOutcome::from_extension_data(&session.extension_data),
+            Some(RunOutcome {
+                status: RunStatus::Failed,
+                error: Some("exit status: 7".to_string()),
+                exit_code: Some(7),
+                output: Some("ran\n".to_string()),
+                messages: None,
+                seat_room: None,
+            })
+        );
+        assert_eq!(STUB_BUILDS.load(std::sync::atomic::Ordering::SeqCst), 0);
+
+        assert!(create_with_working_dir(COUNTING_STUB, vec![], project)
+            .await
+            .is_err());
+        assert_eq!(
+            STUB_BUILDS.load(std::sync::atomic::Ordering::SeqCst),
+            1,
+            "the stub counts what the agent path would build"
+        );
+    }
+
+    const TOKEN_STUB: &str = "scheduler-token-stub";
+
+    struct TokenStub;
+
+    #[async_trait::async_trait]
+    impl crate::providers::base::Provider for TokenStub {
+        fn get_name(&self) -> &str {
+            TOKEN_STUB
+        }
+
+        async fn stream(
+            &self,
+            _model_config: &goose_providers::model::ModelConfig,
+            _system: &str,
+            _messages: &[Message],
+            _tools: &[rmcp::model::Tool],
+        ) -> std::result::Result<
+            crate::providers::base::MessageStream,
+            goose_providers::errors::ProviderError,
+        > {
+            Ok(crate::providers::base::stream_from_single_message(
+                Message::assistant().with_text("tidied"),
+                goose_providers::conversation::token_usage::ProviderUsage::new(
+                    "stub-model".to_string(),
+                    goose_providers::conversation::token_usage::Usage::new(
+                        Some(60),
+                        Some(40),
+                        Some(100),
+                    ),
+                ),
+            ))
+        }
+    }
+
+    struct TokenStubProvider;
+
+    impl goose_providers::base::ProviderDescriptor for TokenStubProvider {
+        fn metadata() -> crate::providers::base::ProviderMetadata {
+            crate::providers::base::ProviderMetadata::new(
+                TOKEN_STUB,
+                "Token stub",
+                "Every answer costs 100 tokens",
+                "stub-model",
+                vec!["stub-model"],
+                "",
+                vec![],
+            )
+        }
+    }
+
+    impl crate::providers::base::ProviderDef for TokenStubProvider {
+        type Provider = TokenStub;
+
+        fn from_env(
+            _extensions: Vec<crate::config::ExtensionConfig>,
+            _tls_config: Option<crate::providers::api_client::TlsConfig>,
+        ) -> futures::future::BoxFuture<'static, Result<Self::Provider>> {
+            Box::pin(async { Ok(TokenStub) })
+        }
+    }
+
+    #[tokio::test]
+    #[serial_test::serial]
+    async fn token_budget_stops_run() {
+        crate::providers::register_for_test::<TokenStubProvider>().await;
+        for state_machine in [None, Some("1")] {
+            let _env = env_lock::lock_env([("GOOSE_STATE_MACHINE", state_machine)]);
+            let temp_dir = tempdir().unwrap();
+            let recipe_path = temp_dir.path().join("budget_job.yaml");
+            fs::write(
+                &recipe_path,
+                format!(
+                    "version: 1.0.0\n\
+                     title: budget_job\n\
+                     description: Scheduler token budget\n\
+                     prompt: tidy up\n\
+                     extensions: []\n\
+                     settings:\n  \
+                     goose_provider: {TOKEN_STUB}\n  \
+                     goose_model: stub-model\n  \
+                     working_dir: {}\n  \
+                     token_budget: 10\n  \
+                     min_seat_room: 20\n",
+                    temp_dir.path().display()
+                ),
+            )
+            .unwrap();
+
+            let session_manager = Arc::new(SessionManager::new(temp_dir.path().to_path_buf()));
+            let scheduler = Scheduler::new(
+                temp_dir.path().join("schedule.json"),
+                session_manager.clone(),
+            )
+            .await
+            .unwrap();
+            let mut job = scheduled_job("budget_job", &recipe_path);
+            job.cron = "0 0 0 1 1 *".to_string();
+            scheduler.add_scheduled_job(job, true).await.unwrap();
+
+            let session_id = scheduler.run_now("budget_job").await.unwrap();
+
+            let session = session_manager
+                .get_session(&session_id, false)
+                .await
+                .unwrap();
+            assert_eq!(
+                session.accumulated_usage.total_tokens,
+                Some(100),
+                "state_machine={state_machine:?}"
+            );
+            assert_eq!(
+                RunOutcome::from_extension_data(&session.extension_data),
+                Some(RunOutcome {
+                    status: RunStatus::BudgetReached,
+                    error: None,
+                    exit_code: None,
+                    output: None,
+                    messages: Some(2),
+                    seat_room: Some("unknown".to_string()),
+                }),
+                "state_machine={state_machine:?}"
+            );
+        }
     }
 
     #[test]

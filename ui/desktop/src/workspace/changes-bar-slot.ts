@@ -7,6 +7,7 @@ import type { PaneId } from './pane-store';
 // which renders outside the pane tree, so it cannot read PaneContext.
 export interface ChangesBarTargetValue {
   cwd: string;
+  sessionId: string;
   gitStatus: GitStatusResponse | null;
   openPane(id: PaneId): void;
   focusCommit(): void;

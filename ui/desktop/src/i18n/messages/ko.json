@@ -5903,11 +5903,17 @@
   "telemetryNow.outcomeLanded": {
     "defaultMessage": "landed"
   },
+  "telemetryNow.outcomeReworked": {
+    "defaultMessage": "reworked"
+  },
   "telemetryNow.outcomeRunning": {
     "defaultMessage": "running"
   },
   "telemetryNow.outcomeUndone": {
     "defaultMessage": "undone"
+  },
+  "telemetryNow.outcomeUnknown": {
+    "defaultMessage": "unknown"
   },
   "telemetryNow.session": {
     "defaultMessage": "Session"
@@ -6515,9 +6521,6 @@
   "workspaceShell.install": {
     "defaultMessage": "Install"
   },
-  "workspaceShell.lever": {
-    "defaultMessage": "Lever"
-  },
   "workspaceShell.mode": {
     "defaultMessage": "Mode"
   },
@@ -6619,33 +6622,6 @@
   },
   "workspaceShell.startFailed": {
     "defaultMessage": "Couldn't start session"
-  },
-  "workspaceShell.stopCustom": {
-    "defaultMessage": "Custom"
-  },
-  "workspaceShell.stopEasy": {
-    "defaultMessage": "Easy"
-  },
-  "workspaceShell.stopEasyDescription": {
-    "defaultMessage": "Easy — Sonnet, direct"
-  },
-  "workspaceShell.stopHard": {
-    "defaultMessage": "Hard"
-  },
-  "workspaceShell.stopHardDescription": {
-    "defaultMessage": "Claude Opus orchestrates; agy researches, Codex plans and reviews, Sonnet implements. You see each worker in Agents."
-  },
-  "workspaceShell.stopHardTeam": {
-    "defaultMessage": "team"
-  },
-  "workspaceShell.stopHardTitle": {
-    "defaultMessage": "Hard — Claude leads a team"
-  },
-  "workspaceShell.stopMedium": {
-    "defaultMessage": "Medium"
-  },
-  "workspaceShell.stopMediumDescription": {
-    "defaultMessage": "Medium — Opus, direct"
   },
   "workspaceShell.switchFailed": {
     "defaultMessage": "Couldn't switch runtime"

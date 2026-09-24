@@ -86,6 +86,8 @@ import { acpListSessions, type SessionListItem } from '../acp/sessions';
 import { acpListSchedules } from '../acp/schedules';
 import { useSessionDelegations } from '../acp/delegations';
 import { useLedgerWriter } from './panes/telemetry/ledger-writer';
+import { undoEvent } from './panes/telemetry/ledger-events';
+import { appendLedger } from '../native/ledger';
 import { createSession } from '../sessions';
 import { AppEvents } from '../constants/events';
 import { CommandPalette } from './palette/CommandPalette';
@@ -120,6 +122,7 @@ import {
   saveProjectEntry,
   loadTurnSnapshots,
   saveTurnSnapshot,
+  saveHeartbeat,
 } from './project-storage';
 import { intersects, laterTurns, parseDiffFileSet, type TurnSnapshots } from './turn-undo';
 import { TurnUndoSlot, type TurnUndoTarget } from './turn-undo-slot';
@@ -136,12 +139,9 @@ import { SessionControls } from './SessionControls';
 import { RoutineSheet } from './routine/RoutineSheet';
 import { RpiStrip } from './rpi-strip/RpiStrip';
 import { firstUserPrompt } from './routine/routine';
-import { Lever, STOP_MESSAGES } from './Lever';
 import { TerminalPane } from './panes/terminal/TerminalPane';
 import { reattachTerminals, subscribeTerminalOutput } from './panes/terminal/terminal-session';
 import { newWorktreeSlug, worktreeSlugOf } from './worktree';
-import { probeRuntimes } from '../native/runtimes.js';
-import { seatState, type SeatStates } from './onboarding/seat-state';
 import {
   modeOfSession,
   moreRuntimes,
@@ -150,7 +150,6 @@ import {
   runtimeDividerMessage,
   runtimeLabel,
   stopModel,
-  stopOfSession,
   LEVER,
   ORCHESTRATOR_ROLE,
   RUNTIMES,
@@ -579,8 +578,6 @@ export function WorkspaceShell({ chat, children, panes, paneStore }: WorkspaceSh
   // default. A Hub submit reads the same draft through NextChat below.
   const [draftRuntime, setDraftRuntime] = useState<string | null>(null);
   const [draftMode, setDraftMode] = useState<Mode>('direct');
-  // Easy's lever position before a session; once one is open the session's triple is it.
-  const [draftStop, setDraftStop] = useState<Stop>('easy');
   // The worktree slug the next chat starts in (task 49); off by default, and off again once
   // a session has consumed it — a fresh chat is chat in the checkout.
   const [draftWorktree, setDraftWorktree] = useState<string | null>(null);
@@ -609,8 +606,6 @@ export function WorkspaceShell({ chat, children, panes, paneStore }: WorkspaceSh
   const [paletteSchedules, setPaletteSchedules] = useState<ScheduleDisplay[]>([]);
   // Terminal pane: text to input after connection (task 91).
   const [terminalInput, setTerminalInput] = useState<string | undefined>();
-  // Runtime seats probed once on workspace load (task 91).
-  const [seats, setSeats] = useState<SeatStates | undefined>();
 
   const cwd = session?.working_dir ?? getInitialWorkingDir();
   const [turnSnapshots, setTurnSnapshots] = useState<Record<string, TurnSnapshots>>(() =>
@@ -629,7 +624,6 @@ export function WorkspaceShell({ chat, children, panes, paneStore }: WorkspaceSh
   const currentRuntime =
     session?.provider_name ?? draftRuntime ?? defaultProvider ?? RUNTIMES[0].id;
   const currentMode: Mode = session ? modeOfSession(session) : draftMode;
-  const currentStop: Stop | 'custom' = session ? stopOfSession(session) : draftStop;
   const configOptions = useSessionConfigOptions(sessionId);
 
   const [planGate, setPlanGate] = useState(true);
@@ -728,10 +722,6 @@ export function WorkspaceShell({ chat, children, panes, paneStore }: WorkspaceSh
   useEffect(() => {
     if (!isWorkspaceRoute) return;
     acpListProviderDetails().then(setProviders).catch(console.error);
-    // Probe runtimes once per workspace load (task 91).
-    probeRuntimes()
-      .then((response) => setSeats(seatState(response)))
-      .catch(console.error);
   }, [isWorkspaceRoute]);
 
   // A route may arrive asking for a pane and a Changes base (the Runs inbox's Open, task
@@ -772,7 +762,7 @@ export function WorkspaceShell({ chat, children, panes, paneStore }: WorkspaceSh
 
   // The stop's model among what the session's provider lists, set on the session; the
   // triple lands in two steps because session/new takes no model. Best-effort: a miss
-  // leaves the adapter's model and the lever reads Custom.
+  // leaves the adapter's model as it is.
   const applyStopModel = useCallback(
     async (id: string, stop: Stop) => {
       const option = getSessionConfigOptions(id).find((candidate) => candidate.id === 'model');
@@ -794,7 +784,7 @@ export function WorkspaceShell({ chat, children, panes, paneStore }: WorkspaceSh
   );
 
   const startSession = useCallback(
-    async (providerId: string, mode: Mode, stop?: Stop) => {
+    async (providerId: string, mode: Mode) => {
       setBusy(true);
       try {
         const recipeDeeplink =
@@ -807,7 +797,6 @@ export function WorkspaceShell({ chat, children, panes, paneStore }: WorkspaceSh
           allExtensions: extensionsList,
           worktree: draftWorktree ?? undefined,
         });
-        if (stop) await applyStopModel(newSession.id, stop);
         window.dispatchEvent(new CustomEvent(AppEvents.SESSION_CREATED));
         window.dispatchEvent(
           new CustomEvent(AppEvents.ADD_ACTIVE_SESSION, { detail: { sessionId: newSession.id } })
@@ -819,14 +808,13 @@ export function WorkspaceShell({ chat, children, panes, paneStore }: WorkspaceSh
         setBusy(false);
       }
     },
-    [applyStopModel, draftWorktree, extensionsList, intl, orchestratorRole, planGate, setView]
+    [draftWorktree, extensionsList, intl, orchestratorRole, planGate, setView]
   );
 
   // Mid-session the switch is the ACP `provider` option; the store snapshot is the
-  // selector's value, so a failed request leaves it where it was (PRD step 9). A stop
-  // names the divider ("→ Hard from here") and sets its model once the provider is on.
+  // selector's value, so a failed request leaves it where it was (PRD step 9).
   const switchRuntime = useCallback(
-    async (providerId: string, stop?: Stop) => {
+    async (providerId: string) => {
       setBusy(true);
       try {
         const applied = await acpSetSessionProviderModel(sessionId, providerId);
@@ -838,22 +826,19 @@ export function WorkspaceShell({ chat, children, panes, paneStore }: WorkspaceSh
           provider_name: provider,
         });
         const divider = intl.formatMessage(i18n.runtimeDivider, {
-          runtime: stop
-            ? intl.formatMessage(STOP_MESSAGES[stop])
-            : runtimeLabel(provider, providers),
+          runtime: runtimeLabel(provider, providers),
         });
         acpChatSessionActions.setMessages(sessionId, [
           ...current.messages,
           runtimeDividerMessage(uuidv7(), divider),
         ]);
-        if (stop) await applyStopModel(sessionId, stop);
       } catch (error) {
         toastError({ title: intl.formatMessage(i18n.switchFailed), msg: formatAcpError(error) });
       } finally {
         setBusy(false);
       }
     },
-    [applyStopModel, intl, providers, sessionId]
+    [intl, providers, sessionId]
   );
 
   const pickRuntime = useCallback(
@@ -878,24 +863,6 @@ export function WorkspaceShell({ chat, children, panes, paneStore }: WorkspaceSh
       void startSession(currentRuntime, mode);
     },
     [currentMode, currentRuntime, orchestratorRole, startSession]
-  );
-
-  // The lever: a stop is the Runtime and Mode picks in one — a different mode starts a
-  // new session, the same mode switches the open one, a fresh chat starts on the triple.
-  const pickStop = useCallback(
-    (stop: Stop) => {
-      const triple = LEVER[stop];
-      if (triple.mode === 'orchestrate' && !orchestratorRole) return;
-      setDraftStop(stop);
-      setDraftRuntime(triple.provider);
-      setDraftMode(triple.mode);
-      if (session && triple.mode === currentMode) {
-        void switchRuntime(triple.provider, stop);
-        return;
-      }
-      void startSession(triple.provider, triple.mode, stop);
-    },
-    [currentMode, orchestratorRole, session, startSession, switchRuntime]
   );
 
   // Advanced's generic option rows: provider goes through the Runtime switch (its divider
@@ -994,6 +961,18 @@ export function WorkspaceShell({ chat, children, panes, paneStore }: WorkspaceSh
   const delegations = useSessionDelegations(sessionId);
   useLedgerWriter(sessionId, cwd, session?.name ?? '', snapshot?.messages, delegations);
 
+  // Task 267's gap: a 60 s last-alive heartbeat per cwd, so the next launch can tell how long
+  // the app was closed. `useLedgerWriter`'s first seed reads it back and appends a `gap` event
+  // when it is stale.
+  useEffect(() => {
+    if (!cwd) return;
+    saveHeartbeat(cwd, new Date().toISOString());
+    const timer = window.setInterval(() => {
+      saveHeartbeat(cwd, new Date().toISOString());
+    }, 60_000);
+    return () => window.clearInterval(timer);
+  }, [cwd]);
+
   // Capture T0 snapshot when a new user message is sent (task 88)
   useEffect(() => {
     if (!sessionId || !snapshot?.messages) return;
@@ -1080,6 +1059,7 @@ export function WorkspaceShell({ chat, children, panes, paneStore }: WorkspaceSh
           head: turn.end,
         });
         if (diff.trim()) await sidecarFetch('/git/apply', { cwd, patch: diff, reverse: !redo });
+        appendLedger(cwd, undoEvent(sessionId, turnId, undefined, redo)).catch(() => {});
         const current = acpChatSessionStore.getSnapshot(sessionId);
         if (current) {
           acpChatSessionActions.setMessages(sessionId, [
@@ -1249,19 +1229,9 @@ export function WorkspaceShell({ chat, children, panes, paneStore }: WorkspaceSh
           setView('schedules', { scheduleId: id });
         }
       },
-      switchStop: (stop) => void pickStop(stop),
       navigate: (view) => setView(view),
     };
-  }, [
-    intl,
-    paletteSessions,
-    paletteSchedules,
-    session,
-    paletteSessionActions,
-    store,
-    setView,
-    pickStop,
-  ]);
+  }, [intl, paletteSessions, paletteSchedules, session, paletteSessionActions, store, setView]);
 
   // The transcript is read at the click, not closed over: it streams, the chips do not.
   const sessionName = session?.name;
@@ -1299,32 +1269,17 @@ export function WorkspaceShell({ chat, children, panes, paneStore }: WorkspaceSh
     : undefined;
   const canOrchestrate = orchestratorRole === undefined ? undefined : orchestratorRole !== null;
   const extensionsEnabled = extensionsList.filter((extension) => extension.enabled).length;
-  const sessionModel = session?.model_config?.model_name;
   const sessionCwd = session?.working_dir;
   // In a session the chip reads the cwd's own slug; before one, the draft.
   const worktreeSlug = sessionCwd === undefined ? draftWorktree : worktreeSlugOf(sessionCwd);
   // One element per change, not per render: the chat input re-renders with its slot.
   const chips = useMemo(
     () =>
-      // Easy is the PRD's four — lever · folder · attach · send (task 140); the worktree
-      // and routine chips are Advanced's.
-      workspaceUi === undefined
+      // Easy has no chips (task 224 retires the lever): folder · attach · send, rendered
+      // outside this slot. The worktree and routine chips stay Advanced's.
+      workspaceUi === undefined || workspaceUi === 'easy'
         ? null
-        : workspaceUi === 'easy'
-          ? {
-              left: (
-                <Lever
-                  stop={currentStop}
-                  providers={providers}
-                  canOrchestrate={canOrchestrate}
-                  busy={busy}
-                  model={sessionModel}
-                  onPick={pickStop}
-                  seats={seats}
-                />
-              ),
-            }
-          : {
+        : {
               left: (
                 <>
                   <SessionChips
@@ -1377,7 +1332,6 @@ export function WorkspaceShell({ chat, children, panes, paneStore }: WorkspaceSh
       configOptions,
       currentMode,
       currentRuntime,
-      currentStop,
       cwd,
       extensionsEnabled,
       sessionCost,
@@ -1388,15 +1342,12 @@ export function WorkspaceShell({ chat, children, panes, paneStore }: WorkspaceSh
       orchestratorRole?.name,
       pickMode,
       pickRuntime,
-      pickStop,
       planGate,
       providers,
       runtimeOptions,
       saveRoutine,
-      seats,
       session,
       sessionCwd,
-      sessionModel,
       sessionStatus,
       setConfigOption,
       setView,
@@ -1551,13 +1502,19 @@ export function WorkspaceShell({ chat, children, panes, paneStore }: WorkspaceSh
     />
   );
 
-  // Easy: the lever's triple; Advanced: the Runtime · Mode chips' draft. Orchestrate brings
-  // the orchestrator role as the recipe; the lever's model lands once the session exists.
+  // Easy (task 224 retires the lever): a new session starts on the orchestrator setup when
+  // the folder can orchestrate and claude-code is installed, else direct Opus — no pick, the
+  // same reachability the lever's Hard stop used to gate on a click. `orchestratorRole` reads
+  // `undefined` while the cwd is still being searched (`canOrchestrate` above); a prompt sent
+  // in that window falls back to direct Opus rather than waiting on the scan.
+  // Advanced: the Runtime · Mode chips' draft. Orchestrate brings the orchestrator role as
+  // the recipe; the stop's model lands once the session exists (session/new takes no model).
   const nextChat = useMemo<NextChatDraft>(() => {
     const easy = workspaceUi === 'easy';
-    const triple = LEVER[draftStop];
-    const provider = easy ? triple.provider : (draftRuntime ?? undefined);
-    const mode: Mode = easy ? triple.mode : draftMode;
+    const easyStop: Stop =
+      orchestratorRole && !needsInstall(LEVER.hard.provider, providers) ? 'hard' : 'medium';
+    const provider = easy ? LEVER[easyStop].provider : (draftRuntime ?? undefined);
+    const mode: Mode = easy ? LEVER[easyStop].mode : draftMode;
     const orchestrate = mode === 'orchestrate' && orchestratorRole ? orchestratorRole : null;
     return {
       worktree: draftWorktree,
@@ -1565,24 +1522,24 @@ export function WorkspaceShell({ chat, children, panes, paneStore }: WorkspaceSh
       recipeDeeplink: orchestrate
         ? () => encodeRecipe(orchestratorRecipe(orchestrate, planGate))
         : undefined,
-      onCreated: easy ? (id) => applyStopModel(id, draftStop) : undefined,
+      onCreated: easy ? (id) => applyStopModel(id, easyStop) : undefined,
     };
   }, [
     applyStopModel,
     planGate,
     draftMode,
     draftRuntime,
-    draftStop,
     draftWorktree,
     orchestratorRole,
+    providers,
     workspaceUi,
   ]);
 
   // Task 29: the RPI strip sits above the chat in both faces, and only once a phase is lit.
   const chatMessages = snapshot?.messages ?? NO_MESSAGES;
   const changesBarTarget = useMemo(
-    () => ({ cwd, gitStatus, openPane, focusCommit, messages: chatMessages }),
-    [cwd, gitStatus, openPane, focusCommit, chatMessages]
+    () => ({ cwd, sessionId, gitStatus, openPane, focusCommit, messages: chatMessages }),
+    [cwd, sessionId, gitStatus, openPane, focusCommit, chatMessages]
   );
   const fileLinkContext = useMemo(
     () => ({ cwd, gitToplevel: gitStatus?.toplevel ?? cwd, openFile }),

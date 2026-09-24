@@ -1,12 +1,11 @@
 import { fuzzyMatch } from '../../utils/fuzzy';
 import { PANE_IDS, type PaneId } from '../pane-store';
-import { STOPS, type Stop } from '../session-controls';
 import type { View } from '../../utils/navigationUtils';
 import type { SessionListItem } from '../../acp/sessions';
 
 export interface Command {
   id: string;
-  group: 'panes' | 'session' | 'sessions' | 'routines' | 'lever' | 'go-to';
+  group: 'panes' | 'session' | 'sessions' | 'routines' | 'go-to';
   label: string;
   hint?: string;
   run: () => void | Promise<void>;
@@ -37,7 +36,6 @@ export interface PaletteContext {
   openPane: (id: PaneId) => void;
   openSession: (id: string) => void;
   runSchedule: (id: string) => Promise<void>;
-  switchStop: (stop: Stop) => void;
   navigate: (view: View) => void;
 }
 
@@ -131,15 +129,6 @@ export function buildCommands(ctx: PaletteContext): Command[] {
       label: `Run: ${schedule.name}`,
       hint: schedule.description,
       run: () => ctx.runSchedule(schedule.id),
-    });
-  }
-
-  for (const stop of STOPS) {
-    commands.push({
-      id: `lever-${stop}`,
-      group: 'lever',
-      label: stop.charAt(0).toUpperCase() + stop.slice(1),
-      run: () => ctx.switchStop(stop),
     });
   }
 

@@ -286,6 +286,64 @@ export function undoEvent(
   return { kind: 'undo', at, sessionId, turnId, redo };
 }
 
+// Task 267's three remaining writers — land (the Changes bar's commit), link (a `Fixes-job`
+// trailer on that commit) and gap (a heartbeat missed while the app was closed). Pure builders,
+// like `undoEvent` above: the caller already knows the sha, the paths, the trailer and the
+// heartbeats — these only shape that into the event the sidecar appends.
+
+// `sessionId` is the chat whose Changes bar made the commit — the parent/orchestrating session,
+// never a worker's `workerSessionId`. Telemetry's Now pane (269) folds ledger events filtered to
+// the session on screen before it looks at `kind`, so a `land` keyed to anything else is a `land`
+// no fold ever sees, and its worker reads `unknown` forever.
+export function landEvent(
+  sessionId: string,
+  sha: string,
+  paths: string[],
+  message: string,
+  at: string = new Date().toISOString()
+): Extract<LedgerEvent, { kind: 'land' }> {
+  return { kind: 'land', at, sessionId, sha, paths, message };
+}
+
+// A `Fixes-job: <workerSessionId>` trailer, git's own trailer shape: its own line, no leading
+// whitespace, one token after the colon.
+const FIXES_JOB_TRAILER = /^Fixes-job:\s*(\S+)\s*$/im;
+
+export function parseFixesJobTrailer(message: string): string | null {
+  const match = FIXES_JOB_TRAILER.exec(message);
+  return match ? match[1] : null;
+}
+
+// The `link` a commit's `Fixes-job` trailer implies — null when the message carries none, so a
+// plain commit appends nothing beyond its `land`.
+export function linkEventFromCommit(
+  sessionId: string,
+  message: string,
+  fromSha: string,
+  at: string = new Date().toISOString()
+): Extract<LedgerEvent, { kind: 'link' }> | null {
+  const workerSessionId = parseFixesJobTrailer(message);
+  if (!workerSessionId) return null;
+  return { kind: 'link', at, sessionId, workerSessionId, by: 'user', fromSha };
+}
+
+const DEFAULT_GAP_THRESHOLD_MS = 10 * 60 * 1000;
+
+// A `gap` between the last heartbeat this cwd wrote and now, when that gap outlasts the
+// heartbeat's own 60 s interval by enough to mean the app was closed, not just slow to tick —
+// `null` when there is no prior heartbeat (first launch ever) or the gap is ordinary.
+export function gapEvent(
+  sessionId: string,
+  lastAlive: string | null,
+  now: string = new Date().toISOString(),
+  thresholdMs: number = DEFAULT_GAP_THRESHOLD_MS
+): Extract<LedgerEvent, { kind: 'gap' }> | null {
+  if (!lastAlive) return null;
+  const elapsed = new Date(now).getTime() - new Date(lastAlive).getTime();
+  if (!(elapsed > thresholdMs)) return null;
+  return { kind: 'gap', at: now, sessionId, from: lastAlive, to: now };
+}
+
 // The natural id a kind carries in place of `messageId`, when it has one — mirrors the
 // sidecar's own `NATURAL_ID_FIELD` (`ui/sidecar/src/ledger.ts`) exactly, field for field.
 const NATURAL_ID_FIELD: Partial<Record<LedgerEvent['kind'], string>> = {

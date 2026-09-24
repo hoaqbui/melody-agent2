@@ -156,19 +156,20 @@ export function reviewerRecipe(
 
 export type Stop = 'easy' | 'medium' | 'hard';
 
-export const STOPS: readonly Stop[] = ['easy', 'medium', 'hard'];
-
 export interface StopTriple {
   provider: string;
   // The stop's model is whichever the adapter lists that matches; ids are adapter data.
   modelMatch: RegExp;
   // The claude CLI publishes no model list (its `initialize` returns `models: []`), so the
-  // stop takes whatever the adapter is set to when nothing matches, instead of reading Custom.
+  // stop takes whatever the adapter is set to when nothing matches.
   anyModel?: boolean;
   mode: Mode;
 }
 
-// The lever's one table (task 58): a stop is a (provider, model, mode) triple.
+// The stop table (task 58; the lever that picked one retired task 224): a stop is a
+// (provider, model, mode) triple. A new Easy session takes `hard` (with `orchestratorRecipe`)
+// when the folder can orchestrate, else `medium` (direct Opus) — `WorkspaceShell.tsx`'s
+// `nextChat`.
 export const LEVER: Record<Stop, StopTriple> = {
   easy: { provider: 'claude-acp', modelMatch: /sonnet/i, mode: 'direct' },
   medium: { provider: 'claude-acp', modelMatch: /opus/i, mode: 'direct' },
@@ -184,25 +185,6 @@ export function stopModel(
     (choice) => modelMatch.test(choice.value) || modelMatch.test(choice.name)
   )?.value;
   return matched ?? (anyModel ? choices[0]?.value : undefined);
-}
-
-// The stop whose triple the session matches; Custom when none does (Advanced left it
-// somewhere the lever cannot name).
-export function stopOfSession(
-  session: Pick<Session, 'provider_name' | 'model_config' | 'recipe'>
-): Stop | 'custom' {
-  const mode = modeOfSession(session);
-  const model = session.model_config?.model_name ?? '';
-  return (
-    STOPS.find((stop) => {
-      const triple = LEVER[stop];
-      return (
-        triple.provider === session.provider_name &&
-        triple.mode === mode &&
-        (triple.anyModel || triple.modelMatch.test(model))
-      );
-    }) ?? 'custom'
-  );
 }
 
 // A client-side marker in the message list (PRD step 9); the handoff memo itself is

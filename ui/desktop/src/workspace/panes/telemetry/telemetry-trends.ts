@@ -37,7 +37,8 @@ export function trendCandidates(
   units: readonly Unit[],
   events: readonly LedgerEvent[],
   range: Range,
-  seatLabel: (s: { provider: string; model: string }) => string
+  seatLabel: (s: { provider: string; model: string }) => string,
+  now: number
 ): Trend[] {
   const prior = priorRange(range);
   const cur = inRange(units, range);
@@ -123,11 +124,8 @@ export function trendCandidates(
     }
   }
 
-  const corrections = events.filter(
-    (e): e is Extract<LedgerEvent, { kind: 'correction' }> => e.kind === 'correction'
-  );
-  const rowsA = roleRows(workersIn(events, range), corrections);
-  const rowsB = roleRows(workersIn(events, prior), corrections);
+  const rowsA = roleRows(workersIn(events, range), events, now);
+  const rowsB = roleRows(workersIn(events, prior), events, now);
   for (const row of rowsA) {
     const before = rowsB.find((r) => r.source === row.source);
     if (!before || row.runs < 4 || before.runs < 4) continue;
@@ -145,8 +143,8 @@ export function trendCandidates(
         { text: String(row.runs), n: true },
         { text: ' runs corrected by the session.' },
       ],
-      why: 'Clean-done = returned, not blocked, not rewritten by the session. The number that says whether the role is earning its seat.',
-      from: "(done − blocked − corrected) ÷ runs · DelegationUpdate + the session's writes after Done",
+      why: 'Clean-done = landed, per the job outcome fold — not blocked, not undone, not reworked, not rewritten by the session, and not merely done with no commit yet. The number that says whether the role is earning its seat.',
+      from: 'landed jobs ÷ runs · ledger-outcome.outcomeOf per job',
     });
   }
   return out;
