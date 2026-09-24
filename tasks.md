@@ -616,7 +616,7 @@ Order: 264 → 265 ∥ 266 ∥ 267 ∥ 268 → 269. T1 done 2026-09-23; gate pas
 Order: 270 (draftable now) → 271 ∥ 272 → 273 ∥ 274; 275 after use.
 
 - 270. T2a PRD: Team health and Usage as Work tabs
-  - status: todo · agent: — · worker: medium
+  - status: doing · agent: session's worker (2026-09-23) · worker: medium
   - card: as the user, I want the two tabs' behaviour, states and criteria written and approved before any code, so that T2a builds what I picked (FURPS U · MoSCoW Must)
   - context: mockups `docs/mockups/2026-09-23-team-health-panel.html` and `2026-09-23-usage-versions.html` version D; must decide how the tabs read `~/Melody` and other repositories' ledgers (the sidecar has one cwd, `main.ts:1315-1316`; `/ledger/*`, `/fs/*` 400 outside it, `sidecar ledger.ts:95-114`), where seat windows come from (`planLimits` is supplied nowhere, `UsageRing.tsx:46`, `:57`), what fixture the `team health` walk loads; template `docs/2026-09-22-agent-memory-prd-v2.md`
   - confirm: `ls docs/*-team-tabs-prd-v1.md | wc -l && grep -c "^- \[ \]" docs/*-team-tabs-prd-v1.md` → 1 file, ≥ 6 criteria (0 today); then the user's approval
