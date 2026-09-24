@@ -3,7 +3,7 @@ use crate::acp::server::{meta_string, validate_absolute_cwd, ResultExt};
 use crate::agents::ExtensionLoadResult;
 use crate::config::{Config, GooseMode};
 use crate::recipe::{Recipe, Settings};
-use crate::session::{ExtensionData, Session, SessionType};
+use crate::session::{ExtensionData, Session, SessionRole, SessionType};
 
 use super::GooseAcpAgent;
 use agent_client_protocol::schema::v1::{Meta, NewSessionRequest, NewSessionResponse, SessionId};
@@ -12,6 +12,7 @@ use goose_providers::model::ModelConfig;
 use goose_providers::thinking::ThinkingEffortSupport;
 use std::collections::HashMap;
 use std::path::PathBuf;
+use std::str::FromStr;
 use tracing::warn;
 
 struct InitialSessionConfig {
@@ -30,6 +31,12 @@ struct NewSessionMetaFields {
     /// Client-supplied title, recorded as user-set so goose's own name
     /// generation leaves it alone. `None` when a recipe title took precedence.
     client_title: Option<String>,
+    /// `_meta.role` (task 207, for M1b): a session created as Melody's own
+    /// or as a repository's manager. Applied through `set_role`, which
+    /// enforces one Melody session and one manager per repository — a
+    /// conflicting claim fails `handle_new_session` and the session is
+    /// cleaned up like any other setup failure.
+    role: Option<SessionRole>,
 }
 
 impl GooseAcpAgent {
@@ -158,6 +165,20 @@ impl GooseAcpAgent {
             recipe_extensions,
         )?;
 
+        let role = meta.role;
+        if let Some(role) = role {
+            // `session/new` sessions default to `Acp` (no `client` meta) or
+            // `Hidden`; only a `User` session may claim the `melody` or
+            // `manager` role, matching the invariant `get_or_create_manager`
+            // and `melody_surface::start_session` both rely on: a manager
+            // (or Melody's own session) is always one a real client owns.
+            if role != SessionRole::None && session.session_type != SessionType::User {
+                return Err(agent_client_protocol::Error::invalid_params().data(format!(
+                    "role '{role}' requires a User session (found {:?})",
+                    session.session_type
+                )));
+            }
+        }
         self.apply_initial_session_config(
             &session.id,
             InitialSessionConfig {
@@ -170,6 +191,15 @@ impl GooseAcpAgent {
             },
         )
         .await?;
+
+        if let Some(role) = role {
+            let repository_cwd =
+                (role == SessionRole::Manager).then_some(session.working_dir.as_path());
+            self.session_manager
+                .set_role(&session.id, role, repository_cwd)
+                .await
+                .internal_err_ctx("Failed to set session role")?;
+        }
 
         Ok(rendered)
     }
@@ -321,6 +351,19 @@ fn new_session_meta_fields(
         // precedence it has today and a client title only replaces the
         // "New Chat" fallback.
         client_title: session_title.filter(|_| recipe_title(recipe).is_none()),
+        role: session_role_from_meta(meta)?,
+    })
+}
+
+fn session_role_from_meta(
+    meta: Option<&Meta>,
+) -> Result<Option<SessionRole>, agent_client_protocol::Error> {
+    let Some(role) = meta_string(meta, "role")? else {
+        return Ok(None);
+    };
+    SessionRole::from_str(&role).map(Some).map_err(|_| {
+        agent_client_protocol::Error::invalid_params()
+            .data("role must be one of: none, melody, manager")
     })
 }
 

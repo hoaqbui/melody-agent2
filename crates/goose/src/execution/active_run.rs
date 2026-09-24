@@ -211,6 +211,28 @@ impl ActiveRunRegistry {
             .expect("active run lock poisoned")
             .contains_key(session_id)
     }
+
+    /// Test seam for callers outside this crate (integration tests), the
+    /// same way `GooseAcpAgent::has_active_run_for_test` is: claims a prompt
+    /// run so a test can simulate "a turn already in flight" on the exact
+    /// registry the code under test checks, without needing the ACP request
+    /// machinery `on_prompt` itself goes through.
+    #[doc(hidden)]
+    pub fn start_prompt_run_for_test(
+        &self,
+        session_id: &str,
+        run_id: &str,
+        cancel_token: CancellationToken,
+        agent: Arc<Agent>,
+    ) -> bool {
+        self.start_prompt_run(session_id, run_id.to_string(), cancel_token, agent)
+            .is_ok()
+    }
+
+    #[doc(hidden)]
+    pub fn is_active_for_test(&self, session_id: &str) -> bool {
+        self.is_active(session_id)
+    }
 }
 
 #[cfg(test)]
