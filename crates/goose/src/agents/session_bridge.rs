@@ -3,6 +3,12 @@
 //! wrappers drop Goose's own tool list, so this is the only way an
 //! orchestrator running on a subscription runtime can delegate through Goose.
 //! Callers register top-level sessions only; a delegated child never sees it.
+//!
+//! A session can also carry a [`SessionTools`] attachment (task 207: Melody's
+//! `list_sessions` / `start_session` / `session_status`) — tools dispatched
+//! here directly, over the server's shared state, instead of into the
+//! session's own `Agent` the way summon's tools are. `attach_tools` sets it;
+//! `handle` lists and dispatches it alongside summon's tools.
 
 use axum::{
     extract::{Path, State},
@@ -15,7 +21,7 @@ use futures::StreamExt;
 use rand::{distr::Alphanumeric, RngExt};
 use rmcp::model::{
     CallToolRequestParams, CallToolResult, ContentBlock, Implementation, InitializeResult,
-    ListToolsResult, ServerCapabilities, ServerNotification,
+    ListToolsResult, ServerCapabilities, ServerNotification, Tool,
 };
 use serde_json::{json, Value};
 use std::collections::HashMap;
@@ -41,12 +47,26 @@ const BRIDGE_HTTP_TIMEOUT_SECS: u64 = 5 * 60;
 // subscriber drops the oldest events, never blocks a tool call.
 const EVENT_CAPACITY: usize = 64;
 
+/// A tool set dispatched directly by the bridge for a registered session,
+/// rather than routed into that session's own `Agent`. Its `call` needs no
+/// client connection — the server-layer state it closes over (session and
+/// agent managers) is available whether or not any window is open on the
+/// session it operates against.
+#[async_trait::async_trait]
+pub trait SessionTools: Send + Sync {
+    fn tools(&self) -> Vec<Tool>;
+    async fn call(&self, caller_session_id: &str, call: CallToolRequestParams) -> CallToolResult;
+}
+
 struct Registered {
     agent: Weak<Agent>,
     /// Notifications the session's bridge-dispatched tool calls produce
     /// (summon's `delegate_started` / `delegate_finished` among them); the ACP
     /// server subscribes, the CLI has no receiver and the sends are dropped.
     events: broadcast::Sender<ServerNotification>,
+    /// Set by `attach_tools`; `None` for a session with no such attachment
+    /// (every session registered before task 207, and any that never gets one).
+    tools: Option<Arc<dyn SessionTools>>,
 }
 
 type Registry = Arc<Mutex<HashMap<String, Registered>>>;
@@ -108,9 +128,18 @@ impl SessionBridge {
                     Registered {
                         agent,
                         events: broadcast::channel(EVENT_CAPACITY).0,
+                        tools: None,
                     },
                 );
             }
+        }
+    }
+
+    /// Attaches (or replaces) `session_id`'s [`SessionTools`]. A no-op when
+    /// the session isn't registered yet — call `register` first.
+    pub fn attach_tools(&self, session_id: &str, tools: Arc<dyn SessionTools>) {
+        if let Some(registered) = self.state.registry.lock().unwrap().get_mut(session_id) {
+            registered.tools = Some(tools);
         }
     }
 
@@ -230,13 +259,20 @@ async fn handle(
     headers: HeaderMap,
     body: String,
 ) -> Response {
-    let registered = state
-        .registry
-        .lock()
-        .unwrap()
-        .get(&session_id)
-        .and_then(|registered| Some((registered.agent.upgrade()?, registered.events.clone())));
-    let Some((agent, events)) = registered else {
+    let registered =
+        state
+            .registry
+            .lock()
+            .unwrap()
+            .get(&session_id)
+            .and_then(|registered: &Registered| {
+                Some((
+                    registered.agent.upgrade()?,
+                    registered.events.clone(),
+                    registered.tools.clone(),
+                ))
+            });
+    let Some((agent, events, session_tools)) = registered else {
         return StatusCode::NOT_FOUND.into_response();
     };
 
@@ -280,9 +316,12 @@ async fn handle(
         method if method.starts_with("notifications/") => StatusCode::ACCEPTED.into_response(),
         "ping" => rpc_ok(id, json!({})),
         "tools/list" => {
-            let tools = agent
+            let mut tools = agent
                 .list_tools(&session_id, Some(SUMMON_EXTENSION.to_string()))
                 .await;
+            if let Some(session_tools) = &session_tools {
+                tools.extend(session_tools.tools());
+            }
             rpc_ok(id, json!(ListToolsResult::with_all_items(tools)))
         }
         "tools/call" => {
@@ -290,6 +329,15 @@ async fn handle(
                 Some(Ok(call)) => call,
                 _ => return rpc_error(StatusCode::OK, id, -32602, "invalid params"),
             };
+            if let Some(session_tools) = &session_tools {
+                if session_tools
+                    .tools()
+                    .iter()
+                    .any(|tool| tool.name == call.name)
+                {
+                    return rpc_ok(id, json!(session_tools.call(&session_id, call).await));
+                }
+            }
             let session = match agent
                 .config
                 .session_manager
@@ -765,5 +813,69 @@ mod tests {
         // An own-context provider would return Some and store the entry; a child gets neither.
         assert!(sync_extension(&agent, &session_id).await.unwrap().is_none());
         assert!(stored_bridge_uri(&agent, &session_id).await.is_none());
+    }
+
+    struct StubSessionTools;
+
+    #[async_trait::async_trait]
+    impl SessionTools for StubSessionTools {
+        fn tools(&self) -> Vec<Tool> {
+            vec![Tool::new(
+                "stub_tool",
+                "a stub tool for the attach_tools test".to_string(),
+                serde_json::json!({"type": "object", "properties": {}})
+                    .as_object()
+                    .unwrap()
+                    .clone(),
+            )]
+        }
+
+        async fn call(
+            &self,
+            caller_session_id: &str,
+            call: CallToolRequestParams,
+        ) -> CallToolResult {
+            CallToolResult::success(vec![ContentBlock::text(format!(
+                "{}:{}",
+                caller_session_id, call.name
+            ))])
+        }
+    }
+
+    #[tokio::test]
+    async fn attached_tools_are_listed_and_dispatched_ahead_of_the_agent() {
+        let bridge = SessionBridge::global().await;
+        let secret = bridge.state.secret.as_str();
+        let agent = Arc::new(Agent::new());
+        bridge.register("s-tools", Arc::downgrade(&agent));
+        bridge.attach_tools("s-tools", Arc::new(StubSessionTools));
+
+        let response = bridge
+            .router()
+            .oneshot(post("s-tools", Some(secret), LIST))
+            .await
+            .unwrap();
+        assert_eq!(response.status(), StatusCode::OK);
+        let listed = json_body(response).await;
+        let names: Vec<&str> = listed["result"]["tools"]
+            .as_array()
+            .unwrap()
+            .iter()
+            .filter_map(|tool| tool["name"].as_str())
+            .collect();
+        assert!(names.contains(&"stub_tool"), "tools: {names:?}");
+
+        let call = r#"{"jsonrpc":"2.0","id":2,"method":"tools/call","params":{"name":"stub_tool","arguments":{}}}"#;
+        let response = bridge
+            .router()
+            .oneshot(post("s-tools", Some(secret), call))
+            .await
+            .unwrap();
+        assert_eq!(response.status(), StatusCode::OK);
+        let called = json_body(response).await;
+        let text = called["result"]["content"][0]["text"].as_str().unwrap();
+        assert_eq!(text, "s-tools:stub_tool");
+
+        bridge.unregister("s-tools");
     }
 }

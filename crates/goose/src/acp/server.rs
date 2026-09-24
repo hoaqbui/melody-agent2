@@ -117,6 +117,7 @@ mod load_session;
 mod local_inference;
 pub use crate::live_voice::LiveVoiceService;
 mod manage_sessions;
+pub mod melody_surface;
 mod message_meta;
 mod new_session;
 mod onboarding;
@@ -1825,10 +1826,24 @@ impl GooseAcpAgent {
         agent: &Arc<Agent>,
         session_id: &str,
     ) -> Result<(), agent_client_protocol::Error> {
-        let Some(provider_name) = session_bridge::sync_extension(agent, session_id)
+        let provider_name = session_bridge::sync_extension(agent, session_id)
             .await
-            .internal_err_ctx("Failed to sync session bridge")?
-        else {
+            .internal_err_ctx("Failed to sync session bridge")?;
+
+        // Melody's surface tools (task 207) dispatch over the server's shared
+        // session/agent state, not the calling session's own `Agent`, so they
+        // are attached here regardless of whether the bridge extension itself
+        // changed — every activated session gets them, same as the bridge
+        // registration `sync_extension` always performs above.
+        session_bridge::SessionBridge::global().await.attach_tools(
+            session_id,
+            Arc::new(melody_surface::MelodySurface::new(
+                Arc::clone(&self.session_manager),
+                Arc::clone(&self.agent_manager),
+            )),
+        );
+
+        let Some(provider_name) = provider_name else {
             return Ok(());
         };
         let model_config = agent
