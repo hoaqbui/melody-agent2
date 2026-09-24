@@ -3,7 +3,7 @@
 // Usage can read it (and every companion's journal) regardless of which repository the sidecar
 // spawned in. No route here writes; git runs only `log` and `show <sha>:<path>`, never a shell.
 
-import { readdir, readFile, realpath } from 'node:fs/promises';
+import { readdir, readFile } from 'node:fs/promises';
 import os from 'node:os';
 import path from 'node:path';
 
@@ -97,25 +97,37 @@ export const notebookRoutes = (root: string): Record<string, JsonHandler> => ({
     const relative = `./${path.relative(root, target).split(path.sep).join('/')}`;
     return { path: target, content: await git(root, ['show', `${rev}:${relative}`]) };
   },
+  // `path` defaults to the root itself, never omitted from the call below: without it, `root`
+  // would go unvalidated (a root swapped for an outward symlink after spawn would go
+  // undetected) and git would run with no pathspec at all, returning history for the whole
+  // repository `root` sits in rather than only what's under it — a real leak when `root` is a
+  // subdirectory of a larger repository, not just a symlink escape.
   'POST /notebook/log': async (body) => {
+    const target = await notebookPath(root, {
+      path: typeof body.path === 'string' ? body.path : '.',
+    });
+    // `./` (cwd-relative), not a bare relative path: a path component starting with `:` is
+    // pathspec magic after `--` (`:(top)`, `:/…`) that escapes back to the repo's top level —
+    // reachable in principle when the notebook sits inside the spawn repository. `./` alone
+    // is itself a valid pathspec for the root-itself case.
+    const relative = path.relative(root, target).split(path.sep).join('/');
     const args = ['log', '-z', `--format=%H${FIELD_SEP}%aI${FIELD_SEP}%s`];
     if (typeof body.since === 'string') args.push(`--since=${body.since}`);
-    if (typeof body.path === 'string') {
-      const target = await notebookPath(root, body);
-      args.push('--', `./${path.relative(root, target).split(path.sep).join('/')}`);
-    }
+    args.push('--', `./${relative}`);
     return { commits: parseNotebookLog(await git(root, args)) };
   },
 });
 
-// Realpath'd when the notebook exists, so a symlinked home directory resolves the same way
-// `/fs/*`'s toplevel does; when it does not exist yet (no notebook set up), the unresolved
-// default is kept so routes fail per request with the tab's own "no notebook" state rather
-// than the sidecar refusing to start.
+// Canonicalized through the nearest existing ancestor (same as a per-request path, not a bare
+// `realpath().catch(() => root)`): a symlinked home directory resolves the same way `/fs/*`'s
+// toplevel does, and — when the notebook does not exist yet — the *ancestor* is still
+// canonicalized so that once it's created, `notebookPath`'s own ancestor-walk resolves the
+// same string and containment still passes, rather than 400ing forever because the stored
+// root was left uncanonicalized while a request's fully-resolved path was not.
 export const resolveNotebookRoot = async (
   env: NodeJS.ProcessEnv = process.env,
   home: string = os.homedir()
 ): Promise<string> => {
   const root = defaultNotebookRoot(env, home);
-  return realpath(root).catch(() => root);
+  return realpathThroughAncestor(root).catch(() => root);
 };

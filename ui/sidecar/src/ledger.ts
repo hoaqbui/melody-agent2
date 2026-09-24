@@ -15,6 +15,27 @@ import { HttpError, type JsonHandler, requireString } from './http.js';
 const isLedgerName = (name: string): boolean =>
   /\.jsonl$/.test(name) && !/[/\\]/.test(name) && !name.includes('..');
 
+// `name` has no separator, but the *file itself* can still be a symlink placed inside
+// `ledgerDir` pointing outward — realpath and check containment before ever reading it. A
+// name that doesn't exist yet reads as its own literal path: `readLedger` already treats a
+// missing file as no events, the same as the cwd-keyed route does for a ledger that hasn't
+// had its first append yet, so this stays consistent rather than 400ing on "not found".
+const ledgerFileByName = async (ledgerDir: string, name: string): Promise<string> => {
+  const file = path.join(ledgerDir, name);
+  let resolved: string;
+  try {
+    resolved = await realpath(file);
+  } catch (error) {
+    if ((error as NodeJS.ErrnoException).code === 'ENOENT') return file;
+    throw error;
+  }
+  const resolvedDir = await realpath(ledgerDir).catch(() => ledgerDir);
+  if (!isInside(resolved, resolvedDir)) {
+    throw new HttpError(400, 'name resolves outside the ledger dir');
+  }
+  return resolved;
+};
+
 export const EVENT_KINDS = [
   'turn',
   'worker',
@@ -166,19 +187,35 @@ const keysFor = async (file: string): Promise<Set<string>> => {
 
 // Task 271: the request cwd's own repository when it has one inside the `/fs/*` boundary,
 // folding a linked worktree back to its main repository wherever it lives (not only under
-// `.worktrees/`) — `--path-format=absolute` needs no realpath of a relative rev-parse answer,
-// and a linked worktree's `--git-common-dir` already points at the main repository's `.git`.
+// `.worktrees/`) — `--path-format=absolute` needs no realpath of a relative rev-parse answer.
 // Falls back to the spawn toplevel for a cwd that is not itself a repository (the read-side
 // join in the PRD still covers those lines via the spawn-rooted file).
 const mainRepoToplevelOf = async (cwd: string): Promise<string> => {
-  // `--show-toplevel` alone would answer the linked worktree's own toplevel, not its main
-  // repository's — `--git-common-dir` is the one that already points at the shared `.git`.
-  const [, commonDir] = (
-    await git(cwd, ['rev-parse', '--path-format=absolute', '--show-toplevel', '--git-common-dir'])
+  const [toplevel, gitDir, commonDir] = (
+    await git(cwd, [
+      'rev-parse',
+      '--path-format=absolute',
+      '--show-toplevel',
+      '--git-dir',
+      '--git-common-dir',
+    ])
   )
     .trim()
     .split('\n');
-  return path.dirname(await realpath(commonDir));
+  // A linked worktree is the one shape whose own git-dir (`<main>/.git/worktrees/<id>`)
+  // differs from its common dir (`<main>/.git`, shared with the main checkout) — that's what
+  // "fold this one back" means. A plain repo, a submodule (`<super>/.git/modules/<name>` is
+  // both its git-dir and its common dir) and a repo made with `--separate-git-dir` (git-dir
+  // and common-dir also coincide there, just elsewhere) all have git-dir === common-dir, so
+  // none of them fold — each keys on its own toplevel. Requiring the common dir to end in
+  // `.git` on top of that rules out a submodule's `.git/modules/<name>` specifically, so two
+  // submodules of one superproject (whose common dirs would otherwise both `dirname` to the
+  // shared `modules/` directory) never collide.
+  const [realGitDir, realCommonDir] = await Promise.all([realpath(gitDir), realpath(commonDir)]);
+  if (realGitDir !== realCommonDir && path.basename(realCommonDir) === '.git') {
+    return path.dirname(realCommonDir);
+  }
+  return realpath(toplevel);
 };
 
 export const ledgerRoutes = (
@@ -234,7 +271,7 @@ export const ledgerRoutes = (
         if (!isLedgerName(name)) {
           throw new HttpError(400, 'name must be a bare *.jsonl file name, no / or ..');
         }
-        const file = path.join(ledgerDir, name);
+        const file = await ledgerFileByName(ledgerDir, name);
         return { events: await readLedger(file, since), file };
       }
       const file = await fileFor(body);

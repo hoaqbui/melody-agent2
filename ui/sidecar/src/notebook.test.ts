@@ -156,9 +156,37 @@ describe('resolveNotebookRoot', () => {
     await rm(scratch, { recursive: true, force: true });
   });
 
-  it('keeps the unresolved default when no notebook exists yet, so spawn never fails on it', async () => {
-    const missing = path.join(os.tmpdir(), `sidecar-notebook-missing-${Date.now()}`);
+  it('resolves through the nearest existing ancestor when no notebook exists yet, so spawn never fails on it', async () => {
+    // `os.tmpdir()` itself is realpath'd first (macOS's /var → /private/var), since the fix
+    // canonicalizes the nearest *existing* ancestor rather than leaving the whole path as-is
+    // — the same ancestor-walk `notebookPath` runs per request.
+    const realTmp = await realpath(os.tmpdir());
+    const missing = path.join(realTmp, `sidecar-notebook-missing-${Date.now()}`);
     expect(await resolveNotebookRoot({ MELODY_NOTEBOOK: missing })).toBe(missing);
+  });
+
+  it('canonicalizes through a symlinked ancestor even when the notebook does not exist yet', async () => {
+    const base = await realpath(
+      await mkdtemp(path.join(os.tmpdir(), 'sidecar-notebook-ancestor-'))
+    );
+    const target = path.join(base, 'actual-home');
+    await mkdir(target, { recursive: true });
+    const linkedHome = path.join(base, 'linked-home');
+    await symlink(target, linkedHome);
+    const missingNotebook = path.join(linkedHome, 'Melody');
+
+    const resolvedRoot = await resolveNotebookRoot({ MELODY_NOTEBOOK: missingNotebook });
+    expect(resolvedRoot).toBe(path.join(target, 'Melody'));
+
+    // Once the notebook is actually created, a request against the still-symlinked
+    // `MELODY_NOTEBOOK` path resolves to the exact same canonical string — containment
+    // keeps passing rather than 400ing because the stored root was left uncanonicalized.
+    await mkdir(path.join(target, 'Melody'), { recursive: true });
+    const routes = notebookRoutes(resolvedRoot);
+    const listed = (await routes['POST /notebook/list']({ dir: '.' })) as { path: string };
+    expect(listed.path).toBe(resolvedRoot);
+
+    await rm(base, { recursive: true, force: true });
   });
 });
 
@@ -178,6 +206,58 @@ describe('notebookRoutes with no notebook at the root', () => {
     const readError = await failure(routes['POST /notebook/read']({ path: 'MEMORY.md' }));
     expect(readError.status).toBe(404);
     await rm(base, { recursive: true, force: true });
+  });
+});
+
+describe('/notebook/log validates and constrains to the root itself', () => {
+  it('does not return commits from outside the root when MELODY_NOTEBOOK is a repo subdirectory', async () => {
+    const scratch = await realpath(
+      await mkdtemp(path.join(os.tmpdir(), 'sidecar-notebook-subdir-'))
+    );
+    const bigRepo = path.join(scratch, 'bigrepo');
+    const sub = path.join(bigRepo, 'sub');
+    await mkdir(sub, { recursive: true });
+    await initRepo(bigRepo);
+    await writeFile(path.join(bigRepo, 'top-secret.txt'), 'outside the notebook root\n');
+    await sh(bigRepo, ['add', '.']);
+    await sh(bigRepo, ['commit', '-q', '-m', 'top: outside the notebook root']);
+    await writeFile(path.join(sub, 'inside.txt'), 'inside the notebook root\n');
+    await sh(bigRepo, ['add', '.']);
+    await sh(bigRepo, ['commit', '-q', '-m', 'sub: inside the notebook root']);
+
+    const subRoutes = notebookRoutes(sub);
+    const log = (await subRoutes['POST /notebook/log']({})) as { commits: { subject: string }[] };
+    expect(log.commits.map((c) => c.subject)).toEqual(['sub: inside the notebook root']);
+
+    await rm(scratch, { recursive: true, force: true });
+  });
+
+  it('refuses when the root is later replaced by a symlink pointing outside, rather than returning that history', async () => {
+    const scratch = await realpath(await mkdtemp(path.join(os.tmpdir(), 'sidecar-notebook-swap-')));
+    const rootDir = path.join(scratch, 'root-real');
+    await mkdir(rootDir, { recursive: true });
+    await initRepo(rootDir);
+    await writeFile(path.join(rootDir, 'a.txt'), 'a\n');
+    await sh(rootDir, ['add', '.']);
+    await sh(rootDir, ['commit', '-q', '-m', 'seed root']);
+    // Routes are built against the real directory, exactly as `resolveNotebookRoot` would
+    // have handed them at spawn.
+    const routes = notebookRoutes(rootDir);
+
+    const secretDir = path.join(scratch, 'secret');
+    await mkdir(secretDir, { recursive: true });
+    await initRepo(secretDir);
+    await writeFile(path.join(secretDir, 'secret.txt'), 'shh\n');
+    await sh(secretDir, ['add', '.']);
+    await sh(secretDir, ['commit', '-q', '-m', 'top secret commit']);
+
+    await rm(rootDir, { recursive: true, force: true });
+    await symlink(secretDir, rootDir);
+
+    const error = await failure(routes['POST /notebook/log']({}));
+    expect(error.status).toBe(400);
+
+    await rm(scratch, { recursive: true, force: true });
   });
 });
 
@@ -232,6 +312,22 @@ describe('ledgerRoutes — /ledger/list and /ledger/read {name}', () => {
       routes['POST /ledger/read']({ cwd: '.', name: 'proj-one-aaaaaaaa.jsonl' })
     );
     expect(error.status).toBe(400);
+  });
+
+  it('refuses a name that resolves to a symlink escaping the ledger dir', async () => {
+    const secretFile = path.join(scratch, 'secret.jsonl');
+    await writeFile(
+      secretFile,
+      JSON.stringify({ at: '2026-09-24T09:00:00Z', kind: 'turn', sessionId: 'secret' }) + '\n'
+    );
+    const escapeLink = path.join(ledgerDir, 'escape.jsonl');
+    await symlink(secretFile, escapeLink);
+    try {
+      const error = await failure(routes['POST /ledger/read']({ name: 'escape.jsonl' }));
+      expect(error.status).toBe(400);
+    } finally {
+      await rm(escapeLink);
+    }
   });
 
   it('reads as no ledgers, not an error, when the ledger dir does not exist yet', async () => {
@@ -306,5 +402,92 @@ describe("ledgerRoutes — fileFor keys on the request cwd's repository", () => 
     await mkdir(path.join(home, 'plain'), { recursive: true });
     const result = (await routes['POST /ledger/read']({ cwd: 'plain' })) as { file: string };
     expect(result.file).toBe(ledgerFileFor(ledgerDir, home));
+  });
+});
+
+describe('ledgerRoutes — fileFor keeps submodules distinct', () => {
+  let scratch: string;
+  let home: string;
+  let superRepo: string;
+  let ledgerDir: string;
+  let routes: ReturnType<typeof ledgerRoutes>;
+
+  beforeAll(async () => {
+    scratch = await realpath(await mkdtemp(path.join(os.tmpdir(), 'sidecar-ledger-submodule-')));
+    home = path.join(scratch, 'home');
+    superRepo = path.join(home, 'super');
+    ledgerDir = path.join(scratch, 'state', 'ledger');
+    await mkdir(superRepo, { recursive: true });
+    await initRepo(superRepo);
+    await writeFile(path.join(superRepo, 'root.txt'), 'root\n');
+    await sh(superRepo, ['add', '.']);
+    await sh(superRepo, ['commit', '-q', '-m', 'seed super']);
+
+    // Two standalone repos, added as the superproject's submodules `a` and `b` — each gets
+    // its own git dir under `super/.git/modules/<name>`, the shape that collided before the
+    // `.git`-suffix check (both `dirname`d to the shared `modules/` directory).
+    for (const name of ['a', 'b']) {
+      const seed = path.join(scratch, `seed-${name}`);
+      await mkdir(seed, { recursive: true });
+      await initRepo(seed);
+      await writeFile(path.join(seed, `${name}.txt`), `${name}\n`);
+      await sh(seed, ['add', '.']);
+      await sh(seed, ['commit', '-q', '-m', `seed ${name}`]);
+      await sh(superRepo, ['-c', 'protocol.file.allow=always', 'submodule', 'add', seed, name]);
+    }
+    await sh(superRepo, ['commit', '-q', '-m', 'add submodules']);
+
+    routes = ledgerRoutes(home, ledgerDir);
+  });
+
+  afterAll(async () => {
+    await rm(scratch, { recursive: true, force: true });
+  });
+
+  it('two submodules of the same superproject keep distinct ledger files', async () => {
+    const fromA = (await routes['POST /ledger/read']({ cwd: 'super/a' })) as { file: string };
+    const fromB = (await routes['POST /ledger/read']({ cwd: 'super/b' })) as { file: string };
+    expect(fromA.file).not.toBe(fromB.file);
+    expect(path.basename(fromA.file)).toMatch(/^a-/);
+    expect(path.basename(fromB.file)).toMatch(/^b-/);
+  });
+
+  it('a plain (non-worktree, non-submodule) repository still keys on its own toplevel', async () => {
+    const result = (await routes['POST /ledger/read']({ cwd: 'super' })) as { file: string };
+    expect(result.file).toBe(ledgerFileFor(ledgerDir, superRepo));
+  });
+});
+
+describe('ledgerRoutes — fileFor keys a --separate-git-dir repository on its own toplevel', () => {
+  it("does not fold a repository whose git-dir and common-dir coincide but aren't <toplevel>/.git", async () => {
+    const scratch = await realpath(
+      await mkdtemp(path.join(os.tmpdir(), 'sidecar-ledger-separate-gitdir-'))
+    );
+    const home = path.join(scratch, 'home');
+    const worktreeDir = path.join(home, 'sep');
+    const detachedGitDir = path.join(scratch, 'detached', '.git');
+    await mkdir(home, { recursive: true });
+    await mkdir(path.dirname(detachedGitDir), { recursive: true });
+    await sh(scratch, [
+      'init',
+      '-q',
+      '-b',
+      'main',
+      `--separate-git-dir=${detachedGitDir}`,
+      worktreeDir,
+    ]);
+    await sh(worktreeDir, ['config', 'user.name', 'sidecar test']);
+    await sh(worktreeDir, ['config', 'user.email', 'sidecar@test.invalid']);
+    await sh(worktreeDir, ['config', 'commit.gpgsign', 'false']);
+    await writeFile(path.join(worktreeDir, 'a.txt'), 'a\n');
+    await sh(worktreeDir, ['add', '.']);
+    await sh(worktreeDir, ['commit', '-q', '-m', 'seed']);
+
+    const ledgerDir = path.join(scratch, 'state', 'ledger');
+    const routes = ledgerRoutes(home, ledgerDir);
+    const result = (await routes['POST /ledger/read']({ cwd: 'sep' })) as { file: string };
+    expect(result.file).toBe(ledgerFileFor(ledgerDir, worktreeDir));
+
+    await rm(scratch, { recursive: true, force: true });
   });
 });
