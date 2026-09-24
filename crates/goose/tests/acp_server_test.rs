@@ -1730,6 +1730,8 @@ fn test_new_session_honors_recipe_model_without_recipe_provider() {
                 working_dir: None,
                 worktree: false,
                 command: None,
+                token_budget: None,
+                min_seat_room: None,
             })
             .build()
             .unwrap();

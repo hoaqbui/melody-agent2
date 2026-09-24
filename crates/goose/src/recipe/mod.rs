@@ -128,6 +128,15 @@ pub struct Settings {
     // never calls a model (scheduler.rs); `prompt` and `instructions` become optional.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub command: Option<Vec<String>>,
+
+    // A scheduled run stops once the session's accumulated tokens pass this (scheduler.rs).
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub token_budget: Option<u64>,
+
+    // The least seat room (percent) a scheduled run needs; with no seat-window data yet the
+    // run proceeds and its outcome says the room is unknown (scheduler.rs).
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub min_seat_room: Option<u8>,
 }
 
 #[derive(Serialize, Deserialize, Debug, Clone)]
