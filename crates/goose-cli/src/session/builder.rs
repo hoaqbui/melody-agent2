@@ -731,7 +731,7 @@ pub async fn build_session(session_config: SessionBuilderConfig) -> CliSession {
     // MCP servers inside session/new, which the provider constructor sends.
     SessionBridge::global()
         .await
-        .register(&session_id, Arc::downgrade(&agent));
+        .register(&session_id, Arc::downgrade(&agent), None);
 
     let (new_provider, effective_provider_name, effective_model_name, effective_model_config) =
         match create(&resolved.provider_name, extensions_for_provider.clone()).await {

@@ -27,6 +27,7 @@ use tokio_util::sync::CancellationToken;
 
 use super::Agent;
 use crate::config::{Config, ExtensionConfig};
+use crate::execution::ActiveRunRegistry;
 use crate::session::extension_data::{EnabledExtensionsState, ExtensionState};
 use crate::session::SessionType;
 
@@ -47,6 +48,10 @@ struct Registered {
     /// (summon's `delegate_started` / `delegate_finished` among them); the ACP
     /// server subscribes, the CLI has no receiver and the sends are dropped.
     events: broadcast::Sender<ServerNotification>,
+    /// Looks up this session's active-run cancel token so a bridge-dispatched
+    /// `delegate` call can be cancelled by the parent's own Stop; `None` for
+    /// callers with no such registry (the CLI).
+    active_runs: Option<Arc<ActiveRunRegistry>>,
 }
 
 type Registry = Arc<Mutex<HashMap<String, Registered>>>;
@@ -98,16 +103,25 @@ impl SessionBridge {
 
     /// Re-registering a session (provider change, reload) refreshes the agent
     /// and keeps its event channel, so an existing subscriber stays attached.
-    pub fn register(&self, session_id: &str, agent: Weak<Agent>) {
+    pub fn register(
+        &self,
+        session_id: &str,
+        agent: Weak<Agent>,
+        active_runs: Option<Arc<ActiveRunRegistry>>,
+    ) {
         let mut registry = self.state.registry.lock().unwrap();
         match registry.get_mut(session_id) {
-            Some(registered) => registered.agent = agent,
+            Some(registered) => {
+                registered.agent = agent;
+                registered.active_runs = active_runs;
+            }
             None => {
                 registry.insert(
                     session_id.to_string(),
                     Registered {
                         agent,
                         events: broadcast::channel(EVENT_CAPACITY).0,
+                        active_runs,
                     },
                 );
             }
@@ -171,6 +185,7 @@ impl SessionBridge {
 pub async fn sync_extension(
     agent: &Arc<Agent>,
     session_id: &str,
+    active_runs: Option<Arc<ActiveRunRegistry>>,
 ) -> anyhow::Result<Option<String>> {
     let session = agent
         .config
@@ -183,7 +198,7 @@ pub async fn sync_extension(
         return Ok(None);
     }
     let bridge = SessionBridge::global().await;
-    bridge.register(session_id, Arc::downgrade(agent));
+    bridge.register(session_id, Arc::downgrade(agent), active_runs);
     // A session whose provider is still unset (auth pending) has nothing to sync yet.
     let Ok(provider) = agent.provider().await else {
         return Ok(None);
@@ -230,13 +245,16 @@ async fn handle(
     headers: HeaderMap,
     body: String,
 ) -> Response {
-    let registered = state
-        .registry
-        .lock()
-        .unwrap()
-        .get(&session_id)
-        .and_then(|registered| Some((registered.agent.upgrade()?, registered.events.clone())));
-    let Some((agent, events)) = registered else {
+    let registered = state.registry.lock().unwrap().get(&session_id).and_then(
+        |registered| -> Option<(Arc<Agent>, _, _)> {
+            Some((
+                registered.agent.upgrade()?,
+                registered.events.clone(),
+                registered.active_runs.clone(),
+            ))
+        },
+    );
+    let Some((agent, events, active_runs)) = registered else {
         return StatusCode::NOT_FOUND.into_response();
     };
 
@@ -301,7 +319,14 @@ async fn handle(
                     return rpc_error(StatusCode::OK, id, -32603, &error.to_string());
                 }
             };
-            let token = CancellationToken::new();
+            // A child of the parent session's own active-run token: Stop on
+            // the orchestrator's turn cancels this dispatch too, without this
+            // dispatch being able to cancel the parent's run back.
+            let token = active_runs
+                .as_ref()
+                .and_then(|active_runs| active_runs.agent_cancel_token(&session_id))
+                .map(|parent| parent.child_token())
+                .unwrap_or_else(CancellationToken::new);
             // Cancels the dispatch if the client drops the request mid-call.
             let _guard = token.clone().drop_guard();
             let (_, dispatched) = agent
@@ -380,8 +405,10 @@ fn rpc_error(status: StatusCode, id: Option<Value>, code: i32, message: &str) ->
 #[cfg(test)]
 mod tests {
     use super::*;
+    use anyhow::Result;
     use axum::body::{to_bytes, Body};
     use axum::http::Request;
+    use serial_test::serial;
     use tower::ServiceExt;
 
     fn post(session_id: &str, secret: Option<&str>, body: &str) -> Request<Body> {
@@ -415,7 +442,7 @@ mod tests {
         assert_eq!(response.status(), StatusCode::NOT_FOUND);
 
         let agent = Arc::new(Agent::new());
-        bridge.register("s1", Arc::downgrade(&agent));
+        bridge.register("s1", Arc::downgrade(&agent), None);
 
         let response = bridge
             .router()
@@ -457,7 +484,7 @@ mod tests {
             )
             .await
             .unwrap();
-        bridge.register("s2", Arc::downgrade(&agent));
+        bridge.register("s2", Arc::downgrade(&agent), None);
 
         let response = bridge
             .router()
@@ -527,7 +554,11 @@ mod tests {
         }
     }
 
+    // `#[serial]`: session ids are `<today>_<n>` per empty per-test database,
+    // so two dispatch tests running at once can mint the identical id and
+    // collide on the bridge's single process-wide registry (task 285).
     #[tokio::test]
+    #[serial]
     async fn bridge_broadcasts_delegate_started_and_done() {
         use goose_sdk_types::custom_notifications::DelegationStatus;
 
@@ -552,7 +583,7 @@ mod tests {
             .await
             .unwrap();
         assert!(bridge.subscribe(&session_id).is_none());
-        bridge.register(&session_id, Arc::downgrade(&agent));
+        bridge.register(&session_id, Arc::downgrade(&agent), None);
         let mut events = bridge.subscribe(&session_id).unwrap();
 
         let call = json!({
@@ -613,6 +644,189 @@ mod tests {
         ));
     }
 
+    async fn next_delegation_update(
+        events: &mut broadcast::Receiver<ServerNotification>,
+    ) -> goose_sdk_types::custom_notifications::DelegationUpdate {
+        loop {
+            let notification = events.recv().await.expect("bridge event channel open");
+            if let Some(update) =
+                crate::agents::platform_extensions::summon::delegation_update_from_notification(
+                    &notification,
+                )
+            {
+                return update;
+            }
+        }
+    }
+
+    const HANG_STUB: &str = "session-bridge-hang-stub";
+
+    #[derive(Debug)]
+    struct HangStub;
+
+    #[async_trait::async_trait]
+    impl crate::providers::base::Provider for HangStub {
+        fn get_name(&self) -> &str {
+            HANG_STUB
+        }
+
+        async fn stream(
+            &self,
+            _model_config: &goose_providers::model::ModelConfig,
+            _system: &str,
+            _messages: &[crate::conversation::message::Message],
+            _tools: &[rmcp::model::Tool],
+        ) -> Result<crate::providers::base::MessageStream, goose_providers::errors::ProviderError>
+        {
+            // Never yields: stands in for a delegate stuck in a long tool call.
+            // Only cancellation ends the turn that awaits this stream.
+            Ok(Box::pin(futures::stream::pending()))
+        }
+    }
+
+    struct HangStubProvider;
+
+    impl goose_providers::base::ProviderDescriptor for HangStubProvider {
+        fn metadata() -> crate::providers::base::ProviderMetadata {
+            crate::providers::base::ProviderMetadata::new(
+                HANG_STUB,
+                HANG_STUB,
+                "Hangs until its turn is cancelled",
+                "hang-model",
+                vec!["hang-model"],
+                "",
+                vec![],
+            )
+        }
+    }
+
+    impl crate::providers::base::ProviderDef for HangStubProvider {
+        type Provider = HangStub;
+
+        fn from_env(
+            _extensions: Vec<crate::config::ExtensionConfig>,
+            _tls_config: Option<crate::providers::api_client::TlsConfig>,
+        ) -> futures::future::BoxFuture<'static, Result<Self::Provider>> {
+            Box::pin(async { Ok(HangStub) })
+        }
+    }
+
+    // Task 285: a bridge-dispatched `delegate` (the only path an orchestrator
+    // running on an own-context provider like claude-code has) must be
+    // cancelled by the parent's own Stop, and its terminal update must say
+    // so, not `done`. Runs on both agent loops per AGENTS.md's parity rule.
+    #[tokio::test]
+    #[serial]
+    async fn bridge_cancels_delegate_on_parent_stop_and_marks_it_failed() {
+        use goose_sdk_types::custom_notifications::DelegationStatus;
+
+        crate::providers::register_for_test::<HangStubProvider>().await;
+
+        for state_machine in [None, Some("1")] {
+            let _env = env_lock::lock_env([("GOOSE_STATE_MACHINE", state_machine)]);
+
+            let root = tempfile::tempdir().unwrap();
+            let bridge = SessionBridge::global().await;
+            let secret = bridge.state.secret.as_str().to_string();
+            let (agent, session_id) = agent_on(false, root.path()).await;
+            agent
+                .extension_manager
+                .add_extension(
+                    ExtensionConfig::Platform {
+                        name: crate::agents::platform_extensions::summon::EXTENSION_NAME
+                            .to_string(),
+                        description: "Load knowledge and delegate tasks to subagents".to_string(),
+                        display_name: Some("Summon".to_string()),
+                        bundled: Some(true),
+                        available_tools: vec![],
+                    },
+                    None,
+                    None,
+                    None,
+                )
+                .await
+                .unwrap();
+
+            let active_runs = Arc::new(ActiveRunRegistry::default());
+            let run_token = CancellationToken::new();
+            active_runs
+                .start_prompt_run(
+                    &session_id,
+                    "run-1".to_string(),
+                    run_token.clone(),
+                    Arc::clone(&agent),
+                )
+                .unwrap();
+
+            bridge.register(
+                &session_id,
+                Arc::downgrade(&agent),
+                Some(Arc::clone(&active_runs)),
+            );
+            let mut events = bridge.subscribe(&session_id).unwrap();
+
+            let call = json!({
+                "jsonrpc": "2.0",
+                "id": 9,
+                "method": "tools/call",
+                "params": {
+                    "name": "delegate",
+                    "arguments": {
+                        "instructions": "hang until cancelled",
+                        "provider": HANG_STUB,
+                        "model": "hang-model",
+                        "extensions": [],
+                        "max_turns": 5
+                    }
+                }
+            });
+            let session_id_for_call = session_id.clone();
+            let secret_for_call = secret.clone();
+            let router = bridge.router();
+            let dispatch = tokio::spawn(async move {
+                router
+                    .oneshot(post(
+                        &session_id_for_call,
+                        Some(&secret_for_call),
+                        &call.to_string(),
+                    ))
+                    .await
+                    .unwrap()
+            });
+
+            let started = tokio::time::timeout(
+                std::time::Duration::from_secs(10),
+                next_delegation_update(&mut events),
+            )
+            .await
+            .expect("delegate_started within 10s");
+            assert_eq!(started.status, DelegationStatus::Running);
+
+            run_token.cancel();
+
+            let finished = tokio::time::timeout(
+                std::time::Duration::from_secs(10),
+                next_delegation_update(&mut events),
+            )
+            .await
+            .expect("terminal delegation update within 10s");
+            assert_eq!(
+                finished.status,
+                DelegationStatus::Failed,
+                "state_machine={state_machine:?}: {finished:?}"
+            );
+            assert_eq!(finished.subagent_session_id, started.subagent_session_id);
+
+            let response = tokio::time::timeout(std::time::Duration::from_secs(10), dispatch)
+                .await
+                .expect("bridge dispatch returned")
+                .unwrap();
+            assert_eq!(response.status(), StatusCode::OK);
+
+            bridge.unregister(&session_id);
+        }
+    }
+
     async fn agent_on(own_context: bool, root: &std::path::Path) -> (Arc<Agent>, String) {
         let session_manager = Arc::new(crate::session::SessionManager::new(root.to_path_buf()));
         let session = session_manager
@@ -670,7 +884,7 @@ mod tests {
 
         let (agent, session_id) = agent_on(true, root.path()).await;
         assert_eq!(
-            sync_extension(&agent, &session_id)
+            sync_extension(&agent, &session_id, None)
                 .await
                 .unwrap()
                 .as_deref(),
@@ -680,7 +894,10 @@ mod tests {
         assert!(uri.starts_with("http://127.0.0.1:"), "{uri}");
         assert!(uri.ends_with(&format!("/mcp/{session_id}")), "{uri}");
         assert_eq!(uri, format!("{}/mcp/{session_id}", bridge.base_url()));
-        assert!(sync_extension(&agent, &session_id).await.unwrap().is_none());
+        assert!(sync_extension(&agent, &session_id, None)
+            .await
+            .unwrap()
+            .is_none());
 
         let stale = ExtensionConfig::StreamableHttp {
             name: BRIDGE_EXTENSION_NAME.to_string(),
@@ -716,7 +933,7 @@ mod tests {
             .await
             .unwrap();
         assert_eq!(
-            sync_extension(&agent, &session_id)
+            sync_extension(&agent, &session_id, None)
                 .await
                 .unwrap()
                 .as_deref(),
@@ -737,7 +954,7 @@ mod tests {
             .await
             .unwrap();
         assert_eq!(
-            sync_extension(&agent, &session_id)
+            sync_extension(&agent, &session_id, None)
                 .await
                 .unwrap()
                 .as_deref(),
@@ -746,7 +963,10 @@ mod tests {
         assert!(stored_bridge_uri(&agent, &session_id).await.is_none());
 
         let (agent, session_id) = agent_on(false, root.path()).await;
-        assert!(sync_extension(&agent, &session_id).await.unwrap().is_none());
+        assert!(sync_extension(&agent, &session_id, None)
+            .await
+            .unwrap()
+            .is_none());
         assert!(stored_bridge_uri(&agent, &session_id).await.is_none());
     }
 
@@ -763,7 +983,10 @@ mod tests {
             .await
             .unwrap();
         // An own-context provider would return Some and store the entry; a child gets neither.
-        assert!(sync_extension(&agent, &session_id).await.unwrap().is_none());
+        assert!(sync_extension(&agent, &session_id, None)
+            .await
+            .unwrap()
+            .is_none());
         assert!(stored_bridge_uri(&agent, &session_id).await.is_none());
     }
 }

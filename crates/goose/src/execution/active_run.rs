@@ -17,6 +17,7 @@ struct SessionRunState {
     live_active: bool,
 }
 
+#[derive(Debug)]
 pub(crate) enum StartRunError {
     AgentRunExists { run_id: String },
     LiveVoiceInteractionExists,

@@ -1825,9 +1825,10 @@ impl GooseAcpAgent {
         agent: &Arc<Agent>,
         session_id: &str,
     ) -> Result<(), agent_client_protocol::Error> {
-        let Some(provider_name) = session_bridge::sync_extension(agent, session_id)
-            .await
-            .internal_err_ctx("Failed to sync session bridge")?
+        let Some(provider_name) =
+            session_bridge::sync_extension(agent, session_id, Some(self.active_runs.clone()))
+                .await
+                .internal_err_ctx("Failed to sync session bridge")?
         else {
             return Ok(());
         };

@@ -1714,7 +1714,7 @@ impl SummonClient {
                 task_config,
                 return_last_only: true,
                 session_id: subagent_session.id,
-                cancellation_token: Some(cancellation_token.clone()),
+                cancellation_token: Some(cancellation_token.child_token()),
                 on_message: None,
                 notification_tx: None,
             };
@@ -1725,6 +1725,15 @@ impl SummonClient {
                     run_subagent_task(params)
                 })
                 .await;
+
+            // A run that ends because the parent was cancelled still returns
+            // `Ok` from the loops below — they just stop early. Override so
+            // the delegate's terminal update lands on `failed`, never `done`.
+            let result = if cancellation_token.is_cancelled() {
+                Err(anyhow::anyhow!("cancelled"))
+            } else {
+                result
+            };
 
             // Written after the run: the loops persist a snapshot of the
             // child's extension_data during the turn, which would drop it.
