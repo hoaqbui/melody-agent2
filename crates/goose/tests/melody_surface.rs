@@ -410,6 +410,143 @@ async fn start_session_preserves_other_extension_data_on_reconfigure() {
     );
 }
 
+/// Second-round Codex review blocker 1: the exclusivity claim must be
+/// released even if the `start_session` call itself is cancelled mid-flight
+/// (its future dropped before it returns) — not just on a normal early
+/// return — otherwise the manager stays "busy" forever with no one to
+/// un-claim it. Forces that by spawning the call and aborting the task once
+/// it has provably taken the claim.
+#[tokio::test]
+async fn start_session_releases_its_claim_when_cancelled_mid_flight() {
+    let temp_dir = TempDir::new().unwrap();
+    let repo_dir = temp_dir.path().join("repo");
+    std::fs::create_dir_all(&repo_dir).unwrap();
+    let data_dir = temp_dir.path().join("data");
+
+    let session_manager = Arc::new(SessionManager::new(data_dir));
+    seed_melody(&session_manager, &repo_dir).await;
+    let (_agent_manager, active_runs, surface) = test_surface(&session_manager).await;
+    let surface = Arc::new(surface);
+
+    let session_id = surface
+        .start_session(StartSessionArgs {
+            repo: repo_dir.clone(),
+            task: "first task".to_string(),
+            mode: Some(GooseMode::Approve),
+            provider: Some("openai".to_string()),
+            model: Some("gpt-4.1".to_string()),
+            extensions: Some(vec![]),
+        })
+        .await
+        .unwrap();
+
+    let handle = {
+        let surface = Arc::clone(&surface);
+        let repo_dir = repo_dir.clone();
+        tokio::spawn(async move {
+            surface
+                .start_session(StartSessionArgs {
+                    repo: repo_dir,
+                    task: "second task".to_string(),
+                    mode: Some(GooseMode::Auto),
+                    provider: Some("openai".to_string()),
+                    model: Some("gpt-4o".to_string()),
+                    extensions: Some(vec![]),
+                })
+                .await
+        })
+    };
+
+    // `yield_now`, not a timed sleep: on the default current-thread test
+    // runtime a sleep can let the spawned task run to completion (claim
+    // taken and released) in one go, since the local sqlite round-trips are
+    // fast enough to finish inside a single scheduler slice. Yielding after
+    // every step gives the spawned task's `.await` points (several, between
+    // the claim and the release) a chance to interleave with this check.
+    let mut attempts = 0;
+    while !active_runs.is_active_for_test(&session_id) {
+        attempts += 1;
+        assert!(
+            attempts < 200_000,
+            "the spawned start_session never took the claim"
+        );
+        tokio::task::yield_now().await;
+    }
+
+    handle.abort();
+    let _ = handle.await;
+
+    assert!(
+        !active_runs.is_active_for_test(&session_id),
+        "an aborted start_session must not leave its exclusivity claim registered forever"
+    );
+}
+
+/// Second-round Codex review blocker 3: `start_session` must refuse to
+/// reconfigure a manager that is already loaded (e.g. by a connection that
+/// has activated it), since `AgentManager::remove_session_if_loaded` only
+/// evicts the server-wide cache, not a connection-local `Arc<Agent>` a
+/// caller may already hold — reconfiguring under it would leave that caller
+/// running against stale settings indefinitely.
+#[tokio::test]
+async fn start_session_refuses_a_loaded_manager() {
+    let temp_dir = TempDir::new().unwrap();
+    let repo_dir = temp_dir.path().join("repo");
+    std::fs::create_dir_all(&repo_dir).unwrap();
+    let data_dir = temp_dir.path().join("data");
+
+    let session_manager = Arc::new(SessionManager::new(data_dir));
+    seed_melody(&session_manager, &repo_dir).await;
+    let (agent_manager, _active_runs, surface) = test_surface(&session_manager).await;
+
+    let session_id = surface
+        .start_session(StartSessionArgs {
+            repo: repo_dir.clone(),
+            task: "first task".to_string(),
+            mode: Some(GooseMode::Approve),
+            provider: Some("openai".to_string()),
+            model: Some("gpt-4.1".to_string()),
+            extensions: Some(vec![]),
+        })
+        .await
+        .unwrap();
+
+    // Simulate a connection having activated (and so cached) the manager's
+    // agent, the way `GooseAcpAgent::prepare_acp_session_agent` does.
+    agent_manager
+        .get_or_create_agent(session_id.clone())
+        .await
+        .unwrap();
+    assert!(agent_manager.has_session(&session_id).await);
+
+    let result = surface
+        .start_session(StartSessionArgs {
+            repo: repo_dir.clone(),
+            task: "second task".to_string(),
+            mode: Some(GooseMode::Auto),
+            provider: Some("openai".to_string()),
+            model: Some("gpt-4o".to_string()),
+            extensions: Some(vec![]),
+        })
+        .await;
+
+    assert!(
+        matches!(result, Err(StartSessionError::ManagerLoaded)),
+        "start_session must refuse a manager that's already loaded: {result:?}"
+    );
+
+    let session = session_manager
+        .get_session(&session_id, false)
+        .await
+        .unwrap();
+    assert_eq!(
+        session.goose_mode,
+        GooseMode::Approve,
+        "a refused start_session must not change the loaded manager's settings"
+    );
+    assert_eq!(session.provider_name.as_deref(), Some("openai"));
+}
+
 /// Codex review blocker 3 (melody_surface half): `start_session` must never
 /// reconfigure — and so never return — a manager row whose session is not
 /// `User`, even if `melody_session_roles` already associates it with this

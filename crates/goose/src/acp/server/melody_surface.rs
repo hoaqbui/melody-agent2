@@ -98,8 +98,30 @@ pub enum StartSessionError {
          reconfigure or repurpose it"
     )]
     ManagerNotUser(SessionType),
+    #[error(
+        "the manager session for this repository is open; its setup can't change while it's \
+         loaded — close it and try again"
+    )]
+    ManagerLoaded,
     #[error(transparent)]
     Other(#[from] anyhow::Error),
+}
+
+/// Releases a claim on `active_runs` when dropped — including when the
+/// future holding it is dropped mid-await (cancellation), which a plain
+/// "release at the end of the function" call would miss. `remove_agent_run_and_then`
+/// is synchronous, so `Drop` can call it directly, no spawn needed.
+struct RunClaimGuard {
+    active_runs: Arc<ActiveRunRegistry>,
+    session_id: String,
+    run_id: String,
+}
+
+impl Drop for RunClaimGuard {
+    fn drop(&mut self) {
+        self.active_runs
+            .remove_agent_run_and_then(&self.session_id, &self.run_id, |_| {});
+    }
 }
 
 /// Backs the three tools above; constructed from the same `Arc<SessionManager>`
@@ -171,10 +193,15 @@ impl MelodySurface {
     /// manager its first turn.
     ///
     /// Refuses rather than mutates when the manager it would reconfigure has
-    /// a turn in progress (`StartSessionError::Busy`) or is not a `User`
-    /// session (`StartSessionError::ManagerNotUser`). Reconfiguring replaces
-    /// only the enabled-extensions entry in `extension_data`, preserving any
-    /// other extension state (e.g. `todo.v0`) already on the row.
+    /// a turn in progress (`StartSessionError::Busy`), is already loaded
+    /// somewhere (`StartSessionError::ManagerLoaded` — reconfiguring only a
+    /// manager nobody holds sidesteps invalidating connection-local agent
+    /// caches this surface has no reach into), or is not a `User` session
+    /// (`StartSessionError::ManagerNotUser`). Reconfiguring replaces only
+    /// the enabled-extensions entry in `extension_data`, preserving any
+    /// other extension state (e.g. `todo.v0`) already on the row — read
+    /// only after the exclusivity claim above is held, so a concurrent
+    /// turn can't persist a change this call would then overwrite.
     pub async fn start_session(&self, args: StartSessionArgs) -> Result<String, StartSessionError> {
         if !args.repo.is_absolute() || !args.repo.is_dir() {
             return Err(StartSessionError::InvalidRepo);
@@ -207,30 +234,18 @@ impl MelodySurface {
             .get_or_create_manager(&args.repo, args.task.clone())
             .await?;
 
-        // `get_or_create_manager` always creates a fresh manager as `User`
-        // (`SessionStorage::get_or_create_manager`), but it can also return
-        // an existing row — one that a bad `_meta.role` on `session/new`
-        // associated with this repository while it was `Acp` or `Hidden`.
-        // Refusing (rather than silently flipping its type) never repurposes
-        // a session some other, differently-typed connection may still be
-        // attached to.
-        let current_session = self.session_manager.get_session(&session_id, false).await?;
-        if current_session.session_type != SessionType::User {
-            return Err(StartSessionError::ManagerNotUser(
-                current_session.session_type,
-            ));
-        }
-
-        // Claim exclusivity through the same run registry `on_prompt` claims
-        // a turn against (`ActiveRunRegistry::start_prompt_run`,
+        // Claim exclusivity FIRST, through the same run registry `on_prompt`
+        // claims a turn against (`ActiveRunRegistry::start_prompt_run`,
         // `acp/server.rs`'s `on_prompt`/`start_active_run`) — not
         // `AgentManager`'s cancel-token map, which only the orchestrator's
         // sub-agent `send_message` tool uses. So a real turn (or a Live
         // voice interaction) already in flight on this session is refused
-        // here rather than raced, and none can start on it between this
-        // check and the write below. The agent stored for the claim is a
-        // scratch placeholder; a steer landing on it is discarded with it,
-        // since the claim is released again right after the write.
+        // here rather than raced, and none can start on it until the guard
+        // below drops. Everything that reads this session's mutable state
+        // happens after this point, so nothing else can persist a change
+        // (e.g. `todo.v0`) between that read and the write further down.
+        // The agent stored for the claim is a scratch placeholder; a steer
+        // landing on it is discarded with it when the guard releases.
         let run_id = format!("start_session_{}", uuid::Uuid::now_v7());
         let placeholder_agent = Arc::new(Agent::with_config(AgentConfig::new(
             Arc::clone(&self.session_manager),
@@ -248,12 +263,52 @@ impl MelodySurface {
                 placeholder_agent,
             )
             .map_err(|_| StartSessionError::Busy)?;
+        let _claim = RunClaimGuard {
+            active_runs: Arc::clone(&self.active_runs),
+            session_id: session_id.clone(),
+            run_id,
+        };
+
+        // A manager already loaded somewhere keeps a stale `Arc<Agent>`
+        // cached per connection (`GooseAcpAgent::sessions`,
+        // `acp/server.rs`'s `get_session_agent`'s fast path), which our own
+        // `remove_session_if_loaded` below can't reach — that connection
+        // would go on using the pre-reconfigure agent indefinitely. Refuse
+        // rather than mutate under it. Best-effort, not airtight:
+        // `AgentManager`'s cache is the only cross-connection signal
+        // reachable here without plumbing an invalidation broadcast to
+        // every connection (every connection's `Arc<Agent>` does originate
+        // from `AgentManager::get_or_create_agent`, so this is a reasonable
+        // proxy for "someone holds it"). Two known gaps: the LRU may have
+        // since evicted this session while a connection's local cache still
+        // holds it, and a `session/load` or `on_prompt` activation can land
+        // between this check and the write below — activation isn't gated
+        // by `active_runs`, so the claim above doesn't block it either. Both
+        // pre-exist in how any session's config changes today; not new here.
+        if self.agent_manager.has_session(&session_id).await {
+            return Err(StartSessionError::ManagerLoaded);
+        }
+
+        // `get_or_create_manager` always creates a fresh manager as `User`
+        // (`SessionStorage::get_or_create_manager`), but it can also return
+        // an existing row — one that a bad `_meta.role` on `session/new`
+        // associated with this repository while it was `Acp` or `Hidden`.
+        // Refusing (rather than silently flipping its type) never repurposes
+        // a session some other, differently-typed connection may still be
+        // attached to. Read only now, after the claim above, so the
+        // `extension_data` this preserves below is the latest committed
+        // state, not a snapshot a concurrent turn could still overwrite.
+        let current_session = self.session_manager.get_session(&session_id, false).await?;
+        if current_session.session_type != SessionType::User {
+            return Err(StartSessionError::ManagerNotUser(
+                current_session.session_type,
+            ));
+        }
 
         let mut extension_data = current_session.extension_data.clone();
         EnabledExtensionsState::new(extension_configs).to_extension_data(&mut extension_data)?;
 
-        let apply_result = self
-            .session_manager
+        self.session_manager
             .update(&session_id)
             .system_generated_name(args.task)
             .goose_mode(mode)
@@ -262,26 +317,19 @@ impl MelodySurface {
             .extension_data(extension_data)
             .parent_session_id(Some(melody_session_id))
             .apply()
-            .await;
+            .await?;
 
-        // The row may have been loaded (and cached) under its pre-existing
-        // setup by an earlier activation; drop it so the next activation
-        // rebuilds against what was just applied. Safe here: the busy claim
-        // above guarantees no real turn is in flight to cancel — only our
-        // own placeholder, released right below, is registered.
-        let remove_result = if apply_result.is_ok() {
-            self.agent_manager
-                .remove_session_if_loaded(&session_id)
-                .await
-        } else {
-            Ok(())
-        };
-
-        self.active_runs
-            .remove_agent_run_and_then(&session_id, &run_id, |_| {});
-
-        apply_result?;
-        remove_result?;
+        // Backstop for an activation that raced the `has_session` check
+        // above (it isn't gated by the exclusivity claim, so one can land
+        // between that check and this line): refreshes `AgentManager`'s own
+        // copy so the next lookup rebuilds from the row just written,
+        // instead of leaving that race's now-stale agent cached for the
+        // next connection to pick up. The connection-local copy that same
+        // activation produced is still out of this call's reach — see the
+        // `has_session` comment above.
+        self.agent_manager
+            .remove_session_if_loaded(&session_id)
+            .await?;
 
         Ok(session_id)
     }
