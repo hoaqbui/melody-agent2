@@ -71,9 +71,9 @@ Pick: A (Codex's review, 2026-09-23: keep A; B keeps the orchestrator's defects,
 - out: `agent.rs`, `state_machine/` (fork invariant); the phone build (desktop first); onboarding and Settings (later tranche); runtime colour palette (design task, later)
 - protected: workers stay `SubAgent` and never delegate; a friend never edits another repository; Melody never edits files (she manages sessions)
 
-## Conflicts with the memory PRD (parallel work, `docs/2026-09-22-agent-memory-prd-v1.md`)
+## Conflicts with the memory PRD (parallel work, `docs/2026-09-22-agent-memory-prd-v2.md`)
 
-Found by Codex's review, 2026-09-23; for the user and the PRD's author to settle before M2:
+Found by Codex's review, 2026-09-23; for the user and the PRD's author to settle before M2. **Settled 2026-09-23** (user: "continue") in `docs/2026-09-23-team-memory-program-plan-v2.md` §Decisions 1 and PRD v2; the line numbers below are v1's:
 - companions start fresh each time (`:29`) and are capped at three (`:79`) — friends are long-lived, one per repository, with no cap
 - companions write journals — this map's "Melody never edits files" means repository files; memory writes need an explicit, separate permission
 - the PRD allows loop changes (`:80`) that `ARCHITECTURE.md:119` forbids — compaction integration must stay outside `agent.rs` and `state_machine/`

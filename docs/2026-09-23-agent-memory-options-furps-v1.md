@@ -1,6 +1,6 @@
 # Agent memory — three options, FURPS+ — research v1
 
-Dated 2026-09-23. User: "what are the 3 options and what are the trade offs? what would be the implementation like? what would be the FURPS benefit?" → "do a deeper FURPS analysis". Neighbours: `docs/2026-09-22-persistent-memory-research-v1.md` (the field; its 2026-09-23 correction), `docs/2026-09-22-agent-memory-prd-v1.md` (the walk scored against below). Research only.
+Dated 2026-09-23. User: "what are the 3 options and what are the trade offs? what would be the implementation like? what would be the FURPS benefit?" → "do a deeper FURPS analysis". Neighbours: `docs/2026-09-22-persistent-memory-research-v1.md` (the field; its 2026-09-23 correction), `docs/2026-09-22-agent-memory-prd-v2.md` (the walk scored against below). Research only.
 
 ## The options
 
