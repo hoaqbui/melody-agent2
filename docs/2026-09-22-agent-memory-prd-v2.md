@@ -6,8 +6,8 @@ Dated 2026-09-23. **v2**, on the notebook pick (user: "Let's do notebook for now
 
 - Every chat with Melody starts blank: 147 real sessions in a week, none picked up on a later day, at most 16 messages each (`~/.local/share/goose/sessions/sessions.db`, read-only). She can't be the one who "knows every session" (v3) without memory that outlives a chat.
 - People who ran markdown memory for months kept it, and all of them stopped letting the agent promote its own writes; the failure is confident staleness — a rejected plan stored as approved, a moved region cited weeks later (research §Practitioners).
-- Friends (Harmony, Tempo, Chord — v3 M2) are long-lived managers; without their own memory they relearn each repository, and without scores nobody can say whether one is getting better.
-- Outcome that says it landed: on Monday the user asks Melody "where were we on the export bug?" and she answers from Friday's notes without re-explaining; a month later a friend's change failure rate and tokens per clean job are lower, and the user can read why in its folder.
+- Companions (Harmony, Tempo, Chord — v3 M2) are long-lived managers; without their own memory they relearn each repository, and without scores nobody can say whether one is getting better.
+- Outcome that says it landed: on Monday the user asks Melody "where were we on the export bug?" and she answers from Friday's notes without re-explaining; a month later a companion's change failure rate and tokens per clean job are lower, and the user can read why in its folder.
 
 ## Journey
 
@@ -32,15 +32,15 @@ Dated 2026-09-23. **v2**, on the notebook pick (user: "Let's do notebook for now
    - rule: the five steps in order — Pulse · Memory · Gaps · Companions · Next week (`~/Melody/AGENTS.md` §Weekly health check); one yes or no from the user per item; a step with nothing in it is one line; the check-in ends in one journal line and one commit
    - → [Melody, ready, the index current]; the user stops halfway → [the next chat offers to resume at the step reached]
 6. [Melody, ready — a job in a repository] · next (v3 M2, T1)
-   - does: ask for work in a repository a friend manages
-   - rule: the friend is a long-lived manager session for that repository (v3); the workers it delegates to start fresh; its continuity is its own folder `~/Melody/<name>/` (charter, `MEMORY.md`, journal), re-read whenever its seat compacts or restarts; each finished job leaves an outcome in the ledger (landed · corrected · reworked · failed · blocked · undone · unknown) and the user can mark a verdict in one tap
+   - does: ask for work in a repository a companion manages
+   - rule: the companion is a long-lived manager session for that repository (v3); the workers it delegates to start fresh; its continuity is its own folder `~/Melody/<name>/` (charter, `MEMORY.md`, journal), re-read whenever its seat compacts or restarts; each finished job leaves an outcome in the ledger (landed · corrected · reworked · failed · blocked · undone · unknown) and the user can mark a verdict in one tap
    - → [Melody reports the job with its outcome]
-7. [Melody, ready — a friend should change] · next (T4)
+7. [Melody, ready — a companion should change] · next (T4)
    - does: nothing — after a correction, or when the user says "Tempo should always run the smoke walk"
-   - rule: Melody proposes a small charter edit with one line of why; before it reaches the user she reruns the friend's test set (tasks drawn from its judged jobs) on the old and new charter, three runs each; the proposal shows both scores per task; nothing is applied without the user's yes
+   - rule: Melody proposes a small charter edit with one line of why; before it reaches the user she reruns the companion's test set (tasks drawn from its judged jobs) on the old and new charter, three runs each; the proposal shows both scores per task; nothing is applied without the user's yes
    - → [the diff with its scores, **Accept** / **Edit** / **Discard**]; fewer than three judged jobs → ["not enough history to test"]
 8. [anyone learns a fact about a project] · next (T0 rules, M2)
-   - does: nothing — Melody or a friend finds, for example, where the export code lives
+   - does: nothing — Melody or a companion finds, for example, where the export code lives
    - rule: facts about the world and the projects go to `memories/` (OKF v0.2), one page per concept; an agent's write is `generated`, `status: draft`, with `sources`; only the user adds `verified`; every change is a `log.md` line and a commit; agents read verified pages as fact and drafts as hints
    - → [the page, draft until the user verifies it]
 9. [night, nobody working] · later (T3)
@@ -72,8 +72,8 @@ Dated 2026-09-23. **v2**, on the notebook pick (user: "Let's do notebook for now
 
 ## Scope
 
-- out: changes to `agent.rs`, `state_machine/` or goose's compaction (`ARCHITECTURE.md:119`); fine-tuning any model; vector search before grep fails (T5); Obsidian as the editor (a vault view on the side is fine); syncing between machines (a git remote is the user's); the rich Team Context editor and the other tabs (T2b); a friend or worker writing repository memory — workers write no memory
-- protected: the journal is append-only for every process; `AGENTS.md`, `SOUL.md` and every friend's charter change only on the user's yes; Melody and managers write memory only inside `~/Melody/` and never edit repository files; workers keep their role's repository permissions; `USER.md` and `MEMORY.md` are never loaded by a friend; the sessions DB stays the full record — the notebook is derived from chats, never the other way; `/fs/*` and `/git/*` containment is not widened
+- out: changes to `agent.rs`, `state_machine/` or goose's compaction (`ARCHITECTURE.md:119`); fine-tuning any model; vector search before grep fails (T5); Obsidian as the editor (a vault view on the side is fine); syncing between machines (a git remote is the user's); the rich Team Context editor and the other tabs (T2b); a companion or worker writing repository memory — workers write no memory
+- protected: the journal is append-only for every process; `AGENTS.md`, `SOUL.md` and every companion's charter change only on the user's yes; Melody and managers write memory only inside `~/Melody/` and never edit repository files; workers keep their role's repository permissions; `USER.md` and `MEMORY.md` are never loaded by a companion; the sessions DB stays the full record — the notebook is derived from chats, never the other way; `/fs/*` and `/git/*` containment is not widened
 
 ## Layout
 
@@ -82,9 +82,9 @@ Dated 2026-09-23. **v2**, on the notebook pick (user: "Let's do notebook for now
   AGENTS.md SOUL.md USER.md MEMORY.md BOOTSTRAP.md CLAUDE.md   Melody
   journal/  notes/                                               Melody, private
   memories/  index.md log.md <concept>.md                        shared, OKF v0.2
-  <friend>/  charter.md MEMORY.md journal/ tests/                each friend, private (M2, T4)
+  <companion>/  charter.md MEMORY.md journal/ tests/                each companion, private (M2, T4)
 ```
 
 ## Tranches
 
-The plan owns the order (`docs/2026-09-23-team-memory-program-plan-v2.md`): steps 1–5 are T0 (files, no code); 6 is v3 M2 with T1's outcomes; 7 is T4; 8's rules are T0 and its friends M2; 9 is T3.
+The plan owns the order (`docs/2026-09-23-team-memory-program-plan-v2.md`): steps 1–5 are T0 (files, no code); 6 is v3 M2 with T1's outcomes; 7 is T4; 8's rules are T0 and its companions M2; 9 is T3.
