@@ -15,7 +15,9 @@ import {
   type AcpChatSessionSnapshot,
 } from '../../../acp/chatSessionStore';
 import { useSessionDelegations, type Delegation } from '../../../acp/delegations';
+import { readLedger, type LedgerEvent } from '../../../native/ledger';
 import type { Message } from '../../../types/message';
+import { getInitialWorkingDir } from '../../../utils/workingDir';
 import { AgentRow, StatusMark } from './AgentRow';
 import { canOpenTranscript, paneState, transcriptLoad } from './agents-state';
 
@@ -40,8 +42,20 @@ function useSessionId(): string {
 
 const isUserMessage = (message: Message) => message.role === 'user';
 
-// A worker and, once the store has them, the workers it delegated to in turn.
-function WorkerNode({ row, onOpen }: { row: Delegation; onOpen(row: Delegation): void }) {
+// A worker and, once the store has them, the workers it delegated to in turn. `cwd` and
+// `ledgerEvents` (task 268) ride down to every row so a done one can read its own latest
+// verdict and this repository's earlier jobs without a fetch of its own.
+function WorkerNode({
+  row,
+  onOpen,
+  cwd,
+  ledgerEvents,
+}: {
+  row: Delegation;
+  onOpen(row: Delegation): void;
+  cwd: string;
+  ledgerEvents: readonly LedgerEvent[];
+}) {
   const children = useSessionDelegations(row.subagentSessionId);
   return (
     <AgentRow
@@ -54,11 +68,20 @@ function WorkerNode({ row, onOpen }: { row: Delegation; onOpen(row: Delegation):
       error={row.error}
       openable={canOpenTranscript(row)}
       onOpen={() => onOpen(row)}
+      parentSessionId={row.parentSessionId}
+      cwd={cwd}
+      ledgerEvents={ledgerEvents}
     >
       {children.length > 0 && (
         <ul className="ml-4 border-l border-border-primary pl-1">
           {children.map((child) => (
-            <WorkerNode key={child.subagentSessionId} row={child} onOpen={onOpen} />
+            <WorkerNode
+              key={child.subagentSessionId}
+              row={child}
+              onOpen={onOpen}
+              cwd={cwd}
+              ledgerEvents={ledgerEvents}
+            />
           ))}
         </ul>
       )}
@@ -138,6 +161,24 @@ export function AgentsPane() {
   const session = useAcpChatSessionSnapshot(sessionId)?.session;
   const rows = useSessionDelegations(sessionId);
   const [openRow, setOpenRow] = useState<Delegation | null>(null);
+  const cwd = session?.working_dir ?? getInitialWorkingDir();
+  // Read once per cwd for the one-tap verdict's "Fixes…" (task 268): this repository's earlier
+  // jobs, and any row's own latest verdict. A write goes straight through `AgentRow`'s own
+  // `appendLedger` call, never through here.
+  const [ledgerEvents, setLedgerEvents] = useState<readonly LedgerEvent[]>([]);
+  useEffect(() => {
+    let cancelled = false;
+    readLedger(cwd)
+      .then((events) => {
+        if (!cancelled) setLedgerEvents(events);
+      })
+      .catch(() => {
+        // No sidecar, or no ledger yet: the verdict buttons still work, "Fixes…" is just empty.
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [cwd]);
 
   useEffect(() => {
     setOpenRow(null);
@@ -184,7 +225,13 @@ export function AgentsPane() {
           </div>
           <ul className="flex flex-col py-1" data-testid="agents-tree">
             {rows.map((row) => (
-              <WorkerNode key={row.subagentSessionId} row={row} onOpen={setOpenRow} />
+              <WorkerNode
+                key={row.subagentSessionId}
+                row={row}
+                onOpen={setOpenRow}
+                cwd={cwd}
+                ledgerEvents={ledgerEvents}
+              />
             ))}
           </ul>
         </div>

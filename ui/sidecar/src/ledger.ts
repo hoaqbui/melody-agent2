@@ -49,13 +49,17 @@ export interface LedgerPayloadByKind {
   gap: { from: string; to: string };
 }
 
-// The same root goose uses for its own state (`Paths::state_dir`: XDG on every platform).
-export const defaultLedgerDir = (): string =>
-  path.join(
-    process.env.XDG_STATE_HOME || path.join(os.homedir(), '.local', 'state'),
+// The same root goose uses for its own state (`Paths::state_dir`): `GOOSE_PATH_ROOT/state`
+// when that is an absolute path — the walks' own profile — else XDG on every platform.
+export const defaultLedgerDir = (env: NodeJS.ProcessEnv = process.env): string => {
+  const pathRoot = env.GOOSE_PATH_ROOT;
+  if (pathRoot && path.isAbsolute(pathRoot)) return path.join(pathRoot, 'state', 'ledger');
+  return path.join(
+    env.XDG_STATE_HOME || path.join(os.homedir(), '.local', 'state'),
     'goose',
     'ledger'
   );
+};
 
 // One file per repository: the toplevel's basename for the human, a hash of its path so two
 // checkouts with the same name never share a ledger.
