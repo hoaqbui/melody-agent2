@@ -1,6 +1,6 @@
 # PRD — Headless Melody
 
-Dated 2026-09-24. **v1, draft for the user's approval.** Built after v0.9 (user: option A, 2026-09-24); the plan is written at the A gate. Research, options and picks: `docs/2026-09-24-headless-melody-research-v1.md`. State rows follow `DESIGN.md:137-152`.
+Dated 2026-09-24. **v1, approved 2026-09-24** (user: "Approved"; every open question takes its recommended answer). Built after v0.9 (user: option A, 2026-09-24); the plan is written at the A gate. Research, options and picks: `docs/2026-09-24-headless-melody-research-v1.md`. State rows follow `DESIGN.md:137-152`.
 
 ## Problem
 
@@ -79,6 +79,8 @@ Dated 2026-09-24. **v1, draft for the user's approval.** Built after v0.9 (user:
 Security review (codex `gpt-6-astra`, read-only, 2026-09-24): FAIL on the first draft: Terminal and git can't be contained by folder checks, `/acp` auth could be dropped, rotation was deferred, grants were a UI rule only, and `.worktrees/` siblings were trusted by name. Revised to the text above, then PASS, with per-operation race and git-hook details left to the plan.
 
 ## Open questions for the user
+
+Settled 2026-09-24 on the recommendations: 1 durable keys, rotated from Settings; 2 a managed list, `~/Melody` always on it; 3 a 30-minute update wait; 4 Phone Terminal off by default; 5 background off by default.
 
 1. **Keys** — durable keys that survive restarts, rotated from Settings (recommended), or a new phone link after every restart?
 2. **Allowed folders** — a list you manage (recommended), or all of home as when the app opens on home today?
