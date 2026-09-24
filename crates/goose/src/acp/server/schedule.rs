@@ -116,14 +116,29 @@ fn run_schedule_now_error(
     }
 }
 
+// The wire has no budget status yet (the generated client would reject one), so a run the
+// token budget stopped reads as killed, with the reason in `error`.
 fn run_outcome_to_dto(outcome: RunOutcome) -> ScheduleRunOutcomeDto {
-    ScheduleRunOutcomeDto {
-        status: match outcome.status {
-            RunStatus::Done => ScheduleRunStatus::Done,
-            RunStatus::Failed => ScheduleRunStatus::Failed,
-            RunStatus::Killed => ScheduleRunStatus::Killed,
+    match outcome.status {
+        RunStatus::Done => ScheduleRunOutcomeDto {
+            status: ScheduleRunStatus::Done,
+            error: outcome.error,
         },
-        error: outcome.error,
+        RunStatus::Failed => ScheduleRunOutcomeDto {
+            status: ScheduleRunStatus::Failed,
+            error: outcome.error,
+        },
+        RunStatus::Killed => ScheduleRunOutcomeDto {
+            status: ScheduleRunStatus::Killed,
+            error: outcome.error,
+        },
+        RunStatus::BudgetReached => ScheduleRunOutcomeDto {
+            status: ScheduleRunStatus::Killed,
+            error: Some(match outcome.messages {
+                Some(messages) => format!("token budget reached after {messages} messages"),
+                None => "token budget reached".to_string(),
+            }),
+        },
     }
 }
 
@@ -614,6 +629,8 @@ mod tests {
             error: Some("provider returned 500".to_string()),
             exit_code: None,
             output: None,
+            messages: None,
+            seat_room: None,
         }
         .to_extension_data(&mut extension_data)
         .unwrap();

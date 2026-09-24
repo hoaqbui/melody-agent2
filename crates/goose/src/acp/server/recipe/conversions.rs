@@ -113,6 +113,8 @@ impl From<RecipeSettingsDto> for Settings {
             working_dir: dto.working_dir,
             worktree: dto.worktree,
             command: None,
+            token_budget: None,
+            min_seat_room: None,
         }
     }
 }
