@@ -68,4 +68,4 @@ T5 (research first, after T4 has months of history)
 
 ## Tasks
 
-T0 moved to `tasks.md` under `### docs/2026-09-23-team-memory-program-plan-v2.md — T0` as 202–205; this section keeps only that pointer. Later tranches' tasks are written at their gates.
+T1–T4 drafted 2026-09-23 as 264–283 (T1 264–269, T2 270–275, T3 276–280 — 276, 277, 279 are fixture-only and may start before M1b — T4 281–283; T4 (C) at its own gate). T0 moved to `tasks.md` under `### docs/2026-09-23-team-memory-program-plan-v2.md — T0` as 202–205; this section keeps only that pointer. Later tranches' tasks are written at their gates.

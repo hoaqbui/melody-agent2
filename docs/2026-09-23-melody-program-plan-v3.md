@@ -55,4 +55,4 @@ User direction (2026-09-23): a vertical slice first; companions are real manager
 
 ## Tasks
 
-M0 in `tasks.md` under `### docs/2026-09-23-melody-program-plan-v3.md — Melody, the main agent: M0`: 196 done; 181's plan (`docs/2026-09-23-task181-shared-run-plan-v1.md`) approved with v3's scope → 197–200. Later tranches' tasks are written at their gates.
+All tranches drafted 2026-09-23 (user: "update the roadmap, build out the tasks and orchestrate"): M0 197–201; M1a + P1 206–215; M1b + S1 220–229; M2 234–243 (239 folded into P1's 213); M3 246–252; M4 253–257; A 195, 258–259 — each tranche's confirm lines are re-checked at its gate. M0 in `tasks.md` under `### docs/2026-09-23-melody-program-plan-v3.md — Melody, the main agent: M0`: 196 done; 181's plan (`docs/2026-09-23-task181-shared-run-plan-v1.md`) approved with v3's scope → 197–200. Later tranches' tasks are written at their gates.
