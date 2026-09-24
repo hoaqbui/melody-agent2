@@ -1067,6 +1067,7 @@ async fn insert_usage_ledger_row(
     tx: &mut sqlx::Transaction<'_, Sqlite>,
     session_id: &str,
     model: Option<&str>,
+    provider: Option<&str>,
     usage: &MessageUsage,
 ) -> Result<()> {
     let cost_source = usage.cost_source.map(|cs| match cs {
@@ -1074,7 +1075,7 @@ async fn insert_usage_ledger_row(
         CostSource::Estimated => "estimated",
     });
 
-    sqlx::query(
+    let result = sqlx::query(
         r#"
         INSERT INTO usage_ledger (
             session_id, created_timestamp, model,
@@ -1097,6 +1098,19 @@ async fn insert_usage_ledger_row(
     .bind(usage.is_compaction as i64)
     .execute(&mut **tx)
     .await?;
+
+    // The session's seat, when known. `provider` is `None` only for a
+    // session with no `provider_name` set yet; the raw carried-forward
+    // catch-up row in `record_usage_metrics` (a separate `INSERT ...
+    // SELECT`, not this function) never gets a `melody_usage_provider`
+    // row either, consistent with it already leaving `model` unset.
+    if let Some(provider) = provider {
+        sqlx::query("INSERT INTO melody_usage_provider (usage_ledger_id, provider) VALUES (?, ?)")
+            .bind(result.last_insert_rowid())
+            .bind(provider)
+            .execute(&mut **tx)
+            .await?;
+    }
     Ok(())
 }
 
@@ -1787,7 +1801,7 @@ impl SessionStorage {
     /// next migration also wants (and upstream's migrations never skip a
     /// version the fork silently consumed). Bump this, not
     /// `CURRENT_SCHEMA_VERSION`, for the fork's own schema changes.
-    const MELODY_SCHEMA_VERSION: i32 = 1;
+    const MELODY_SCHEMA_VERSION: i32 = 2;
 
     /// Brings the fork's own tables up to `MELODY_SCHEMA_VERSION`. Runs
     /// after upstream's schema creation or migrations, on every open of the
@@ -1831,6 +1845,7 @@ impl SessionStorage {
     ) -> Result<()> {
         match version {
             1 => Self::create_melody_session_roles_table(tx).await,
+            2 => Self::create_melody_usage_provider_table(tx).await,
             _ => anyhow::bail!("Unknown melody schema version: {}", version),
         }
     }
@@ -1867,6 +1882,35 @@ impl SessionStorage {
         sqlx::query(
             "CREATE UNIQUE INDEX IF NOT EXISTS idx_melody_roles_melody \
              ON melody_session_roles(role) WHERE role = 'melody'",
+        )
+        .execute(&mut **tx)
+        .await?;
+        Ok(())
+    }
+
+    /// `melody_usage_provider` is a fork-owned side table keyed by
+    /// `usage_ledger.id`, not a new column on upstream's `usage_ledger` —
+    /// the same choice 206 made for session roles, and for the same
+    /// reason. Upstream created `usage_ledger` itself only one migration
+    /// ago (`apply_migration` v15, table and index together) and is
+    /// actively evolving the schema around it (v16 added an index to
+    /// `messages`), so `usage_ledger` is exactly the kind of young,
+    /// upstream-owned table most likely to gain its own next column; an
+    /// `ALTER TABLE usage_ledger ADD COLUMN` here that happened to share a
+    /// name with upstream's next migration would make that migration fail
+    /// outright with "duplicate column name", not merely conflict at merge
+    /// time. A side table can never collide with a column upstream adds to
+    /// a table it still fully owns.
+    async fn create_melody_usage_provider_table(
+        tx: &mut sqlx::Transaction<'_, Sqlite>,
+    ) -> Result<()> {
+        sqlx::query(
+            r#"
+            CREATE TABLE IF NOT EXISTS melody_usage_provider (
+                usage_ledger_id INTEGER PRIMARY KEY REFERENCES usage_ledger(id) ON DELETE CASCADE,
+                provider TEXT NOT NULL
+            )
+            "#,
         )
         .execute(&mut **tx)
         .await?;
@@ -2818,7 +2862,21 @@ impl SessionStorage {
         .execute(&mut *tx)
         .await?;
 
-        insert_usage_ledger_row(&mut tx, session_id, Some(model), ledger).await?;
+        let provider_name: Option<String> = sqlx::query_scalar::<_, Option<String>>(
+            "SELECT provider_name FROM sessions WHERE id = ?",
+        )
+        .bind(session_id)
+        .fetch_one(&mut *tx)
+        .await?;
+
+        insert_usage_ledger_row(
+            &mut tx,
+            session_id,
+            Some(model),
+            provider_name.as_deref(),
+            ledger,
+        )
+        .await?;
 
         tx.commit().await?;
         Ok(())
@@ -5174,7 +5232,7 @@ mod tests {
     ) -> Result<()> {
         let pool = sm.storage().pool().await?;
         let mut tx = pool.begin().await?;
-        insert_usage_ledger_row(&mut tx, session_id, None, usage).await?;
+        insert_usage_ledger_row(&mut tx, session_id, None, None, usage).await?;
         tx.commit().await?;
         Ok(())
     }

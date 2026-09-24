@@ -225,8 +225,8 @@ async fn role_and_repository_survive_reopening_the_store() {
         .await
         .unwrap();
     assert_eq!(
-        melody_version_rows, 1,
-        "the fork's schema step must stay a single row across repeated opens"
+        melody_version_rows, 2,
+        "one row per fork migration (versions 1 and 2) — repeated opens must never insert a duplicate"
     );
 }
 
@@ -265,7 +265,7 @@ async fn a_v16_database_upgrades_in_place() {
         .fetch_one(&pool)
         .await
         .unwrap();
-    assert_eq!(melody_version, 1);
+    assert_eq!(melody_version, 2);
 }
 
 #[tokio::test]
