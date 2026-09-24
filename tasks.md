@@ -621,13 +621,7 @@ T0 done 2026-09-23: 202 (`~/Melody` committed, `83f5f23`); 203 (health check + l
 
 ### docs/2026-09-23-team-memory-program-plan-v2.md — T1: outcomes the scorecard can trust (drafted 2026-09-23; beside M1a, shares P1's ledger work)
 
-Order: 264 → 265 ∥ 266 ∥ 267 ∥ 268 → 269. 264 done 2026-09-23 (kinds `land · verdict · link · gap` in both lists; `worker` carries `turnId`, `member`, `charterSha`, `taskRef`, `taskHash`, `baseSha` — charter, hash and base stay null until their writers exist; confirm rerun: `'land'` 1 each, sidecar 1 passed, desktop 1 passed, sidecar suite 98 passed). 267 edits `ChangesBar.tsx`, `WorkspaceShell.tsx`, `ledger-writer.ts` and lands alone on them. The T1 → T4 gate is 266's vitest + 268's walk.
-
-- 265. A repeated append writes nothing: dedup by (kind, sessionId, workerSessionId, messageId)
-  - status: doing · agent: session's worker (2026-09-23) · worker: medium
-  - card: as the user, I want a reconnect's replay, a second window or a re-seed to never count a job twice, so that the scorecard's numbers hold (FURPS R · MoSCoW Must)
-  - context: after 264; dedup today is only the renderer's memory (`ledger-writer.ts:19-40`); `/ledger/append` appends blindly (`sidecar ledger.ts:116-121`); the sidecar owns the key (the last slot is the kind's natural id: `toolCallId`, `sha`, `turnId`, or `at`); a per-file lazily loaded key set; a duplicate returns `{ ok: true, duplicate: true }`; `eventKey` (`ledger-events.ts:239-254`) becomes the renderer's cache
-  - confirm: `cd ui/sidecar && pnpm vitest run ledger -t "replayed append writes nothing twice"` → 1 passed, one line in the file (today: two lines)
+Order: 264 → 265 ∥ 266 ∥ 267 ∥ 268 → 269. 265 done 2026-09-23 (sidecar dedup by kind · session · worker · message-or-natural-id, duplicates answer `{ok, duplicate}`; confirm rerun: 1 passed, sidecar 100, desktop ledger-events 12, both typechecks clean). 264 done 2026-09-23 (kinds `land · verdict · link · gap` in both lists; `worker` carries `turnId`, `member`, `charterSha`, `taskRef`, `taskHash`, `baseSha` — charter, hash and base stay null until their writers exist; confirm rerun: `'land'` 1 each, sidecar 1 passed, desktop 1 passed, sidecar suite 98 passed). 267 edits `ChangesBar.tsx`, `WorkspaceShell.tsx`, `ledger-writer.ts` and lands alone on them. The T1 → T4 gate is 266's vitest + 268's walk.
 
 - 266. The job outcome fold: `ledger-outcome.ts`, pure, with fixtures
   - status: doing · agent: session's worker (2026-09-23) · worker: high
