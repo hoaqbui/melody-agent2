@@ -291,7 +291,8 @@ Order: 184 (migration) → 183 (identity); 185 ∥ 186 ∥ 187 ∥ 189 ∥ 190 �
   - confirm: `cd ui/desktop && find src tests -iname "*goose*" | grep -viE "gooseServe|gooseAcpClient|gooseSessionNotifications|Goosehints|src/bin/goose" | wc -l && pnpm run typecheck && pnpm run lint:check && pnpm exec vitest run` → 0 (6 today), typecheck 0, lint and i18n green, unit tests pass
 
 - 195. Publish Melody builds as GitHub releases on `hoaqbui/melody-agent2` and point the updater at them: `ui/desktop/src/utils/autoUpdater.ts`, `ui/desktop/src/utils/githubUpdater.ts`, `ui/desktop/src/updates.ts`, `Justfile`.
-  - status: doing · agent: session's worker (wt/t195, 2026-09-23) · worker: medium
+  - status: todo — code merged 2026-09-23; publishing the first release waits for the M4 → A gate and the user's word · agent: — · worker: medium
+  - progress: code done 2026-09-23 (confirm rerun by the session: hoaqbui in all three, 'Melody' 1, UPDATES_ENABLED 1, 0.9.0-alpha.1 1, manifest step 1, npm-versions exit 0, githubUpdater 28 passed, lint clean); also fixed: `generate-mac-update-manifest.js` hard-coded Goose.zip; `MACOSX_DEPLOYMENT_TARGET` defaults to 12.0 in the recipe. Open: `just bump-version` still sets ui/desktop's version (would clobber the alpha line); `gh release create` needs `--notes`
   - card: as the user, I want an installed Melody to pull down my own builds so that a new build reaches the app without a manual copy (user, 2026-09-22: "is there a way where I can run a build, and it pulls down releases?" → option A → "let's add A to tasks for now")
   - context:
     - the updater's two paths: electron-updater first (`autoUpdater.ts:343-351`, feed `aaif-goose/goose`), which needs an Apple-signed app and fails on ad-hoc builds; then the GitHub fallback (`autoUpdater.ts:123-195`, `githubUpdater.ts:458-460`, `:556-584`) that downloads `<bundleName>.zip` and swaps the running `.app` (`:229-240`) — the fallback is the path an unsigned fork uses
