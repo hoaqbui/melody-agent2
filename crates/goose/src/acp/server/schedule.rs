@@ -612,6 +612,8 @@ mod tests {
         RunOutcome {
             status: RunStatus::Failed,
             error: Some("provider returned 500".to_string()),
+            exit_code: None,
+            output: None,
         }
         .to_extension_data(&mut extension_data)
         .unwrap();

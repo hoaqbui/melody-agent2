@@ -102,6 +102,7 @@ fn schema_field(node: SchemaNode, field: &str) -> Option<SchemaNode> {
         SchemaNode::Settings => match field {
             "goose_provider" | "goose_model" | "temperature" | "max_turns" | "goose_mode"
             | "working_dir" | "worktree" => Some(SchemaNode::Scalar),
+            "command" => Some(SchemaNode::StringList),
             _ => None,
         },
         SchemaNode::Author => match field {
@@ -514,6 +515,20 @@ fn validate_retry_config(recipe: &Recipe) -> Result<()> {
 }
 
 fn validate_prompt_or_instructions(recipe: &Recipe) -> Result<()> {
+    match recipe
+        .settings
+        .as_ref()
+        .and_then(|settings| settings.command.as_ref())
+    {
+        Some(command) if command.is_empty() => {
+            return Err(anyhow::anyhow!(
+                "Recipe `settings.command` must not be empty."
+            ))
+        }
+        Some(_) => return Ok(()),
+        None => {}
+    }
+
     let has_instructions = recipe
         .instructions
         .as_ref()
@@ -829,6 +844,26 @@ parameters:
 
     fn scheduling_error(content: &str) -> SchedulerRecipeError {
         validate_recipe_for_scheduling(content, None, RecipeFileFormat::Yaml).unwrap_err()
+    }
+
+    #[test]
+    fn scheduling_accepts_command_recipe_without_prompt() {
+        let recipe = validate_recipe_for_scheduling(
+            "title: Guard\ndescription: d\nsettings:\n  command: [\"python3\", \"guard.py\"]\n",
+            None,
+            RecipeFileFormat::Yaml,
+        )
+        .unwrap();
+        assert_eq!(
+            recipe.settings.and_then(|settings| settings.command),
+            Some(vec!["python3".to_string(), "guard.py".to_string()])
+        );
+
+        let error = scheduling_error("title: Guard\ndescription: d\nsettings:\n  command: []\n");
+        assert_eq!(
+            error.to_string(),
+            "Invalid recipe: Recipe `settings.command` must not be empty."
+        );
     }
 
     #[test]

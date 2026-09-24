@@ -1018,6 +1018,10 @@ pub struct RunOutcome {
     pub status: RunStatus,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub error: Option<String>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub exit_code: Option<i32>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub output: Option<String>,
 }
 
 impl ExtensionState for RunOutcome {
@@ -1129,6 +1133,113 @@ fn routine_mode(mode: GooseMode) -> GooseMode {
     }
 }
 
+struct CommandJob {
+    job_id: String,
+    schedule_id: String,
+    recipe: Recipe,
+    command: Vec<String>,
+    run_cwd: PathBuf,
+    worktree: Option<RunWorktree>,
+    goose_mode: GooseMode,
+    jobs: Arc<Mutex<JobsMap>>,
+    cancel_token: CancellationToken,
+    session_manager: Arc<SessionManager>,
+}
+
+// Only the tail is kept: the outcome lives in the session record, and a chatty script on an
+// hourly cron would otherwise grow it without bound.
+const COMMAND_OUTPUT_LIMIT: usize = 16 * 1024;
+
+fn command_output_tail(stdout: &[u8], stderr: &[u8]) -> String {
+    let mut bytes = stdout.to_vec();
+    bytes.extend_from_slice(stderr);
+    let start = bytes.len().saturating_sub(COMMAND_OUTPUT_LIMIT);
+    String::from_utf8_lossy(&bytes[start..]).into_owned()
+}
+
+// A script job: the recipe's argv runs with no shell in the run's working dir, and no Agent
+// or provider is ever built, so an idle routine makes no model call. The session exists only
+// as the run record the Runs inbox and kill read.
+async fn run_command_job(run: CommandJob) -> Result<String> {
+    let session = run
+        .session_manager
+        .create_session(
+            run.run_cwd.clone(),
+            format!("Scheduled job: {}", run.schedule_id),
+            SessionType::Scheduled,
+            run.goose_mode,
+        )
+        .await?;
+    if let Some(worktree) = &run.worktree {
+        record_run_state(&run.session_manager, &session.id, worktree).await?;
+    }
+    run.session_manager
+        .update(&session.id)
+        .schedule_id(Some(run.schedule_id.clone()))
+        .recipe(Some(run.recipe))
+        .apply()
+        .await?;
+
+    let mut jobs_guard = run.jobs.lock().await;
+    if let Some((_, job_def)) = jobs_guard.get_mut(run.job_id.as_str()) {
+        job_def.current_session_id = Some(session.id.clone());
+    }
+    drop(jobs_guard);
+
+    let mut command = tokio::process::Command::new(&run.command[0]);
+    command
+        .args(&run.command[1..])
+        .current_dir(&run.run_cwd)
+        .stdin(std::process::Stdio::null())
+        .stdout(std::process::Stdio::piped())
+        .stderr(std::process::Stdio::piped())
+        .kill_on_drop(true);
+    crate::subprocess::configure_subprocess(&mut command);
+
+    let outcome = match command.spawn() {
+        Err(error) => RunOutcome {
+            status: RunStatus::Failed,
+            error: Some(format!("{}: {error}", run.command[0])),
+            exit_code: None,
+            output: None,
+        },
+        Ok(child) => {
+            tokio::select! {
+                _ = run.cancel_token.cancelled() => RunOutcome {
+                    status: RunStatus::Killed,
+                    error: None,
+                    exit_code: None,
+                    output: None,
+                },
+                result = child.wait_with_output() => match result {
+                    Err(error) => RunOutcome {
+                        status: RunStatus::Failed,
+                        error: Some(error.to_string()),
+                        exit_code: None,
+                        output: None,
+                    },
+                    Ok(output) => RunOutcome {
+                        status: if output.status.success() {
+                            RunStatus::Done
+                        } else {
+                            RunStatus::Failed
+                        },
+                        error: (!output.status.success()).then(|| output.status.to_string()),
+                        exit_code: output.status.code(),
+                        output: Some(command_output_tail(&output.stdout, &output.stderr)),
+                    },
+                },
+            }
+        }
+    };
+    record_run_state(&run.session_manager, &session.id, &outcome).await?;
+
+    match outcome.error {
+        Some(error) => Err(anyhow!("Command failed: {}", error)),
+        None => Ok(session.id),
+    }
+}
+
 #[allow(clippy::too_many_lines)]
 async fn execute_job(
     job: ScheduledJob,
@@ -1181,6 +1292,22 @@ async fn execute_job(
     let run_cwd = worktree
         .as_ref()
         .map_or(cwd, |worktree| worktree.path.clone());
+
+    if let Some(command) = settings.and_then(|settings| settings.command.clone()) {
+        return run_command_job(CommandJob {
+            job_id,
+            schedule_id: job.id.clone(),
+            recipe: recipe.clone(),
+            command,
+            run_cwd,
+            worktree,
+            goose_mode,
+            jobs,
+            cancel_token,
+            session_manager,
+        })
+        .await;
+    }
 
     let agent = Agent::with_config(AgentConfig::new(
         session_manager,
@@ -1338,16 +1465,22 @@ async fn execute_job(
         RunOutcome {
             status: RunStatus::Killed,
             error: None,
+            exit_code: None,
+            output: None,
         }
     } else {
         match stream_error {
             Some(error) => RunOutcome {
                 status: RunStatus::Failed,
                 error: Some(error),
+                exit_code: None,
+                output: None,
             },
             None => RunOutcome {
                 status: RunStatus::Done,
                 error: None,
+                exit_code: None,
+                output: None,
             },
         }
     };
@@ -2088,6 +2221,8 @@ mod tests {
         let outcome = RunOutcome {
             status: RunStatus::Failed,
             error: Some("provider returned 500".to_string()),
+            exit_code: None,
+            output: None,
         };
         record_run_state(&session_manager, &session.id, &outcome)
             .await
@@ -2114,6 +2249,8 @@ mod tests {
         let done = RunOutcome {
             status: RunStatus::Done,
             error: None,
+            exit_code: None,
+            output: None,
         };
         record_run_state(&session_manager, &session.id, &done)
             .await
@@ -2194,6 +2331,8 @@ mod tests {
             &RunOutcome {
                 status: RunStatus::Done,
                 error: None,
+                exit_code: None,
+                output: None,
             },
         )
         .await
@@ -2220,6 +2359,106 @@ mod tests {
         assert_eq!(
             stored.extension_data.get_extension_state("scheduler", "v0"),
             Some(&serde_json::json!({ "status": "done" }))
+        );
+    }
+
+    const COUNTING_STUB: &str = "scheduler-counting-stub";
+    static STUB_BUILDS: std::sync::atomic::AtomicUsize = std::sync::atomic::AtomicUsize::new(0);
+
+    struct CountingStubProvider;
+
+    impl goose_providers::base::ProviderDescriptor for CountingStubProvider {
+        fn metadata() -> crate::providers::base::ProviderMetadata {
+            crate::providers::base::ProviderMetadata::new(
+                COUNTING_STUB,
+                "Counting stub",
+                "Counts every provider the registry builds",
+                "stub-model",
+                vec!["stub-model"],
+                "",
+                vec![],
+            )
+        }
+    }
+
+    impl crate::providers::base::ProviderDef for CountingStubProvider {
+        type Provider = crate::providers::testprovider::TestProvider;
+
+        fn from_env(
+            _extensions: Vec<crate::config::ExtensionConfig>,
+            _tls_config: Option<crate::providers::api_client::TlsConfig>,
+        ) -> futures::future::BoxFuture<'static, Result<Self::Provider>> {
+            STUB_BUILDS.fetch_add(1, std::sync::atomic::Ordering::SeqCst);
+            Box::pin(async { Err(anyhow!("the counting stub never answers")) })
+        }
+    }
+
+    #[tokio::test]
+    async fn command_job_makes_no_model_call() {
+        crate::providers::register_for_test::<CountingStubProvider>().await;
+        let temp_dir = tempdir().unwrap();
+        let project = temp_dir.path().join("project");
+        fs::create_dir_all(&project).unwrap();
+        let recipe_path = temp_dir.path().join("command_job.yaml");
+        fs::write(
+            &recipe_path,
+            format!(
+                "version: 1.0.0\n\
+                 title: command_job\n\
+                 description: Scheduler script job\n\
+                 prompt: a prompt the agent path would send\n\
+                 settings:\n  \
+                 goose_provider: {COUNTING_STUB}\n  \
+                 goose_model: stub-model\n  \
+                 working_dir: {}\n  \
+                 command: [\"sh\", \"-c\", \"touch ran-here; echo ran; exit 7\"]\n",
+                project.display()
+            ),
+        )
+        .unwrap();
+
+        let session_manager = Arc::new(SessionManager::new(temp_dir.path().to_path_buf()));
+        let scheduler = Scheduler::new(
+            temp_dir.path().join("schedule.json"),
+            session_manager.clone(),
+        )
+        .await
+        .unwrap();
+        let mut job = scheduled_job("command_job", &recipe_path);
+        job.cron = "0 0 0 1 1 *".to_string();
+        scheduler.add_scheduled_job(job, true).await.unwrap();
+
+        let error = scheduler.run_now("command_job").await.unwrap_err();
+        assert!(error.to_string().contains("exit status: 7"), "{error}");
+
+        let runs = scheduler.sessions("command_job", 10).await.unwrap();
+        assert_eq!(runs.len(), 1, "the run is recorded for the Runs inbox");
+        let session = session_manager
+            .get_session(&runs[0].0, false)
+            .await
+            .unwrap();
+        assert_eq!(session.session_type, SessionType::Scheduled);
+        assert_eq!(session.working_dir, project);
+        assert!(project.join("ran-here").is_file());
+        assert_eq!(session.provider_name, None);
+        assert_eq!(
+            RunOutcome::from_extension_data(&session.extension_data),
+            Some(RunOutcome {
+                status: RunStatus::Failed,
+                error: Some("exit status: 7".to_string()),
+                exit_code: Some(7),
+                output: Some("ran\n".to_string()),
+            })
+        );
+        assert_eq!(STUB_BUILDS.load(std::sync::atomic::Ordering::SeqCst), 0);
+
+        assert!(create_with_working_dir(COUNTING_STUB, vec![], project)
+            .await
+            .is_err());
+        assert_eq!(
+            STUB_BUILDS.load(std::sync::atomic::Ordering::SeqCst),
+            1,
+            "the stub counts what the agent path would build"
         );
     }
 
