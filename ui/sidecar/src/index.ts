@@ -162,6 +162,12 @@ const main = async (): Promise<void> => {
     try {
       port = await listen(server, port, address);
     } catch (error) {
+      // Tailscale's CLI still reports the last tailnet address after the tailnet
+      // stops, so that listener can fail while loopback — the desktop's — works.
+      if (address !== '127.0.0.1') {
+        console.error(`skipping ${address}:${port}: ${errorMessage(error)}`);
+        continue;
+      }
       console.error(`failed to bind ${address}:${port}: ${errorMessage(error)}`);
       process.exit(2);
     }
