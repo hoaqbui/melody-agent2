@@ -607,13 +607,7 @@ Order: 264 → 265 ∥ 266 ∥ 267 ∥ 268 → 269. T1 done 2026-09-23; gate pas
 
 ### docs/2026-09-23-team-memory-program-plan-v2.md — T2: Team health, Usage, Team Context (gated on M1b + M3; decision 2a: Work tabs first)
 
-Order: 270 → 271 ∥ 272 → 273 ∥ 274; 275 after use. 270 done 2026-09-24: `docs/2026-09-23-team-tabs-prd-v1.md` approved (user: "Approved"), every decision on its recommendation — data sources 1–4 all A, open questions 1–5 as recommended; the PRD's `ARCHITECTURE.md` amendment text is approved for 271 to apply.
-
-- 271. Read-only paths to the notebook and to every ledger
-  - status: doing · agent: session's worker (2026-09-24) · worker: medium
-  - card: as the user, I want Team health to see `~/Melody` and every companion's ledger from any project, so that the numbers aren't limited to the open repository (FURPS F · MoSCoW Must)
-  - context: `/notebook/read {path}` under a second root fixed at spawn (`~/Melody`, realpath, read-only, `..` refused); `/ledger/list` over `*.jsonl` in `defaultLedgerDir()` (`sidecar ledger.ts:32-37`); registered beside `ledgerRoutes` (`sidecar index.ts:80-85`); `/fs/*` unchanged
-  - confirm: `cd ui/sidecar && pnpm vitest run notebook` → reads a fixture file, refuses an escape and any write, lists two ledgers (today: no test file)
+Order: 270 → 271 ∥ 272 → 273 ∥ 274; 275 after use. 270 done 2026-09-24: `docs/2026-09-23-team-tabs-prd-v1.md` approved (user: "Approved"), every decision on its recommendation — data sources 1–4 all A, open questions 1–5 as recommended; the PRD's `ARCHITECTURE.md` amendment text is approved for 271 to apply. 271 done 2026-09-24 (`/notebook/list|read|log` over `MELODY_NOTEBOOK`, read-only, log constrained to the root by pathspec; `/ledger/list` and `/ledger/read {name}` with realpath containment — neither `cwd` nor `name` still reads the spawn cwd's file, three existing tests rely on it; new lines keyed on the request cwd's repository, a linked worktree folding to its main checkout, submodules and separate git dirs kept apart; ARCHITECTURE.md §Modules amended; Codex FAIL → rework → PASS; confirm rerun on main: notebook 31 passed, sidecar 135, typecheck clean). For 273: `/notebook/log` `at` is the author date (`%aI`); a missing notebook answers 404.
 
 - 272. Seat windows reach the renderer: each plan window's used, max and reset
   - status: todo (with or after task 182, a spine patch) · agent: — · worker: high
@@ -622,7 +616,7 @@ Order: 270 → 271 ∥ 272 → 273 ∥ 274; 275 after use. 270 done 2026-09-24: 
   - confirm: `cargo test -p goose --lib acp:: -- seat_window` → a claude `rate_limit_info` and a codex `resetsAt` each reach the client as a window (0 match today)
 
 - 273. Team health tab
-  - status: blocked — M1b, M3, 271 · agent: — · worker: high
+  - status: blocked — M1b, M3 · agent: — · worker: high
   - card: as the user, I want the team's vital signs in one Work tab, and the check-in one click away, so that I see what's due without asking (FURPS U · MoSCoW Must)
   - context: `PaneId` `'team-health'` (`pane-store.ts:4-29`), label/icon `WorkspaceShell.tsx:206`, `:221`; five tiles (memory lines vs cap, chats with a note — `scripts/melody-notebook-week.py`'s logic, waiting on you, jobs done clean from 266, stale notes); member cards from 266; "Start check-in" sends "check-in" to Melody's session (M1b); links to Team Context (T2b)
   - confirm: `just walk "team health"` → 1 passed: opens from +, tiles read the fixture ledger and notebook, Start check-in reaches Melody's tab (today: no spec)
