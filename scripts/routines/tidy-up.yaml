@@ -18,9 +18,12 @@ instructions: |
      archiving past days is a separate routine (`melody-routines.py archive`).
      If a promotion needs to reference why, say so in the `DREAMS.md` entry
      below, not in the journal.
-  4. Cap `MEMORY.md` at 200 lines. If you drop or merge lines to make room,
-     drop or merge at most a quarter of the file's lines in this pass — never
-     more, even if it stays over budget; leave the rest for the next check-in.
+  4. Cap `MEMORY.md` at 200 lines. A guard checks this run against the lines
+     `MEMORY.md` held at the *start* of the run, not the final count: replacing
+     a line still counts as removing the old one, so you may not remove more
+     than a quarter of the lines you started with, even by rewording them —
+     never more, even if it stays over budget; leave the rest for the next
+     check-in.
   5. Write exactly one entry to `DREAMS.md` (create it if missing), appended
      at the end, in this exact shape so it can be counted by machine:
 
@@ -33,10 +36,15 @@ instructions: |
      - why: <one sentence on the pass as a whole>
      ```
 
-     Exactly one `## tidy-up <date>` heading per run. Do not touch any earlier
-     entry in `DREAMS.md`.
+     Exactly one `## tidy-up <date>` heading per run, appended after
+     everything already there. Never edit, reword, or reorder an entry
+     already in `DREAMS.md` — the guard checks that the file's earlier
+     content is an untouched prefix of the new content.
   6. Stage only `MEMORY.md`, `notes/` and `DREAMS.md` (never `journal/`) and
      make exactly one commit: `memory: tidy-up <YYYY-MM-DD>`, dated today.
+     Leave nothing uncommitted — `git status` must be clean, including
+     untracked files, when you're done; a scratch file left behind is a
+     violation the guard will revert along with everything else.
 
   ## Budget
 
