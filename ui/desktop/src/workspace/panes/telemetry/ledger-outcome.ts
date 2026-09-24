@@ -46,7 +46,9 @@ const samePath = (a: string, b: string): boolean => {
   return x === y || x.endsWith('/' + y) || y.endsWith('/' + x);
 };
 
-const overlap = (paths: readonly string[], files: readonly string[]): string[] =>
+// Exported for the Agents pane's "Fixes…" control (task 268): the same file-overlap hint,
+// offered there against a job's earlier jobs instead of its later ones.
+export const overlap = (paths: readonly string[], files: readonly string[]): string[] =>
   paths.filter((path) => files.some((file) => samePath(path, file)));
 
 // What makes two ledger lines the same line: a reconnect or a re-seed replays events the

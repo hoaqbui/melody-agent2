@@ -32,6 +32,18 @@
   "agentsPane.emptyHint": {
     "defaultMessage": "Workers appear here when a session in Orchestrate delegates a task"
   },
+  "agentsPane.fixesEmpty": {
+    "defaultMessage": "No earlier jobs yet"
+  },
+  "agentsPane.fixesLabel": {
+    "defaultMessage": "Fixes…"
+  },
+  "agentsPane.fixesLinked": {
+    "defaultMessage": "Fixes {label}"
+  },
+  "agentsPane.fixesOverlap": {
+    "defaultMessage": "{count,plural,one{# shared file} other{# shared files}}"
+  },
   "agentsPane.loading": {
     "defaultMessage": "Loading transcript…"
   },
@@ -61,6 +73,21 @@
   },
   "agentsPane.thisSession": {
     "defaultMessage": "This session"
+  },
+  "agentsPane.verdictFixed": {
+    "defaultMessage": "Fixed it"
+  },
+  "agentsPane.verdictGood": {
+    "defaultMessage": "Good"
+  },
+  "agentsPane.verdictWhyPlaceholder": {
+    "defaultMessage": "Why? (optional)"
+  },
+  "agentsPane.verdictWhySave": {
+    "defaultMessage": "Save"
+  },
+  "agentsPane.verdictWrong": {
+    "defaultMessage": "Wrong"
   },
   "alertBox.autoCompactAt": {
     "defaultMessage": "Compactar automáticamente al"
