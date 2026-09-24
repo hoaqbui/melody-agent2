@@ -1,3 +1,4 @@
+import type { Page } from '@playwright/test';
 import {
   test,
   expect,
@@ -125,4 +126,137 @@ test.describe('agents pane', { tag: '@seat' }, () => {
       await emptyDock(goosePage);
     }
   });
+
+  // Task 200 (plan 181, step 4): the socket drops mid-turn — here by the system-resume path —
+  // and the server keeps the run. The reloaded chat shows the turn still running with Stop,
+  // the parent's reply lands once (no replayed duplicate), and a Stop pressed after a second
+  // reconnect reaches the server: its run ends and no turn failure is shown.
+  test('reconnect during a Hard turn keeps the reply once and Stop working', async ({
+    goosePage,
+  }) => {
+    test.setTimeout(420000);
+    const shell = goosePage.locator('[data-testid="workspace-shell"]');
+    await expect(shell).toBeVisible({ timeout: 30000 });
+    await expect(shell).not.toHaveAttribute('data-orchestrator-role', 'loading', {
+      timeout: 15000,
+    });
+    await goosePage.setViewportSize({ width: 1400, height: 900 });
+    await emptyDock(goosePage);
+    await setAdvancedControls(goosePage, false);
+    test.skip(
+      (await shell.getAttribute('data-orchestrator-role')) !== 'present',
+      'no orchestrator role here: no Hard turn to reconnect during'
+    );
+
+    try {
+      await openPane(goosePage, 'agents');
+      const pane = goosePage.locator('[data-testid="agents-pane"]');
+      const runningRow = pane.locator('[data-testid="agents-row"][data-status="running"]');
+
+      const hubInput = goosePage.locator('[data-testid="chat-input"]');
+      await expect(hubInput).toHaveCount(1, { timeout: 15000 });
+      const firstPrompt =
+        "Delegate exactly once to the spike-echo role with instructions 'say hello', then reply DONE";
+      await hubInput.fill(firstPrompt);
+      await hubInput.press('Enter');
+      await trustRecipeIfAsked(goosePage);
+      await expect(goosePage).toHaveURL(/resumeSessionId=/, { timeout: 30000 });
+      const sessionId = /resumeSessionId=([^&#]+)/.exec(goosePage.url())?.[1] ?? '';
+      expect(sessionId).not.toBe('');
+
+      const chat = goosePage
+        .locator(`[data-session-id="${sessionId}"]`)
+        .filter({ has: goosePage.locator('[data-testid="chat-input"]') });
+      const stop = chat.getByRole('button', { name: 'Stop', exact: true });
+      const turnFailure = chat.locator('[data-testid="turn-failure-card"]');
+      const assistantMessages = chat.locator('[data-testid="message-container"].assistant');
+      const userMessages = chat.locator('[data-testid="message-container"].user');
+
+      // Mid-turn: the parent's run is inside its delegate call.
+      await expect(runningRow).toHaveCount(1, { timeout: 120000 });
+      await expect(stop).toBeVisible();
+      await reconnectMidTurn(goosePage);
+
+      // The reloaded chat follows the server's run: still streaming, Stop still offered.
+      await expect
+        .poll(() => goosePage.evaluate(chatFollowingRunScript(sessionId)), { timeout: 30000 })
+        .toBe(true);
+      await expect(stop).toBeVisible();
+      await goosePage.screenshot({ path: test.info().outputPath('reconnect-streaming.png') });
+
+      await expect(assistantMessages.filter({ hasText: /DONE/ })).toHaveCount(1, {
+        timeout: 180000,
+      });
+      await expect(stop).toHaveCount(0, { timeout: 30000 });
+      await expect(userMessages.filter({ hasText: firstPrompt })).toHaveCount(1);
+      const replies = (await assistantMessages.allInnerTexts())
+        .map((text) => text.trim())
+        .filter(Boolean);
+      expect(new Set(replies).size).toBe(replies.length);
+      await expect(turnFailure).toHaveCount(0);
+      await goosePage.screenshot({ path: test.info().outputPath('reconnect-reply-once.png') });
+
+      // Stop on a turn recovered from a reconnect cancels the server's run.
+      const chatInput = chat.locator('[data-testid="chat-input"]');
+      await chatInput.fill(
+        "Delegate exactly once to the spike-echo role with instructions 'say goodbye', then reply BYE"
+      );
+      await chatInput.press('Enter');
+      await expect(runningRow).toHaveCount(1, { timeout: 120000 });
+      await reconnectMidTurn(goosePage);
+      await expect
+        .poll(() => goosePage.evaluate(chatFollowingRunScript(sessionId)), { timeout: 30000 })
+        .toBe(true);
+      await stop.click();
+      await expect(stop).toHaveCount(0);
+      await expect
+        .poll(() => goosePage.evaluate(chatRunSettledScript(sessionId)), { timeout: 60000 })
+        .toBe(true);
+      await expect(turnFailure).toHaveCount(0);
+      await goosePage.screenshot({ path: test.info().outputPath('reconnect-stopped.png') });
+    } finally {
+      await setAdvancedControls(goosePage, false);
+      await emptyDock(goosePage);
+    }
+  });
 });
+
+// Evaluated as strings so Playwright's transform leaves the dev server's module URLs alone.
+const ACP_CONNECTION_MODULE = "import('/src/acp/acpConnection.ts')";
+
+// Drops the ACP socket the way a system resume does and waits for the new one. Recovering
+// right after the call proves it reached the app's live connection, not a fresh module copy.
+async function reconnectMidTurn(page: Page): Promise<void> {
+  const recovering = await page.evaluate(
+    `${ACP_CONNECTION_MODULE}.then((m) => { m.reconnectAcpAfterSystemResume(); return m.isAcpRecovering(); })`
+  );
+  expect(recovering).toBe(true);
+  await expect
+    .poll(() => page.evaluate(`${ACP_CONNECTION_MODULE}.then((m) => m.isAcpRecovering())`), {
+      timeout: 30000,
+    })
+    .toBe(false);
+}
+
+function chatSnapshotScript(sessionId: string, predicate: string): string {
+  return `import('/src/acp/chatSessionStore.ts').then((m) => {
+    const snapshot = m.acpChatSessionStore.getSnapshot(${JSON.stringify(sessionId)});
+    return Boolean(snapshot) && (${predicate});
+  })`;
+}
+
+// Loaded (not replaying), streaming the server's run under the turn's own prompt attempt.
+function chatFollowingRunScript(sessionId: string): string {
+  return chatSnapshotScript(
+    sessionId,
+    "snapshot.chatState === 'streaming' && snapshot.activeRunId !== null && snapshot.activePromptAttemptId !== null"
+  );
+}
+
+// Idle with no run and no Stop still waiting on the server's idle update.
+function chatRunSettledScript(sessionId: string): string {
+  return chatSnapshotScript(
+    sessionId,
+    "snapshot.chatState === 'idle' && snapshot.activeRunId === null && snapshot.activePromptAttemptId === null && snapshot.pendingCancelPromptAttemptId === null"
+  );
+}

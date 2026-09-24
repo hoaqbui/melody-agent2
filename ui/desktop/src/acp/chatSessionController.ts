@@ -15,9 +15,12 @@ import {
   acpChatSessionStore,
   type AcpChatSessionSnapshot,
 } from './chatSessionStore';
+import { isAcpRecovering } from './acpConnection';
 import { cancelAcpElicitationRequestsForSession } from './elicitationRequests';
 import {
   formatAcpError,
+  isAcpConnectionLost,
+  isRunReplayOverflowError,
   parseAcpCreditsExhaustedError,
   type AcpCreditsExhaustedError,
 } from './errors';
@@ -146,17 +149,45 @@ async function restoreSession(sessionId: string): Promise<void> {
   await loadSessionFromServer(sessionId);
 }
 
+export const RUN_REPLAY_RETRY_MS = 5_000;
+
+// Sessions whose running reply was too large to replay. The refused load never subscribed
+// this socket to the run's idle update, so the session is reloaded on a timer until the
+// run has ended and the load succeeds.
+const heldRunSessionIds = new Set<string>();
+const runReplayRetryTimers = new Map<string, ReturnType<typeof setTimeout>>();
+
+function scheduleRunReplayRetry(sessionId: string): void {
+  clearTimeout(runReplayRetryTimers.get(sessionId));
+  runReplayRetryTimers.set(
+    sessionId,
+    setTimeout(() => {
+      runReplayRetryTimers.delete(sessionId);
+      void loadSessionFromServer(sessionId, {}, { quiet: true });
+    }, RUN_REPLAY_RETRY_MS)
+  );
+}
+
 async function loadSessionFromServer(
   sessionId: string,
-  options: AcpLoadSessionOptions = {}
+  options: AcpLoadSessionOptions = {},
+  { quiet = false }: { quiet?: boolean } = {}
 ): Promise<void> {
+  clearTimeout(runReplayRetryTimers.get(sessionId));
+  runReplayRetryTimers.delete(sessionId);
+  const visibleMessages = acpChatSessionStore.getSnapshot(sessionId)?.messages ?? [];
   if (!isAcpSessionLoadInFlight(sessionId)) {
-    acpChatSessionActions.startSessionLoad(sessionId);
+    if (quiet) {
+      acpChatSessionActions.startQuietSessionLoad(sessionId);
+    } else {
+      acpChatSessionActions.startSessionLoad(sessionId);
+    }
   }
 
   try {
     const { sessionInfo, meta } = await acpLoadSession(sessionId);
 
+    heldRunSessionIds.delete(sessionId);
     showExtensionLoadResults(meta.extensionResults);
     window.dispatchEvent(
       new CustomEvent(AppEvents.SESSION_EXTENSIONS_LOADED, { detail: { sessionId } })
@@ -164,8 +195,20 @@ async function loadSessionFromServer(
     acpChatSessionActions.finishSessionLoad(sessionId, sessionInfoToSession(sessionInfo, meta));
     options.onSessionLoaded?.();
   } catch (error) {
+    if (isRunReplayOverflowError(error)) {
+      heldRunSessionIds.add(sessionId);
+      acpChatSessionActions.holdRunningTurn(sessionId, visibleMessages);
+      scheduleRunReplayRetry(sessionId);
+      return;
+    }
+    heldRunSessionIds.delete(sessionId);
     console.error('Failed to load ACP session:', error);
-    acpChatSessionActions.failSessionLoad(sessionId, formatAcpError(error));
+    const loadError = formatAcpError(error);
+    acpChatSessionActions.failSessionLoad(sessionId, loadError);
+    // A reconnect already under way reloads the session again when it lands.
+    if (!isAcpRecovering()) {
+      acpChatSessionActions.settleDetachedPromptAttempt(sessionId, loadError);
+    }
   }
 }
 
@@ -185,7 +228,7 @@ async function submitMessage(
   acpChatSessionActions.startPromptAttempt(sessionId, promptAttemptId);
 
   try {
-    await acpPromptSession(sessionId, userMessage);
+    await awaitPromptOrItsRun(sessionId, userMessage, promptAttemptId);
     if (acpChatSessionActions.clearPromptCancellation(sessionId, promptAttemptId)) {
       return;
     }
@@ -221,6 +264,32 @@ async function submitMessage(
   }
 }
 
+// The prompt's response, or — when its socket closed under it — the end of the run it
+// started, which the server keeps running and a reload re-attaches to.
+async function awaitPromptOrItsRun(
+  sessionId: string,
+  userMessage: Message,
+  promptAttemptId: string
+): Promise<void> {
+  try {
+    await acpPromptSession(sessionId, userMessage);
+  } catch (error) {
+    if (
+      !isAcpConnectionLost(error) ||
+      !acpChatSessionActions.detachPromptAttempt(sessionId, promptAttemptId)
+    ) {
+      throw error;
+    }
+    const failure = await acpChatSessionActions.waitForDetachedPromptAttempt(
+      sessionId,
+      promptAttemptId
+    );
+    if (failure !== undefined) {
+      throw new Error(failure, { cause: error });
+    }
+  }
+}
+
 function stop(sessionId: string): void {
   const storedPromptAttemptId = acpChatSessionStore.getSnapshot(sessionId)?.activePromptAttemptId;
   const hasStoredAcpPrompt = storedPromptAttemptId !== null && storedPromptAttemptId !== undefined;
@@ -235,6 +304,13 @@ function stop(sessionId: string): void {
     return;
   }
 
+  // A held run this window did not start (its replay was refused) is still the server's
+  // to cancel; the retry then loads it once it has ended.
+  if (heldRunSessionIds.has(sessionId)) {
+    acpCancelPrompt(sessionId).catch((error) => {
+      console.warn('Failed to cancel ACP prompt:', error);
+    });
+  }
   acpChatSessionActions.setChatState(sessionId, ChatState.Idle);
 }
 

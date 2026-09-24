@@ -1,7 +1,11 @@
 import { methods, type ContentBlock, type PromptResponse } from '@agentclientprotocol/sdk';
-import type { SteerSessionRequest_unstable, SteerSessionResponse_unstable } from '@aaif/goose-acp-client';
+import type {
+  SteerSessionRequest_unstable,
+  SteerSessionResponse_unstable,
+} from '@aaif/goose-acp-client';
 import type { Message } from '../types/message';
 import { getAcpClient } from './acpConnection';
+import { AcpConnectionLostError } from './errors';
 
 export async function acpPromptSession(
   sessionId: string,
@@ -9,11 +13,19 @@ export async function acpPromptSession(
 ): Promise<PromptResponse> {
   const client = await getAcpClient();
   const useLegacyAgentLoop = await window.electron.getSetting('useLegacyAgentLoop');
-  return client.connection.agent.request(methods.agent.session.prompt, {
-    sessionId,
-    prompt: messageToAcpPromptContent(message),
-    _meta: { goose: { unrolledAgentLoop: !useLegacyAgentLoop } },
-  });
+  try {
+    return await client.connection.agent.request(methods.agent.session.prompt, {
+      sessionId,
+      prompt: messageToAcpPromptContent(message),
+      _meta: { goose: { unrolledAgentLoop: !useLegacyAgentLoop } },
+    });
+  } catch (error) {
+    // The server owns the run, so a closed socket loses only this response, not the turn.
+    if (client.connection.signal.aborted) {
+      throw new AcpConnectionLostError(error);
+    }
+    throw error;
+  }
 }
 
 export async function acpCancelPrompt(sessionId: string): Promise<void> {

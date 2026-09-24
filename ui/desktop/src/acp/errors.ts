@@ -47,6 +47,27 @@ export function isRecipeParamsCancelled(error: unknown): boolean {
   return asAcpJsonRpcError(error)?.data?.reason === RECIPE_PARAMS_CANCELLED_REASON;
 }
 
+// Kept in sync with RUN_REPLAY_OVERFLOW_REASON in crates/goose/src/acp/server.rs.
+const RUN_REPLAY_OVERFLOW_REASON = 'active_run_replay_overflow';
+
+// The server refuses to re-attach a load to a run whose replay record overflowed; the
+// session can be loaded in full once that run ends.
+export function isRunReplayOverflowError(error: unknown): boolean {
+  return asAcpJsonRpcError(error)?.data?.reason === RUN_REPLAY_OVERFLOW_REASON;
+}
+
+// A request lost with its socket: the server may still be running what it started.
+export class AcpConnectionLostError extends Error {
+  constructor(cause: unknown) {
+    super(errorMessage(cause), { cause });
+    this.name = 'AcpConnectionLostError';
+  }
+}
+
+export function isAcpConnectionLost(error: unknown): error is AcpConnectionLostError {
+  return error instanceof AcpConnectionLostError;
+}
+
 export function parseAcpCreditsExhaustedError(error: unknown): AcpCreditsExhaustedError | null {
   const jsonRpcError = asAcpJsonRpcError(error);
   if (jsonRpcError?.data?.reason !== CREDITS_EXHAUSTED_REASON) {
