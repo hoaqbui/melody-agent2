@@ -1,6 +1,6 @@
 # PRD — Headless Melody
 
-Dated 2026-09-24. **v1, draft for the user's approval.** Built after v0.9 (user: option A, 2026-09-24); the plan is written at the A gate. Research, options and picks: `docs/2026-09-24-headless-melody-research-v1.md`. Names and states cite `DESIGN.md`.
+Dated 2026-09-24. **v1, draft for the user's approval.** Built after v0.9 (user: option A, 2026-09-24); the plan is written at the A gate. Research, options and picks: `docs/2026-09-24-headless-melody-research-v1.md`. State rows follow `DESIGN.md:137-152`.
 
 ## Problem
 

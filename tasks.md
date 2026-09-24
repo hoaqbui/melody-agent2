@@ -677,7 +677,7 @@ Order: 281 → 282 ∥ 283.
 - 299. Headless Melody: plan and tranche from the approved PRD
   - status: blocked — the PRD's approval (the user), then the A gate (v0.9 alpha published) · agent: — · worker: high
   - card: as the user, I want Melody and her work to keep running when the app is closed, and to reach her from the phone and a terminal, so that long delegated work and routines don't depend on a window (FURPS R F · MoSCoW Should, after 0.9)
-  - context: research `docs/2026-09-24-headless-melody-research-v1.md` (the external-backend path has no sidecar, `gooseServeLeaseRegistry.ts:83-97`; a server per window, `main.ts:1105-1342`; ledger writers only in the renderer); the `ARCHITECTURE.md` amendment text is in the PRD, codex security review PASS after revision; groundwork 198, 200 (done), 208 (M1a)
+  - context: research `docs/2026-09-24-headless-melody-research-v1.md` (the external-backend path has no sidecar, `gooseServeLeaseRegistry.ts:83-97`; a server per window, `main.ts:1105-1342`; ledger writers only in the renderer); the `ARCHITECTURE.md` amendment text is in the PRD, codex security review PASS after revision; groundwork 198, 200 (done), 208 (M1a); the plan decides whether 271's `/notebook/*` second root stays or folds into Allowed folders (`~/Melody` is always one), and 271 builds as specified until then
   - confirm: `ls docs/*-headless-melody-plan-v1.md | wc -l` → 1 (0 today); then the user's approval
 
 ## Waiting on the user
