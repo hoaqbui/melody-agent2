@@ -1718,21 +1718,22 @@ impl SummonClient {
                 on_message: None,
                 notification_tx: None,
             };
-            let result =
+            let subagent_run =
                 Self::run_subagent_with_notifications(Arc::clone(&sink), move |notification_tx| {
                     let mut params = run_params;
                     params.notification_tx = Some(notification_tx);
                     run_subagent_task(params)
-                })
-                .await;
-
+                });
+            tokio::pin!(subagent_run);
             // A run that ends because the parent was cancelled still returns
-            // `Ok` from the loops below — they just stop early. Override so
-            // the delegate's terminal update lands on `failed`, never `done`.
-            let result = if cancellation_token.is_cancelled() {
-                Err(anyhow::anyhow!("cancelled"))
-            } else {
-                result
+            // `Ok` from the loops below — they just stop early. Race the
+            // token instead of checking it after the fact, so a result that
+            // had already landed wins even if Stop fires around the same
+            // instant: only a genuinely cut-short run reports `failed`.
+            let result = tokio::select! {
+                biased;
+                result = &mut subagent_run => result,
+                _ = cancellation_token.cancelled() => Err(anyhow::anyhow!("cancelled")),
             };
 
             // Written after the run: the loops persist a snapshot of the

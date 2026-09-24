@@ -75,25 +75,74 @@ fn configure_common_subprocess(command: &mut Command) {
 
 #[cfg(unix)]
 const PROCESS_GROUP_KILL_GRACE: std::time::Duration = std::time::Duration::from_secs(1);
+#[cfg(unix)]
+const PROCESS_GROUP_POLL_INTERVAL: std::time::Duration = std::time::Duration::from_millis(50);
+
+/// Whether process group `pgid` (already negative, as passed to `kill`) still
+/// has at least one member. POSIX never reuses a process-group id for a new,
+/// unrelated group while a group with that id still has members, so this
+/// stays a reliable "is it still the group we spawned" check even after the
+/// original leader has been reaped.
+#[cfg(unix)]
+fn process_group_exists(pgid: libc::pid_t) -> bool {
+    if unsafe { libc::kill(pgid, 0) } == 0 {
+        return true;
+    }
+    // Anything but "no such process" (a permission error, say) means some
+    // member is still there; only ESRCH means the group is actually gone.
+    std::io::Error::last_os_error().raw_os_error() != Some(libc::ESRCH)
+}
+
+/// Polls `pgid` until it has no members left or `grace` elapses, sending
+/// SIGKILL only if it is still alive once the grace period is up. Returns
+/// whether SIGKILL was sent (for tests). Never signals blindly after the
+/// grace period: a `pgid` that has already gone away could by then be a
+/// reused id for a completely unrelated group.
+#[cfg(unix)]
+fn reap_process_group(pgid: libc::pid_t, grace: std::time::Duration) -> bool {
+    let deadline = std::time::Instant::now() + grace;
+    while std::time::Instant::now() < deadline {
+        if !process_group_exists(pgid) {
+            return false;
+        }
+        std::thread::sleep(PROCESS_GROUP_POLL_INTERVAL);
+    }
+    if process_group_exists(pgid) {
+        unsafe {
+            libc::kill(pgid, libc::SIGKILL);
+        }
+        true
+    } else {
+        false
+    }
+}
 
 /// Terminates the process group led by `pid` (see `configure_subprocess`'s
 /// `process_group(0)`, which makes the child its own group leader): SIGTERM
 /// now, SIGKILL after a short grace if anything in the group is still alive.
 /// Reaches descendants (e.g. a shell/interpreter the child spawned) that a
-/// plain `Child::kill` on `pid` alone would orphan. Fire-and-forget on a
-/// dedicated thread so a caller in a `Drop` impl or an async task never waits
-/// on the grace period.
+/// plain `Child::kill` on `pid` alone would orphan and can outlive the
+/// child's own exit. Fire-and-forget on a dedicated thread so a caller in a
+/// `Drop` impl or an async task never waits on the grace period.
+///
+/// A no-op for `pid` 0 or 1, or one that does not fit in `libc::pid_t`:
+/// negating either of the first two targets this process's own group or
+/// (as `-1`) every process the caller may signal, and neither is a group
+/// this ever spawned.
 #[cfg(unix)]
 pub fn terminate_process_group(pid: u32) {
-    let pgid = -(pid as libc::pid_t);
+    let Ok(pid) = i32::try_from(pid) else {
+        return;
+    };
+    if pid <= 1 {
+        return;
+    }
+    let pgid = -pid;
     unsafe {
         libc::kill(pgid, libc::SIGTERM);
     }
     std::thread::spawn(move || {
-        std::thread::sleep(PROCESS_GROUP_KILL_GRACE);
-        unsafe {
-            libc::kill(pgid, libc::SIGKILL);
-        }
+        reap_process_group(pgid, PROCESS_GROUP_KILL_GRACE);
     });
 }
 
@@ -215,5 +264,41 @@ mod tests {
         tokio::time::sleep(PROCESS_GROUP_KILL_GRACE + Duration::from_millis(500)).await;
         let after = processes_in_group(pid);
         assert!(after.is_empty(), "process group survived: {after:?}");
+    }
+
+    // Task 285 review: once a group has exited and been reaped on its own,
+    // its numeric id could since be reused by an unrelated group. The reaper
+    // must notice the group is gone and skip SIGKILL, not blindly signal
+    // whatever now holds that id after the grace period.
+    #[tokio::test]
+    async fn reap_process_group_skips_sigkill_once_the_group_is_already_gone() {
+        let mut cmd = Command::new("sh");
+        cmd.arg("-c").arg("true");
+        configure_subprocess(&mut cmd);
+        cmd.stdout(std::process::Stdio::null());
+        cmd.stderr(std::process::Stdio::null());
+        let mut child = cmd.spawn().expect("spawn sh");
+        let pid = child.id().expect("child has a pid");
+
+        // Reaped before we ever try to kill its group.
+        child.wait().await.expect("child exits");
+        tokio::time::sleep(Duration::from_millis(50)).await;
+
+        let pgid = -(pid as libc::pid_t);
+        let started = std::time::Instant::now();
+        let sent_sigkill =
+            tokio::task::spawn_blocking(move || reap_process_group(pgid, Duration::from_secs(1)))
+                .await
+                .unwrap();
+        let elapsed = started.elapsed();
+
+        assert!(
+            !sent_sigkill,
+            "SIGKILL must not fire once the group is already gone"
+        );
+        assert!(
+            elapsed < Duration::from_millis(500),
+            "the poll should end as soon as the group disappears, not run the full grace: {elapsed:?}"
+        );
     }
 }
