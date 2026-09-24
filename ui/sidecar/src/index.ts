@@ -20,6 +20,7 @@ import {
 } from './http.js';
 import { attachPty, ensureSpawnHelperExecutable, killAllPty } from './pty.js';
 import { ledgerRoutes } from './ledger.js';
+import { notebookRoutes, resolveNotebookRoot } from './notebook.js';
 import { runtimesRoutes } from './runtimes.js';
 import { serveStatic } from './static.js';
 
@@ -77,11 +78,13 @@ const main = async (): Promise<void> => {
     args.gooseUrl && token
       ? { gooseUrl: args.gooseUrl, certFingerprint: args.gooseCertFingerprint, token }
       : null;
+  const notebookRoot = await resolveNotebookRoot();
   const routes: Record<string, JsonHandler> = {
     ...fsRoutes(cwd),
     ...gitRoutes(cwd),
     ...runtimesRoutes(),
     ...ledgerRoutes(cwd),
+    ...notebookRoutes(notebookRoot),
   };
   const dispatchJson = jsonDispatcher(routes, args.allowedOrigins, secret);
 

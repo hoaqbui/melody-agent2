@@ -3,12 +3,38 @@
 // each moment it already knows about; every telemetry chart is a fold over these lines.
 
 import { createHash } from 'node:crypto';
-import { appendFile, mkdir, readFile, realpath } from 'node:fs/promises';
+import { appendFile, mkdir, readFile, readdir, realpath } from 'node:fs/promises';
 import os from 'node:os';
 import path from 'node:path';
 
-import { isInside, toplevelOf, WORKTREES_DIR } from './git.js';
+import { git, isInside, toplevelOf, WORKTREES_DIR } from './git.js';
 import { HttpError, type JsonHandler, requireString } from './http.js';
+
+// A bare name for `/ledger/read {name}`: a `.jsonl` basename in the ledger dir, never a path —
+// no separator and no `..`, so it can only ever name a file already inside `ledgerDir`.
+const isLedgerName = (name: string): boolean =>
+  /\.jsonl$/.test(name) && !/[/\\]/.test(name) && !name.includes('..');
+
+// `name` has no separator, but the *file itself* can still be a symlink placed inside
+// `ledgerDir` pointing outward — realpath and check containment before ever reading it. A
+// name that doesn't exist yet reads as its own literal path: `readLedger` already treats a
+// missing file as no events, the same as the cwd-keyed route does for a ledger that hasn't
+// had its first append yet, so this stays consistent rather than 400ing on "not found".
+const ledgerFileByName = async (ledgerDir: string, name: string): Promise<string> => {
+  const file = path.join(ledgerDir, name);
+  let resolved: string;
+  try {
+    resolved = await realpath(file);
+  } catch (error) {
+    if ((error as NodeJS.ErrnoException).code === 'ENOENT') return file;
+    throw error;
+  }
+  const resolvedDir = await realpath(ledgerDir).catch(() => ledgerDir);
+  if (!isInside(resolved, resolvedDir)) {
+    throw new HttpError(400, 'name resolves outside the ledger dir');
+  }
+  return resolved;
+};
 
 export const EVENT_KINDS = [
   'turn',
@@ -159,6 +185,39 @@ const keysFor = async (file: string): Promise<Set<string>> => {
   return loading;
 };
 
+// Task 271: the request cwd's own repository when it has one inside the `/fs/*` boundary,
+// folding a linked worktree back to its main repository wherever it lives (not only under
+// `.worktrees/`) — `--path-format=absolute` needs no realpath of a relative rev-parse answer.
+// Falls back to the spawn toplevel for a cwd that is not itself a repository (the read-side
+// join in the PRD still covers those lines via the spawn-rooted file).
+const mainRepoToplevelOf = async (cwd: string): Promise<string> => {
+  const [toplevel, gitDir, commonDir] = (
+    await git(cwd, [
+      'rev-parse',
+      '--path-format=absolute',
+      '--show-toplevel',
+      '--git-dir',
+      '--git-common-dir',
+    ])
+  )
+    .trim()
+    .split('\n');
+  // A linked worktree is the one shape whose own git-dir (`<main>/.git/worktrees/<id>`)
+  // differs from its common dir (`<main>/.git`, shared with the main checkout) — that's what
+  // "fold this one back" means. A plain repo, a submodule (`<super>/.git/modules/<name>` is
+  // both its git-dir and its common dir) and a repo made with `--separate-git-dir` (git-dir
+  // and common-dir also coincide there, just elsewhere) all have git-dir === common-dir, so
+  // none of them fold — each keys on its own toplevel. Requiring the common dir to end in
+  // `.git` on top of that rules out a submodule's `.git/modules/<name>` specifically, so two
+  // submodules of one superproject (whose common dirs would otherwise both `dirname` to the
+  // shared `modules/` directory) never collide.
+  const [realGitDir, realCommonDir] = await Promise.all([realpath(gitDir), realpath(commonDir)]);
+  if (realGitDir !== realCommonDir && path.basename(realCommonDir) === '.git') {
+    return path.dirname(realCommonDir);
+  }
+  return realpath(toplevel);
+};
+
 export const ledgerRoutes = (
   spawnCwd: string,
   ledgerDir: string = defaultLedgerDir()
@@ -182,8 +241,10 @@ export const ledgerRoutes = (
     if (!roots.some((root) => isInside(cwd, root))) {
       throw new HttpError(400, 'cwd is outside the repository the sidecar was started in');
     }
-    // A worktree shares its repository's ledger: the work is the project's, whichever checkout.
-    return ledgerFileFor(ledgerDir, toplevel);
+    // A worktree shares its repository's ledger: the work is the project's, whichever
+    // checkout the request names, not only the one the sidecar spawned in.
+    const requestToplevel = await mainRepoToplevelOf(cwd).catch(() => toplevel);
+    return ledgerFileFor(ledgerDir, requestToplevel);
   };
   return {
     'POST /ledger/append': async (body) => {
@@ -197,10 +258,33 @@ export const ledgerRoutes = (
       keys.add(key);
       return { ok: true, file };
     },
+    // `name` is read-only and a plain fall-through alternative to `cwd` — `fileFor` (shared
+    // with the write path above) is untouched. `cwd` stays optional as it always was: neither
+    // key present still reads the spawn cwd's own file, exactly as before task 271.
     'POST /ledger/read': async (body) => {
       const since = body.since === undefined ? undefined : requireString(body, 'since');
+      if (body.name !== undefined) {
+        if (body.cwd !== undefined) {
+          throw new HttpError(400, 'pass exactly one of cwd or name, not both');
+        }
+        const name = requireString(body, 'name');
+        if (!isLedgerName(name)) {
+          throw new HttpError(400, 'name must be a bare *.jsonl file name, no / or ..');
+        }
+        const file = await ledgerFileByName(ledgerDir, name);
+        return { events: await readLedger(file, since), file };
+      }
       const file = await fileFor(body);
       return { events: await readLedger(file, since), file };
+    },
+    // Every `*.jsonl` in the ledger dir, by bare name — what `/ledger/read {name}` takes.
+    // Read-only, and a fresh machine with no ledger dir yet reads as no ledgers, not an error.
+    'POST /ledger/list': async () => {
+      const entries = await readdir(ledgerDir).catch((error) => {
+        if ((error as NodeJS.ErrnoException).code === 'ENOENT') return [];
+        throw error;
+      });
+      return { names: entries.filter((name) => name.endsWith('.jsonl')).sort() };
     },
   };
 };
