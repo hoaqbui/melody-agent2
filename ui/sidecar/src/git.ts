@@ -373,6 +373,20 @@ export const gitRoutes = (spawnCwd: string): Record<string, JsonHandler> => ({
       ])
     ).trim(),
   }),
+  // The paths a commit touched (task 267's `land` event) — defaults to HEAD, the commit the
+  // Changes bar just made.
+  'POST /git/diff-tree': async (body) => {
+    const rev = typeof body.rev === 'string' ? body.rev : 'HEAD';
+    const output = await git(await requestCwd(spawnCwd, body), [
+      'diff-tree',
+      '--no-commit-id',
+      '--name-only',
+      '-r',
+      '--end-of-options',
+      rev,
+    ]);
+    return { paths: output.split('\n').filter((line) => line.length > 0) };
+  },
   'POST /git/stage': async (body) => {
     await git(await requestCwd(spawnCwd, body), [
       'add',

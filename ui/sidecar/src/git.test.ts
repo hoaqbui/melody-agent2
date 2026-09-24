@@ -312,6 +312,21 @@ describe('gitRoutes', () => {
     });
   });
 
+  describe('diff-tree', () => {
+    it('lists the paths a commit touched, defaulting to HEAD', async () => {
+      await writeFile(path.join(repo, 'diff-tree-a.txt'), 'a\n');
+      await writeFile(path.join(repo, 'diff-tree-b.txt'), 'b\n');
+      await commitAll(repo, 'diff-tree test');
+      const head = (await sh(repo, ['rev-parse', 'HEAD'])).trim();
+
+      const atHead = (await routes['POST /git/diff-tree']({})) as { paths: string[] };
+      expect(atHead.paths.sort()).toEqual(['diff-tree-a.txt', 'diff-tree-b.txt']);
+
+      const byRev = (await routes['POST /git/diff-tree']({ rev: head })) as { paths: string[] };
+      expect(byRev.paths.sort()).toEqual(['diff-tree-a.txt', 'diff-tree-b.txt']);
+    });
+  });
+
   describe('push, log and pr', () => {
     let pushRepo: string;
     let origin: string;

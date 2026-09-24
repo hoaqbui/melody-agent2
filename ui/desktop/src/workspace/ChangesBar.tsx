@@ -13,6 +13,8 @@ import {
 import { buildPushRequest, splitStatus } from './panes/git/git-state';
 import { draftCommitMessage } from './panes/git/commit-draft';
 import { sidecarFetch } from '../native/sidecar';
+import { appendLedger } from '../native/ledger';
+import { landEvent, linkEventFromCommit } from './panes/telemetry/ledger-events';
 import { presetDiffPath } from './panes/diff/diff-store';
 import { Button } from '../components/ui/button';
 import { defineMessages, useIntl } from '../i18n';
@@ -161,6 +163,28 @@ export function ChangesBar({ paneContext }: { paneContext: ChangesBarTargetValue
         cwd: paneContext.cwd,
         rev: 'HEAD',
       });
+
+      // Task 267's `land`: the sha and the paths the commit actually touched (not just what
+      // this box staged — `wasStaged` leaves `paths` empty), plus the `link` a `Fixes-job`
+      // trailer names. Best effort: the ledger never blocks the Committed banner.
+      if (paneContext.sessionId) {
+        void (async () => {
+          try {
+            const { paths: committedPaths } = await sidecarFetch<{ paths: string[] }>(
+              '/git/diff-tree',
+              { cwd: paneContext.cwd, rev: sha }
+            );
+            await appendLedger(
+              paneContext.cwd,
+              landEvent(paneContext.sessionId, sha, committedPaths, trimmed)
+            );
+            const link = linkEventFromCommit(paneContext.sessionId, trimmed, sha);
+            if (link) await appendLedger(paneContext.cwd, link);
+          } catch (error) {
+            console.warn('ledger land/link append failed', error);
+          }
+        })();
+      }
 
       setMessage('');
       suppressUntilRef.current = Date.now() + COMMITTED_DISPLAY_MS;

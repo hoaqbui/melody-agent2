@@ -86,6 +86,8 @@ import { acpListSessions, type SessionListItem } from '../acp/sessions';
 import { acpListSchedules } from '../acp/schedules';
 import { useSessionDelegations } from '../acp/delegations';
 import { useLedgerWriter } from './panes/telemetry/ledger-writer';
+import { undoEvent } from './panes/telemetry/ledger-events';
+import { appendLedger } from '../native/ledger';
 import { createSession } from '../sessions';
 import { AppEvents } from '../constants/events';
 import { CommandPalette } from './palette/CommandPalette';
@@ -120,6 +122,7 @@ import {
   saveProjectEntry,
   loadTurnSnapshots,
   saveTurnSnapshot,
+  saveHeartbeat,
 } from './project-storage';
 import { intersects, laterTurns, parseDiffFileSet, type TurnSnapshots } from './turn-undo';
 import { TurnUndoSlot, type TurnUndoTarget } from './turn-undo-slot';
@@ -958,6 +961,18 @@ export function WorkspaceShell({ chat, children, panes, paneStore }: WorkspaceSh
   const delegations = useSessionDelegations(sessionId);
   useLedgerWriter(sessionId, cwd, session?.name ?? '', snapshot?.messages, delegations);
 
+  // Task 267's gap: a 60 s last-alive heartbeat per cwd, so the next launch can tell how long
+  // the app was closed. `useLedgerWriter`'s first seed reads it back and appends a `gap` event
+  // when it is stale.
+  useEffect(() => {
+    if (!cwd) return;
+    saveHeartbeat(cwd, new Date().toISOString());
+    const timer = window.setInterval(() => {
+      saveHeartbeat(cwd, new Date().toISOString());
+    }, 60_000);
+    return () => window.clearInterval(timer);
+  }, [cwd]);
+
   // Capture T0 snapshot when a new user message is sent (task 88)
   useEffect(() => {
     if (!sessionId || !snapshot?.messages) return;
@@ -1044,6 +1059,7 @@ export function WorkspaceShell({ chat, children, panes, paneStore }: WorkspaceSh
           head: turn.end,
         });
         if (diff.trim()) await sidecarFetch('/git/apply', { cwd, patch: diff, reverse: !redo });
+        appendLedger(cwd, undoEvent(sessionId, turnId, undefined, redo)).catch(() => {});
         const current = acpChatSessionStore.getSnapshot(sessionId);
         if (current) {
           acpChatSessionActions.setMessages(sessionId, [
@@ -1522,8 +1538,8 @@ export function WorkspaceShell({ chat, children, panes, paneStore }: WorkspaceSh
   // Task 29: the RPI strip sits above the chat in both faces, and only once a phase is lit.
   const chatMessages = snapshot?.messages ?? NO_MESSAGES;
   const changesBarTarget = useMemo(
-    () => ({ cwd, gitStatus, openPane, focusCommit, messages: chatMessages }),
-    [cwd, gitStatus, openPane, focusCommit, chatMessages]
+    () => ({ cwd, sessionId, gitStatus, openPane, focusCommit, messages: chatMessages }),
+    [cwd, sessionId, gitStatus, openPane, focusCommit, chatMessages]
   );
   const fileLinkContext = useMemo(
     () => ({ cwd, gitToplevel: gitStatus?.toplevel ?? cwd, openFile }),

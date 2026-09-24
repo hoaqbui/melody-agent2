@@ -5,8 +5,12 @@ import {
   correctionEvents,
   editedPath,
   eventKey,
+  gapEvent,
   isBlockedReturn,
+  landEvent,
+  linkEventFromCommit,
   parseFilesChanged,
+  parseFixesJobTrailer,
   pendingEvents,
   reviewEvent,
   turnEvents,
@@ -301,6 +305,65 @@ describe('reviewEvent', () => {
       base: 'main',
     });
     expect(reviewEvent('s1', 'per-panel tab bars', messages)).toBeNull();
+  });
+});
+
+describe('landEvent', () => {
+  it('records land paths and message for the sha', () => {
+    const event = landEvent('s1', 'abc123', ['a.ts', 'b.ts'], 'task 267: land', '2026-09-23T10:00:00.000Z');
+    expect(event).toEqual({
+      kind: 'land',
+      at: '2026-09-23T10:00:00.000Z',
+      sessionId: 's1',
+      sha: 'abc123',
+      paths: ['a.ts', 'b.ts'],
+      message: 'task 267: land',
+    });
+  });
+
+  // 269's Telemetry fold filters ledger events by `e.sessionId === sessionId` (the chat on
+  // screen) before it ever looks at `land` — a land keyed to a worker's session id would never
+  // be seen, and that worker would read `unknown` forever.
+  it('carries the committing session S, not a worker id, so 269s fold can find it', () => {
+    const event = landEvent('parent-session-S', 'sha1', ['a.ts'], 'msg');
+    expect(event.sessionId).toBe('parent-session-S');
+  });
+});
+
+describe('linkEventFromCommit', () => {
+  it('reads a Fixes-job trailer and appends a link', () => {
+    const message = 'task 267: land the writers\n\nFixes-job: child-9\n';
+    expect(parseFixesJobTrailer(message)).toBe('child-9');
+    expect(linkEventFromCommit('s1', message, 'sha1', '2026-09-23T10:00:00.000Z')).toEqual({
+      kind: 'link',
+      at: '2026-09-23T10:00:00.000Z',
+      sessionId: 's1',
+      workerSessionId: 'child-9',
+      by: 'user',
+      fromSha: 'sha1',
+    });
+  });
+
+  it('appends no link from a commit message with no trailer', () => {
+    expect(parseFixesJobTrailer('just a commit message')).toBeNull();
+    expect(linkEventFromCommit('s1', 'just a commit message', 'sha1')).toBeNull();
+  });
+});
+
+describe('gapEvent', () => {
+  it('appends a gap after a heartbeat older than 10 minutes', () => {
+    const now = '2026-09-23T10:00:00.000Z';
+    const tenMinAgo = '2026-09-23T09:50:00.000Z';
+    const elevenMinAgo = '2026-09-23T09:49:00.000Z';
+    expect(gapEvent('s1', elevenMinAgo, now)).toEqual({
+      kind: 'gap',
+      at: now,
+      sessionId: 's1',
+      from: elevenMinAgo,
+      to: now,
+    });
+    expect(gapEvent('s1', tenMinAgo, now)).toBeNull();
+    expect(gapEvent('s1', null, now)).toBeNull();
   });
 });
 
