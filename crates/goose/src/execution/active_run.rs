@@ -115,7 +115,20 @@ impl ActiveRunRegistry {
         }
     }
 
+    #[cfg(test)]
     pub(crate) fn remove_agent_run(&self, session_id: &str, run_id: &str) -> Option<Arc<Agent>> {
+        self.remove_agent_run_and_then(session_id, run_id, |_| {})
+    }
+
+    /// Removes the run if `run_id` still owns the session and runs `on_removed`
+    /// before releasing the registry lock, so the session's next run cannot
+    /// start until the old run's cleanup (unpin, idle announcement) is done.
+    pub(crate) fn remove_agent_run_and_then(
+        &self,
+        session_id: &str,
+        run_id: &str,
+        on_removed: impl FnOnce(&Arc<Agent>),
+    ) -> Option<Arc<Agent>> {
         let mut runs = self
             .runs_by_session
             .lock()
@@ -128,6 +141,7 @@ impl ActiveRunRegistry {
         if !state.live_active {
             runs.remove(session_id);
         }
+        on_removed(&agent);
         Some(agent)
     }
 
@@ -211,6 +225,52 @@ mod tests {
             ),
             Err(StartRunError::LiveVoiceInteractionExists)
         ));
+    }
+
+    #[tokio::test]
+    async fn task181_next_run_waits_for_the_old_runs_cleanup() {
+        let registry = Arc::new(ActiveRunRegistry::default());
+        let agent = Arc::new(Agent::new());
+        assert!(registry
+            .start_prompt_run(
+                "session",
+                "old".into(),
+                CancellationToken::new(),
+                agent.clone(),
+            )
+            .is_ok());
+
+        let (started_tx, started_rx) = std::sync::mpsc::channel();
+        let mut next_run = None;
+        let removed = registry.remove_agent_run_and_then("session", "old", |_| {
+            let registry = registry.clone();
+            let agent = agent.clone();
+            next_run = Some(std::thread::spawn(move || {
+                let started = registry
+                    .start_prompt_run("session", "new".into(), CancellationToken::new(), agent)
+                    .is_ok();
+                started_tx.send(started).unwrap();
+            }));
+            assert!(
+                started_rx
+                    .recv_timeout(std::time::Duration::from_millis(200))
+                    .is_err(),
+                "the next run must not start while the old run is still cleaning up"
+            );
+        });
+        assert!(removed.is_some());
+        next_run.unwrap().join().unwrap();
+        assert!(started_rx.recv().unwrap());
+        assert!(
+            registry
+                .remove_agent_run_and_then("session", "old", |_| panic!("stale cleanup ran"))
+                .is_none(),
+            "a finished run's cleanup must not touch the next run"
+        );
+        assert_eq!(
+            registry.agent_run("session").map(|(run_id, _)| run_id),
+            Some("new".into())
+        );
     }
 
     #[tokio::test]

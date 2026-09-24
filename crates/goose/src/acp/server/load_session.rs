@@ -269,15 +269,18 @@ impl GooseAcpAgent {
             let state = attachment.lock();
             (state.history_boundary, state.overflowed)
         };
+        if overflowed {
+            return Err(run_replay_overflow_error());
+        }
         let replayed_from = replay_conversation_to_client_until(
             cx,
             session,
             self.supports_goose_custom_notifications(),
             self.requests_tool_call_label_enrichment(),
             replay_tail_from_meta(args.meta.as_ref()),
-            (!overflowed).then_some(history_boundary),
+            Some(history_boundary),
         )?;
-        self.attach_run_connection(&attachment, cx, overflowed)?;
+        self.attach_run_connection(&attachment, cx)?;
         self.register_acp_session(session.id.clone(), agent.clone())
             .await;
         self.closed_session_ids.lock().await.remove(&session.id);

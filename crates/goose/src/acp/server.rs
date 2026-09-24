@@ -249,6 +249,7 @@ struct AgentStreamOutcome {
 }
 
 const RUN_RECORD_BYTE_LIMIT: usize = 8 * 1024 * 1024;
+pub const RUN_REPLAY_OVERFLOW_REASON: &str = "active_run_replay_overflow";
 
 struct RunConnection {
     generation: u64,
@@ -359,7 +360,7 @@ impl RunAttachmentState {
         warn!(
             session_id = self.session_id,
             run_id = self.run_id,
-            "Active run replay record overflowed; a reattach replays persisted history only"
+            "Active run replay record overflowed; reattaching is refused until the run ends"
         );
         self.overflowed = true;
         self.deliveries = Vec::new();
@@ -470,10 +471,11 @@ impl Drop for ActiveRunDropGuard {
         self.cancel_token.cancel();
         let session_id = std::mem::take(&mut self.session_id);
         let run_id = std::mem::take(&mut self.run_id);
-        let agent = self.registry.remove_agent_run(&session_id, &run_id);
-        if let Some(agent) = &agent {
-            self.agent_manager.unpin(&session_id, agent);
-        }
+        let agent = self
+            .registry
+            .remove_agent_run_and_then(&session_id, &run_id, |agent| {
+                self.agent_manager.unpin(&session_id, agent)
+            });
         if let Ok(handle) = tokio::runtime::Handle::try_current() {
             if let Some(agent) = agent {
                 handle.spawn(async move {
@@ -493,6 +495,15 @@ impl Drop for RunRecordGuard {
     fn drop(&mut self) {
         self.registry.runs().remove(&self.run_id);
     }
+}
+
+/// The record dropped its buffer, and the dropped output is not saved until
+/// the turn ends, so the run cannot be replayed without a gap until then.
+fn run_replay_overflow_error() -> agent_client_protocol::Error {
+    agent_client_protocol::Error::internal_error().data(serde_json::json!({
+        "reason": RUN_REPLAY_OVERFLOW_REASON,
+        "message": "This session's running reply is too large to replay; load it again after the run ends",
+    }))
 }
 
 fn permission_options() -> Vec<PermissionOption> {
@@ -1163,13 +1174,10 @@ impl GooseAcpAgent {
         self: &Arc<Self>,
         attachment: &Arc<RunAttachment>,
         cx: &ConnectionTo<Client>,
-        replayed_persisted_turn: bool,
     ) -> Result<(), agent_client_protocol::Error> {
         let mut state = attachment.lock();
-        if state.overflowed && !replayed_persisted_turn {
-            return Err(agent_client_protocol::Error::internal_error().data(
-                "Active run output overflowed its replay record during the load; load again",
-            ));
+        if state.overflowed {
+            return Err(run_replay_overflow_error());
         }
         let acp_session_id = SessionId::new(state.session_id.clone());
         for delivery in &state.deliveries {
@@ -1317,13 +1325,16 @@ impl GooseAcpAgent {
                         attachment.lock().detach(generation);
                         return Ok(());
                     }
+                    // Any other error came from a live connection: this
+                    // callback runs on the connection's own task pool, which
+                    // stops with its driver, so a dead connection's request
+                    // fails only with the transport-closed error above.
                     Err(error) => {
                         warn!(
                             ?error,
-                            request_id,
-                            "Permission request got no answer; held for the next attach"
+                            request_id, "Permission request failed; treating as cancel"
                         );
-                        return Ok(());
+                        Permission::Cancel
                     }
                 };
                 let (agent, session_id) = {
@@ -1417,8 +1428,9 @@ impl GooseAcpAgent {
     }
 
     /// Ends the run in the record and the registry together, so a load sees
-    /// either a live run it can attach to or no run at all, and only the
-    /// task that owns `run_id` can announce the session idle.
+    /// either a live run it can attach to or no run at all. Only the task
+    /// that still owns `run_id` unpins and announces idle, and it does both
+    /// under the registry lock, before the session's next run can start.
     async fn finish_run(
         &self,
         attachment: &RunAttachment,
@@ -1427,22 +1439,19 @@ impl GooseAcpAgent {
         run_id: &str,
         outcome: RunOutcome,
     ) {
+        let idle = RunDelivery::session(Self::active_run_notification(acp_session_id, None));
         let agent = {
             let mut state = attachment.lock();
             state.outcome = Some(outcome);
             state.pending_permissions.clear();
             state.pending_elicitations.clear();
-            let agent = self.active_runs.remove_agent_run(session_id, run_id);
-            if agent.is_some() {
-                state.send_live(&RunDelivery::session(Self::active_run_notification(
-                    acp_session_id,
-                    None,
-                )));
-            }
-            agent
+            self.active_runs
+                .remove_agent_run_and_then(session_id, run_id, |agent| {
+                    self.agent_manager.unpin(session_id, agent);
+                    state.send_live(&idle);
+                })
         };
         if let Some(agent) = agent {
-            self.agent_manager.unpin(session_id, &agent);
             agent.discard_pending_steers(session_id).await;
         }
         self.remove_closed_session_agent(session_id).await;
@@ -2659,12 +2668,15 @@ impl GooseAcpAgent {
     }
 
     async fn clear_active_run(&self, session_id: &str, run_id: &str) {
-        let agent = self.active_runs.remove_agent_run(session_id, run_id);
+        let agent = self
+            .active_runs
+            .remove_agent_run_and_then(session_id, run_id, |agent| {
+                self.agent_manager.unpin(session_id, agent)
+            });
 
         // Discard steers on the agent that owned the run; under roaming it may
         // not be this connection's agent.
         if let Some(agent) = agent {
-            self.agent_manager.unpin(session_id, &agent);
             agent.discard_pending_steers(session_id).await;
         }
         self.remove_closed_session_agent(session_id).await;
@@ -4546,6 +4558,157 @@ print(\"hello, world\")
                         panic!("thinking_effort should be a select option");
                     };
                     assert_eq!(select.current_value.0.as_ref(), "xhigh");
+                    Ok(())
+                },
+            )
+            .await
+            .unwrap();
+        client.await.unwrap().unwrap();
+    }
+
+    #[tokio::test]
+    async fn task181_stale_run_finish_keeps_the_next_runs_state_and_pin() {
+        let root = tempfile::tempdir().unwrap();
+        let active_runs = Arc::new(ActiveRunRegistry::default());
+        let live_voice = Arc::new(LiveVoiceService::from_config(active_runs.clone()));
+        let provider_factory: AcpProviderFactory = Arc::new(
+            |_provider_name, _extensions, _working_dir, _use_default_model| {
+                Box::pin(async { Err(anyhow::anyhow!("unused provider factory")) })
+            },
+        );
+        let server = Arc::new(
+            GooseAcpAgent::new(GooseAcpAgentOptions {
+                provider_factory,
+                builtin_selection: AcpBuiltinSelection::default(),
+                data_dir: root.path().to_path_buf(),
+                config_dir: root.path().to_path_buf(),
+                disable_session_naming: true,
+                goose_platform: GoosePlatform::GooseCli,
+                additional_source_roots: Vec::new(),
+                scheduler: None,
+                session_cwd: None,
+                active_runs,
+                live_voice,
+                shared: None,
+            })
+            .await
+            .unwrap(),
+        );
+
+        let (client_read, server_write) = tokio::io::duplex(64 * 1024);
+        let (server_read, client_write) = tokio::io::duplex(64 * 1024);
+        let (notification_tx, mut notification_rx) =
+            mpsc::unbounded_channel::<SessionNotification>();
+        let client = tokio::spawn(async move {
+            Client
+                .builder()
+                .on_receive_notification(
+                    async move |notification: SessionNotification, _cx| {
+                        let _ = notification_tx.send(notification);
+                        Ok(())
+                    },
+                    agent_client_protocol::on_receive_notification!(),
+                )
+                .connect_to(ByteStreams::new(
+                    client_write.compat_write(),
+                    client_read.compat(),
+                ))
+                .await
+        });
+
+        let server_for_connection = server.clone();
+        SacpAgent
+            .builder()
+            .name("stale-run-finish-test")
+            .connect_with(
+                ByteStreams::new(server_write.compat_write(), server_read.compat()),
+                async move |cx: ConnectionTo<Client>| {
+                    let server = server_for_connection;
+                    let session_id = "session-1";
+                    let acp_session_id = SessionId::new(session_id);
+                    let agent = Arc::new(Agent::new());
+
+                    let (old_run, _old_record) =
+                        server.begin_run_attachment(session_id, "run-old", agent.clone(), 0, &cx);
+                    server
+                        .test_start_active_run(session_id, "run-old".into(), agent.clone())
+                        .await
+                        .unwrap();
+                    // The old run leaves the registry, and the next run starts and
+                    // announces itself, before the old task gets to finish.
+                    server.clear_active_run(session_id, "run-old").await;
+                    let (new_run, _new_record) =
+                        server.begin_run_attachment(session_id, "run-new", agent.clone(), 0, &cx);
+                    server
+                        .test_start_active_run(session_id, "run-new".into(), agent.clone())
+                        .await
+                        .unwrap();
+                    GooseAcpAgent::send_run_update(
+                        &new_run,
+                        RunDelivery::session(GooseAcpAgent::active_run_notification(
+                            &acp_session_id,
+                            Some("run-new"),
+                        )),
+                    );
+
+                    server
+                        .finish_run(
+                            &old_run,
+                            &acp_session_id,
+                            session_id,
+                            "run-old",
+                            RunOutcome::Completed,
+                        )
+                        .await;
+                    cx.send_notification(SessionNotification::new(
+                        acp_session_id.clone(),
+                        SessionUpdate::AgentMessageChunk(
+                            agent_client_protocol::schema::v1::ContentChunk::new(
+                                ContentBlock::Text(TextContent::new("SENTINEL")),
+                            ),
+                        ),
+                    ))?;
+
+                    let mut announced = Vec::new();
+                    loop {
+                        let notification = tokio::time::timeout(
+                            std::time::Duration::from_secs(5),
+                            notification_rx.recv(),
+                        )
+                        .await
+                        .expect("timed out waiting for the sentinel")
+                        .expect("client notification channel closed");
+                        match notification.update {
+                            SessionUpdate::SessionInfoUpdate(info) => announced.push(
+                                info.meta
+                                    .as_ref()
+                                    .and_then(|meta| meta.get("goose"))
+                                    .and_then(|goose| goose.get("activeRunId"))
+                                    .cloned(),
+                            ),
+                            SessionUpdate::AgentMessageChunk(_) => break,
+                            _ => {}
+                        }
+                    }
+                    assert_eq!(
+                        announced.last(),
+                        Some(&Some(serde_json::json!("run-new"))),
+                        "the old run must not announce idle over the next run: {announced:?}"
+                    );
+                    assert_eq!(
+                        server
+                            .active_runs
+                            .agent_run(session_id)
+                            .map(|(run_id, _)| run_id),
+                        Some("run-new".to_string())
+                    );
+                    assert!(
+                        server
+                            .agent_manager
+                            .pinned_agent(session_id)
+                            .is_some_and(|pinned| Arc::ptr_eq(&pinned, &agent)),
+                        "the old run must not unpin the agent the next run is using"
+                    );
                     Ok(())
                 },
             )

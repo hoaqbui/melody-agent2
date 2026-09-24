@@ -86,9 +86,9 @@ impl super::GooseAcpAgent {
                             error = %error,
                             session_id = %session_id,
                             elicitation_id = %elicitation_id,
-                            "ACP elicitation request got no answer; held for the next attach"
+                            "ACP elicitation request failed"
                         );
-                        return Ok(());
+                        ElicitationOutcome::Cancel
                     }
                 };
                 let answered = attachment
