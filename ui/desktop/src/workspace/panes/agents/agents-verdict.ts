@@ -6,7 +6,7 @@
 // hint, never a link — only the user's own pick writes one.
 
 import type { LedgerEvent } from '../../../native/ledger';
-import { jobsOf, overlap } from '../telemetry/ledger-outcome';
+import { jobsOf, overlap, type Job } from '../telemetry/ledger-outcome';
 
 export type Verdict = Extract<LedgerEvent, { kind: 'verdict' }>['verdict'];
 
@@ -20,14 +20,16 @@ export function latestVerdict(
   let found: { at: string; verdict: Verdict } | null = null;
   for (const event of events) {
     if (event.kind !== 'verdict' || event.workerSessionId !== workerSessionId) continue;
-    if (!found || time(event.at) >= time(found.at)) found = { at: event.at, verdict: event.verdict };
+    if (!found || time(event.at) >= time(found.at))
+      found = { at: event.at, verdict: event.verdict };
   }
   return found?.verdict ?? null;
 }
 
 export interface FixCandidate {
   workerSessionId: string;
-  // What names the job to a human: its task reference, else the role that ran it, else its id.
+  // What names the job to a human: its delegation title while this app still holds it, else its
+  // task reference, else the role that ran it, else its id.
   label: string;
   // File overlap against this job's own `filesChanged` — a hint only, never written.
   paths: string[];
@@ -41,7 +43,8 @@ export interface FixCandidate {
 // happened at or before now, and this job's own line, once it lands, will too.
 export function fixCandidates(
   events: readonly LedgerEvent[],
-  workerSessionId: string
+  workerSessionId: string,
+  titleOf: (job: Job) => string | undefined
 ): FixCandidate[] {
   const jobs = jobsOf(events);
   const self = jobs.find((job) => job.workerSessionId === workerSessionId);
@@ -51,7 +54,7 @@ export function fixCandidates(
     .sort((a, b) => time(b.at) - time(a.at))
     .map((job) => ({
       workerSessionId: job.workerSessionId,
-      label: job.taskRef ?? job.source ?? job.workerSessionId,
+      label: titleOf(job) || job.taskRef || job.source || job.workerSessionId,
       paths: self ? overlap(self.filesChanged, job.filesChanged) : [],
     }));
 }

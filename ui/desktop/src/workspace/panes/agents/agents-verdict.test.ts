@@ -49,14 +49,27 @@ describe('latestVerdict', () => {
   });
 });
 
+const noTitle = () => undefined;
+
 describe('fixCandidates', () => {
+  it('names a job by its delegation title when the app still holds one', () => {
+    const events: LedgerEvent[] = [
+      worker({ workerSessionId: 'job-a', at: iso(0) }),
+      worker({ workerSessionId: 'job-b', at: iso(1000) }),
+    ];
+    const [candidate] = fixCandidates(events, 'job-b', (job) =>
+      job.workerSessionId === 'job-a' ? 'task 1: an earlier job' : undefined
+    );
+    expect(candidate.label).toBe('task 1: an earlier job');
+  });
+
   it('lists every other job in the ledger, newest first', () => {
     const events = [
       worker({ workerSessionId: 'job-a', at: iso(0) }),
       worker({ workerSessionId: 'job-b', at: iso(1000), taskRef: 'task 12' }),
       worker({ workerSessionId: 'job-c', at: iso(2000), source: 'implementer' }),
     ];
-    const candidates = fixCandidates(events, 'job-c');
+    const candidates = fixCandidates(events, 'job-c', noTitle);
     expect(candidates.map((c) => c.workerSessionId)).toEqual(['job-b', 'job-a']);
     expect(candidates[0].label).toBe('task 12');
   });
@@ -66,13 +79,13 @@ describe('fixCandidates', () => {
       worker({ workerSessionId: 'job-a', at: iso(0), source: 'implementer' }),
       worker({ workerSessionId: 'job-b', at: iso(500) }),
     ];
-    const candidates = fixCandidates(events, 'job-b');
+    const candidates = fixCandidates(events, 'job-b', noTitle);
     expect(candidates[0]).toMatchObject({ workerSessionId: 'job-a', label: 'implementer' });
   });
 
   it('never offers the job itself', () => {
     const events = [worker({ workerSessionId: 'job-a' })];
-    expect(fixCandidates(events, 'job-a')).toEqual([]);
+    expect(fixCandidates(events, 'job-a', noTitle)).toEqual([]);
   });
 
   it('never offers a later job once this one is itself in the ledger', () => {
@@ -80,10 +93,10 @@ describe('fixCandidates', () => {
       worker({ workerSessionId: 'job-a', at: iso(0) }),
       worker({ workerSessionId: 'job-b', at: iso(1000) }),
     ];
-    expect(fixCandidates(events, 'job-a')).toEqual([]);
+    expect(fixCandidates(events, 'job-a', noTitle)).toEqual([]);
   });
 
-  it('hints the file overlap against this job\'s own return, exact or a path suffix', () => {
+  it("hints the file overlap against this job's own return, exact or a path suffix", () => {
     const events = [
       worker({
         workerSessionId: 'job-a',
@@ -96,13 +109,13 @@ describe('fixCandidates', () => {
         filesChanged: ['src/a.ts', 'ui/desktop/src/c.ts'],
       }),
     ];
-    const [candidate] = fixCandidates(events, 'job-b');
+    const [candidate] = fixCandidates(events, 'job-b', noTitle);
     expect(candidate).toMatchObject({ workerSessionId: 'job-a', paths: ['src/a.ts'] });
   });
 
-  it('has no overlap hint when this job\'s own worker line has not landed yet', () => {
+  it("has no overlap hint when this job's own worker line has not landed yet", () => {
     const events = [worker({ workerSessionId: 'job-a' })];
-    const candidates = fixCandidates(events, 'job-not-in-ledger-yet');
+    const candidates = fixCandidates(events, 'job-not-in-ledger-yet', noTitle);
     expect(candidates).toEqual([{ workerSessionId: 'job-a', label: 'job-a', paths: [] }]);
   });
 });

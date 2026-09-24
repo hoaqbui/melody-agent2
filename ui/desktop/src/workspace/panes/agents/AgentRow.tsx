@@ -14,6 +14,7 @@ import {
   DropdownMenuItem,
   DropdownMenuTrigger,
 } from '../../../components/ui/dropdown-menu';
+import { getSessionDelegations } from '../../../acp/delegations';
 import { appendLedger, type LedgerEvent } from '../../../native/ledger';
 import { cn } from '../../../utils';
 import { fixCandidates, latestVerdict, type Verdict } from './agents-verdict';
@@ -107,7 +108,14 @@ function VerdictRow({
   const verdict = tapped ?? latestVerdict(ledgerEvents, workerSessionId);
   const [why, setWhy] = useState('');
   const [linkedLabel, setLinkedLabel] = useState<string | null>(null);
-  const candidates = fixCandidates(ledgerEvents, workerSessionId);
+  const candidates = fixCandidates(
+    ledgerEvents,
+    workerSessionId,
+    (job) =>
+      getSessionDelegations(job.sessionId).find(
+        (row) => row.subagentSessionId === job.workerSessionId
+      )?.title
+  );
 
   const pick = (next: Verdict, note?: string) => {
     setTapped(next);
@@ -161,7 +169,12 @@ function VerdictRow({
     >
       {verdictButton('good', intl.formatMessage(i18n.verdictGood), ThumbsUp, 'text-text-success')}
       {verdictButton('fixed', intl.formatMessage(i18n.verdictFixed), Wrench, 'text-text-warning')}
-      {verdictButton('wrong', intl.formatMessage(i18n.verdictWrong), ThumbsDown, 'text-text-danger')}
+      {verdictButton(
+        'wrong',
+        intl.formatMessage(i18n.verdictWrong),
+        ThumbsDown,
+        'text-text-danger'
+      )}
       {verdict === 'wrong' && (
         <span className="flex items-center gap-1">
           <input

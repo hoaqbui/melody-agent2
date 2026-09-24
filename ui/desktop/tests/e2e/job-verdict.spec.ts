@@ -175,6 +175,7 @@ test.describe('job verdict', () => {
       `[data-testid="agents-row-fixes-item"][data-worker-session-id="${earlierJobId}"]`
     );
     await expect(fixItem).toBeVisible();
+    await expect(fixItem).toContainText('task 1: an earlier job');
     await fixItem.click();
     await expect
       .poll(
