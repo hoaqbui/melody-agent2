@@ -672,8 +672,17 @@ Order: 281 → 282 ∥ 283.
   - context: pure `scorecard.ts` over 266's fold, per member per week — throughput (landed jobs), lead time (`worker` at → `land` at), change failure rate (landed then reworked or undone / landed), rework rate (reworked / final-outcome jobs ≥ 7 days), tokens per clean job (child tokens `acp/sessions.ts:33-35` / landed); unknown jobs excluded and counted beside; feeds 274's team table
   - confirm: `cd ui/desktop && pnpm vitest run scorecard` → passes on 266's fixtures incl. "unknown is excluded, not clean" (today: no file)
 
+### docs/2026-09-24-headless-melody-prd-v1.md — headless Melody (after v0.9; user: "A", 2026-09-24)
+
+- 299. Headless Melody: plan and tranche from the approved PRD
+  - status: blocked — the PRD's approval (the user), then the A gate (v0.9 alpha published) · agent: — · worker: high
+  - card: as the user, I want Melody and her work to keep running when the app is closed, and to reach her from the phone and a terminal, so that long delegated work and routines don't depend on a window (FURPS R F · MoSCoW Should, after 0.9)
+  - context: research `docs/2026-09-24-headless-melody-research-v1.md` (the external-backend path has no sidecar, `gooseServeLeaseRegistry.ts:83-97`; a server per window, `main.ts:1105-1342`; ledger writers only in the renderer); the `ARCHITECTURE.md` amendment text is in the PRD, codex security review PASS after revision; groundwork 198, 200 (done), 208 (M1a)
+  - confirm: `ls docs/*-headless-melody-plan-v1.md | wc -l` → 1 (0 today); then the user's approval
+
 ## Waiting on the user
 
+- 299 — approve `docs/2026-09-24-headless-melody-prd-v1.md` and its five open questions (keys, Allowed folders, update wait, Phone Terminal, default).
 - T0 (team memory) — open Melody's chats in `~/Melody` for a week; then `python3 scripts/melody-notebook-week.py` counts chats · with a journal line · without, and say whether "where were we?" was answered from her notes. Decision 2c (tabs in the titlebar row) is also still open.
 - 192 — after Melody.app launches: your theme, layout and workspace are kept; the app menu shows Settings…; the microphone prompt names Melody; Browser pane logins survived or not; `goose://` links open Melody (move or delete `ui/desktop/out/Goose-darwin-arm64/Goose.app` if they open Goose); then say whether `~/Library/Application Support/Goose` and `…/Melody.first-launch-2026-09-22` (the empty profile of the first, failed copy) can go.
 - 193 — pick the Melody artwork for the loader, the recipe modal and the logo hover from mockups.
