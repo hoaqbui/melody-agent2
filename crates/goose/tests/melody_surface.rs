@@ -5,7 +5,7 @@ mod common_tests;
 
 use agent_client_protocol::schema::v1::NewSessionRequest;
 use common_tests::fixtures::server::AcpServerConnection;
-use common_tests::fixtures::{Connection, OpenAiFixture, TestConnectionConfig};
+use common_tests::fixtures::{run_test, Connection, OpenAiFixture, TestConnectionConfig};
 use goose::acp::server::melody_surface::{MelodySurface, StartSessionArgs, StartSessionError};
 use goose::agents::{Agent, AgentConfig, GoosePlatform};
 use goose::config::permission::PermissionManager;
@@ -218,50 +218,52 @@ fn session_title_meta(title: &str) -> serde_json::Map<String, serde_json::Value>
 /// start from the UI"). This also exercises `_meta.role`: the first session
 /// created here claims the melody role the same way, through the real
 /// `session/new` RPC.
-#[tokio::test]
-async fn a_session_new_session_appears_in_list_sessions_by_title() {
-    let temp_dir = TempDir::new().unwrap();
-    let data_root = temp_dir.path().join("data");
-    let work_dir = temp_dir.path().join("work");
-    std::fs::create_dir_all(&work_dir).unwrap();
+#[test]
+fn a_session_new_session_appears_in_list_sessions_by_title() {
+    run_test(async {
+        let temp_dir = TempDir::new().unwrap();
+        let data_root = temp_dir.path().join("data");
+        let work_dir = temp_dir.path().join("work");
+        std::fs::create_dir_all(&work_dir).unwrap();
 
-    let conn = new_connection(&data_root).await;
+        let conn = new_connection(&data_root).await;
 
-    let melody_response = conn
-        .cx()
-        .send_request(NewSessionRequest::new(&work_dir).meta(role_meta("melody")))
-        .block_task()
-        .await
-        .unwrap();
-    let melody_id = melody_response.session_id.0.to_string();
+        let melody_response = conn
+            .cx()
+            .send_request(NewSessionRequest::new(&work_dir).meta(role_meta("melody")))
+            .block_task()
+            .await
+            .unwrap();
+        let melody_id = melody_response.session_id.0.to_string();
 
-    let ordinary_response = conn
-        .cx()
-        .send_request(
-            NewSessionRequest::new(&work_dir).meta(session_title_meta("Alpha from the UI")),
-        )
-        .block_task()
-        .await
-        .unwrap();
-    let ordinary_id = ordinary_response.session_id.0.to_string();
+        let ordinary_response = conn
+            .cx()
+            .send_request(
+                NewSessionRequest::new(&work_dir).meta(session_title_meta("Alpha from the UI")),
+            )
+            .block_task()
+            .await
+            .unwrap();
+        let ordinary_id = ordinary_response.session_id.0.to_string();
 
-    // A fresh SessionManager pointed at the same data root sees the same
-    // durable rows the live connection's own SharedAcpState wrote — the
-    // pattern `seed_list_sessions` already uses in acp_server_test.rs.
-    let session_manager = Arc::new(SessionManager::new(data_root));
-    let (role, _repository) = session_manager.get_role(&melody_id).await.unwrap();
-    assert_eq!(
-        role,
-        SessionRole::Melody,
-        "_meta.role on session/new must be applied through set_role"
-    );
+        // A fresh SessionManager pointed at the same data root sees the same
+        // durable rows the live connection's own SharedAcpState wrote — the
+        // pattern `seed_list_sessions` already uses in acp_server_test.rs.
+        let session_manager = Arc::new(SessionManager::new(data_root));
+        let (role, _repository) = session_manager.get_role(&melody_id).await.unwrap();
+        assert_eq!(
+            role,
+            SessionRole::Melody,
+            "_meta.role on session/new must be applied through set_role"
+        );
 
-    let (_agent_manager, _active_runs, surface) = test_surface(&session_manager).await;
-    let sessions = surface.list_sessions().await.unwrap();
-    assert!(
-        sessions.iter().any(|s| s.id == ordinary_id && s.title == "Alpha from the UI"),
-        "a session created via session/new must appear in Melody's list_sessions by title: {sessions:?}"
-    );
+        let (_agent_manager, _active_runs, surface) = test_surface(&session_manager).await;
+        let sessions = surface.list_sessions().await.unwrap();
+        assert!(
+            sessions.iter().any(|s| s.id == ordinary_id && s.title == "Alpha from the UI"),
+            "a session created via session/new must appear in Melody's list_sessions by title: {sessions:?}"
+        );
+    });
 }
 
 /// Codex review blocker 1: reconfiguring a manager that has a turn in flight
@@ -613,34 +615,36 @@ async fn start_session_refuses_a_non_user_manager_row() {
 /// Codex review blocker 3 (session/new half): `_meta.role` of `melody` or
 /// `manager` must be refused on a session that is not `User` — here, an
 /// ordinary ACP session (no `client` meta, so not `Hidden` and not `User`).
-#[tokio::test]
-async fn session_new_refuses_manager_role_on_a_non_user_session() {
-    let temp_dir = TempDir::new().unwrap();
-    let data_root = temp_dir.path().join("data");
-    let work_dir = temp_dir.path().join("work");
-    std::fs::create_dir_all(&work_dir).unwrap();
+#[test]
+fn session_new_refuses_manager_role_on_a_non_user_session() {
+    run_test(async {
+        let temp_dir = TempDir::new().unwrap();
+        let data_root = temp_dir.path().join("data");
+        let work_dir = temp_dir.path().join("work");
+        std::fs::create_dir_all(&work_dir).unwrap();
 
-    let conn = new_connection(&data_root).await;
+        let conn = new_connection(&data_root).await;
 
-    let result = conn
-        .cx()
-        .send_request(NewSessionRequest::new(&work_dir).meta(role_meta_no_client("manager")))
-        .block_task()
-        .await;
+        let result = conn
+            .cx()
+            .send_request(NewSessionRequest::new(&work_dir).meta(role_meta_no_client("manager")))
+            .block_task()
+            .await;
 
-    assert!(
-        result.is_err(),
-        "session/new must refuse _meta.role=manager on a non-User session: {result:?}"
-    );
-
-    let session_manager = Arc::new(SessionManager::new(data_root));
-    let all_sessions = session_manager.list_all_sessions().await.unwrap();
-    for session in &all_sessions {
-        let (role, _repository) = session_manager.get_role(&session.id).await.unwrap();
-        assert_ne!(
-            role,
-            SessionRole::Manager,
-            "a refused session/new must not have left a manager role behind"
+        assert!(
+            result.is_err(),
+            "session/new must refuse _meta.role=manager on a non-User session: {result:?}"
         );
-    }
+
+        let session_manager = Arc::new(SessionManager::new(data_root));
+        let all_sessions = session_manager.list_all_sessions().await.unwrap();
+        for session in &all_sessions {
+            let (role, _repository) = session_manager.get_role(&session.id).await.unwrap();
+            assert_ne!(
+                role,
+                SessionRole::Manager,
+                "a refused session/new must not have left a manager role behind"
+            );
+        }
+    });
 }
