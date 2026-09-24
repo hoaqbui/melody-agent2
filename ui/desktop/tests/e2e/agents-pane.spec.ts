@@ -8,13 +8,13 @@ import {
   trustRecipeIfAsked,
 } from './fixtures';
 
-// Task 28 (PRD step 10): the Agents pane under ⋯ is empty before any delegation; the lever's
-// Hard starts an Orchestrate session on claude-code (when the fixture's cwd has the role and
-// the runtime is installed — both branch as easy-mode.spec.ts does), a prompt that delegates
-// once puts one row in the tree while the delegate call runs (`running`, then `done`), with
-// the child's runtime and the task title; a click opens the child's transcript in place,
-// read-only, and Back returns to the tree. The delegate needs `GOOSE_TEST_DIR` to carry
-// `.agents/agents/spike-echo.md` beside the orchestrator role.
+// Task 28 (PRD step 10): the Agents pane under ⋯ is empty before any delegation; a new Easy
+// session starts on the orchestrator setup on claude-code by default when the fixture's cwd
+// has the role (task 224 retires the lever), so the first prompt alone starts Orchestrate —
+// a prompt that delegates once puts one row in the tree while the delegate call runs
+// (`running`, then `done`), with the child's runtime and the task title; a click opens the
+// child's transcript in place, read-only, and Back returns to the tree. The delegate needs
+// `GOOSE_TEST_DIR` to carry `.agents/agents/spike-echo.md` beside the orchestrator role.
 test.describe('agents pane', { tag: '@seat' }, () => {
   let restoreRoles: () => void = () => {};
   test.beforeAll(() => {
@@ -46,30 +46,25 @@ test.describe('agents pane', { tag: '@seat' }, () => {
       goosePage.locator('[data-testid="workspace-pane-button-agents"]')
     ).toHaveAccessibleName(/Agents/);
 
-    const lever = goosePage.locator('[data-testid="workspace-lever"]');
-    const hard = lever.locator('[data-testid="workspace-lever-stop-hard"]');
     const canOrchestrate = (await shell.getAttribute('data-orchestrator-role')) === 'present';
-    const hardReachable = canOrchestrate && (await hard.getAttribute('data-blocked')) === null;
-    if (!hardReachable) {
-      console.log('no orchestrator role or runtime here: the empty state is the walk');
+    if (!canOrchestrate) {
+      console.log('no orchestrator role here: the empty state is the walk');
       await goosePage.screenshot({ path: test.info().outputPath('agents-empty.png') });
       await emptyDock(goosePage);
       return;
     }
 
     try {
-      await hard.click();
-      await trustRecipeIfAsked(goosePage);
-      await expect(goosePage).toHaveURL(/resumeSessionId=/, { timeout: 30000 });
-      await expect(lever).toHaveAttribute('data-stop', /hard|custom/, { timeout: 15000 });
-
+      // The lever is gone (task 224): the first prompt typed into the Hub starts
+      // Orchestrate on its own, no click needed.
       const chatInput = goosePage.locator('[data-testid="chat-input"]');
-      // The Hub's textarea lingers a beat after the session opens (task 30 guards the same).
       await expect(chatInput).toHaveCount(1, { timeout: 15000 });
       await chatInput.fill(
         "Delegate exactly once to the spike-echo role with instructions 'say hello', then reply DONE"
       );
       await chatInput.press('Enter');
+      await trustRecipeIfAsked(goosePage);
+      await expect(goosePage).toHaveURL(/resumeSessionId=/, { timeout: 30000 });
 
       // The row appears when the delegate call starts, not when it ends.
       const row = pane.locator('[data-testid="agents-row"]');

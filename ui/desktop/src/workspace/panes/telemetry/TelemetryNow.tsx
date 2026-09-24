@@ -62,10 +62,6 @@ const SETTING_WHY: Record<string, { why: string; from: string }> = {
     why: 'The model the session asks for. What answered each turn is in the list below.',
     from: 'model_config.model_name',
   },
-  lever: {
-    why: 'The stop the session matches: a (provider, model, mode) triple; Custom when none does.',
-    from: 'stopOfSession · LEVER · the orchestrator recipe',
-  },
   effort: {
     why: 'Forwarded to the CLI once per session; nothing else about sampling is.',
     from: 'thinking_effort config option',

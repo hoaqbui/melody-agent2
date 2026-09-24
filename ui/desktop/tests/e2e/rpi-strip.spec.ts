@@ -1,11 +1,12 @@
 import { test, expect, emptyDock, setAdvancedControls, provisionRoleRepo, trustRecipeIfAsked } from './fixtures';
 
-// Task 29 (PRD step 11): no strip before any delegation; the lever's Hard starts an
-// Orchestrate session, a prompt that delegates once to the `researcher` role lights Research
-// — active while the delegate call runs, done once it returns — and a click on Research opens
-// the Artifact pane on that child. The researcher role rolls its own runtime (agy, then
-// Cursor), so the walk needs those installed beside the orchestrator role in GOOSE_TEST_DIR,
-// as agents-pane and artifact-pane need claude-code.
+// Task 29 (PRD step 11): no strip before any delegation; a new Easy session starts on the
+// orchestrator setup by default when the folder has the role (task 224 retires the lever),
+// so the first prompt alone starts Orchestrate — a prompt that delegates once to the
+// `researcher` role lights Research — active while the delegate call runs, done once it
+// returns — and a click on Research opens the Artifact pane on that child. The researcher
+// role rolls its own runtime (agy, then Cursor), so the walk needs those installed beside
+// the orchestrator role in GOOSE_TEST_DIR, as agents-pane and artifact-pane need claude-code.
 test.describe('rpi strip', { tag: '@seat' }, () => {
   let restoreRoles: () => void = () => {};
   test.beforeAll(() => {
@@ -33,21 +34,19 @@ test.describe('rpi strip', { tag: '@seat' }, () => {
     await expect(strip).toHaveCount(0);
 
     try {
-      const hard = goosePage.locator('[data-testid="workspace-lever-stop-hard"]');
+      // The lever is gone (task 224): the folder has the role, so the first prompt typed
+      // into the Hub starts Orchestrate on its own — no click needed.
       await expect(shell).toHaveAttribute('data-orchestrator-role', 'present');
-      await expect(hard).not.toHaveAttribute('data-blocked', 'true');
-      await hard.click();
-      await trustRecipeIfAsked(goosePage);
-      await expect(goosePage).toHaveURL(/resumeSessionId=/, { timeout: 30000 });
-      // A Direct session, or an Orchestrate session before its first delegate, shows nothing.
-      await expect(strip).toHaveCount(0);
-
       const input = goosePage.locator('[data-testid="chat-input"]');
       await expect(input).toHaveCount(1, { timeout: 15000 });
       await input.fill(
         "Delegate exactly once to the researcher role with instructions 'In one sentence, what does notes.md contain? Do not run anything.', then reply DONE"
       );
       await input.press('Enter');
+      await trustRecipeIfAsked(goosePage);
+      await expect(goosePage).toHaveURL(/resumeSessionId=/, { timeout: 30000 });
+      // A Direct session, or an Orchestrate session before its first delegate, shows nothing.
+      await expect(strip).toHaveCount(0);
 
       // The strip appears when the delegate call starts, Research pulsing and not clickable.
       const research = strip.locator('[data-testid="rpi-phase-research"]');

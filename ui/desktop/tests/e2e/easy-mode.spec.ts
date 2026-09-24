@@ -1,13 +1,13 @@
 import { test, expect, setAdvancedControls } from './fixtures';
 
-// Task 58: a fresh app starts as a chat — the lever in the chat card, no Runtime chip.
-// Hard starts a session on claude-code with the orchestrator recipe (when the cwd has the
-// role and the runtime is installed; both branch as workspace-shell.spec.ts does). ⋯ →
-// Advanced shows the Runtime chip and the Session controls popover, the lever gone; back
-// to Easy the lever sits on the stop the session matches — Hard, or Custom when the
-// adapter lists no Opus model (the stop's model is a match over the adapter's list).
+// Task 58 (lever retired task 224): a fresh app starts as a chat — Easy's row is folder,
+// attach and send, no Runtime chip and no difficulty pick. The first prompt typed into the
+// Hub starts the session on the orchestrator setup: claude-code with the orchestrator recipe
+// when the cwd has the role and the runtime is installed, else direct Opus on claude-acp (both
+// branch as workspace-shell.spec.ts does). ⋯ → Advanced shows the Runtime chip, the model chip
+// and the Session controls popover, unaffected by the lever's retirement.
 test.describe('easy mode', { tag: '@seat' }, () => {
-  test('starts on the lever, moves to Hard, shows Advanced, comes back', async ({ goosePage }) => {
+  test('starts on the orchestrator setup and shows Advanced', async ({ goosePage }) => {
     const shell = goosePage.locator('[data-testid="workspace-shell"]');
     await expect(shell).toBeVisible({ timeout: 30000 });
     await expect(shell).not.toHaveAttribute('data-orchestrator-role', 'loading', {
@@ -16,27 +16,17 @@ test.describe('easy mode', { tag: '@seat' }, () => {
     await goosePage.setViewportSize({ width: 1200, height: 800 });
     // A walk that died mid-run may have left Advanced on; Easy is the default.
     await setAdvancedControls(goosePage, false);
+    const canOrchestrate = (await shell.getAttribute('data-orchestrator-role')) === 'present';
 
-    const lever = goosePage.locator('[data-testid="workspace-lever"]');
-    const slider = lever.locator('[role="slider"]');
-    await expect(lever).toBeVisible();
+    // The lever is gone (task 224): no Runtime/Mode chips, no model chip, no difficulty pick.
     await expect(goosePage.locator('[data-testid="workspace-runtime"]')).toHaveCount(0);
     await expect(goosePage.locator('[data-testid="workspace-mode"]')).toHaveCount(0);
-    await expect(lever).toHaveAttribute('data-stop', 'easy');
-    await expect(slider).toHaveAttribute('aria-valuenow', '0');
-    await expect(slider).toHaveAttribute('aria-valuetext', 'Easy');
-    // The stop's word is visible beside the lever (task 164, option B).
-    await expect(lever.locator('[data-testid="workspace-lever-label"]')).toHaveText('Easy');
-    await expect(lever.locator('[data-testid="workspace-lever-label"]')).toBeVisible();
-    // The tooltip names the triple in one line.
-    await expect(slider).toHaveAttribute('title', /^Claude · .+ · Direct$/);
-    // Easy's row (task 123): lever, folder, attach, the send disc in its usage ring — and no
-    // model chip, cost, token count, extensions or diagnostics.
-    await expect(goosePage.locator('[data-testid="usage-ring"]')).toHaveCount(1);
-    await expect(goosePage.locator('[data-testid="usage-ring"] .send-disc')).toHaveCount(1);
     await expect(goosePage.locator('[data-testid="model-chip"]')).toHaveCount(0);
     await expect(goosePage.getByText(/\/ \d+k$/)).toHaveCount(0);
-    // Easy is the PRD's four (task 140): no worktree or routine chip, no Session controls.
+    // Easy's row: folder, attach, the send disc in its usage ring — no worktree, routine or
+    // Session controls (task 140).
+    await expect(goosePage.locator('[data-testid="usage-ring"]')).toHaveCount(1);
+    await expect(goosePage.locator('[data-testid="usage-ring"] .send-disc')).toHaveCount(1);
     await expect(goosePage.locator('[data-testid="chat-attach"]')).toHaveCount(1);
     await expect(goosePage.locator('[data-testid="chat-folder"]')).toHaveCount(1);
     await expect(goosePage.locator('[data-testid="workspace-worktree"]')).toHaveCount(0);
@@ -44,38 +34,22 @@ test.describe('easy mode', { tag: '@seat' }, () => {
     await expect(goosePage.locator('[data-testid="workspace-session-controls"]')).toHaveCount(0);
     await expect(goosePage.locator('[data-testid="chat-dictate"]')).toHaveCount(0);
     await expect(goosePage.getByRole('button', { name: /live voice/i })).toHaveCount(0);
-    await goosePage.screenshot({ path: test.info().outputPath('easy-lever.png') });
+    await goosePage.screenshot({ path: test.info().outputPath('easy-no-lever.png') });
 
-    // A first prompt typed straight into the Hub, lever untouched, must start on Easy's
-    // triple rather than the config default (found driving the phone build, 2026-09-16).
+    // A first prompt typed straight into the Hub starts the session on the orchestrator
+    // setup with no pick (task 224; found driving the phone build, 2026-09-16, still applies
+    // to the default the lever used to set explicitly).
     const hubInput = goosePage.locator('[data-testid="chat-input"]');
     await hubInput.fill('Respond with the single word hello.');
     await hubInput.press('Enter');
     await expect(goosePage).toHaveURL(/resumeSessionId=/, { timeout: 30000 });
-    await expect(lever).toHaveAttribute('data-stop', 'easy', { timeout: 15000 });
-    await expect(slider).toHaveAttribute('title', /^Claude · sonnet.* · Direct$/);
     await expect(
       goosePage.locator('[data-testid="message-container"].assistant').last()
     ).toContainText(/hello/i, { timeout: 45000 });
 
-    const hard = lever.locator('[data-testid="workspace-lever-stop-hard"]');
-    const canOrchestrate = (await shell.getAttribute('data-orchestrator-role')) === 'present';
-    const hardReachable = canOrchestrate && (await hard.getAttribute('data-blocked')) === null;
-    if (!canOrchestrate) {
-      await expect(hard).toHaveAttribute('data-blocked', 'true');
-      await expect(hard).toHaveAttribute('title', 'no orchestrator role in this project');
-    }
-
     let opusListed = false;
     try {
-      if (hardReachable) {
-        await hard.click();
-        await expect(goosePage).toHaveURL(/resumeSessionId=/, { timeout: 30000 });
-        await expect(lever).toHaveAttribute('data-stop', /hard|custom/, { timeout: 15000 });
-      }
-
       await setAdvancedControls(goosePage, true);
-      await expect(lever).toHaveCount(0);
       const runtime = goosePage.locator('[data-testid="workspace-runtime"]');
       await expect(runtime).toBeVisible();
       await expect(goosePage.locator('[data-testid="workspace-mode"]')).toBeVisible();
@@ -115,11 +89,17 @@ test.describe('easy mode', { tag: '@seat' }, () => {
         .first()
         .getAttribute('d');
       expect(seatGlyph).not.toBe(modelGlyph);
-      if (hardReachable) {
+      if (canOrchestrate) {
         await expect(runtime).toHaveAttribute('data-value', 'claude-code');
         await expect(goosePage.locator('[data-testid="workspace-mode"]')).toHaveAttribute(
           'title',
           /· Orchestrate$/
+        );
+      } else {
+        await expect(runtime).toHaveAttribute('data-value', 'claude-acp');
+        await expect(goosePage.locator('[data-testid="workspace-mode"]')).toHaveAttribute(
+          'title',
+          /· Direct$/
         );
       }
 
@@ -127,10 +107,15 @@ test.describe('easy mode', { tag: '@seat' }, () => {
       await goosePage.locator('[data-testid="workspace-session-controls"]').click();
       const menu = goosePage.locator('[data-testid="workspace-session-controls-menu"]');
       await expect(menu).toBeVisible();
-      if (hardReachable) {
-        for (const id of ['provider', 'mode', 'model', 'thinking_effort']) {
-          await expect(menu.locator(`[data-testid="workspace-config-${id}"]`)).toBeVisible();
-        }
+      for (const id of ['provider', 'mode', 'model']) {
+        await expect(menu.locator(`[data-testid="workspace-config-${id}"]`)).toBeVisible();
+      }
+      if (canOrchestrate) {
+        // thinking_effort is claude-code's own option; unverified whether claude-acp
+        // publishes one, so this check stays on the orchestrate branch.
+        await expect(
+          menu.locator('[data-testid="workspace-config-thinking_effort"]')
+        ).toBeVisible();
         await expect(
           menu.locator('[data-testid="workspace-config-provider-claude-code"]')
         ).toHaveAttribute('aria-checked', 'true');
@@ -139,9 +124,14 @@ test.describe('easy mode', { tag: '@seat' }, () => {
           .locator('[data-testid^="workspace-config-model-"]')
           .evaluateAll((rows) => rows.map((row) => row.textContent ?? ''));
         // Hard takes the adapter's sole model when none matches (the claude CLI lists no
-        // models), so any non-empty list lands on Hard; the run says what it saw.
+        // models), so any non-empty list means the model landed as Opus; the run says what it
+        // saw.
         opusListed = models.length > 0;
-        console.log(`claude-code models: ${models.join(', ')} → ${opusListed ? 'hard' : 'custom'}`);
+        console.log(`claude-code models: ${models.join(', ')} → opus listed: ${opusListed}`);
+      } else {
+        await expect(
+          menu.locator('[data-testid="workspace-config-provider-claude-acp"]')
+        ).toHaveAttribute('aria-checked', 'true');
       }
       await expect(menu.locator('[data-testid="workspace-cwd"]')).toBeVisible();
       await expect(menu.locator('[data-testid="workspace-open-files"]')).toBeVisible();
@@ -150,12 +140,10 @@ test.describe('easy mode', { tag: '@seat' }, () => {
       );
       // Task 59: enabled once a session is open; Easy's ⋯ menu carries it too.
       await expect(menu.locator('[data-testid="workspace-save-routine"]')).toBeVisible();
-      if (hardReachable) {
-        await expect(menu.locator('[data-testid="workspace-save-routine"]')).not.toHaveAttribute(
-          'data-disabled',
-          ''
-        );
-      }
+      await expect(menu.locator('[data-testid="workspace-save-routine"]')).not.toHaveAttribute(
+        'data-disabled',
+        ''
+      );
       await goosePage.screenshot({ path: test.info().outputPath('advanced-controls.png') });
       await goosePage.keyboard.press('Escape');
       await expect(menu).toHaveCount(0);
@@ -163,43 +151,10 @@ test.describe('easy mode', { tag: '@seat' }, () => {
       await setAdvancedControls(goosePage, false);
     }
 
-    await expect(lever).toBeVisible();
+    // Back in Easy: still no Runtime chip — the session it started on is fixed for its
+    // lifetime (task 224 gives Easy no mid-session switch; Advanced's chips do that).
     await expect(goosePage.locator('[data-testid="workspace-runtime"]')).toHaveCount(0);
-    if (hardReachable) {
-      await expect(lever).toHaveAttribute('data-stop', opusListed ? 'hard' : 'custom');
-    }
-    await goosePage.screenshot({ path: test.info().outputPath('easy-lever-session.png') });
-
-    // Medium is Direct: from an Orchestrate (Hard) session it starts a new one on claude-acp;
-    // from the Easy session it switches in place with a divider. The stop lands when the
-    // adapter lists an Opus model, else the lever reads Custom.
-    const before = goosePage.url();
-    await lever.locator('[data-testid="workspace-lever-stop-medium"]').click();
-    await expect(goosePage).toHaveURL(/resumeSessionId=/, { timeout: 30000 });
-    if (hardReachable) {
-      await expect.poll(() => goosePage.url()).not.toBe(before);
-    } else {
-      await expect(goosePage.locator('text=→ Medium from here')).toBeVisible({ timeout: 30000 });
-    }
-    await expect(lever).toHaveAttribute('data-stop', /medium|custom/, { timeout: 15000 });
-    console.log(
-      `medium → ${await lever.getAttribute('data-stop')} (${await slider.getAttribute('title')})`
-    );
-    await expect(slider).toHaveAttribute('title', /^Claude · .+ · Direct$|^Custom$/);
-
-    // Easy is Direct too, so it switches the open session in place: the "→ Easy from here"
-    // divider, then the stop's model; a Sonnet-less list reads Custom.
-    await lever.locator('[data-testid="workspace-lever-stop-easy"]').click();
-    await expect(goosePage.locator('text=→ Easy from here')).toBeVisible({ timeout: 30000 });
-    await expect(lever).toHaveAttribute('data-stop', /easy|custom/, { timeout: 15000 });
-    console.log(
-      `easy → ${await lever.getAttribute('data-stop')} (${await slider.getAttribute('title')})`
-    );
-
-    // Arrow keys move it (DESIGN.md §Accessibility): one step right is Medium, in place.
-    await slider.focus();
-    await goosePage.keyboard.press('ArrowRight');
-    await expect(goosePage.locator('text=→ Medium from here')).toBeVisible({ timeout: 30000 });
-    await expect(lever).toHaveAttribute('data-stop', /medium|custom/, { timeout: 15000 });
+    console.log(`resolved on ${canOrchestrate ? 'claude-code orchestrate' : 'claude-acp direct'}, opus listed: ${opusListed}`);
+    await goosePage.screenshot({ path: test.info().outputPath('easy-no-lever-session.png') });
   });
 });
