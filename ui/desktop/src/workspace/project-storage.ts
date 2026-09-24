@@ -62,6 +62,18 @@ export function loadHeartbeat(project: string): string | null {
   return typeof value === 'string' ? value : null;
 }
 
+// The value each cwd's heartbeat held before this launch touched it, cached the first time
+// either this or `saveHeartbeat` looks at that cwd — whichever runs first, since both effects
+// that touch a heartbeat (`WorkspaceShell`'s 60 s tick, `useLedgerWriter`'s gap check) can mount
+// in either order. A real relaunch is a fresh module, so the cache needs no explicit reset.
+const heartbeatsAtLaunch = new Map<string, string | null>();
+
+export function heartbeatAtLaunch(project: string): string | null {
+  if (!heartbeatsAtLaunch.has(project)) heartbeatsAtLaunch.set(project, loadHeartbeat(project));
+  return heartbeatsAtLaunch.get(project) ?? null;
+}
+
 export function saveHeartbeat(project: string, at: string): void {
+  heartbeatAtLaunch(project);
   saveProjectEntry(LAST_ALIVE_KEY, project, at);
 }

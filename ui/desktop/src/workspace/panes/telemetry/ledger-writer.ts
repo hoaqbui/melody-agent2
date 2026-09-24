@@ -6,7 +6,7 @@ import { useEffect, useRef } from 'react';
 import type { Delegation } from '../../../acp/delegations';
 import { appendLedger, readLedger } from '../../../native/ledger';
 import type { Message } from '../../../types/message';
-import { loadHeartbeat } from '../../project-storage';
+import { heartbeatAtLaunch } from '../../project-storage';
 import { eventKey, gapEvent, pendingEvents } from './ledger-events';
 
 // Task 267's gap: checked once per app launch, at whichever session's ledger seeds first — a
@@ -32,10 +32,6 @@ export function useLedgerWriter(
       written.current = { sessionId, keys: new Set(), seeded: false };
     }
     const state = written.current;
-    // Read before the first await: `WorkspaceShell`'s own heartbeat effect (mounted right after
-    // this one) writes `cwd`'s heartbeat on the same tick, so this must run synchronously, ahead
-    // of that write, or every gap reads as "just now" and never fires.
-    const lastAliveBeforeThisMount = state.seeded ? null : loadHeartbeat(cwd);
     const seed = state.seeded
       ? Promise.resolve()
       : readLedger(cwd)
@@ -45,7 +41,10 @@ export function useLedgerWriter(
             state.seeded = true;
             if (!gapCheckedThisLaunch) {
               gapCheckedThisLaunch = true;
-              const gap = gapEvent(sessionId, lastAliveBeforeThisMount);
+              // `heartbeatAtLaunch` caches this cwd's pre-launch heartbeat the first time
+              // anything reads it, so it is unaffected by whether this or the heartbeat
+              // effect's own write happens first.
+              const gap = gapEvent(sessionId, heartbeatAtLaunch(cwd));
               if (gap) await appendLedger(cwd, gap).catch(() => {});
             }
           })
