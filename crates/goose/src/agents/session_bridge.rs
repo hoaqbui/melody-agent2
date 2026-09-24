@@ -64,8 +64,8 @@ struct Registered {
     /// (summon's `delegate_started` / `delegate_finished` among them); the ACP
     /// server subscribes, the CLI has no receiver and the sends are dropped.
     events: broadcast::Sender<ServerNotification>,
-    /// Set by `attach_tools`; `None` for a session with no such attachment
-    /// (every session registered before task 207, and any that never gets one).
+    /// Absent for most sessions; `handle` then dispatches straight into the
+    /// agent's own tools instead of checking this set first.
     tools: Option<Arc<dyn SessionTools>>,
 }
 

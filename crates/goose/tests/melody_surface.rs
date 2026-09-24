@@ -7,16 +7,20 @@ use agent_client_protocol::schema::v1::NewSessionRequest;
 use common_tests::fixtures::server::AcpServerConnection;
 use common_tests::fixtures::{Connection, OpenAiFixture, TestConnectionConfig};
 use goose::acp::server::melody_surface::{MelodySurface, StartSessionArgs, StartSessionError};
-use goose::agents::{AgentConfig, GoosePlatform};
+use goose::agents::{Agent, AgentConfig, GoosePlatform};
 use goose::config::permission::PermissionManager;
 use goose::config::GooseMode;
 use goose::execution::manager::AgentManager;
-use goose::session::{SessionManager, SessionRole, SessionType};
+use goose::execution::ActiveRunRegistry;
+use goose::session::{ExtensionState, SessionManager, SessionRole, SessionType, TodoState};
 use std::path::Path;
 use std::sync::Arc;
 use tempfile::TempDir;
+use tokio_util::sync::CancellationToken;
 
-async fn test_surface(session_manager: &Arc<SessionManager>) -> (Arc<AgentManager>, MelodySurface) {
+async fn test_surface(
+    session_manager: &Arc<SessionManager>,
+) -> (Arc<AgentManager>, Arc<ActiveRunRegistry>, MelodySurface) {
     let agent_config = AgentConfig::new(
         Arc::clone(session_manager),
         PermissionManager::instance(),
@@ -26,8 +30,27 @@ async fn test_surface(session_manager: &Arc<SessionManager>) -> (Arc<AgentManage
         GoosePlatform::GooseCli,
     );
     let agent_manager = Arc::new(AgentManager::new(agent_config, None).await.unwrap());
-    let surface = MelodySurface::new(Arc::clone(session_manager), Arc::clone(&agent_manager));
-    (agent_manager, surface)
+    let active_runs = Arc::new(ActiveRunRegistry::default());
+    let surface = MelodySurface::new(
+        Arc::clone(session_manager),
+        Arc::clone(&agent_manager),
+        Arc::clone(&active_runs),
+    );
+    (agent_manager, active_runs, surface)
+}
+
+/// A cheap, unloaded `Agent` — enough to satisfy `ActiveRunRegistry`'s
+/// bookkeeping when a test seeds a claim on it directly; it is never asked
+/// to do anything.
+fn placeholder_agent(session_manager: &Arc<SessionManager>) -> Arc<Agent> {
+    Arc::new(Agent::with_config(AgentConfig::new(
+        Arc::clone(session_manager),
+        PermissionManager::instance(),
+        None,
+        GooseMode::default(),
+        true,
+        GoosePlatform::GooseCli,
+    )))
 }
 
 async fn seed_melody(session_manager: &SessionManager, repo: &Path) -> String {
@@ -56,7 +79,7 @@ async fn start_session_creates_user_manager_with_asked_settings() {
 
     let session_manager = Arc::new(SessionManager::new(data_dir));
     let melody_id = seed_melody(&session_manager, &repo_dir).await;
-    let (_agent_manager, surface) = test_surface(&session_manager).await;
+    let (_agent_manager, _active_runs, surface) = test_surface(&session_manager).await;
 
     let session_id = surface
         .start_session(StartSessionArgs {
@@ -110,7 +133,7 @@ async fn start_session_without_a_mode_is_refused() {
 
     let session_manager = Arc::new(SessionManager::new(data_dir));
     seed_melody(&session_manager, &repo_dir).await;
-    let (_agent_manager, surface) = test_surface(&session_manager).await;
+    let (_agent_manager, _active_runs, surface) = test_surface(&session_manager).await;
 
     let sessions_before = session_manager.list_all_sessions().await.unwrap().len();
 
@@ -153,7 +176,24 @@ async fn new_connection(data_root: &Path) -> AcpServerConnection {
     .await
 }
 
+/// `role` requires a `User` session (blocker 3: `session/new` refuses
+/// `melody`/`manager` on anything else), so this also sets `client` — the
+/// meta field that makes a session `User` — matching how a real client
+/// claiming a role would call `session/new`.
 fn role_meta(role: &str) -> serde_json::Map<String, serde_json::Value> {
+    let mut meta = serde_json::Map::new();
+    meta.insert(
+        "role".to_string(),
+        serde_json::Value::String(role.to_string()),
+    );
+    meta.insert(
+        "client".to_string(),
+        serde_json::Value::String("desktop".to_string()),
+    );
+    meta
+}
+
+fn role_meta_no_client(role: &str) -> serde_json::Map<String, serde_json::Value> {
     let mut meta = serde_json::Map::new();
     meta.insert(
         "role".to_string(),
@@ -216,10 +256,254 @@ async fn a_session_new_session_appears_in_list_sessions_by_title() {
         "_meta.role on session/new must be applied through set_role"
     );
 
-    let (_agent_manager, surface) = test_surface(&session_manager).await;
+    let (_agent_manager, _active_runs, surface) = test_surface(&session_manager).await;
     let sessions = surface.list_sessions().await.unwrap();
     assert!(
         sessions.iter().any(|s| s.id == ordinary_id && s.title == "Alpha from the UI"),
         "a session created via session/new must appear in Melody's list_sessions by title: {sessions:?}"
     );
+}
+
+/// Codex review blocker 1: reconfiguring a manager that has a turn in flight
+/// must refuse, not cancel it. Simulates "a turn in flight" on the exact
+/// registry `on_prompt` claims a run against (`ActiveRunRegistry`, via its
+/// `_for_test` seam — not `AgentManager`'s cancel-token map, which real
+/// prompt turns never touch) and checks `start_session` refuses against it.
+#[tokio::test]
+async fn start_session_refuses_a_busy_manager_without_cancelling_it() {
+    let temp_dir = TempDir::new().unwrap();
+    let repo_dir = temp_dir.path().join("repo");
+    std::fs::create_dir_all(&repo_dir).unwrap();
+    let data_dir = temp_dir.path().join("data");
+
+    let session_manager = Arc::new(SessionManager::new(data_dir));
+    seed_melody(&session_manager, &repo_dir).await;
+    let (_agent_manager, active_runs, surface) = test_surface(&session_manager).await;
+
+    let session_id = surface
+        .start_session(StartSessionArgs {
+            repo: repo_dir.clone(),
+            task: "first task".to_string(),
+            mode: Some(GooseMode::Approve),
+            provider: Some("openai".to_string()),
+            model: Some("gpt-4.1".to_string()),
+            extensions: Some(vec![]),
+        })
+        .await
+        .unwrap();
+
+    let turn_cancel_token = CancellationToken::new();
+    assert!(
+        active_runs.start_prompt_run_for_test(
+            &session_id,
+            "real_turn",
+            turn_cancel_token.clone(),
+            placeholder_agent(&session_manager),
+        ),
+        "the run registry must accept the first claim"
+    );
+
+    let result = surface
+        .start_session(StartSessionArgs {
+            repo: repo_dir.clone(),
+            task: "second task".to_string(),
+            mode: Some(GooseMode::Auto),
+            provider: Some("openai".to_string()),
+            model: Some("gpt-4o".to_string()),
+            extensions: Some(vec![]),
+        })
+        .await;
+
+    assert!(
+        matches!(result, Err(StartSessionError::Busy)),
+        "start_session on a busy manager must refuse, not reconfigure it: {result:?}"
+    );
+    assert!(
+        !turn_cancel_token.is_cancelled(),
+        "a refused start_session must never cancel the manager's active turn"
+    );
+    assert!(
+        active_runs.is_active_for_test(&session_id),
+        "the original turn's busy claim must still stand after the refusal"
+    );
+
+    let session = session_manager
+        .get_session(&session_id, false)
+        .await
+        .unwrap();
+    assert_eq!(
+        session.goose_mode,
+        GooseMode::Approve,
+        "a refused start_session must not change the manager's settings"
+    );
+    assert_eq!(session.provider_name.as_deref(), Some("openai"));
+    assert_eq!(
+        session.model_config.as_ref().map(|m| m.model_name.as_str()),
+        Some("gpt-4.1")
+    );
+}
+
+/// Codex review blocker 2: reconfiguring a manager must not wipe other
+/// extension state (e.g. `todo.v0`) already persisted on its
+/// `extension_data` row — only the `enabled_extensions.v0` entry changes.
+#[tokio::test]
+async fn start_session_preserves_other_extension_data_on_reconfigure() {
+    let temp_dir = TempDir::new().unwrap();
+    let repo_dir = temp_dir.path().join("repo");
+    std::fs::create_dir_all(&repo_dir).unwrap();
+    let data_dir = temp_dir.path().join("data");
+
+    let session_manager = Arc::new(SessionManager::new(data_dir));
+    seed_melody(&session_manager, &repo_dir).await;
+    let (_agent_manager, _active_runs, surface) = test_surface(&session_manager).await;
+
+    let session_id = surface
+        .start_session(StartSessionArgs {
+            repo: repo_dir.clone(),
+            task: "first task".to_string(),
+            mode: Some(GooseMode::Approve),
+            provider: Some("openai".to_string()),
+            model: Some("gpt-4.1".to_string()),
+            extensions: Some(vec![]),
+        })
+        .await
+        .unwrap();
+
+    // Persist unrelated extension state onto the manager row, the way the
+    // todo extension would while the manager is running.
+    let mut extension_data = session_manager
+        .get_session(&session_id, false)
+        .await
+        .unwrap()
+        .extension_data;
+    TodoState::new("- [ ] finish the thing".to_string())
+        .to_extension_data(&mut extension_data)
+        .unwrap();
+    session_manager
+        .update(&session_id)
+        .extension_data(extension_data)
+        .apply()
+        .await
+        .unwrap();
+
+    surface
+        .start_session(StartSessionArgs {
+            repo: repo_dir.clone(),
+            task: "second task".to_string(),
+            mode: Some(GooseMode::Auto),
+            provider: Some("openai".to_string()),
+            model: Some("gpt-4o".to_string()),
+            extensions: Some(vec![]),
+        })
+        .await
+        .expect("reconfiguring a non-busy manager must still succeed");
+
+    let session = session_manager
+        .get_session(&session_id, false)
+        .await
+        .unwrap();
+    let todo = TodoState::from_extension_data(&session.extension_data);
+    assert_eq!(
+        todo.map(|t| t.content),
+        Some("- [ ] finish the thing".to_string()),
+        "start_session must preserve unrelated extension_data (e.g. todo.v0) when reconfiguring"
+    );
+}
+
+/// Codex review blocker 3 (melody_surface half): `start_session` must never
+/// reconfigure — and so never return — a manager row whose session is not
+/// `User`, even if `melody_session_roles` already associates it with this
+/// repository (e.g. a pre-fix `_meta.role=manager` on an `Acp` session).
+#[tokio::test]
+async fn start_session_refuses_a_non_user_manager_row() {
+    let temp_dir = TempDir::new().unwrap();
+    let repo_dir = temp_dir.path().join("repo");
+    std::fs::create_dir_all(&repo_dir).unwrap();
+    let data_dir = temp_dir.path().join("data");
+
+    let session_manager = Arc::new(SessionManager::new(data_dir));
+    seed_melody(&session_manager, &repo_dir).await;
+    let (_agent_manager, _active_runs, surface) = test_surface(&session_manager).await;
+
+    let bad_manager = session_manager
+        .create_session(
+            repo_dir.clone(),
+            "leaked manager".to_string(),
+            SessionType::Acp,
+            GooseMode::default(),
+        )
+        .await
+        .unwrap();
+    session_manager
+        .set_role(&bad_manager.id, SessionRole::Manager, Some(&repo_dir))
+        .await
+        .unwrap();
+
+    let result = surface
+        .start_session(StartSessionArgs {
+            repo: repo_dir.clone(),
+            task: "fix it".to_string(),
+            mode: Some(GooseMode::Approve),
+            provider: Some("openai".to_string()),
+            model: Some("gpt-4.1".to_string()),
+            extensions: Some(vec![]),
+        })
+        .await;
+
+    assert!(
+        matches!(
+            result,
+            Err(StartSessionError::ManagerNotUser(SessionType::Acp))
+        ),
+        "start_session must refuse, not reconfigure, a non-User manager row: {result:?}"
+    );
+
+    let session = session_manager
+        .get_session(&bad_manager.id, false)
+        .await
+        .unwrap();
+    assert_eq!(
+        session.session_type,
+        SessionType::Acp,
+        "a refused start_session must not have changed the mistyped row's session type"
+    );
+    assert!(
+        session.provider_name.is_none(),
+        "a refused start_session must not have written its settings onto the mistyped row"
+    );
+}
+
+/// Codex review blocker 3 (session/new half): `_meta.role` of `melody` or
+/// `manager` must be refused on a session that is not `User` — here, an
+/// ordinary ACP session (no `client` meta, so not `Hidden` and not `User`).
+#[tokio::test]
+async fn session_new_refuses_manager_role_on_a_non_user_session() {
+    let temp_dir = TempDir::new().unwrap();
+    let data_root = temp_dir.path().join("data");
+    let work_dir = temp_dir.path().join("work");
+    std::fs::create_dir_all(&work_dir).unwrap();
+
+    let conn = new_connection(&data_root).await;
+
+    let result = conn
+        .cx()
+        .send_request(NewSessionRequest::new(&work_dir).meta(role_meta_no_client("manager")))
+        .block_task()
+        .await;
+
+    assert!(
+        result.is_err(),
+        "session/new must refuse _meta.role=manager on a non-User session: {result:?}"
+    );
+
+    let session_manager = Arc::new(SessionManager::new(data_root));
+    let all_sessions = session_manager.list_all_sessions().await.unwrap();
+    for session in &all_sessions {
+        let (role, _repository) = session_manager.get_role(&session.id).await.unwrap();
+        assert_ne!(
+            role,
+            SessionRole::Manager,
+            "a refused session/new must not have left a manager role behind"
+        );
+    }
 }

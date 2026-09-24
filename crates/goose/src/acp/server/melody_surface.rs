@@ -16,17 +16,21 @@
 
 use super::ACP_VISIBLE_SESSION_TYPES;
 use crate::agents::session_bridge::SessionTools;
+use crate::agents::{Agent, AgentConfig, GoosePlatform};
+use crate::config::permission::PermissionManager;
 use crate::config::{extensions::get_extension_by_name, GooseMode};
 use crate::execution::manager::AgentManager;
+use crate::execution::ActiveRunRegistry;
 use crate::session::extension_data::ExtensionState;
 use crate::session::session_manager::SessionRole;
-use crate::session::{EnabledExtensionsState, ExtensionData, SessionManager};
+use crate::session::{EnabledExtensionsState, SessionManager, SessionType};
 use anyhow::Result;
 use async_trait::async_trait;
 use rmcp::model::{CallToolRequestParams, CallToolResult, ContentBlock, Tool};
 use serde::{Deserialize, Serialize};
 use std::path::PathBuf;
 use std::sync::Arc;
+use tokio_util::sync::CancellationToken;
 
 pub const LIST_SESSIONS_TOOL: &str = "list_sessions";
 pub const START_SESSION_TOOL: &str = "start_session";
@@ -84,25 +88,43 @@ pub enum StartSessionError {
     UnknownExtension(String),
     #[error("Melody's own session has not been established yet")]
     NoMelodySession,
+    #[error(
+        "the manager session for this repository has a turn in progress; refusing to \
+         reconfigure it — wait for it to finish or cancel it first"
+    )]
+    Busy,
+    #[error(
+        "the manager session for this repository is a {0:?} session, not User; refusing to \
+         reconfigure or repurpose it"
+    )]
+    ManagerNotUser(SessionType),
     #[error(transparent)]
     Other(#[from] anyhow::Error),
 }
 
 /// Backs the three tools above; constructed from the same `Arc<SessionManager>`
-/// and `Arc<AgentManager>` a `GooseAcpAgent` already holds
-/// (`SharedAcpState::build`, `acp/server_factory.rs`'s `shared()`), so
-/// `running` reflects the process's real agent registry, not a second,
-/// empty one.
+/// and `Arc<AgentManager>` a `GooseAcpAgent` already holds (`SharedAcpState::
+/// build`, `acp/server_factory.rs`'s `shared()`), plus its `Arc<
+/// ActiveRunRegistry>` (`GooseAcpAgentOptions::active_runs`, shared across a
+/// server's connections by `acp/server_factory.rs`), so `running` reflects
+/// the process's real run registry — the one `on_prompt` claims a turn
+/// against — not a second, empty one.
 pub struct MelodySurface {
     session_manager: Arc<SessionManager>,
     agent_manager: Arc<AgentManager>,
+    active_runs: Arc<ActiveRunRegistry>,
 }
 
 impl MelodySurface {
-    pub fn new(session_manager: Arc<SessionManager>, agent_manager: Arc<AgentManager>) -> Self {
+    pub fn new(
+        session_manager: Arc<SessionManager>,
+        agent_manager: Arc<AgentManager>,
+        active_runs: Arc<ActiveRunRegistry>,
+    ) -> Self {
         Self {
             session_manager,
             agent_manager,
+            active_runs,
         }
     }
 
@@ -128,7 +150,10 @@ impl MelodySurface {
 
     async fn summarize(&self, session: crate::session::Session) -> Result<MelodySessionSummary> {
         let (role, _repository) = self.session_manager.get_role(&session.id).await?;
-        let running = self.agent_manager.is_session_busy(&session.id).await;
+        // Not `AgentManager::is_session_busy`: that reads a cancel-token map
+        // only the orchestrator's sub-agent `send_message` tool populates.
+        // `active_runs` is what `on_prompt` claims a real turn against.
+        let running = self.active_runs.is_active(&session.id);
         Ok(MelodySessionSummary {
             id: session.id,
             title: session.name,
@@ -144,6 +169,12 @@ impl MelodySurface {
     /// and repository; this sets the mode, provider, model, extensions and
     /// parent it creates with `Auto`/none). Runs nothing: 208 hands the
     /// manager its first turn.
+    ///
+    /// Refuses rather than mutates when the manager it would reconfigure has
+    /// a turn in progress (`StartSessionError::Busy`) or is not a `User`
+    /// session (`StartSessionError::ManagerNotUser`). Reconfiguring replaces
+    /// only the enabled-extensions entry in `extension_data`, preserving any
+    /// other extension state (e.g. `todo.v0`) already on the row.
     pub async fn start_session(&self, args: StartSessionArgs) -> Result<String, StartSessionError> {
         if !args.repo.is_absolute() || !args.repo.is_dir() {
             return Err(StartSessionError::InvalidRepo);
@@ -176,10 +207,53 @@ impl MelodySurface {
             .get_or_create_manager(&args.repo, args.task.clone())
             .await?;
 
-        let mut extension_data = ExtensionData::default();
+        // `get_or_create_manager` always creates a fresh manager as `User`
+        // (`SessionStorage::get_or_create_manager`), but it can also return
+        // an existing row — one that a bad `_meta.role` on `session/new`
+        // associated with this repository while it was `Acp` or `Hidden`.
+        // Refusing (rather than silently flipping its type) never repurposes
+        // a session some other, differently-typed connection may still be
+        // attached to.
+        let current_session = self.session_manager.get_session(&session_id, false).await?;
+        if current_session.session_type != SessionType::User {
+            return Err(StartSessionError::ManagerNotUser(
+                current_session.session_type,
+            ));
+        }
+
+        // Claim exclusivity through the same run registry `on_prompt` claims
+        // a turn against (`ActiveRunRegistry::start_prompt_run`,
+        // `acp/server.rs`'s `on_prompt`/`start_active_run`) — not
+        // `AgentManager`'s cancel-token map, which only the orchestrator's
+        // sub-agent `send_message` tool uses. So a real turn (or a Live
+        // voice interaction) already in flight on this session is refused
+        // here rather than raced, and none can start on it between this
+        // check and the write below. The agent stored for the claim is a
+        // scratch placeholder; a steer landing on it is discarded with it,
+        // since the claim is released again right after the write.
+        let run_id = format!("start_session_{}", uuid::Uuid::now_v7());
+        let placeholder_agent = Arc::new(Agent::with_config(AgentConfig::new(
+            Arc::clone(&self.session_manager),
+            PermissionManager::instance(),
+            None,
+            GooseMode::default(),
+            true,
+            GoosePlatform::GooseCli,
+        )));
+        self.active_runs
+            .start_prompt_run(
+                &session_id,
+                run_id.clone(),
+                CancellationToken::new(),
+                placeholder_agent,
+            )
+            .map_err(|_| StartSessionError::Busy)?;
+
+        let mut extension_data = current_session.extension_data.clone();
         EnabledExtensionsState::new(extension_configs).to_extension_data(&mut extension_data)?;
 
-        self.session_manager
+        let apply_result = self
+            .session_manager
             .update(&session_id)
             .system_generated_name(args.task)
             .goose_mode(mode)
@@ -188,14 +262,26 @@ impl MelodySurface {
             .extension_data(extension_data)
             .parent_session_id(Some(melody_session_id))
             .apply()
-            .await?;
+            .await;
 
         // The row may have been loaded (and cached) under its pre-existing
         // setup by an earlier activation; drop it so the next activation
-        // rebuilds against what was just applied.
-        self.agent_manager
-            .remove_session_if_loaded(&session_id)
-            .await?;
+        // rebuilds against what was just applied. Safe here: the busy claim
+        // above guarantees no real turn is in flight to cancel — only our
+        // own placeholder, released right below, is registered.
+        let remove_result = if apply_result.is_ok() {
+            self.agent_manager
+                .remove_session_if_loaded(&session_id)
+                .await
+        } else {
+            Ok(())
+        };
+
+        self.active_runs
+            .remove_agent_run_and_then(&session_id, &run_id, |_| {});
+
+        apply_result?;
+        remove_result?;
 
         Ok(session_id)
     }

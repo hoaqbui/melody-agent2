@@ -1840,6 +1840,7 @@ impl GooseAcpAgent {
             Arc::new(melody_surface::MelodySurface::new(
                 Arc::clone(&self.session_manager),
                 Arc::clone(&self.agent_manager),
+                Arc::clone(&self.active_runs),
             )),
         );
 

@@ -166,6 +166,19 @@ impl GooseAcpAgent {
         )?;
 
         let role = meta.role;
+        if let Some(role) = role {
+            // `session/new` sessions default to `Acp` (no `client` meta) or
+            // `Hidden`; only a `User` session may claim the `melody` or
+            // `manager` role, matching the invariant `get_or_create_manager`
+            // and `melody_surface::start_session` both rely on: a manager
+            // (or Melody's own session) is always one a real client owns.
+            if role != SessionRole::None && session.session_type != SessionType::User {
+                return Err(agent_client_protocol::Error::invalid_params().data(format!(
+                    "role '{role}' requires a User session (found {:?})",
+                    session.session_type
+                )));
+            }
+        }
         self.apply_initial_session_config(
             &session.id,
             InitialSessionConfig {
