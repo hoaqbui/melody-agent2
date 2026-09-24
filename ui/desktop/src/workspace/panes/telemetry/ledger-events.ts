@@ -13,6 +13,7 @@ import type {
 import type { Delegation } from '../../../acp/delegations';
 import { getToolRequests, getToolResponses, type Message } from '../../../types/message';
 import { verdictOf } from '../review/review-parse';
+import { turnsOf } from './telemetry-now';
 
 const isoOf = (message: Message): string => new Date(message.created * 1000).toISOString();
 
@@ -102,22 +103,11 @@ export function parseFilesChanged(text: string | null): string[] {
   return [...paths];
 }
 
-// The id of the user message that opened the turn holding a tool call: a turn runs from a user
-// message until the next one (telemetry-now.ts's `turnsOf`, `:123-150`) — a leading run of
-// assistant messages before any user message is its own turn, named `turn-<index>` like there.
+// The id of the user message that opened the turn holding a tool call — the same split
+// `telemetry-now.ts`'s rows use, so a worker's `turnId` and an `undo` event's `turnId` (266's
+// `undone` rule) agree on what a turn is by construction, not by two splitters staying in sync.
 function turnIdFor(messages: readonly Message[], toolCallId: string): string | undefined {
-  let currentId: string | undefined;
-  for (const [index, message] of messages.entries()) {
-    if (message.role === 'user') {
-      currentId = message.id ?? `turn-${index}`;
-      continue;
-    }
-    if (currentId === undefined) currentId = `turn-${index}`;
-    for (const request of getToolRequests(message)) {
-      if (request.id === toolCallId) return currentId;
-    }
-  }
-  return undefined;
+  return turnsOf(messages).find((turn) => turn.toolCallIds.has(toolCallId))?.id;
 }
 
 // The `instructions` argument of the `delegate` call a tool-request id names, if the call is
@@ -136,15 +126,19 @@ function delegateInstructions(messages: readonly Message[], toolCallId: string):
 
 const TASK_REF = /\btask\s+(\d+)\b/i;
 
-// The first `task NNN` named in the delegate call's instructions — the pointer back to
-// `tasks.md`. `taskHash` (a hash of that task's card, to catch drift) waits on reading the
-// file, which this pure builder does not do.
-function taskRefOf(messages: readonly Message[], toolCallId: string | undefined): string | null {
-  if (!toolCallId) return null;
-  const instructions = delegateInstructions(messages, toolCallId);
-  if (!instructions) return null;
-  const match = TASK_REF.exec(instructions);
-  return match ? `task ${match[1]}` : null;
+// The first `task NNN` named in the child's title (sessions the orchestrator starts are named
+// after the task, per this file's own delegation fixtures — `title: 'task 128'`) or, failing
+// that, the delegate call's `instructions` — the pointer back to `tasks.md`. `taskHash` (a hash
+// of that task's card, to catch drift) waits on reading the file, which this pure builder does
+// not do.
+function taskRefOf(delegation: Delegation, messages: readonly Message[]): string | null {
+  const fromTitle = TASK_REF.exec(delegation.title);
+  if (fromTitle) return `task ${fromTitle[1]}`;
+  const instructions = delegation.parentToolCallId
+    ? delegateInstructions(messages, delegation.parentToolCallId)
+    : null;
+  const fromInstructions = instructions ? TASK_REF.exec(instructions) : null;
+  return fromInstructions ? `task ${fromInstructions[1]}` : null;
 }
 
 // A live `DelegationUpdate` carries no timestamp: the worker returned when the parent's
@@ -183,7 +177,7 @@ export function workerEvent(
       : null,
     member: delegation.source ?? null,
     charterSha: null,
-    taskRef: taskRefOf(messages, delegation.parentToolCallId),
+    taskRef: taskRefOf(delegation, messages),
     taskHash: null,
     baseSha: null,
   };
