@@ -3,8 +3,16 @@ title: "Melody notebook tidy-up"
 description: "Nightly upkeep for ~/Melody: promote settled journal lines, cap MEMORY.md, record one dream"
 
 instructions: |
-  You are Melody, tidying your own notebook overnight (`~/Melody`, PRD step 9,
+  You are Melody, tidying your own notebook overnight (PRD step 9,
   `~/Melody/AGENTS.md` §Lifecycle). Nobody is watching this run; be conservative.
+
+  You are NOT working in `~/Melody` directly. `{{ working_dir }}` is an
+  isolated worktree checked out from it for this run alone
+  (`melody-tidy-guard.py --begin`). Everything below happens there. A guard
+  reads your commit's diff against where this worktree started, and — only
+  if every rule below held — fast-forwards it into `~/Melody` itself; you
+  never touch the real notebook, and neither does anything else while this
+  runs.
 
   ## What to do
 
@@ -13,17 +21,19 @@ instructions: |
      becomes one line in `MEMORY.md`, or a page in `notes/` if it already has
      one. A later line that corrects an earlier one overwrites the line it
      corrects — the correction replaces it, it never sits alongside it.
-  3. Do not touch `journal/` at all: no edits, no archiving, no new files. The
-     journal is append-only for everyone but the person having the chat, and
-     archiving past days is a separate routine (`melody-routines.py archive`).
-     If a promotion needs to reference why, say so in the `DREAMS.md` entry
-     below, not in the journal.
+  3. Change nothing outside `MEMORY.md`, `notes/`, and `DREAMS.md`. In
+     particular, never touch `journal/`: no edits, no archiving, no new
+     files — the journal is append-only for everyone but the person having
+     the chat, and archiving past days is a separate routine
+     (`melody-routines.py archive`). If a promotion needs to reference why,
+     say so in the `DREAMS.md` entry below, not in the journal. Don't delete
+     or rename anything either, including `SOUL.md`, `USER.md`, or `AGENTS.md`.
   4. Cap `MEMORY.md` at 200 lines. A guard checks this run against the lines
-     `MEMORY.md` held at the *start* of the run, not the final count: replacing
-     a line still counts as removing the old one, so you may not remove more
-     than a quarter of the lines you started with, even by rewording them —
-     never more, even if it stays over budget; leave the rest for the next
-     check-in.
+     `MEMORY.md` held at the *start* of the run, counting removed lines as a
+     diff would (so replacing a line still counts as removing the old one):
+     you may not remove more than a quarter of the lines you started with,
+     even by rewording them — never more, even if it stays over budget;
+     leave the rest for the next check-in.
   5. Write exactly one entry to `DREAMS.md` (create it if missing), appended
      at the end, in this exact shape so it can be counted by machine:
 
@@ -39,19 +49,19 @@ instructions: |
      Exactly one `## tidy-up <date>` heading per run, appended after
      everything already there. Never edit, reword, or reorder an entry
      already in `DREAMS.md` — the guard checks that the file's earlier
-     content is an untouched prefix of the new content.
-  6. Stage only `MEMORY.md`, `notes/` and `DREAMS.md` (never `journal/`) and
-     make exactly one commit: `memory: tidy-up <YYYY-MM-DD>`, dated today.
-     Leave nothing uncommitted — `git status` must be clean, including
-     untracked files, when you're done; a scratch file left behind is a
-     violation the guard will revert along with everything else.
+     content is an untouched prefix of the new content. `DREAMS.md` must be
+     a real file, never a symlink.
+  6. Make exactly one commit, here in `{{ working_dir }}`:
+     `memory: tidy-up <YYYY-MM-DD>`, dated today. Leave nothing uncommitted
+     — `git status` must be clean, including untracked files, when you're
+     done; the guard will not merge a dirty worktree.
 
   ## Budget
 
   You have a fixed token budget for this run (`settings.token_budget`). If you
   are close to it with work left to do, stop, commit what you have finished
   cleanly, and leave the rest for the next run rather than leaving the
-  notebook half-edited.
+  worktree half-edited.
 
 prompt: Run tonight's notebook tidy-up.
 
@@ -59,9 +69,17 @@ extensions:
   - type: builtin
     name: developer
 
+parameters:
+  - key: working_dir
+    input_type: string
+    requirement: required
+    description: >-
+      Absolute path to this run's isolated worktree, as printed by
+      `scripts/melody-tidy-guard.py --begin` (task 280 passes it through).
+
 settings:
   goose_provider: agy
   goose_model: gemini-3.8-flash-high
-  working_dir: ~/Melody
+  working_dir: "{{ working_dir }}"
   token_budget: 20000
   min_seat_room: 20
