@@ -42,7 +42,6 @@ describe('buildCommands', () => {
       openPane: vi.fn(),
       openSession: vi.fn(),
       runSchedule: vi.fn(),
-      switchStop: vi.fn(),
       navigate: vi.fn(),
     };
 
@@ -51,26 +50,6 @@ describe('buildCommands', () => {
 
     expect(paneCommands.length).toBe(11);
     expect(paneCommands[0].label).toBe('Files');
-  });
-
-  it('includes lever stops', () => {
-    const ctx: PaletteContext = {
-      panes: mockPanesRecord,
-      sessions: [],
-      schedules: [],
-      currentSession: undefined,
-      openPane: vi.fn(),
-      openSession: vi.fn(),
-      runSchedule: vi.fn(),
-      switchStop: vi.fn(),
-      navigate: vi.fn(),
-    };
-
-    const commands = buildCommands(ctx);
-    const leverCommands = commands.filter((c) => c.group === 'lever');
-
-    expect(leverCommands.length).toBe(3);
-    expect(leverCommands.map((c) => c.id)).toEqual(['lever-easy', 'lever-medium', 'lever-hard']);
   });
 
   it('includes route commands', () => {
@@ -82,7 +61,6 @@ describe('buildCommands', () => {
       openPane: vi.fn(),
       openSession: vi.fn(),
       runSchedule: vi.fn(),
-      switchStop: vi.fn(),
       navigate: vi.fn(),
     };
 
@@ -114,7 +92,6 @@ describe('buildCommands', () => {
       openPane: vi.fn(),
       openSession: vi.fn(),
       runSchedule: vi.fn(),
-      switchStop: vi.fn(),
       navigate: vi.fn(),
     };
 
@@ -134,7 +111,6 @@ describe('buildCommands', () => {
       openPane: vi.fn(),
       openSession: vi.fn(),
       runSchedule: vi.fn(),
-      switchStop: vi.fn(),
       navigate: vi.fn(),
     };
 
@@ -154,7 +130,6 @@ describe('buildCommands', () => {
       openPane: vi.fn(),
       openSession: vi.fn(),
       runSchedule: vi.fn(),
-      switchStop: vi.fn(),
       navigate: vi.fn(),
     };
 
