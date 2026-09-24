@@ -428,6 +428,9 @@ fn with_runtime(recipe: &Recipe, runtime: &AgentRuntime) -> Recipe {
         goose_mode: None,
         working_dir: None,
         worktree: false,
+        command: None,
+        token_budget: None,
+        min_seat_room: None,
     });
     settings.goose_provider = Some(runtime.provider.clone());
     settings.goose_model = Some(runtime.model.clone());
@@ -1979,6 +1982,9 @@ impl SummonClient {
             goose_mode: None,
             working_dir: None,
             worktree: false,
+            command: None,
+            token_budget: None,
+            min_seat_room: None,
         });
 
         let mut builder = Recipe::builder()
@@ -3490,6 +3496,9 @@ You research."#,
                     goose_mode: None,
                     working_dir: None,
                     worktree: false,
+                    command: None,
+                    token_budget: None,
+                    min_seat_room: None,
                 }),
                 activities: None,
                 author: None,
@@ -4265,6 +4274,9 @@ You research."#,
             goose_mode: None,
             working_dir: None,
             worktree: false,
+            command: None,
+            token_budget: None,
+            min_seat_room: None,
         });
         let result = client
             .resolve_model_config(
@@ -4302,6 +4314,9 @@ You research."#,
             goose_mode: None,
             working_dir: None,
             worktree: false,
+            command: None,
+            token_budget: None,
+            min_seat_room: None,
         });
         let (resolved_provider, _) = client
             .resolve_provider(
@@ -4341,6 +4356,9 @@ You research."#,
             goose_mode: None,
             working_dir: None,
             worktree: false,
+            command: None,
+            token_budget: None,
+            min_seat_room: None,
         });
         let session = crate::session::Session::default();
         let (_, result) = client
