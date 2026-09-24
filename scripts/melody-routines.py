@@ -34,6 +34,7 @@ archive is idempotent).
 
 import argparse
 import json
+import os
 import re
 import subprocess
 import sys
@@ -229,8 +230,6 @@ def reminders(notebook: Path) -> tuple[list[str], str]:
 
 def _commit(repo: Path, message: str, when: date) -> None:
     iso = f"{when.isoformat()}T12:00:00"
-    import os
-
     env = {**os.environ, "GIT_AUTHOR_DATE": iso, "GIT_COMMITTER_DATE": iso}
     _git(repo, "add", "-A")
     _git(repo, "commit", "-q", "-m", message, env=env)
