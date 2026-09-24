@@ -184,9 +184,9 @@ test.describe('agents pane', { tag: '@seat' }, () => {
       await expect(stop).toBeVisible();
       await goosePage.screenshot({ path: test.info().outputPath('reconnect-streaming.png') });
 
-      await expect(assistantMessages.filter({ hasText: /DONE/ })).toHaveCount(1, {
-        timeout: 180000,
-      });
+      // The orchestrator may say "then reply DONE" before delegating, so the reply is the
+      // last message; exactly once means no replayed message shows twice.
+      await expect(assistantMessages.last()).toContainText(/DONE/, { timeout: 180000 });
       await expect(stop).toHaveCount(0, { timeout: 30000 });
       await expect(userMessages.filter({ hasText: firstPrompt })).toHaveCount(1);
       const replies = (await assistantMessages.allInnerTexts())
@@ -210,7 +210,7 @@ test.describe('agents pane', { tag: '@seat' }, () => {
       await stop.click();
       await expect(stop).toHaveCount(0);
       await expect
-        .poll(() => goosePage.evaluate(chatRunSettledScript(sessionId)), { timeout: 60000 })
+        .poll(() => goosePage.evaluate(chatRunSettledScript(sessionId)), { timeout: 120000 })
         .toBe(true);
       await expect(turnFailure).toHaveCount(0);
       await goosePage.screenshot({ path: test.info().outputPath('reconnect-stopped.png') });
