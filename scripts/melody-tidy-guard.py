@@ -33,15 +33,19 @@ re-resolved:
     content (nothing already there may change), and the appended text must
     be exactly one `## tidy-up <date>` entry
 
-A violation first resets the tree to the pinned HEAD (discarding whatever
-was dirty — that's already recorded as a cause, not laundered into the
-commit), then reverts the run's pinned commits with `git revert --no-commit`
-(newest first, so the sequence applies cleanly), appends the cause as one
-`DREAMS.md` entry read from git history (never the working copy), and stages
-and commits exactly the touched paths — never a blanket `git add -A`. If
-anything in that sequence fails or leaves an unaccounted-for change, it's
-aborted (`git revert --abort`, then `git reset --hard` back to the pinned
-HEAD) so the tree is left exactly as it was, and that failure is also
+A violation never discards a dirty tree to make room for the revert: it
+might be the user's, not the tidy-up's (a chat writing a journal line, or an
+edit made through Team Context, while the run was in progress). If the tree
+is dirty, it's preserved first with `git stash push -u`, named in both the
+`DREAMS.md` cause entry and the state file so it can be recovered. Only then
+does it revert the run's pinned commits with `git revert --no-commit`
+(newest first, so the sequence applies cleanly), append the cause as one
+`DREAMS.md` entry read from git history (never the working copy, which the
+stash has already cleared anyway), and stage and commit exactly the touched
+paths — never a blanket `git add -A`. If anything in that sequence fails or
+leaves an unaccounted-for change, it's `git revert --abort` only — never a
+destructive reset or clean — and if the abort itself doesn't return the tree
+to the pinned head, it's left exactly as it is. Either way that's also
 unverifiable: exit 2, not 1. A clean pass is exit 0, a detected-and-reverted
 violation is exit 1. Nothing here calls a model.
 
@@ -202,38 +206,70 @@ def dreams_violation(before_text: str, after_text: str) -> str | None:
     return None
 
 
-def _abort_revert(repo: Path, pinned_head: str) -> None:
-    """Leave the tree exactly as it was, regardless of how far the revert got."""
-    _git_ok(repo, "revert", "--abort")
-    _git_ok(repo, "reset", "--hard", pinned_head)
-
-
-def _reset_to_clean(repo: Path, ref: str) -> None:
-    """Discard any uncommitted change or untracked file, back to `ref`.
-
-    A dirty tree at check time is already recorded as its own cause; revert
-    needs a deterministic starting point, so discarding the dirt here (never
-    committing it) is the remediation, not a second, silent violation.
+def _abort_revert(repo: Path, pinned_head: str) -> str | None:
+    """`git revert --abort` only — never a destructive reset. A dirty tree we
+    stashed before reverting might be the user's, not the tidy-up's (a chat
+    writing a journal line, or an edit made through Team Context, while the
+    run was in progress), so a failure here must never fall back to
+    `reset --hard` or `git clean`. Returns a description of the mismatch if
+    the tree isn't back at the pinned head afterwards, or None if it is.
     """
-    _git_ok(repo, "reset", "--hard", ref)
-    _git_ok(repo, "clean", "-fd")
+    _git_ok(repo, "revert", "--abort")
+    restored = _git_ok(repo, "rev-parse", "HEAD")
+    if restored.returncode != 0 or restored.stdout.strip() != pinned_head or not clean_tree(repo):
+        return "`git revert --abort` did not return the tree to the pinned head — left as is"
+    return None
+
+
+def _stash_dirt(repo: Path, pinned_head: str) -> tuple[str | None, str | None]:
+    """Preserve a dirty tree before we touch history, rather than discarding
+    it: it might not be the tidy-up's at all. Returns (stash sha, None) if
+    something was stashed, (None, None) if the tree was already clean, or
+    (None, error) if the stash itself failed.
+    """
+    if clean_tree(repo):
+        return None, None
+    today = date.today().isoformat()
+    stashed = _git_ok(
+        repo, "stash", "push", "-u", "-m", f"tidy-guard {today} {pinned_head[:7]}"
+    )
+    if stashed.returncode != 0:
+        return None, stashed.stderr.strip() or "git stash push failed"
+    sha = _git_ok(repo, "rev-parse", "stash@{0}")
+    if sha.returncode != 0:
+        return None, "stashed the dirty tree but could not resolve the stash's sha"
+    return sha.stdout.strip(), None
 
 
 def revert_and_record(
     repo: Path, start: str, pinned_head: str, commits_newest_first: list[str], causes: list[str]
-) -> tuple[str | None, str | None]:
-    _reset_to_clean(repo, pinned_head)
+) -> tuple[str | None, str | None, str | None]:
+    """Returns (log, failure, stash_sha). `causes` is extended in place with
+    a note naming the stash, so callers that report `causes` (stderr, the
+    state file) mention it too.
+    """
+    stash_sha, stash_err = _stash_dirt(repo, pinned_head)
+    if stash_err:
+        return None, f"could not preserve the dirty tree before reverting: {stash_err}", None
 
     reverted = _git_ok(repo, "revert", "--no-commit", *commits_newest_first)
     if reverted.returncode != 0:
-        _abort_revert(repo, pinned_head)
-        return None, reverted.stderr.strip() or "git revert failed"
+        abort_note = _abort_revert(repo, pinned_head)
+        reason = f"git revert failed: {reverted.stderr.strip()}"
+        if abort_note:
+            reason += f"; {abort_note}"
+        return None, reason, stash_sha
 
     today = date.today().isoformat()
+    if stash_sha:
+        causes.append(
+            f"a dirty tree was stashed before reverting: {stash_sha} "
+            f"(restore with `git stash apply {stash_sha}`)"
+        )
     cause_line = "; ".join(causes)
-    # Read the baseline from git history, never the working copy: a dirty
-    # tree at check time (one of the causes) may have left an uncommitted
-    # edit sitting in DREAMS.md, and that must not leak into what we write.
+    # Read the baseline from git history, never the working copy: the tree
+    # was dirty (now safely stashed above), so anything still on disk before
+    # this point could have been an uncommitted edit sitting in DREAMS.md.
     baseline_dreams = _show(repo, start, "DREAMS.md") or ""
     if baseline_dreams and not baseline_dreams.endswith("\n"):
         baseline_dreams += "\n"
@@ -243,15 +279,17 @@ def revert_and_record(
 
     # Only the paths the tidy-up's commits touched, plus our own DREAMS.md
     # write, go into this commit — never `-A`, which would also sweep in
-    # whatever else was dirty (see `_reset_to_clean` above; nothing else
-    # should be dirty at this point, but this stays exact rather than broad).
+    # whatever else was dirty (already stashed, not discarded, above).
     touched = set(_git(repo, "diff", "--name-only", start, pinned_head).split())
     touched.add("DREAMS.md")
 
     added = _git_ok(repo, "add", "--", *sorted(touched))
     if added.returncode != 0:
-        _abort_revert(repo, pinned_head)
-        return None, added.stderr.strip() or "git add failed"
+        abort_note = _abort_revert(repo, pinned_head)
+        reason = f"git add failed: {added.stderr.strip()}"
+        if abort_note:
+            reason += f"; {abort_note}"
+        return None, reason, stash_sha
 
     stray = [
         line
@@ -259,17 +297,23 @@ def revert_and_record(
         if line[3:] not in touched
     ]
     if stray:
-        _abort_revert(repo, pinned_head)
-        return None, "unaccounted-for change(s) after revert: " + ", ".join(stray)
+        abort_note = _abort_revert(repo, pinned_head)
+        reason = "unaccounted-for change(s) after revert: " + ", ".join(stray)
+        if abort_note:
+            reason += f"; {abort_note}"
+        return None, reason, stash_sha
 
     committed = _git_ok(
         repo, "commit", "-q", "-m", f"memory: tidy-up reverted {today} — {cause_line}"
     )
     if committed.returncode != 0:
-        _abort_revert(repo, pinned_head)
-        return None, committed.stderr.strip() or "git commit failed"
+        abort_note = _abort_revert(repo, pinned_head)
+        reason = f"git commit failed: {committed.stderr.strip()}"
+        if abort_note:
+            reason += f"; {abort_note}"
+        return None, reason, stash_sha
 
-    return _git(repo, "log", "--oneline", "-3"), None
+    return _git(repo, "log", "--oneline", "-3"), None, stash_sha
 
 
 def check(notebook: Path, state_file: Path) -> int:
@@ -327,9 +371,11 @@ def check(notebook: Path, state_file: Path) -> int:
 
     if causes:
         newest_first = list(reversed(commit_list))
-        log, failure = revert_and_record(notebook, start, pinned_head, newest_first, causes)
+        log, failure, stash_sha = revert_and_record(notebook, start, pinned_head, newest_first, causes)
         if failure:
-            return _fail(state_file, f"revert failed, aborted, tree left as it was: {failure}")
+            if stash_sha:
+                failure += f" (the pre-existing dirty tree is safe in stash {stash_sha})"
+            return _fail(state_file, f"revert failed: {failure}")
         for cause in causes:
             print(f"violation: {cause}", file=sys.stderr)
         print(log, file=sys.stderr)
@@ -434,6 +480,14 @@ def build_fixture(spec_dir: Path, dest: Path, state_file: Path) -> None:
 
     if spec.get("leave_stray_file"):
         (dest / "scratch.local").write_text("an uncommitted leftover the tidy-up forgot\n")
+
+    if spec.get("dirty_user_journal_edit"):
+        # A live edit to a *tracked* journal file, uncommitted — as if a chat
+        # were writing a journal line while the tidy-up ran. This must be
+        # stashed, not discarded, by whatever reverts the tidy-up.
+        today_path = dest / "journal" / f"{today.isoformat()}.md"
+        original = today_path.read_text() if today_path.exists() else ""
+        today_path.write_text(original + "- 22:15 [stated] a live edit while the tidy-up was running\n")
 
     if spec.get("extra_commit_after"):
         extra_path = dest / "journal" / f"{(today + timedelta(days=1)).isoformat()}.md"
