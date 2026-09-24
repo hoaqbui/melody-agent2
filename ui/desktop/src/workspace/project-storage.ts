@@ -5,6 +5,9 @@
 import type { TurnSnapshots } from './turn-undo';
 
 const TURN_SNAPSHOTS_KEY = 'goose-turn-snapshots';
+// Task 267's gap detector: one ISO timestamp per cwd, ticked every 60 s the app is open
+// (`WorkspaceShell.tsx`) so the next launch can tell a closed window from a live one.
+const LAST_ALIVE_KEY = 'goose-last-alive';
 
 export function loadProjectEntry(key: string, project: string): unknown {
   try {
@@ -52,4 +55,13 @@ export function saveTurnSnapshot(project: string, turnId: string, snapshots: Tur
   } catch {
     // Storage disabled or full: snapshots live for this window only.
   }
+}
+
+export function loadHeartbeat(project: string): string | null {
+  const value = loadProjectEntry(LAST_ALIVE_KEY, project);
+  return typeof value === 'string' ? value : null;
+}
+
+export function saveHeartbeat(project: string, at: string): void {
+  saveProjectEntry(LAST_ALIVE_KEY, project, at);
 }

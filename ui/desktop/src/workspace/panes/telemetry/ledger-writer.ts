@@ -6,7 +6,13 @@ import { useEffect, useRef } from 'react';
 import type { Delegation } from '../../../acp/delegations';
 import { appendLedger, readLedger } from '../../../native/ledger';
 import type { Message } from '../../../types/message';
-import { eventKey, pendingEvents } from './ledger-events';
+import { loadHeartbeat } from '../../project-storage';
+import { eventKey, gapEvent, pendingEvents } from './ledger-events';
+
+// Task 267's gap: checked once per app launch, at whichever session's ledger seeds first — a
+// second workspace tab seeding later must not report the same closed hours again. A fresh
+// launch reloads this module, so the flag needs no explicit reset.
+let gapCheckedThisLaunch = false;
 
 export function useLedgerWriter(
   sessionId: string,
@@ -26,13 +32,22 @@ export function useLedgerWriter(
       written.current = { sessionId, keys: new Set(), seeded: false };
     }
     const state = written.current;
+    // Read before the first await: `WorkspaceShell`'s own heartbeat effect (mounted right after
+    // this one) writes `cwd`'s heartbeat on the same tick, so this must run synchronously, ahead
+    // of that write, or every gap reads as "just now" and never fires.
+    const lastAliveBeforeThisMount = state.seeded ? null : loadHeartbeat(cwd);
     const seed = state.seeded
       ? Promise.resolve()
       : readLedger(cwd)
-          .then((events) => {
+          .then(async (events) => {
             for (const event of events)
               if (event.sessionId === sessionId) state.keys.add(eventKey(event));
             state.seeded = true;
+            if (!gapCheckedThisLaunch) {
+              gapCheckedThisLaunch = true;
+              const gap = gapEvent(sessionId, lastAliveBeforeThisMount);
+              if (gap) await appendLedger(cwd, gap).catch(() => {});
+            }
           })
           .catch(() => {
             // no sidecar, or no ledger yet: write from what we hold and dedupe in memory
