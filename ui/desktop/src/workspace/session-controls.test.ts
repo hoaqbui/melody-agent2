@@ -14,10 +14,8 @@ import {
   runtimeDividerMessage,
   runtimeLabel,
   stopModel,
-  stopOfSession,
   LEVER,
   RUNTIMES,
-  STOPS,
 } from './session-controls';
 
 function provider(
@@ -112,11 +110,14 @@ describe('session controls', () => {
   });
 
   it('maps the three stops to their triples', () => {
-    expect(STOPS).toEqual(['easy', 'medium', 'hard']);
-    expect(STOPS.map((stop) => [LEVER[stop].provider, LEVER[stop].mode])).toEqual([
-      ['claude-acp', 'direct'],
-      ['claude-acp', 'direct'],
-      ['claude-code', 'orchestrate'],
+    expect([
+      ['easy', LEVER.easy.provider, LEVER.easy.mode],
+      ['medium', LEVER.medium.provider, LEVER.medium.mode],
+      ['hard', LEVER.hard.provider, LEVER.hard.mode],
+    ]).toEqual([
+      ['easy', 'claude-acp', 'direct'],
+      ['medium', 'claude-acp', 'direct'],
+      ['hard', 'claude-code', 'orchestrate'],
     ]);
     const choices = [
       { value: 'default', name: 'Default' },
@@ -126,34 +127,9 @@ describe('session controls', () => {
     expect(stopModel('easy', choices)).toBe('claude-sonnet-5');
     expect(stopModel('medium', choices)).toBe('opus[1m]');
     expect(stopModel('hard', choices)).toBe('opus[1m]');
-    // The claude CLI lists no models: Hard takes the sole one rather than reading Custom.
+    // The claude CLI lists no models: Hard takes the sole one rather than nothing.
     expect(stopModel('hard', [{ value: 'default', name: 'Default' }])).toBe('default');
     expect(stopModel('easy', [{ value: 'default', name: 'Default' }])).toBeUndefined();
-    expect(
-      stopOfSession({
-        provider_name: 'claude-code',
-        model_config: { model_name: 'default' },
-        recipe: { title: 'Orchestrator' },
-      } as never)
-    ).toBe('hard');
-  });
-
-  it('reads the stop off the session and Custom off anything else', () => {
-    const orchestrator = { title: 'Orchestrator', description: '' };
-    const session = (provider: string, model: string, recipe: typeof orchestrator | null) => ({
-      provider_name: provider,
-      model_config: { model_name: model, toolshim: false },
-      recipe,
-    });
-    expect(stopOfSession(session('claude-acp', 'claude-sonnet-5', null))).toBe('easy');
-    expect(stopOfSession(session('claude-acp', 'opus[1m]', null))).toBe('medium');
-    expect(stopOfSession(session('claude-code', 'claude-opus-5', orchestrator))).toBe('hard');
-    expect(stopOfSession(session('claude-code', 'claude-opus-5', null))).toBe('custom');
-    expect(stopOfSession(session('claude-acp', 'opus[1m]', orchestrator))).toBe('custom');
-    expect(stopOfSession(session('codex-acp', 'gpt-5', null))).toBe('custom');
-    expect(stopOfSession({ provider_name: 'claude-acp', model_config: null, recipe: null })).toBe(
-      'custom'
-    );
   });
 
   it('builds a user-visible, agent-invisible divider', () => {

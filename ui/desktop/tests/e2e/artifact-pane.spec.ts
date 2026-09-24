@@ -1,7 +1,8 @@
 import { execFileSync } from 'child_process';
 import { test, expect, emptyDock, openPane, provisionRoleRepo, trustRecipeIfAsked } from './fixtures';
 
-// Task 30: an Orchestrate session (lever Hard) delegates once to the `spike-echo` role in
+// Task 30: an Orchestrate session — the default a new Easy session starts on when the folder
+// has the role (task 224 retires the lever) — delegates once to the `spike-echo` role in
 // GOOSE_TEST_DIR's `.agents/agents/` (its body: "Begin every reply with the token
 // spike-ok-30"); the Artifact pane from the ⋯ launcher lists that child — one row, role ·
 // runtime · model in the header — with the worker's last message rendered, Copy puts it on
@@ -37,22 +38,19 @@ test.describe('artifact pane', { tag: '@seat' }, () => {
     );
     await emptyDock(goosePage);
 
-    const hard = goosePage.locator('[data-testid="workspace-lever-stop-hard"]');
+    // The lever is gone (task 224): the folder has the role, so the first prompt typed into
+    // the Hub starts Orchestrate on its own — no click needed.
     await expect(shell).toHaveAttribute('data-orchestrator-role', 'present');
-    await expect(hard).not.toHaveAttribute('data-blocked', 'true');
-    await hard.click();
-    await trustRecipeIfAsked(goosePage);
-    await expect(goosePage).toHaveURL(/resumeSessionId=/, { timeout: 30000 });
-    const parentId = /resumeSessionId=([^&]+)/.exec(goosePage.url())?.[1];
-    console.log(`parent session ${parentId}`);
-
-    // The Hub's input and the new session's overlap for a moment after the route change.
     const input = goosePage.locator('[data-testid="chat-input"]');
     await expect(input).toHaveCount(1, { timeout: 15000 });
     await input.fill(
       "Delegate exactly once to the spike-echo role with instructions 'say hello', then reply DONE"
     );
     await input.press('Enter');
+    await trustRecipeIfAsked(goosePage);
+    await expect(goosePage).toHaveURL(/resumeSessionId=/, { timeout: 30000 });
+    const parentId = /resumeSessionId=([^&]+)/.exec(goosePage.url())?.[1];
+    console.log(`parent session ${parentId}`);
     const reply = goosePage.locator('[data-testid="message-container"].assistant').last();
     await expect(reply).toContainText(/DONE/, { timeout: 180_000 });
 
