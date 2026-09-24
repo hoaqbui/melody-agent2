@@ -141,15 +141,21 @@ def clean_tree(repo: Path) -> bool:
 
 
 def _note(state_file: Path, message: str) -> None:
-    """A record of the last outcome, kept outside the notebook and the
-    worktree — never written into either."""
+    """A record of the outcome, kept outside the notebook and the worktree
+    — never written into either. Appends to `history` rather than
+    overwriting `last_check`: a worktree-removal warning followed by the
+    `_fail` that reports the overall result must both survive, not have the
+    second silently replace the first."""
     data = {}
     if state_file.exists():
         try:
             data = json.loads(state_file.read_text())
         except (json.JSONDecodeError, OSError):
             data = {}
-    data["last_check"] = {"at": datetime.now().isoformat(timespec="seconds"), "message": message}
+    entry = {"at": datetime.now().isoformat(timespec="seconds"), "message": message}
+    if "last_check" in data:
+        data.setdefault("history", []).append(data["last_check"])
+    data["last_check"] = entry
     try:
         state_file.parent.mkdir(parents=True, exist_ok=True)
         state_file.write_text(json.dumps(data, indent=2))
@@ -282,18 +288,49 @@ def _begin_locked(notebook: Path, state_file: Path) -> int:
 # ---------- the checks (all operate on the worktree's committed history) ----------
 
 
+def _diff_status(repo: Path, base: str, tip: str) -> list[tuple[str, str]]:
+    """(status, path) pairs for base..tip, one per changed path.
+
+    `--no-renames` is load-bearing: with rename detection on, moving
+    `SOUL.md` to `notes/soul.md` shows as a single `R100` record naming
+    only the new path, so a path-based allow-list would only ever see
+    `notes/soul.md` and wave the move through. Disabling renames turns that
+    into its true shape — a delete of `SOUL.md` and an add of
+    `notes/soul.md` — so each side is checked (and the delete is a
+    violation in its own right; see `deletion_violation`).
+    """
+    raw = _git(repo, "diff", "--no-renames", "--name-status", "-z", base, tip)
+    parts = [p for p in raw.split("\0") if p]
+    return list(zip(parts[0::2], parts[1::2]))
+
+
 def journal_violation(repo: Path, base: str, tip: str) -> str | None:
-    changed = _git(repo, "diff", "--name-only", base, tip, "--", "journal/").splitlines()
+    changed = sorted({path for _, path in _diff_status(repo, base, tip) if path.startswith("journal/")})
     if changed:
-        return "journal edited: " + ", ".join(sorted(changed))
+        return "journal edited: " + ", ".join(changed)
+    return None
+
+
+def deletion_violation(repo: Path, base: str, tip: str) -> str | None:
+    """The recipe's own contract is add/modify only, never delete —
+    enforced here regardless of path, so a deletion under an otherwise
+    allowed path (e.g. an existing `notes/*.md`) is still a violation."""
+    deleted = sorted({path for status, path in _diff_status(repo, base, tip) if status == "D"})
+    if deleted:
+        return "path(s) deleted: " + ", ".join(deleted)
     return None
 
 
 def allowed_paths_violation(repo: Path, base: str, tip: str) -> str | None:
-    changed = _git(repo, "diff", "--name-only", base, tip).splitlines()
-    disallowed = [p for p in changed if not ALLOWED_PATH_RE.match(p) and not p.startswith("journal/")]
+    disallowed = sorted(
+        {
+            path
+            for status, path in _diff_status(repo, base, tip)
+            if status != "D" and not path.startswith("journal/") and not ALLOWED_PATH_RE.match(path)
+        }
+    )
     if disallowed:
-        return "disallowed path(s) changed: " + ", ".join(sorted(disallowed))
+        return "disallowed path(s) changed: " + ", ".join(disallowed)
     return None
 
 
@@ -339,16 +376,43 @@ def dreams_violation(before_bytes: bytes, after_bytes: bytes) -> str | None:
     return None
 
 
+def single_commit_violation(repo: Path, base: str, tip: str) -> str | None:
+    """The recipe's own contract is exactly one commit, directly on `base`
+    (`tidy-up.yaml`: "make exactly one commit"). Checking this structurally
+    — not just diffing content — is what stops a run that merges some other
+    commit into its branch and then edits the result back to look
+    unchanged: a merge has more than one parent, and a second sequential
+    commit's parent isn't `base` either. Either way this catches it before
+    any content diff is even trusted.
+    """
+    parents = _git(repo, "rev-list", "--parents", "-n", "1", tip).split()
+    tip_parents = parents[1:]
+    if tip_parents != [base]:
+        return f"the tidy-up branch is not exactly one commit on base (tip's parent(s): {tip_parents or 'none'})"
+    return None
+
+
 # ---------- accept / reject ----------
 
 
 def _still_on_branch(notebook: Path, expected_branch: str) -> bool:
-    # There is a small window between this check and the merge call right
-    # after it where the branch could still change underneath us; closing
-    # it fully needs an OS-level lock on the notebook's own HEAD, out of
-    # scope here. This narrows the race to that one gap; it doesn't close it.
     cur = _git_ok(notebook, "symbolic-ref", "--short", "HEAD")
     return cur.returncode == 0 and cur.stdout.strip() == expected_branch
+
+
+def _still_at_base(notebook: Path, expected_branch: str, base: str) -> bool:
+    """Same branch *and* HEAD is still exactly `base` — a name match alone
+    isn't enough: the user can commit again on the same branch (not just
+    switch branches) after `--begin`, which a branch-name check would miss
+    entirely. There is a small window between this check and the merge call
+    right after it where the notebook could still change underneath us;
+    closing it fully needs an OS-level lock on the notebook's own HEAD, out
+    of scope here. This narrows the race to that one gap; it doesn't close it.
+    """
+    if not _still_on_branch(notebook, expected_branch):
+        return False
+    head = _git_ok(notebook, "rev-parse", "HEAD")
+    return head.returncode == 0 and head.stdout.strip() == base
 
 
 def _merge_ff_only(notebook: Path, sha: str) -> subprocess.CompletedProcess:
@@ -376,20 +440,43 @@ def _delete_branch_if_at(notebook: Path, branch: str, sha: str) -> bool:
     return _git_ok(notebook, "update-ref", "-d", f"refs/heads/{branch}", sha).returncode == 0
 
 
+def _quarantine_branch(notebook: Path, branch: str, sha: str) -> str | None:
+    """Preserve a kept branch's evidence under `tidy-kept/`, a namespace
+    `_active_run_lock` doesn't look at — so one refused merge doesn't block
+    every later `--begin`. Only called after the branch's worktree is
+    confirmed gone (a checked-out branch can't safely be renamed away out
+    from under its worktree). Returns the new short name, or None if the
+    rename didn't happen — in which case the branch, if it still exists
+    under its old name, is left there and still counts as an active-run
+    lock; that's the honest fallback, not a silent loss of the evidence.
+    """
+    quarantined = branch.replace("tidy-up/", "tidy-kept/", 1)
+    created = _git_ok(notebook, "update-ref", f"refs/heads/{quarantined}", sha)
+    if created.returncode != 0:
+        return None
+    _delete_branch_if_at(notebook, branch, sha)
+    return quarantined
+
+
 def _fail_and_cleanup(notebook: Path, worktree: Path, tidy_branch: str, state_file: Path, message: str) -> int:
     """Used by every check-time failure that isn't a validated pass or a
-    validated violation, so a stuck run doesn't hold the active-run lock
-    forever: best-effort, never-forced cleanup, then the usual `_fail`.
+    validated violation (a dirty worktree, a branch mismatch, a missing
+    base) — none of these have been through the content checks, so whatever
+    the branch holds is preserved, quarantined, the same as a refused
+    merge, rather than deleted: it's evidence, not confirmed-safe-to-drop.
 
-    The branch is deleted only once the worktree that has it checked out is
-    actually gone — deleting it first (or regardless) is exactly what a
-    checked-out branch refuses porcelain for and plumbing doesn't check. If
-    the worktree removal fails, the branch is left too: a kept worktree
-    keeps its branch, which is the one coherent "stuck run" state.
+    The branch is only ever touched once the worktree that has it checked
+    out is actually gone — touching it first (or regardless) is exactly
+    what a checked-out branch refuses porcelain for and plumbing doesn't
+    check. If the worktree removal fails, the branch is left under its live
+    name too: a kept worktree keeps its branch, which is the one coherent
+    "stuck run" state, and it should still read as an active-run lock.
     """
     tip = _git_ok(notebook, "rev-parse", tidy_branch)
     if _remove_worktree(notebook, worktree, state_file) and tip.returncode == 0:
-        _delete_branch_if_at(notebook, tidy_branch, tip.stdout.strip())
+        kept_as = _quarantine_branch(notebook, tidy_branch, tip.stdout.strip())
+        if kept_as:
+            message = f"{message} (evidence kept as {kept_as})"
     return _fail(state_file, message)
 
 
@@ -450,20 +537,39 @@ def _cause_commit(notebook: Path, base: str, run_date: str, cause_line: str, ind
     return committed.stdout.strip(), None
 
 
+def _kept_after_refusal(notebook: Path, worktree: Path, branches_and_shas: list[tuple[str, str]], state_file: Path, reason: str) -> int:
+    """Shared tail for every "the merge was refused, nothing landed" path:
+    remove the worktree, then quarantine each branch so the evidence survives
+    without blocking tomorrow's `--begin`. If the worktree can't be removed,
+    the branch(es) are left under their live `tidy-up/` names instead — a
+    checked-out branch can't safely be renamed out from under its worktree,
+    and that's a real stuck run, not a cosmetic one, so it should still
+    read as an active-run lock.
+    """
+    if _remove_worktree(notebook, worktree, state_file):
+        kept = [_quarantine_branch(notebook, branch, sha) or branch for branch, sha in branches_and_shas]
+        return _fail(state_file, f"{reason} (evidence kept as {', '.join(kept)})")
+    names = ", ".join(branch for branch, _ in branches_and_shas)
+    return _fail(
+        state_file,
+        f"{reason}, and the worktree at {worktree} could not be removed — {names} left as an active-run lock, needs a person",
+    )
+
+
 def _accept(
-    notebook: Path, worktree: Path, notebook_branch: str, tidy_branch: str, tip_sha: str, state_file: Path, pct: int
+    notebook: Path, worktree: Path, base: str, notebook_branch: str, tidy_branch: str, tip_sha: str, state_file: Path, pct: int
 ) -> int:
-    if not _still_on_branch(notebook, notebook_branch):
-        _remove_worktree(notebook, worktree, state_file)
-        return _fail(
-            state_file,
-            f"the notebook moved off {notebook_branch} just before merging — nothing merged (branch {tidy_branch} kept)",
+    if not _still_at_base(notebook, notebook_branch, base):
+        return _kept_after_refusal(
+            notebook, worktree, [(tidy_branch, tip_sha)], state_file,
+            f"the notebook moved off {notebook_branch}/{base} just before merging — nothing merged",
         )
 
     merged = _merge_ff_only(notebook, tip_sha)
     if merged.returncode != 0:
-        _remove_worktree(notebook, worktree, state_file)
-        return _fail(state_file, f"fast-forward refused — {merged.stderr.strip()} (branch {tidy_branch} kept)")
+        return _kept_after_refusal(
+            notebook, worktree, [(tidy_branch, tip_sha)], state_file, f"fast-forward refused — {merged.stderr.strip()}"
+        )
 
     if not _remove_worktree(notebook, worktree, state_file):
         return _fail(state_file, f"merged, but the worktree at {worktree} could not be removed — needs a person")
@@ -494,8 +600,14 @@ def _reject(
         # Defense in depth: `--begin` already refuses a symlinked base, so
         # this shouldn't be reachable. If it ever is, don't turn a symlink
         # into a regular file as a side effect of recording a cause.
-        if _remove_worktree(notebook, worktree, state_file):
-            _delete_branch_if_at(notebook, tidy_branch, tip_sha)
+        if not _remove_worktree(notebook, worktree, state_file):
+            return _fail(
+                state_file,
+                f"violation ({cause_line}); DREAMS.md is a symlink in the base, and the worktree at {worktree} "
+                f"could not be removed — {tidy_branch} left as an active-run lock, needs a person",
+            )
+        if not _delete_branch_if_at(notebook, tidy_branch, tip_sha):
+            return _fail(state_file, f"violation ({cause_line}); {tidy_branch} could not be deleted (it may have moved) — needs a person")
         for cause in causes:
             print(f"violation: {cause}", file=sys.stderr)
         note = cause_line + "; DREAMS.md is a symlink in the base — cause recorded in the state file only, no cause commit"
@@ -509,8 +621,14 @@ def _reject(
     index_file.unlink(missing_ok=True)
 
     if err:
-        if _remove_worktree(notebook, worktree, state_file):
-            _delete_branch_if_at(notebook, tidy_branch, tip_sha)
+        if not _remove_worktree(notebook, worktree, state_file):
+            return _fail(
+                state_file,
+                f"violation ({cause_line}); could not build the cause commit: {err}, and the worktree at {worktree} "
+                f"could not be removed — {tidy_branch} left as an active-run lock, needs a person",
+            )
+        if not _delete_branch_if_at(notebook, tidy_branch, tip_sha):
+            return _fail(state_file, f"violation ({cause_line}); could not build the cause commit: {err}; {tidy_branch} could not be deleted (it may have moved) — needs a person")
         return _fail(state_file, f"violation ({cause_line}); could not build the cause commit: {err}")
 
     cause_branch = f"{tidy_branch}-cause"
@@ -520,9 +638,22 @@ def _reject(
     notebook_at_base = current_head.returncode == 0 and current_head.stdout.strip() == base
 
     if not notebook_at_base:
-        if _remove_worktree(notebook, worktree, state_file):
-            _delete_branch_if_at(notebook, tidy_branch, tip_sha)
-            _delete_branch_if_at(notebook, cause_branch, cause_sha)
+        if not _remove_worktree(notebook, worktree, state_file):
+            return _fail(
+                state_file,
+                f"violation ({cause_line}); the notebook moved since begin — the cause could not be recorded in the "
+                f"notebook, and the worktree at {worktree} could not be removed — {tidy_branch} and {cause_branch} "
+                f"left as an active-run lock, needs a person",
+            )
+        tidy_deleted = _delete_branch_if_at(notebook, tidy_branch, tip_sha)
+        cause_deleted = _delete_branch_if_at(notebook, cause_branch, cause_sha)
+        if not (tidy_deleted and cause_deleted):
+            leftover = [b for b, ok in ((tidy_branch, tidy_deleted), (cause_branch, cause_deleted)) if not ok]
+            return _fail(
+                state_file,
+                f"violation ({cause_line}); the notebook moved since begin — the cause is recorded in the state "
+                f"file only, but {', '.join(leftover)} could not be deleted (may have moved) — needs a person",
+            )
         for cause in causes:
             print(f"violation: {cause}", file=sys.stderr)
         note = cause_line + "; the notebook moved since begin — the cause is recorded in the state file only"
@@ -530,23 +661,30 @@ def _reject(
         _note(state_file, "violation: " + note)
         return 1
 
-    if not _still_on_branch(notebook, notebook_branch):
-        _remove_worktree(notebook, worktree, state_file)
-        return _fail(
-            state_file,
-            f"the notebook moved off {notebook_branch} just before merging the cause — nothing merged (branches kept)",
+    if not _still_at_base(notebook, notebook_branch, base):
+        return _kept_after_refusal(
+            notebook, worktree, [(tidy_branch, tip_sha), (cause_branch, cause_sha)], state_file,
+            f"the notebook moved off {notebook_branch}/{base} just before merging the cause — nothing merged",
         )
 
     merged = _merge_ff_only(notebook, cause_sha)
     if merged.returncode != 0:
-        _remove_worktree(notebook, worktree, state_file)
-        return _fail(state_file, f"the cause merge was refused — {merged.stderr.strip()} (branches kept)")
+        return _kept_after_refusal(
+            notebook, worktree, [(tidy_branch, tip_sha), (cause_branch, cause_sha)], state_file,
+            f"the cause merge was refused — {merged.stderr.strip()}",
+        )
 
-    if _remove_worktree(notebook, worktree, state_file):
-        _delete_branch_if_at(notebook, tidy_branch, tip_sha)
-        _delete_branch_if_at(notebook, cause_branch, cause_sha)
-    else:
-        print("warning: cause merged, but the worktree could not be removed; both branches kept", file=sys.stderr)
+    if not _remove_worktree(notebook, worktree, state_file):
+        return _fail(
+            state_file,
+            f"cause merged, but the worktree at {worktree} could not be removed — {tidy_branch} and {cause_branch} "
+            f"left as an active-run lock, needs a person",
+        )
+    tidy_deleted = _delete_branch_if_at(notebook, tidy_branch, tip_sha)
+    cause_deleted = _delete_branch_if_at(notebook, cause_branch, cause_sha)
+    if not (tidy_deleted and cause_deleted):
+        leftover = [b for b, ok in ((tidy_branch, tidy_deleted), (cause_branch, cause_deleted)) if not ok]
+        return _fail(state_file, f"cause merged, but {', '.join(leftover)} could not be deleted (may have moved) — needs a person")
 
     for cause in causes:
         print(f"violation: {cause}", file=sys.stderr)
@@ -610,9 +748,17 @@ def _check_locked(state_file: Path) -> int:
 
     causes = []
 
+    single_commit_cause = single_commit_violation(worktree, base, tip_sha)
+    if single_commit_cause:
+        causes.append(single_commit_cause)
+
     journal_cause = journal_violation(worktree, base, tip_sha)
     if journal_cause:
         causes.append(journal_cause)
+
+    deletion_cause = deletion_violation(worktree, base, tip_sha)
+    if deletion_cause:
+        causes.append(deletion_cause)
 
     allowed_cause = allowed_paths_violation(worktree, base, tip_sha)
     if allowed_cause:
@@ -639,7 +785,7 @@ def _check_locked(state_file: Path) -> int:
     if causes:
         return _reject(notebook, worktree, base, notebook_branch, tidy_branch, tip_sha, run_date, causes, state_file)
 
-    return _accept(notebook, worktree, notebook_branch, tidy_branch, tip_sha, state_file, pct)
+    return _accept(notebook, worktree, base, notebook_branch, tidy_branch, tip_sha, state_file, pct)
 
 
 # ---------- fixture ----------
@@ -696,6 +842,11 @@ def build_fixture(spec_dir: Path, dest: Path, state_file: Path) -> int | None:
     if dreams_before:
         (dest / "DREAMS.md").write_text(dreams_before)
 
+    for path, content in spec.get("baseline_notes_files", {}).items():
+        note_path = dest / path
+        note_path.parent.mkdir(parents=True, exist_ok=True)
+        note_path.write_text(content)
+
     if spec.get("notebook_gitignore"):
         (dest / ".gitignore").write_text("\n".join(spec["notebook_gitignore"]) + "\n")
 
@@ -739,6 +890,9 @@ def build_fixture(spec_dir: Path, dest: Path, state_file: Path) -> int | None:
 
     if spec.get("delete_soul"):
         (worktree / "SOUL.md").unlink()
+
+    for path in spec.get("delete_notes_files", []):
+        (worktree / path).unlink()
 
     if spec.get("worktree_adds_notes_file"):
         info = spec["worktree_adds_notes_file"]
@@ -785,6 +939,34 @@ def build_fixture(spec_dir: Path, dest: Path, state_file: Path) -> int | None:
 
     _commit(worktree, f"memory: tidy-up {today.isoformat()}", today)
 
+    if spec.get("merges_user_commit_and_restores_journal"):
+        # The scenario `single_commit_violation` and `_still_at_base` exist
+        # for: after begin, the user commits directly in the notebook (C);
+        # the (compromised or buggy) recipe merges C into its own branch —
+        # since the notebook and the worktree share one object store, C's
+        # sha is reachable from the worktree the moment it's committed, no
+        # fetch needed — and then "fixes" the journal back to base's exact
+        # content so a naive base..tip diff looks untouched. The tip is now
+        # a merge commit (more than one parent) whose own direct parent, in
+        # any case, isn't `base` — caught structurally regardless of what
+        # the content diff shows.
+        c_path = dest / "journal" / f"{today.isoformat()}.md"
+        original_c = c_path.read_text() if c_path.exists() else ""
+        c_path.write_text(original_c + "- 09:30 [stated] the user's own commit, made directly in the notebook\n")
+        _commit(dest, "memory: chat note", today)
+        c_sha = _git(dest, "rev-parse", "HEAD").strip()
+
+        merged = _git_ok(worktree, "merge", "--no-edit", c_sha)
+        if merged.returncode != 0:
+            raise RuntimeError(f"fixture setup: merging the user commit into the worktree failed: {merged.stderr}")
+
+        for offset in spec["journal_days_ago"]:
+            day = today - timedelta(days=offset)
+            (worktree / "journal" / f"{day.isoformat()}.md").write_text(
+                f"- 09:00 [stated] fixture journal entry for {day}\n"
+            )
+        _commit(worktree, "fixup: restore journal appearance", today)
+
     # These simulate the notebook's *own* checkout changing while the run
     # was in progress — the recipe never sees any of this, only check() does.
     if spec.get("user_commit_during_run"):
@@ -824,10 +1006,19 @@ def main() -> int:
                 tmp_path = Path(tmp)
                 notebook = tmp_path / "notebook"
                 state_file = args.state_file or (tmp_path / "state" / "tidy-run.json")
+                spec = json.loads((args.fixture / "spec.json").read_text())
                 outcome = build_fixture(args.fixture, notebook, state_file)
                 if outcome is not None:
                     return outcome
-                return check(state_file)
+                rc = check(state_file)
+                if spec.get("then_begin_again"):
+                    # Proves a kept-but-quarantined branch doesn't block the
+                    # next run: report the first check's own exit for
+                    # visibility, then the fixture's real result is whether
+                    # a fresh `--begin` on the same notebook now succeeds.
+                    print(f"first check() exit was {rc}; trying a second --begin", file=sys.stderr)
+                    return begin(notebook, state_file)
+                return rc
 
         state_file = args.state_file or (Path.home() / ".local" / "state" / "melody" / "tidy-run.json")
         if args.begin:
