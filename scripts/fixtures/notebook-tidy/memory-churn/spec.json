@@ -1,0 +1,9 @@
+{
+  "baseline_days_ago": 1,
+  "journal_days_ago": [2, 1, 0],
+  "memory_lines_before": 100,
+  "memory_lines_after": 100,
+  "memory_churn_lines": 80,
+  "dreams_entries_before": 0,
+  "edit_journal_day_ago": null
+}

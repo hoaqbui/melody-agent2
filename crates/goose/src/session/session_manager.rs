@@ -55,6 +55,30 @@ pub enum SessionType {
     Acp,
 }
 
+/// A session's durable standing in Melody: her own session, a repository's
+/// manager, or neither. Stored in `melody_session_roles`, not on `sessions`
+/// itself, so upstream's migrations of that table stay mergeable.
+#[derive(
+    Debug,
+    Clone,
+    Copy,
+    Serialize,
+    Deserialize,
+    PartialEq,
+    Eq,
+    Default,
+    strum::Display,
+    strum::EnumString,
+)]
+#[serde(rename_all = "snake_case")]
+#[strum(serialize_all = "snake_case")]
+pub enum SessionRole {
+    #[default]
+    None,
+    Melody,
+    Manager,
+}
+
 static SESSION_STORAGE: LazyLock<Arc<SessionStorage>> =
     LazyLock::new(|| Arc::new(SessionStorage::new(Paths::data_dir())));
 
@@ -428,6 +452,134 @@ impl SessionManager {
         self.storage
             .create_session(working_dir, name, session_type, goose_mode)
             .await
+    }
+
+    /// Sets `session_id`'s durable role and, for a manager, its repository.
+    /// `repository_cwd` is resolved through [`Self::canonical_repository`]
+    /// before it is stored — callers can never hand this a raw, unresolved
+    /// path, so `/repo`, `/repo/subdir` and one of its linked worktrees all
+    /// land on the one repository identity. The store enforces one manager
+    /// per repository and one Melody session globally; a conflicting call
+    /// fails rather than silently displacing the existing holder.
+    pub async fn set_role(
+        &self,
+        session_id: &str,
+        role: SessionRole,
+        repository_cwd: Option<&Path>,
+    ) -> Result<()> {
+        let repository = match repository_cwd {
+            Some(cwd) => Some(
+                Self::canonical_repository(cwd)
+                    .await?
+                    .to_string_lossy()
+                    .into_owned(),
+            ),
+            None => None,
+        };
+        self.storage.set_role(session_id, role, repository).await
+    }
+
+    /// `(SessionRole::None, None)` when `session_id` has no row.
+    pub async fn get_role(&self, session_id: &str) -> Result<(SessionRole, Option<String>)> {
+        self.storage.get_role(session_id).await
+    }
+
+    /// The id of the one session with role `melody`, if one has been set.
+    pub async fn melody_session(&self) -> Result<Option<String>> {
+        self.storage.melody_session().await
+    }
+
+    /// The id of `cwd`'s repository's manager session, creating it — as an
+    /// ordinary `User` session with role `manager`, its working directory
+    /// the repository's canonical root — when none exists yet. `cwd` is
+    /// always resolved through [`Self::canonical_repository`] first, so a
+    /// caller can only ever reach the one manager for the repository its
+    /// own cwd actually belongs to, never an arbitrary string. Safe under
+    /// concurrent callers for the same repository: see
+    /// `SessionStorage::get_or_create_manager`.
+    pub async fn get_or_create_manager(
+        &self,
+        cwd: &Path,
+        name: impl Into<String>,
+    ) -> Result<String> {
+        let repository = Self::canonical_repository(cwd).await?;
+        self.storage
+            .get_or_create_manager(
+                &repository.to_string_lossy(),
+                name.into(),
+                repository.clone(),
+            )
+            .await
+    }
+
+    /// The canonical repository identity for `cwd`: the realpath of the
+    /// directory holding the git repository's shared `.git` — the same
+    /// directory whether `cwd` is the repository's own root or a `git
+    /// worktree add` checkout of it (its `--git-common-dir` still points at
+    /// the main repository's `.git`), and whether `cwd` is a plain
+    /// subdirectory such as `<repo>/.worktrees/<slug>`. Falls back to the
+    /// realpath of `cwd` itself when it is not inside a git repository.
+    pub async fn canonical_repository(cwd: &Path) -> Result<PathBuf> {
+        let canonical_cwd = cwd
+            .canonicalize()
+            .map_err(|e| anyhow::anyhow!("cwd '{}' could not be resolved: {}", cwd.display(), e))?;
+
+        let Some(toplevel) = Self::git_toplevel(&canonical_cwd).await else {
+            return Ok(canonical_cwd);
+        };
+
+        Ok(Self::main_worktree_root(&toplevel)
+            .await
+            .unwrap_or(toplevel))
+    }
+
+    /// Same computation summon's own (sync) `git_toplevel` makes:
+    /// `git rev-parse --show-toplevel`, realpath'd.
+    async fn git_toplevel(dir: &Path) -> Option<PathBuf> {
+        let output = tokio::process::Command::new("git")
+            .arg("-C")
+            .arg(dir)
+            .args(["rev-parse", "--show-toplevel"])
+            .output()
+            .await
+            .ok()?;
+        if !output.status.success() {
+            return None;
+        }
+        let toplevel = String::from_utf8(output.stdout).ok()?;
+        PathBuf::from(toplevel.trim_end_matches(['\n', '\r']))
+            .canonicalize()
+            .ok()
+    }
+
+    /// `toplevel`'s own root is not its repository's identity when it is a
+    /// `git worktree add` checkout linked to another one — `--show-toplevel`
+    /// there returns the linked worktree's own directory, so a session
+    /// cwd'd into e.g. `.claude/worktrees/<slug>` would read as a different
+    /// repository than the checkout it was branched from. `git worktree
+    /// list` always names the main working tree first, so resolve back to
+    /// it. A plain subdirectory (no separate `.git` of its own, such as
+    /// summon's own `<repo>/.worktrees/<slug>` sandbox convention) has no
+    /// linked worktree to resolve and is returned unchanged by the caller.
+    async fn main_worktree_root(toplevel: &Path) -> Option<PathBuf> {
+        let output = tokio::process::Command::new("git")
+            .arg("-C")
+            .arg(toplevel)
+            .args(["worktree", "list", "--porcelain", "-z"])
+            .output()
+            .await
+            .ok()?;
+        if !output.status.success() {
+            return None;
+        }
+        // `-z` NUL-delimits each porcelain field (in place of the newline
+        // that separates them by default), so a worktree path containing a
+        // literal newline can't be split into two fields by mistake.
+        let listing = String::from_utf8(output.stdout).ok()?;
+        let main = listing
+            .split('\0')
+            .find_map(|field| field.strip_prefix("worktree "))?;
+        PathBuf::from(main).canonicalize().ok()
     }
 
     pub async fn get_session(&self, id: &str, include_messages: bool) -> Result<Session> {
@@ -999,6 +1151,7 @@ impl SessionStorage {
                         warn!("Failed to import some legacy sessions: {}", e);
                     }
                 }
+                Self::ensure_melody_schema(&self.pool).await?;
                 Ok::<(), anyhow::Error>(())
             })
             .await?;
@@ -1628,6 +1781,98 @@ impl SessionStorage {
         Ok(())
     }
 
+    /// The fork's own schema version, tracked in `melody_schema_version` —
+    /// never in upstream's `schema_version`/`CURRENT_SCHEMA_VERSION`, so a
+    /// fork-owned migration can never claim a version number upstream's
+    /// next migration also wants (and upstream's migrations never skip a
+    /// version the fork silently consumed). Bump this, not
+    /// `CURRENT_SCHEMA_VERSION`, for the fork's own schema changes.
+    const MELODY_SCHEMA_VERSION: i32 = 1;
+
+    /// Brings the fork's own tables up to `MELODY_SCHEMA_VERSION`. Runs
+    /// after upstream's schema creation or migrations, on every open of the
+    /// pool — a fresh database and one that predates the fork's tables both
+    /// end up with them, without upstream's own migration path ever running
+    /// a fork-owned step.
+    async fn ensure_melody_schema(pool: &Pool<Sqlite>) -> Result<()> {
+        let mut tx = pool.begin_with("BEGIN IMMEDIATE").await?;
+
+        sqlx::query(
+            r#"
+            CREATE TABLE IF NOT EXISTS melody_schema_version (
+                version INTEGER PRIMARY KEY,
+                applied_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+            )
+            "#,
+        )
+        .execute(&mut *tx)
+        .await?;
+
+        let current_version: i32 =
+            sqlx::query_scalar("SELECT COALESCE(MAX(version), 0) FROM melody_schema_version")
+                .fetch_one(&mut *tx)
+                .await?;
+
+        for version in (current_version + 1)..=Self::MELODY_SCHEMA_VERSION {
+            Self::apply_melody_migration(&mut tx, version).await?;
+            sqlx::query("INSERT INTO melody_schema_version (version) VALUES (?)")
+                .bind(version)
+                .execute(&mut *tx)
+                .await?;
+        }
+
+        tx.commit().await?;
+        Ok(())
+    }
+
+    async fn apply_melody_migration(
+        tx: &mut sqlx::Transaction<'_, Sqlite>,
+        version: i32,
+    ) -> Result<()> {
+        match version {
+            1 => Self::create_melody_session_roles_table(tx).await,
+            _ => anyhow::bail!("Unknown melody schema version: {}", version),
+        }
+    }
+
+    /// `melody_session_roles` is a fork-owned side table, not columns on
+    /// upstream's `sessions` table, so upstream's next migration to that
+    /// table stays mergeable. One manager row per repository and one
+    /// Melody row are enforced by the store itself via the partial unique
+    /// indexes below — never by read-then-insert. The CHECK guards the
+    /// unique index's blind spot: SQLite treats every NULL in a unique
+    /// index as distinct from every other, so without it two manager rows
+    /// could each hold a NULL repository and never collide.
+    async fn create_melody_session_roles_table(
+        tx: &mut sqlx::Transaction<'_, Sqlite>,
+    ) -> Result<()> {
+        sqlx::query(
+            r#"
+            CREATE TABLE IF NOT EXISTS melody_session_roles (
+                session_id TEXT PRIMARY KEY REFERENCES sessions(id) ON DELETE CASCADE,
+                role TEXT NOT NULL,
+                repository TEXT,
+                CHECK (role <> 'manager' OR repository IS NOT NULL)
+            )
+            "#,
+        )
+        .execute(&mut **tx)
+        .await?;
+        sqlx::query(
+            "CREATE UNIQUE INDEX IF NOT EXISTS idx_melody_roles_manager_repo \
+             ON melody_session_roles(repository) WHERE role = 'manager'",
+        )
+        .execute(&mut **tx)
+        .await?;
+        sqlx::query(
+            "CREATE UNIQUE INDEX IF NOT EXISTS idx_melody_roles_melody \
+             ON melody_session_roles(role) WHERE role = 'melody'",
+        )
+        .execute(&mut **tx)
+        .await?;
+        Ok(())
+    }
+
     async fn create_session(
         &self,
         working_dir: PathBuf,
@@ -1671,6 +1916,127 @@ impl SessionStorage {
         #[cfg(feature = "telemetry")]
         crate::posthog::emit_session_started();
         Ok(session)
+    }
+
+    async fn set_role(
+        &self,
+        session_id: &str,
+        role: SessionRole,
+        repository: Option<String>,
+    ) -> Result<()> {
+        let pool = self.pool().await?;
+        sqlx::query(
+            r#"
+            INSERT INTO melody_session_roles (session_id, role, repository)
+            VALUES (?, ?, ?)
+            ON CONFLICT(session_id) DO UPDATE SET
+                role = excluded.role,
+                repository = excluded.repository
+            "#,
+        )
+        .bind(session_id)
+        .bind(role.to_string())
+        .bind(repository)
+        .execute(pool)
+        .await?;
+        Ok(())
+    }
+
+    async fn get_role(&self, session_id: &str) -> Result<(SessionRole, Option<String>)> {
+        let pool = self.pool().await?;
+        let row = sqlx::query_as::<_, (String, Option<String>)>(
+            "SELECT role, repository FROM melody_session_roles WHERE session_id = ?",
+        )
+        .bind(session_id)
+        .fetch_optional(pool)
+        .await?;
+
+        Ok(match row {
+            Some((role, repository)) => (role.parse().unwrap_or_default(), repository),
+            None => (SessionRole::None, None),
+        })
+    }
+
+    async fn melody_session(&self) -> Result<Option<String>> {
+        let pool = self.pool().await?;
+        let id = sqlx::query_scalar::<_, String>(
+            "SELECT session_id FROM melody_session_roles WHERE role = 'melody' LIMIT 1",
+        )
+        .fetch_optional(pool)
+        .await?;
+        Ok(id)
+    }
+
+    /// Returns the id of the one manager session for `repository`, creating
+    /// it when none exists yet. Runs entirely inside one `BEGIN IMMEDIATE`
+    /// transaction, so two concurrent callers for the same repository
+    /// serialize on SQLite's write lock rather than racing a
+    /// read-then-insert: once the first caller commits, the second caller's
+    /// check sees its row and returns that id instead of creating a second
+    /// manager. Under sustained contention past the pool's 30 s busy
+    /// timeout, a caller gets `SQLITE_BUSY` as an `Err` rather than a
+    /// guaranteed id.
+    async fn get_or_create_manager(
+        &self,
+        repository: &str,
+        name: String,
+        working_dir: PathBuf,
+    ) -> Result<String> {
+        let pool = self.pool().await?;
+        let mut tx = pool.begin_with("BEGIN IMMEDIATE").await?;
+
+        if let Some(session_id) = sqlx::query_scalar::<_, String>(
+            "SELECT session_id FROM melody_session_roles WHERE role = 'manager' AND repository = ?",
+        )
+        .bind(repository)
+        .fetch_optional(&mut *tx)
+        .await?
+        {
+            tx.commit().await?;
+            return Ok(session_id);
+        }
+
+        let today = chrono::Utc::now().format("%Y%m%d").to_string();
+        let session_id: String = sqlx::query_scalar(
+            r#"
+                INSERT INTO sessions (id, name, user_set_name, session_type, working_dir, extension_data, goose_mode)
+                VALUES (
+                    ? || '_' || CAST(COALESCE((
+                        SELECT MAX(CAST(SUBSTR(id, 10) AS INTEGER))
+                        FROM sessions
+                        WHERE id LIKE ? || '_%'
+                    ), 0) + 1 AS TEXT),
+                    ?,
+                    FALSE,
+                    ?,
+                    ?,
+                    '{}',
+                    ?
+                )
+                RETURNING id
+                "#,
+        )
+        .bind(&today)
+        .bind(&today)
+        .bind(&name)
+        .bind(SessionType::User.to_string())
+        .bind(&*working_dir.to_string_lossy())
+        .bind(GooseMode::default().to_string())
+        .fetch_one(&mut *tx)
+        .await?;
+
+        sqlx::query(
+            "INSERT INTO melody_session_roles (session_id, role, repository) VALUES (?, 'manager', ?)",
+        )
+        .bind(&session_id)
+        .bind(repository)
+        .execute(&mut *tx)
+        .await?;
+
+        tx.commit().await?;
+        #[cfg(feature = "telemetry")]
+        crate::posthog::emit_session_started();
+        Ok(session_id)
     }
 
     async fn get_session(&self, id: &str, include_messages: bool) -> Result<Session> {
