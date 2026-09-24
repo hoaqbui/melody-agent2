@@ -580,7 +580,13 @@ function createAcpChatSessionStoreInternal(): AcpChatSessionStoreInternal {
     promptAttemptId
   ) => {
     const entry = sessionsById.get(sessionId);
-    if (!entry || entry.activePromptAttemptId !== promptAttemptId) {
+    // A Stop pressed before the socket dropped may not have reached the server either, so
+    // an attempt awaiting its cancel is followed too: the reload resends that cancel.
+    if (
+      !entry ||
+      (entry.activePromptAttemptId !== promptAttemptId &&
+        entry.pendingCancelPromptAttemptId !== promptAttemptId)
+    ) {
       return false;
     }
 

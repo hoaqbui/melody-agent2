@@ -149,6 +149,8 @@ test.describe('agents pane', { tag: '@seat' }, () => {
       'no orchestrator role here: no Hard turn to reconnect during'
     );
 
+    const longWaitSeconds = uniqueLongWaitSeconds();
+    let waitPid: number | null = null;
     try {
       await openPane(goosePage, 'agents');
       const pane = goosePage.locator('[data-testid="agents-pane"]');
@@ -203,25 +205,28 @@ test.describe('agents pane', { tag: '@seat' }, () => {
       await expect(turnFailure).toHaveCount(0);
       await goosePage.screenshot({ path: test.info().outputPath('reconnect-reply-once.png') });
 
-      // Turn 2 can only end early by a cancel: its delegate runs a 307 s Python wait (Claude
-      // Code refuses a bare foreground `sleep`), which the walk sees as a live process.
+      // Turn 2 can only end early by a cancel: its delegate runs a ~307 s Python wait (Claude
+      // Code refuses a bare foreground `sleep`), which the walk finds as a live process. The
+      // wait's length carries a per-run marker, so only this run's process is matched.
+      const longWait = `time.sleep(${longWaitSeconds})`;
       const chatInput = chat.locator('[data-testid="chat-input"]');
       await chatInput.fill(
         "Delegate exactly once to the spike-echo role with instructions 'use the Bash tool " +
-          `with timeout 600000 to run python3 -c "import time; time.sleep(${LONG_WAIT_S})" and ` +
-          "wait for it to finish, then say goodbye'. When it returns, reply with only the word " +
-          "made by joining 'LATE' and 'BYE' with a hyphen."
+          `with timeout 600000 to run python3 -c "import time; ${longWait}" and wait for it ` +
+          "to finish, then say goodbye'. When it returns, reply with only the word made by " +
+          "joining 'LATE' and 'BYE' with a hyphen."
       );
       await chatInput.press('Enter');
       await expect(runningRow).toHaveCount(1, { timeout: 120000 });
       await logSeat(goosePage, sessionId, runningRow, 'turn 2');
-      await expect.poll(() => longWaitProcesses().length, { timeout: 120000 }).toBeGreaterThan(0);
-      console.log(`turn 2: delegate's wait is running: ${longWaitProcesses().join(' | ')}`);
+      await expect.poll(() => longWaitPid(longWait), { timeout: 120000 }).not.toBeNull();
+      waitPid = longWaitPid(longWait);
+      console.log(`turn 2: delegate's wait is running as pid ${waitPid}: ${longWait}`);
       await reconnectMidTurn(goosePage);
       await expect
         .poll(() => goosePage.evaluate(chatFollowingRunScript(sessionId)), { timeout: 30000 })
         .toBe(true);
-      expect(longWaitProcesses().length).toBeGreaterThan(0);
+      expect(isLongWaitAlive(waitPid, longWait)).toBe(true);
       await expect(runningRow).toHaveCount(1);
       const stoppedAt = Date.now();
       await stop.click();
@@ -230,12 +235,12 @@ test.describe('agents pane', { tag: '@seat' }, () => {
         .poll(() => goosePage.evaluate(chatRunSettledScript(sessionId)), { timeout: 90000 })
         .toBe(true);
       console.log(`turn 2: idle ${Date.now() - stoppedAt} ms after Stop`);
-      // The run ended while its delegate's wait was still running, so it did not finish: it
-      // was cancelled. (The delegate's shell outlives the cancel; it is killed here.)
-      const survivors = longWaitProcesses();
-      console.log(`turn 2: at idle the delegate's wait is still running: ${survivors.length}`);
-      expect(survivors.length).toBeGreaterThan(0);
-      killLongWaitProcesses();
+      // The run ended while that same wait was still running, so it did not finish: it was
+      // cancelled. (The delegate's shell outlives the cancel; the walk kills the wait.)
+      const aliveAtIdle = isLongWaitAlive(waitPid, longWait);
+      console.log(`turn 2: at idle pid ${waitPid} is still running: ${aliveAtIdle}`);
+      expect(aliveAtIdle).toBe(true);
+      killLongWait(waitPid, longWait);
       console.log(
         `turn 2: delegate row ${await pane.locator('[data-testid="agents-row"]').last().getAttribute('data-status')}`
       );
@@ -252,34 +257,59 @@ test.describe('agents pane', { tag: '@seat' }, () => {
       ) as Array<{ role: string; text: string }>;
       console.log(`turn 2 persisted tail: ${JSON.stringify(persistedTail)}`);
       expect(persistedTail.at(-1)?.role).toBe('user');
-      expect(persistedTail.at(-1)?.text).toContain(`time.sleep(${LONG_WAIT_S})`);
+      expect(persistedTail.at(-1)?.text).toContain(longWait);
       await goosePage.screenshot({ path: test.info().outputPath('reconnect-stopped.png') });
     } finally {
-      killLongWaitProcesses();
+      if (waitPid !== null) {
+        killLongWait(waitPid, `time.sleep(${longWaitSeconds})`);
+      }
       await setAdvancedControls(goosePage, false);
       await emptyDock(goosePage);
     }
   });
 });
 
-const LONG_WAIT_S = 307;
+// ~307 s with four random non-zero decimals: a marker no other process's command line has.
+function uniqueLongWaitSeconds(): string {
+  const digits = Array.from({ length: 4 }, () => 1 + Math.floor(Math.random() * 9)).join('');
+  return `307.${digits}`;
+}
 
-// The delegate's Python wait, found by its command line (pgrep exits 1 on no match).
-function longWaitProcesses(): string[] {
+function commandOf(pid: number): string {
   try {
-    return execFileSync('pgrep', ['-fl', `time.sleep\\(${LONG_WAIT_S}\\)`], { encoding: 'utf8' })
-      .split('\n')
-      .filter(Boolean);
+    return execFileSync('ps', ['-o', 'command=', '-p', String(pid)], { encoding: 'utf8' }).trim();
   } catch {
-    return [];
+    return '';
   }
 }
 
-function killLongWaitProcesses(): void {
+// The Python process running this run's wait (its zsh parent carries the same text).
+function longWaitPid(longWait: string): number | null {
+  let pids: number[];
   try {
-    execFileSync('pkill', ['-f', `time.sleep\\(${LONG_WAIT_S}\\)`]);
+    pids = execFileSync('pgrep', ['-f', longWait.replace(/[.()]/g, '\\$&')], { encoding: 'utf8' })
+      .split('\n')
+      .filter(Boolean)
+      .map(Number);
   } catch {
-    // none left
+    return null;
+  }
+  return (
+    pids.find((pid) => {
+      const command = commandOf(pid);
+      return /python/i.test(command.split(' ')[0] ?? '') && command.includes(longWait);
+    }) ?? null
+  );
+}
+
+// Same pid, same command: guards against the pid being reused by another process.
+function isLongWaitAlive(pid: number | null, longWait: string): boolean {
+  return pid !== null && commandOf(pid).includes(longWait);
+}
+
+function killLongWait(pid: number, longWait: string): void {
+  if (isLongWaitAlive(pid, longWait)) {
+    process.kill(pid, 'SIGTERM');
   }
 }
 
