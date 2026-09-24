@@ -678,19 +678,13 @@ Order: 270 (draftable now) → 271 ∥ 272 → 273 ∥ 274; 275 after use.
 
 ### docs/2026-09-23-team-memory-program-plan-v2.md — T3: lifecycle routines (after M1b; 276–279 are fixture-only)
 
-Order: 276 ∥ 277 (both `scheduler.rs`, one lands before the other) ∥ 279 → 278 → 280. 279 done 2026-09-23 (`scripts/melody-routines.py`, fixture `cap 170/200 warn · archived 2 · sweep 3 listed · backup: no remote set · reminders 3` exit 0; a non-repository exits 1; archive idempotent; proposals live at `proposals/YYYY-MM-DD-<name>.md` — a new notebook convention). Only the tidy-up calls a model, within its budget; the tidy-up's limits are enforced by a script after the run, not by the prompt.
-
-- 276. The scheduler runs a script job with no model call
-  - status: doing · agent: session's worker (2026-09-23) · worker: high
-  - card: as the user, I want upkeep that needs no judgement to run on the scheduler without calling any model, so that idle means no model call (FURPS P R · MoSCoW Must)
-  - context: `execute_job` always builds an Agent and a provider (`scheduler.rs:1133-1310`); add recipe `Settings.command: Option<Vec<String>>` (`recipe/mod.rs:99-124`) — run the argv with no shell in `working_dir`, record `RunOutcome` (`scheduler.rs:1015-1025`), never build a provider; test with a mock provider factory counting calls over a simulated idle hour
-  - confirm: `cargo test -p goose --lib scheduler -- command_job_makes_no_model_call` → 1 passed (today: no such test)
+Order: 276 ∥ 277 (both `scheduler.rs`, one lands before the other) ∥ 279 → 278 → 280. 276 done 2026-09-23 (recipe `settings.command` runs argv with no shell and no provider; `RunOutcome` gained `exit_code`, `output` (last 16 KiB); a command recipe needs no prompt; confirm rerun with `--exact scheduler::tests::command_job_makes_no_model_call` → 1 passed, scheduler 25, recipe 164, clippy and fmt clean; kill reaches only the command's own process). 279 done 2026-09-23 (`scripts/melody-routines.py`, fixture `cap 170/200 warn · archived 2 · sweep 3 listed · backup: no remote set · reminders 3` exit 0; a non-repository exits 1; archive idempotent; proposals live at `proposals/YYYY-MM-DD-<name>.md` — a new notebook convention). Only the tidy-up calls a model, within its budget; the tidy-up's limits are enforced by a script after the run, not by the prompt.
 
 - 277. A token budget that stops a scheduled run, and a skip when the seat has too little room
   - status: todo · agent: — · worker: high
   - card: as the user, I want the nightly tidy-up to stop at 20 k tokens and skip a seat under 20 % room, so that upkeep never eats a working day's quota (FURPS P · MoSCoW Must)
   - context: `max_turns: None` hard-coded (`scheduler.rs:1301`), `Settings.max_turns` (`recipe/mod.rs:111`) ignored; add `Settings.token_budget: Option<u64>` read from the session's usage in the stream loop (`scheduler.rs:1318-1333`), over budget → cancel with a new `RunStatus::BudgetReached` (`:1010`, `:1336-1352`); `Settings.min_seat_room: Option<u8>` (needs 272; without it the run says "seat room unknown")
-  - confirm: `cargo test -p goose --lib scheduler -- token_budget_stops_run` → 1 passed with `BudgetReached` (today: no test)
+  - confirm: `cargo test -p goose --lib -- --exact scheduler::tests::token_budget_stops_run` → 1 passed with `BudgetReached` (two name filters would run every scheduler test) (today: no test)
 
 - 278. The nightly tidy-up and its guard
   - status: blocked — 276, 277 · agent: — · worker: high
@@ -702,6 +696,7 @@ Order: 276 ∥ 277 (both `scheduler.rs`, one lands before the other) ∥ 279 →
   - status: blocked — 276–279; the user's yes (persistent jobs on their machine) · agent: — · worker: low
   - card: as the user, I want the upkeep routines scheduled once, visible in Routines, and removable, so that upkeep is a setting and not a chore (FURPS U · MoSCoW Should)
   - context: `melody-tidy-up` 03:00 daily; `melody-tidy-guard` 03:30; `melody-cap-check` hourly (no chat-start trigger exists); `melody-archive` on the 1st; `melody-sweep` Sundays; `melody-backup` daily; `melody-reminders` 08:00; cron shape `routine.ts:10-21`
+  - found 2026-09-23 (task 276): the UI drops `settings.command` on save — `RecipeSettingsDto` (`crates/goose-sdk-types/src/custom_requests/recipe.rs:72`) has no `command`, and `routine.ts:94` builds settings through it; `ScheduleRunOutcomeDto` (`custom_requests/schedule.rs:134`) has no `exit_code`/`output`. 280 adds both fields, regenerates `acp-schema.json` and the client types, and wires `routine.ts`
   - confirm: `goose schedule list | grep -c "melody-"` → 7 (0 today)
 
 ### docs/2026-09-23-team-memory-program-plan-v2.md — T4: companion growth (after M2 and T1; C planned at its own gate from ≥ 20 judged jobs per companion)
