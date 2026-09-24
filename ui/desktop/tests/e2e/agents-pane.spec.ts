@@ -236,14 +236,14 @@ test.describe('agents pane', { tag: '@seat' }, () => {
         .toBe(true);
       console.log(`turn 2: idle ${Date.now() - stoppedAt} ms after Stop`);
       // The run ended while that same wait was still running, so it did not finish: it was
-      // cancelled. (The delegate's shell outlives the cancel; the walk kills the wait.)
-      const aliveAtIdle = isLongWaitAlive(waitPid, longWait);
-      console.log(`turn 2: at idle pid ${waitPid} is still running: ${aliveAtIdle}`);
-      expect(aliveAtIdle).toBe(true);
-      killLongWait(waitPid, longWait);
-      console.log(
-        `turn 2: delegate row ${await pane.locator('[data-testid="agents-row"]').last().getAttribute('data-status')}`
-      );
+      // cancelled. Task 285: the delegate's whole process group is killed on cancel, and its
+      // terminal delegation update lands within the same window, not later on a `load`.
+      await expect
+        .poll(() => isLongWaitAlive(waitPid, longWait), { timeout: 10000 })
+        .toBe(false);
+      console.log(`turn 2: pid ${waitPid} gone within 10s of Stop`);
+      const delegateRow = pane.locator('[data-testid="agents-row"]').last();
+      await expect(delegateRow).toHaveAttribute('data-status', 'failed', { timeout: 10000 });
       expect(await transcriptText()).not.toMatch(/LATE-BYE/);
       await expect(turnFailure).toHaveCount(0);
       // What the server kept, read back through a fresh load: no run left on the session and
