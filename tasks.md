@@ -621,13 +621,7 @@ T0 done 2026-09-23: 202 (`~/Melody` committed, `83f5f23`); 203 (health check + l
 
 ### docs/2026-09-23-team-memory-program-plan-v2.md — T1: outcomes the scorecard can trust (drafted 2026-09-23; beside M1a, shares P1's ledger work)
 
-Order: 264 → 265 ∥ 266 ∥ 267 ∥ 268 → 269. 267 edits `ChangesBar.tsx`, `WorkspaceShell.tsx`, `ledger-writer.ts` and lands alone on them. The T1 → T4 gate is 266's vitest + 268's walk.
-
-- 264. Ledger schema for jobs: new kinds `land · verdict · link · gap`, and job identity on the `worker` event
-  - status: doing · agent: session's worker (wt/t264, 2026-09-23) · worker: medium
-  - card: as the user, I want every delegated run recorded as one job, with who ran it, under which charter, for which task and from which base, so that its outcome can be traced and rerun later (FURPS R · MoSCoW Must)
-  - context: kinds listed twice — `ui/sidecar/src/ledger.ts:13-21`, `ui/desktop/src/native/ledger.ts:7-15`; `requireEvent` 400s any other kind (`sidecar ledger.ts:56-58`); `worker` (`native/ledger.ts:42-55`) gains `turnId` (the user message holding `parentToolCallId`, `telemetry-now.ts:122-149`), `member` (`delegation.source` until M2), `charterSha` (the role file's blob sha until M2's `~/Melody/<name>/charter.md`), `taskRef` (first `task NNN` in the delegate args), `taskHash`, `baseSha` (HEAD when the row first shows running); builder `ledger-events.ts:108-134`; payloads `land {sha, paths, message}`, `verdict {workerSessionId, verdict: good|fixed|wrong, why?}`, `link {workerSessionId, by: user|melody, fromWorkerSessionId?|fromSha?}`, `gap {from, to}`; `ARCHITECTURE.md:93`'s kind list amended in the same commit
-  - confirm: `grep -c "'land'" ui/sidecar/src/ledger.ts ui/desktop/src/native/ledger.ts` → 1 each (0 today); `cd ui/sidecar && pnpm vitest run ledger -t "accepts land, verdict, link and gap"` → 1 passed; `cd ui/desktop && pnpm vitest run ledger-events -t "job identity"` → 1 passed (0 today)
+Order: 264 → 265 ∥ 266 ∥ 267 ∥ 268 → 269. 264 done 2026-09-23 (kinds `land · verdict · link · gap` in both lists; `worker` carries `turnId`, `member`, `charterSha`, `taskRef`, `taskHash`, `baseSha` — charter, hash and base stay null until their writers exist; confirm rerun: `'land'` 1 each, sidecar 1 passed, desktop 1 passed, sidecar suite 98 passed). 267 edits `ChangesBar.tsx`, `WorkspaceShell.tsx`, `ledger-writer.ts` and lands alone on them. The T1 → T4 gate is 266's vitest + 268's walk.
 
 - 265. A repeated append writes nothing: dedup by (kind, sessionId, workerSessionId, messageId)
   - status: todo · agent: — · worker: medium
