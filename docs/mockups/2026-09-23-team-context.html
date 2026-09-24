@@ -1,0 +1,707 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Team Context</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Schibsted+Grotesk:wght@500;600&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+<style>
+/* Tokens, type, radii, marks: docs/mockups/2026-09-22-melody-visual-design.html §0, §1, §17 */
+.t-light{
+  --bg-page:#ffffff; --bg-2:#f8f7f3; --bg-3:#f1efe9; --tint:#f3f8fd; --hair:#e3dfd6;
+  --t1:#1e1d1a; --t2:#5a5851; --t3:#6f6c64; --t-dis:#a8a49b;
+  --inverse:#1e1d1a; --on-inverse:#ffffff; --disc:#1e1d1a; --disc-ring:#e3dfd6;
+  --info:#44c1b8; --blue:#2277cc; --focus-edge:#0b7a72; --success:#2f8f5b; --warning:#fbbf24; --danger:#c23b3b;
+  --teal-wash:rgba(68,193,184,.10);
+  --shadow-sm:0 1px 2px rgba(0,0,0,.1),0 2px 6px rgba(0,0,0,.08);
+  --shadow-md:0 1px 2px rgba(0,0,0,.06),0 6px 18px rgba(0,0,0,.12);
+  --shadow-lg:0 10px 28px rgba(0,0,0,.16),0 0 0 .5px rgba(0,0,0,.1);
+  --canvas:#e9e6de;
+}
+.t-dark{
+  --bg-page:#1c1c1c; --bg-2:#242424; --bg-3:#2c2c2c; --tint:#262a2e; --hair:rgba(248,248,242,.06);
+  --t1:#f8f8f2; --t2:#c8c8c2; --t3:#7a7a72; --t-dis:#7a7a72;
+  --inverse:#f8f8f2; --on-inverse:#1c1c1c; --disc:#f8f8f2; --disc-ring:rgba(248,248,242,.14);
+  --info:#44c1b8; --blue:#6cb6ff; --focus-edge:#44c1b8; --success:#a6e22e; --warning:#fbbf24; --danger:#f92672;
+  --teal-wash:rgba(68,193,184,.12);
+  --shadow-sm:0 1px 2px 0 rgba(0,0,0,.5);
+  --shadow-md:0 4px 6px -1px rgba(0,0,0,.65),0 2px 4px -2px rgba(0,0,0,.5);
+  --shadow-lg:0 10px 15px -3px rgba(0,0,0,.65),0 4px 6px -4px rgba(0,0,0,.5);
+  --canvas:#121212;
+}
+:root{--ease-out:cubic-bezier(.2,.8,.2,1);--motion-fast:120ms;--motion-base:180ms;--halo-period:1600ms;
+  --r-panel:16px;--r-control:12px;--r-chip:999px;
+  --sans:"Schibsted Grotesk",-apple-system,system-ui,sans-serif;--mono:"JetBrains Mono",ui-monospace,monospace}
+*{box-sizing:border-box}
+body{margin:0;min-width:1600px;background:var(--canvas);color:var(--t1);font:500 13px/20px var(--sans);-webkit-font-smoothing:antialiased}
+button{font:inherit;color:inherit;border:0;background:none;padding:0;cursor:pointer}
+.mono{font-family:var(--mono);font-size:12px}
+.t3{color:var(--t3)} .t2{color:var(--t2)}
+@keyframes halo{0%{box-shadow:0 0 0 0 rgba(68,193,184,.55)}70%{box-shadow:0 0 0 6px rgba(68,193,184,0)}100%{box-shadow:0 0 0 0 rgba(68,193,184,0)}}
+
+.page{padding:28px 0 56px}
+.caption{width:1512px;margin:0 auto 14px;display:flex;align-items:center;gap:12px}
+.caption h1{margin:0;font-size:20px;line-height:28px;font-weight:600}
+.caption .tag{font:500 11px var(--mono);color:var(--t3);border:1px dashed var(--t-dis);border-radius:var(--r-chip);padding:1px 8px}
+.caption p{margin:0;color:var(--t3);flex:1}
+.theme{height:28px;padding:0 12px;border-radius:var(--r-chip);background:var(--bg-page);box-shadow:var(--shadow-sm);font-size:12px;color:var(--t2)}
+
+/* the window: Sessions · Chat · Work (top + bottom) — §4 */
+.win{width:1512px;height:920px;margin:0 auto;border-radius:12px;overflow:hidden;background:var(--bg-page);box-shadow:var(--shadow-lg);display:grid;grid-template-columns:280px 1fr 480px}
+.col{min-width:0;min-height:0;display:flex;flex-direction:column}
+.col+.col{border-left:1px solid var(--hair)}
+
+/* Sessions column (C3) */
+.sessions{background:var(--bg-3);padding:10px;gap:8px}
+.lights{display:flex;align-items:center;gap:7px;height:22px;padding:0 4px}
+.lights i{width:11px;height:11px;border-radius:50%}
+.lights i:nth-child(1){background:#ff5f57}.lights i:nth-child(2){background:#febc2e}.lights i:nth-child(3){background:#28c840}
+.emblem{width:28px;height:28px;border-radius:8px;background:#fff;color:#101010;box-shadow:var(--shadow-sm),0 0 0 .5px rgba(0,0,0,.08);display:grid;place-items:center;flex:none}
+.emblem svg{width:16px;height:16px;fill:currentColor}
+.emblem.sm{width:18px;height:18px;border-radius:5px}.emblem.sm svg{width:12px;height:12px}
+.emblem.md{width:32px;height:32px;border-radius:9px}.emblem.md svg{width:19px;height:19px}
+.pin{display:flex;align-items:center;gap:10px;padding:10px 12px;border-radius:var(--r-control);background:var(--bg-page);box-shadow:var(--shadow-sm),inset 0 0 0 1.5px var(--inverse)}
+.pin b{display:block;font-weight:600}
+.pin .line{display:block;font-size:11px;line-height:16px;color:var(--t3)}
+.pin .kbd{margin-left:auto;font-size:11px;color:var(--t3)}
+.friend{display:grid;grid-template-columns:18px 1fr 8px;gap:8px;align-items:center;padding:6px 10px;border-radius:var(--r-control)}
+.friend b{font-weight:600;font-size:12px;line-height:16px;display:block}
+.friend .line{font-size:11px;line-height:16px;color:var(--t3);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.nav-row{display:grid;grid-template-columns:18px 1fr auto;gap:8px;align-items:center;padding:7px 10px;border-radius:var(--r-control);background:var(--bg-page);box-shadow:var(--shadow-sm),inset 0 0 0 2px var(--info)}
+.nav-row svg{width:14px;height:14px;fill:var(--info)}
+.nav-row b{font-weight:600;font-size:12.5px}
+.nav-row .line{grid-column:2/4;font-size:11px;line-height:16px;color:var(--t3);margin-top:-2px}
+.search{display:flex;gap:6px}
+.field{flex:1;height:30px;border-radius:var(--r-control);background:var(--bg-page);display:flex;align-items:center;gap:6px;padding:0 10px;color:var(--t3);font-size:12px;box-shadow:var(--shadow-sm)}
+.field svg,.sqbtn svg{width:14px;height:14px;fill:currentColor}
+.sqbtn{width:30px;height:30px;border-radius:var(--r-control);background:var(--bg-page);box-shadow:var(--shadow-sm);display:grid;place-items:center;color:var(--t2)}
+.chips{display:flex;gap:4px;flex-wrap:wrap}
+.chip{height:24px;padding:0 9px;border-radius:var(--r-chip);display:inline-flex;align-items:center;gap:5px;font-size:12px;color:var(--t2)}
+.chip .n{color:var(--t3);font-size:11px}
+.chip.on{background:var(--inverse);color:var(--on-inverse)}
+.chip.on .n{color:inherit;opacity:.7}
+.grp{font-size:11px;line-height:16px;color:var(--t3);padding:6px 8px 0;display:flex;justify-content:space-between}
+.row{display:grid;grid-template-columns:auto 1fr auto;column-gap:8px;align-items:center;padding:7px 8px;border-radius:var(--r-control)}
+.row .title{white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.row .time{font-size:11px;color:var(--t3)}
+.row .meta{grid-column:2/4;display:flex;align-items:center;gap:6px;font-size:11px;line-height:16px;color:var(--t3)}
+.dot{width:8px;height:8px;border-radius:50%;flex:none;display:inline-block}
+.dot.running{background:var(--info);animation:halo var(--halo-period) ease-in-out infinite}
+.dot.needs{background:var(--warning)} .dot.done{background:var(--success)} .dot.failed{background:var(--danger)}
+.dot.idle{background:transparent;box-shadow:inset 0 0 0 1.5px var(--t3);opacity:.6}
+.spacer{flex:1}
+.tabs{display:grid;grid-template-columns:repeat(4,1fr);padding-top:6px;border-top:1px solid var(--hair)}
+.tabs span{display:flex;flex-direction:column;align-items:center;gap:2px;font-size:10px;color:var(--t3);padding:4px 0}
+.tabs span.on{color:var(--t1)}
+.tabs svg{width:16px;height:16px;fill:currentColor}
+
+/* Chat column — the Team Health view */
+.center{background:var(--bg-page)}
+.shead{display:flex;align-items:center;gap:10px;padding:12px 18px 10px;border-bottom:1px solid var(--hair)}
+.shead .crumb{font-size:11px;line-height:16px;color:var(--t3);display:flex;align-items:center;gap:6px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.shead h2{margin:0;font-size:15px;line-height:22px;font-weight:600}
+.seg{display:flex;background:var(--bg-3);border-radius:var(--r-chip);padding:2px}
+.seg span{white-space:nowrap;height:24px;padding:0 11px;border-radius:var(--r-chip);display:grid;place-items:center;color:var(--t3);font-size:12px}
+.seg span.on{background:var(--bg-page);color:var(--t1);box-shadow:var(--shadow-sm)}
+.btn{white-space:nowrap;height:30px;padding:0 14px;border-radius:var(--r-chip);display:inline-flex;align-items:center;gap:6px;font-weight:600;font-size:12.5px;transition:transform var(--motion-fast) var(--ease-out),box-shadow var(--motion-fast)}
+.btn.primary{background:var(--inverse);color:var(--on-inverse);box-shadow:var(--shadow-sm)}
+.btn.secondary{background:var(--bg-page);color:var(--t1);box-shadow:var(--shadow-sm),inset 0 0 0 1px var(--hair)}
+.btn:hover{transform:translateY(-1px);box-shadow:var(--shadow-md);outline:4px solid rgba(68,193,184,.35)}
+.icobtn{width:30px;height:30px;border-radius:var(--r-control);display:grid;place-items:center;color:var(--t3)}
+.icobtn svg{width:16px;height:16px;fill:currentColor}
+.icobtn:hover{background:var(--bg-3);color:var(--t1)}
+.dash{flex:1;overflow:auto;padding:16px 18px 18px;display:flex;flex-direction:column;gap:14px;background:var(--bg-2)}
+.sec-h{display:flex;align-items:baseline;justify-content:space-between;font-size:12px;line-height:16px;color:var(--t3)}
+.sec-h b{font-size:13px;color:var(--t1);font-weight:600}
+.kpis{display:grid;grid-template-columns:repeat(5,1fr);gap:10px}
+.tile{--ring:transparent;background:var(--bg-page);border-radius:var(--r-control);padding:11px 13px 12px;box-shadow:var(--shadow-sm),inset 0 0 0 3px var(--ring);transition:transform var(--motion-fast) var(--ease-out),box-shadow var(--motion-fast)}
+.tile:hover,.mcard:hover,.nitem:hover{transform:translateY(-1px);box-shadow:var(--shadow-md),inset 0 0 0 3px var(--ring);outline:4px solid color-mix(in srgb,var(--ring-h,var(--info)) 40%,transparent)}
+.tile.needs,.mcard.needs,.nitem.needs{--ring:var(--warning);--ring-h:var(--warning)}
+.mcard.running{--ring:var(--info)}
+.tile .l{font-size:11px;line-height:16px;color:var(--t3)}
+.tile .n{font-size:24px;line-height:30px;font-weight:600;font-variant-numeric:tabular-nums}
+.tile .n small{font-size:12px;color:var(--t3);font-weight:500}
+.tile .d{font-size:11px;line-height:16px;color:var(--t3)}
+.bar{height:4px;border-radius:2px;background:var(--bg-3);margin:6px 0 4px;overflow:hidden}
+.bar i{display:block;height:100%;border-radius:2px;background:var(--info)}
+.strip{background:var(--bg-page);border-radius:var(--r-control);box-shadow:var(--shadow-sm);padding:12px 14px;display:grid;grid-template-columns:1fr 1fr;gap:24px}
+.days{display:grid;grid-template-columns:repeat(7,1fr);gap:10px;align-items:end;height:54px;margin-top:8px}
+.days .c{display:flex;flex-direction:column-reverse;gap:3px}
+.days .c i{height:10px;border-radius:3px;background:var(--t2)}
+.days .c i.u{background:transparent;box-shadow:inset 0 0 0 1.5px var(--warning)}
+.dl{display:grid;grid-template-columns:repeat(7,1fr);gap:10px;margin-top:4px;font-size:10.5px;color:var(--t3);text-align:center}
+.dl .today{color:var(--t1);font-weight:600}
+.legend{display:flex;gap:12px;font-size:11px;color:var(--t3)}
+.legend span{display:inline-flex;align-items:center;gap:5px}
+.legend i{width:9px;height:9px;border-radius:3px;display:inline-block}
+.spark{display:flex;align-items:end;gap:4px;height:54px;margin-top:8px}
+.spark i{flex:1;border-radius:3px 3px 0 0;background:var(--bg-3)}
+.spark i.on{background:var(--info)}
+.team{display:grid;grid-template-columns:1fr 1fr;gap:10px}
+.mcard{--ring:transparent;background:var(--bg-page);border-radius:var(--r-control);box-shadow:var(--shadow-sm),inset 0 0 0 3px var(--ring);padding:12px 14px;display:grid;grid-template-columns:32px 1fr auto;column-gap:10px;row-gap:6px;align-items:center;transition:transform var(--motion-fast) var(--ease-out),box-shadow var(--motion-fast)}
+.mcard b{font-weight:600;font-size:13px;display:block;line-height:18px}
+.mcard .w{font-size:11px;line-height:16px;color:var(--t3)}
+.mcard .st{font-size:12px;color:var(--t2);display:flex;align-items:center;gap:6px;white-space:nowrap}
+.mcard .stats{grid-column:1/-1;display:flex;gap:16px;font-size:11px;color:var(--t3)}
+.mcard .stats b{display:inline;font-size:11px;color:var(--t1);font-weight:600;font-variant-numeric:tabular-nums}
+.mcard .learned{grid-column:1/-1;font-size:12px;line-height:18px;color:var(--t2);padding-top:6px;border-top:1px solid var(--hair)}
+.mcard .learned span{color:var(--t3)}
+
+/* Work column — two tabbed panels */
+.work{background:var(--bg-2)}
+.panel{display:flex;flex-direction:column;min-height:0}
+.panel.top{flex:0 0 404px;border-bottom:1px solid var(--hair)}
+.panel.bottom{flex:1}
+.wbar{display:flex;align-items:center;gap:2px;padding:8px 8px 0 10px;height:40px}
+.wtab{display:inline-flex;align-items:center;gap:6px;height:32px;padding:0 10px;border-radius:9px 9px 0 0;font-size:12px;color:var(--t3)}
+.wtab svg{width:14px;height:14px;fill:currentColor}
+.wtab.on{background:var(--bg-page);color:var(--t1)}
+.wtab.on svg{color:var(--info)}
+.wtab.melody.on{background:linear-gradient(var(--teal-wash),var(--teal-wash)),var(--bg-page)}
+.wtab .x{color:var(--t3);font-size:13px;margin-left:2px}
+.wbar .grow{flex:1}
+.wbar .icobtn{width:26px;height:26px}
+.pbody{flex:1;min-height:0;background:var(--bg-page);display:flex;flex-direction:column}
+.nfilters{display:flex;gap:4px;padding:10px 12px 6px}
+.nlist{flex:1;overflow:auto;padding:2px 12px 12px;display:flex;flex-direction:column;gap:8px}
+.ngrp{font-size:11px;line-height:16px;color:var(--t3);padding:4px 2px 0}
+.nitem{--ring:transparent;display:grid;grid-template-columns:28px 1fr;gap:10px;padding:10px 12px;border-radius:var(--r-control);background:var(--bg-page);box-shadow:var(--shadow-sm),inset 0 0 0 3px var(--ring);transition:transform var(--motion-fast) var(--ease-out),box-shadow var(--motion-fast)}
+.nitem .ic{width:28px;height:28px;border-radius:8px;background:var(--bg-3);display:grid;place-items:center;color:var(--t2)}
+.nitem .ic svg{width:14px;height:14px;fill:currentColor}
+.nitem b{font-weight:600;font-size:12.5px;line-height:18px;display:block}
+.nitem .why{font-size:12px;line-height:18px;color:var(--t2)}
+.nitem .src{font-size:11px;line-height:16px;color:var(--t3);margin-top:4px;display:flex;align-items:center;gap:6px}
+.nitem .acts{display:flex;gap:6px;margin-top:8px}
+.sbtn{height:26px;padding:0 11px;border-radius:var(--r-chip);font-size:12px;font-weight:600}
+.sbtn.primary{background:var(--inverse);color:var(--on-inverse)}
+.sbtn.ghost{background:var(--bg-3);color:var(--t2)}
+.nitem.together .ic{background:var(--teal-wash);color:var(--focus-edge)}
+
+/* Melody's tab — §8 */
+.mline{font-size:11px;line-height:16px;color:var(--t3);padding:10px 14px 0}
+.hist{display:flex;gap:4px;padding:8px 12px 0;flex-wrap:wrap}
+.hist .chip{background:var(--bg-2);box-shadow:var(--shadow-sm)}
+.hist .chip.on{background:var(--inverse)}
+.steps{display:flex;gap:4px;padding:10px 14px 0}
+.steps span{flex:1;font-size:10.5px;line-height:14px;color:var(--t3);display:flex;flex-direction:column;gap:4px}
+.steps span i{height:3px;border-radius:2px;background:var(--bg-3)}
+.steps span.done{color:var(--t2)} .steps span.done i{background:var(--t2)}
+.steps span.now{color:var(--t1);font-weight:600} .steps span.now i{background:var(--info)}
+.feed{flex:1;overflow:auto;padding:10px 14px 12px;display:flex;flex-direction:column;gap:10px;min-height:0}
+.msg{color:var(--t1);font-size:13px;line-height:20px}
+.msg b{font-weight:600}
+.you{align-self:flex-end;max-width:86%;background:var(--tint);padding:8px 12px;border-radius:var(--r-panel);border-bottom-right-radius:6px}
+.stepmark{font:500 10.5px/14px var(--mono);color:var(--t3);letter-spacing:.04em}
+.keep{margin-top:8px;display:grid;grid-template-columns:1fr auto;gap:8px;align-items:center;padding:9px 12px;border-radius:var(--r-control);background:var(--bg-page);box-shadow:var(--shadow-sm),inset 0 0 0 1px var(--hair)}
+.keep .w{font-size:11px;line-height:16px;color:var(--t3)}
+.keep.kept{opacity:.55}.keep.kept .q{text-decoration:line-through}
+.src-tag{font:500 10px/14px var(--mono);padding:1px 6px;border-radius:var(--r-chip);background:var(--bg-3);color:var(--t2);margin-right:4px}
+.qchips{display:flex;gap:6px;margin-top:8px}
+.qchips button{height:26px;padding:0 12px;border-radius:var(--r-chip);background:var(--bg-page);box-shadow:var(--shadow-sm),inset 0 0 0 1px var(--hair);font-size:12px;color:var(--t1)}
+.qchips button:hover{transform:translateY(-1px);box-shadow:var(--shadow-md);outline:4px solid rgba(68,193,184,.35)}
+.composer{margin:0 12px 12px;background:var(--bg-page);border-radius:var(--r-panel);box-shadow:var(--shadow-md);padding:12px 12px 10px 16px}
+.composer .ph{color:var(--t3);font-size:15px;line-height:22px}
+.composer .rowc{display:flex;align-items:center;justify-content:space-between;margin-top:8px}
+.attach{color:var(--t3)} .attach svg,.disc svg{width:16px;height:16px;fill:currentColor}
+.disc{width:34px;height:34px;border-radius:50%;display:grid;place-items:center;color:var(--t3);background:var(--bg-page);box-shadow:var(--shadow-sm),inset 0 0 0 2px var(--disc-ring)}
+
+.notes{width:1512px;margin:22px auto 0;display:grid;grid-template-columns:repeat(3,1fr);gap:14px}
+.note{background:var(--bg-page);border-radius:var(--r-panel);padding:14px 16px;box-shadow:var(--shadow-sm);color:var(--t2)}
+.note b{color:var(--t1);font-weight:600}
+.note ul{margin:6px 0 0;padding-left:18px}.note li{margin:3px 0}
+
+/* ---- Melody's home: Sessions · Melody's work (1 or 2 tiers) · Melody chat ---- */
+.win.home{grid-template-columns:280px 1fr 480px}
+.pin.home{box-shadow:var(--shadow-sm),inset 0 0 0 2px var(--info)}
+.mid{background:var(--bg-2)}
+.mid .panel.top{flex:0 0 492px;border-bottom:1px solid var(--hair)}
+.mid .panel.bottom{flex:1}
+.wtab .cnt{font-size:10.5px;color:var(--t3);font-variant-numeric:tabular-nums}
+.wtab .dot{width:6px;height:6px}
+.hbody[hidden]{display:none!important}
+.hbody{flex:1;min-height:0;overflow:auto;background:var(--bg-page);padding:12px 14px;display:flex;flex-direction:column;gap:10px}
+.hbody .kpis .tile{padding:9px 11px 10px}
+.hbody .kpis .tile .n{font-size:21px;line-height:26px}
+.team4{display:grid;grid-template-columns:repeat(4,1fr);gap:8px}
+.team4 .mcard{grid-template-columns:28px 1fr;padding:10px 12px;row-gap:4px}
+.team4 .mcard .emblem{width:28px;height:28px}
+.team4 .mcard .st{grid-column:1/-1;font-size:11px}
+.team4 .mcard .stats{gap:10px}
+.two{display:grid;grid-template-columns:1.2fr 1fr;gap:10px}
+.box{background:var(--bg-page);border-radius:var(--r-control);box-shadow:var(--shadow-sm);padding:10px 12px}
+.lrow{display:grid;grid-template-columns:8px 1fr auto;gap:8px;align-items:center;padding:6px 0;border-top:1px solid var(--hair);font-size:12px}
+.lrow:first-of-type{border-top:0}
+.lrow .w{font-size:11px;color:var(--t3)}
+/* routines */
+.rtable{width:100%;border-collapse:collapse;font-size:12px}
+.rtable th{font-weight:500;color:var(--t3);font-size:11px;text-align:left;padding:6px 8px;border-bottom:1px solid var(--hair)}
+.rtable td{padding:8px;border-bottom:1px solid var(--hair);vertical-align:top}
+.rtable td b{font-weight:600;display:block;font-size:12.5px}
+.rtable td .w{font-size:11px;color:var(--t3)}
+.sw{width:30px;height:18px;border-radius:9px;background:var(--bg-3);box-shadow:inset 0 0 0 1px var(--hair);position:relative;display:inline-block}
+.sw::after{content:"";position:absolute;top:2px;left:2px;width:14px;height:14px;border-radius:50%;background:var(--bg-page);box-shadow:var(--shadow-sm)}
+.sw.on{background:var(--info)}
+.sw.on::after{left:14px}
+.res{display:inline-flex;align-items:center;gap:5px;white-space:nowrap}
+.addr{display:flex;gap:8px;padding:10px 14px;border-top:1px solid var(--hair);background:var(--bg-page)}
+/* Melody chat, right */
+.mchat{background:var(--bg-2)}
+.mhead{display:flex;align-items:center;gap:10px;padding:12px 14px;border-bottom:1px solid var(--hair);background:linear-gradient(var(--teal-wash),var(--teal-wash)),var(--bg-page)}
+.mhead b{font-size:15px;line-height:22px;font-weight:600;display:block}
+.mhead .line{font-size:11px;line-height:16px;color:var(--t3)}
+.mchat .pbody{background:var(--bg-page)}
+.scard{--ring:transparent;display:grid;grid-template-columns:1fr auto;column-gap:10px;align-items:center;box-shadow:var(--shadow-sm),inset 0 0 0 3px var(--ring);margin-top:8px;padding:9px 12px;border-radius:var(--r-control);background:var(--bg-page)}
+.scard.needs{--ring:var(--warning)} .scard.done{--ring:var(--success)} .scard.running{--ring:var(--info)}
+.scard b{font-weight:600;font-size:12px;display:block}
+.scard .w{font-size:11px;line-height:16px;color:var(--t3)}
+.scard .go{color:var(--t3)}
+.origin{font-size:11px;line-height:16px;color:var(--t3);text-align:center;margin:2px 0}
+.nb{flex-direction:row;padding:0;gap:0}
+.nbtree{width:200px;flex:none;border-right:1px solid var(--hair);padding:10px 8px;font-size:12px;overflow:auto}
+.nbh{font-weight:600;padding:2px 6px 8px}
+.nbtree .f,.nbtree .fd{display:flex;align-items:center;gap:6px;padding:4px 6px;border-radius:8px;white-space:nowrap}
+.nbtree .fd{color:var(--t2);margin-top:4px}
+.nbtree .in{padding-left:18px}
+.nbtree .f.on{background:var(--bg-3);box-shadow:inset 0 0 0 1.5px var(--info);font-weight:600}
+.nbtree .lock,.nbtree .cap{margin-left:auto;font-size:10.5px;color:var(--t3)}
+.nbtree .dot{width:6px;height:6px;margin-left:auto}
+.nbread{flex:1;min-width:0;padding:10px 14px;overflow:auto}
+.nbbar{display:flex;align-items:center;gap:8px;margin-bottom:6px}
+.mh{font-size:11px;color:var(--t3);margin:10px 0 2px}
+.ml{padding:5px 0;border-top:1px solid var(--hair);font-size:12.5px;display:flex;align-items:center;gap:6px;flex-wrap:wrap}
+.ml a{color:var(--t1);text-decoration:underline;text-decoration-color:var(--hair);text-underline-offset:3px}
+.ml .t3{font-size:11px;margin-left:auto}
+.ml.stale{box-shadow:inset 3px 0 0 var(--warning);padding-left:8px}
+.wtab{cursor:pointer}
+.lc{width:1512px;margin:22px auto 0;display:grid;grid-template-columns:repeat(5,1fr);gap:14px}
+
+
+/* ---- Team Context: a rich editor for everyone's memory ---- */
+.mid .panel.full{flex:1}
+.nbwrap{flex:1;min-height:0;display:grid;grid-template-columns:212px 1fr;background:var(--bg-page)}
+.tree{border-right:1px solid var(--hair);padding:10px 8px;overflow:auto;font-size:12px;background:var(--bg-2)}
+.tree .who{display:flex;align-items:center;gap:8px;padding:8px 6px 4px;font-weight:600;font-size:12px}
+.tree .who .emblem{width:18px;height:18px;border-radius:5px}.tree .who .emblem svg{width:12px;height:12px}
+.tree .who .n{margin-left:auto;font-weight:500;font-size:10.5px;color:var(--t3)}
+.tree .f{display:flex;align-items:center;gap:6px;padding:4px 6px 4px 32px;border-radius:8px;white-space:nowrap;color:var(--t2)}
+.tree .f .m{margin-left:auto;font-size:10.5px;color:var(--t3)}
+.tree .f.on{background:var(--bg-page);color:var(--t1);font-weight:600;box-shadow:var(--shadow-sm),inset 0 0 0 1.5px var(--info)}
+.tree .f .dot{width:6px;height:6px;margin-left:auto}
+.tree .newm{margin:10px 6px 0;padding:6px 8px;border-radius:8px;color:var(--t3);font-size:11.5px;box-shadow:inset 0 0 0 1px var(--hair)}
+.ed{display:flex;flex-direction:column;min-width:0;min-height:0}
+.edtop{display:flex;align-items:center;gap:10px;padding:8px 14px;border-bottom:1px solid var(--hair)}
+.crumbs{font-size:12px;color:var(--t3);display:flex;align-items:center;gap:6px;white-space:nowrap}
+.crumbs b{color:var(--t1);font-weight:600}
+.pres{display:flex;align-items:center;margin-left:auto}
+.pres .p{width:24px;height:24px;border-radius:7px;display:grid;place-items:center;margin-left:-4px;box-shadow:0 0 0 2px var(--bg-page)}
+.pres .p.you{background:var(--inverse);color:var(--on-inverse);font-size:10px;font-weight:600}
+.pres .p.mel{background:#fff;color:#101010;box-shadow:0 0 0 2px var(--info)}
+.pres .p.tempo{background:#fff;color:#101010;opacity:.7}
+.pres .p svg{width:14px;height:14px;fill:currentColor}
+.mode{display:flex;background:var(--bg-3);border-radius:var(--r-chip);padding:2px}
+.mode span{height:24px;padding:0 10px;border-radius:var(--r-chip);display:grid;place-items:center;font-size:11.5px;color:var(--t3);white-space:nowrap}
+.mode span.on{background:var(--bg-page);color:var(--t1);box-shadow:var(--shadow-sm)}
+.tools{display:flex;align-items:center;gap:2px;padding:6px 12px;border-bottom:1px solid var(--hair)}
+.tools span{min-width:28px;height:28px;padding:0 7px;border-radius:8px;display:grid;place-items:center;color:var(--t2);font-size:12px;font-weight:600}
+.tools span:hover{background:var(--bg-3);color:var(--t1)}
+.tools .sep{width:1px;min-width:1px;height:18px;padding:0;background:var(--hair);margin:0 6px}
+.tools .tg{font:500 10.5px var(--mono);padding:0 8px;background:var(--bg-3);border-radius:var(--r-chip);height:22px}
+.canvas{flex:1;min-height:0;overflow:auto;display:grid;grid-template-columns:1fr 216px}
+.doc{padding:18px 26px 40px 34px;max-width:620px;font-size:14px;line-height:23px;color:var(--t1)}
+.doc h1{font-size:20px;line-height:28px;font-weight:600;margin:0 0 2px}
+.doc .sub{font-size:12px;color:var(--t3);margin-bottom:14px}
+.doc h2{font-size:13px;line-height:20px;font-weight:600;color:var(--t2);margin:18px 0 4px;text-transform:none}
+.li{position:relative;display:flex;align-items:baseline;gap:8px;padding:3px 6px 3px 18px;border-radius:8px;margin-left:-6px}
+.li::before{content:"";position:absolute;left:6px;top:13px;width:5px;height:5px;border-radius:50%;background:var(--t3)}
+.li:hover{background:var(--bg-2)}
+.tagc{font:500 10.5px/16px var(--mono);padding:1px 7px;border-radius:var(--r-chip);background:var(--bg-3);color:var(--t2);white-space:nowrap;flex:none}
+.date{font-size:11px;color:var(--t3);white-space:nowrap;margin-left:auto;flex:none}
+.pill{font-size:11px;line-height:16px;padding:1px 8px;border-radius:var(--r-chip);box-shadow:inset 0 0 0 1px var(--hair);color:var(--t2);white-space:nowrap}
+.pill.ok{box-shadow:inset 0 0 0 1px color-mix(in srgb,var(--success) 45%,transparent)}
+.lnk{text-decoration:underline;text-decoration-color:var(--t-dis);text-underline-offset:3px}
+.li.stale{box-shadow:inset 3px 0 0 var(--warning);background:color-mix(in srgb,var(--warning) 7%,transparent)}
+.ins{background:color-mix(in srgb,var(--success) 14%,transparent);text-decoration:underline;text-decoration-color:var(--success);text-underline-offset:3px;border-radius:3px;padding:0 2px}
+.del{text-decoration:line-through;text-decoration-color:var(--danger);color:var(--t3)}
+.caret{display:inline-block;width:2px;height:18px;background:var(--info);vertical-align:-3px;position:relative;margin:0 1px}
+.caret i{position:absolute;bottom:17px;left:-1px;background:var(--info);color:#10302d;font:600 10px/14px var(--sans);font-style:normal;padding:0 5px;border-radius:4px 4px 4px 0;white-space:nowrap}
+.caret.you{background:var(--inverse)}
+.typing-line{padding:3px 6px 3px 18px;position:relative;margin-left:-6px}
+.typing-line::before{content:"";position:absolute;left:6px;top:13px;width:5px;height:5px;border-radius:50%;background:var(--t3)}
+.slash{position:relative;margin:4px 0 0 18px;width:280px;background:var(--bg-page);border-radius:var(--r-control);box-shadow:var(--shadow-lg);padding:6px;font-size:12.5px;z-index:2}
+.slash .it{display:flex;align-items:center;gap:8px;padding:6px 8px;border-radius:8px}
+.slash .it.on{background:var(--bg-3)}
+.slash .it .k{margin-left:auto;font-size:11px;color:var(--t3)}
+.slash .hd{font-size:10.5px;color:var(--t3);padding:4px 8px 2px}
+.margin{padding:18px 12px 20px 0;display:flex;flex-direction:column;gap:10px}
+.mc{background:var(--bg-page);border-radius:var(--r-control);box-shadow:var(--shadow-sm),inset 0 0 0 1px var(--hair);padding:9px 11px;font-size:12px;line-height:18px}
+.mc .h{display:flex;align-items:center;gap:6px;font-size:11px;color:var(--t3);margin-bottom:3px}
+.mc .h b{color:var(--t1);font-weight:600;font-size:11.5px}
+.mc .h .emblem{width:16px;height:16px;border-radius:4.5px}.mc .h .emblem svg{width:11px;height:11px}
+.mc .a{display:flex;gap:6px;margin-top:7px}
+.mc.sug{box-shadow:var(--shadow-sm),inset 3px 0 0 var(--info)}
+.mc.stl{box-shadow:var(--shadow-sm),inset 3px 0 0 var(--warning)}
+.edfoot{display:flex;align-items:center;gap:14px;padding:7px 14px;border-top:1px solid var(--hair);font-size:11px;color:var(--t3);background:var(--bg-2)}
+.edfoot .bar{width:90px;margin:0}
+.edfoot .grow{flex:1}
+
+/* this view gives the editor more room: Sessions 260 · Team Context · chat 400 */
+.win.home{grid-template-columns:260px 1fr 400px}
+.nbwrap{grid-template-columns:176px 1fr}
+.canvas{grid-template-columns:minmax(0,1fr) 210px}
+.doc{padding:16px 18px 40px 26px;max-width:none}
+.li{display:grid;grid-template-columns:minmax(0,1fr) auto auto;gap:8px;align-items:baseline}
+.li .date,.li .pill,.li .tagc{justify-self:end}
+.tools{flex-wrap:nowrap;overflow:hidden}
+.mc{min-width:0}
+
+/* ---- aligned to the master guide (2026-09-22-melody-visual-design.html §2 buttons, §4 window, §6 pin, §8 Melody) ---- */
+.win{display:flex!important;flex-direction:column;background:var(--canvas)}
+.titlebar{height:32px;flex:none;display:flex;align-items:center;gap:8px;padding:0 14px;color:var(--t3)}
+.titlebar i{width:12px;height:12px;border-radius:50%;display:inline-block}
+.titlebar svg{width:15px;height:15px;fill:currentColor;margin-left:10px}
+.cols{flex:1;min-height:0;display:grid;grid-template-columns:280px 1fr 480px}
+.cols>.col+.col{border-left:1px solid var(--hair)}
+.lights{display:none!important}
+/* §6 companions */
+.friend{grid-template-columns:20px 1fr 8px;gap:10px;padding:4px 10px;min-height:48px}
+.friend .emblem.sm{width:20px;height:20px;border-radius:6px}.friend .emblem.sm svg{width:13px;height:13px}
+.friend b{font-size:13px;line-height:17px}
+.friend .line{font-size:11px;line-height:14px}
+.pin.home{box-shadow:var(--shadow-sm),inset 0 0 0 1.5px var(--inverse)}
+.row .stw{color:var(--t2)}
+/* §2 buttons: rounded rectangles, weight 500 */
+.btn,.sbtn,.pill{font-weight:500!important;border-radius:12px!important;letter-spacing:0}
+.btn{height:32px!important;padding:0 14px!important;font-size:13px!important}
+.btn.primary,.sbtn.primary,.pill.yes{background:var(--inverse)!important;color:var(--on-inverse)!important;box-shadow:var(--shadow-sm)!important}
+.btn.secondary{background:var(--bg-page)!important;color:var(--t1)!important;box-shadow:var(--shadow-sm)!important}
+.sbtn,.pill{height:26px!important;padding:0 10px!important;font-size:12px!important;border-radius:9px!important}
+.sbtn.ghost,.pill.no{background:var(--bg-page)!important;color:var(--t1)!important;box-shadow:var(--shadow-sm)!important}
+.qchips button{border-radius:9px!important;box-shadow:var(--shadow-sm)!important;font-weight:500}
+.btn:hover,.sbtn:hover,.qchips button:hover{transform:translateY(-1px);box-shadow:var(--shadow-md)!important;outline:4px solid rgba(68,193,184,.35)}
+/* §4 Work tab bars */
+.wbar{height:38px!important;padding:6px 8px 0!important;background:var(--bg-2);gap:2px!important;align-items:flex-end!important}
+.wtab{height:32px!important;padding:0 12px!important;border-radius:10px 10px 0 0!important;font-size:13px!important;color:var(--t2)!important;gap:7px!important}
+.wtab.on{background:var(--bg-page)!important;color:var(--t1)!important}
+.wtab svg{width:14px!important;height:14px!important}
+.wtab .x{width:24px;height:24px;border-radius:6px;display:grid;place-items:center;margin:0 -6px 0 0!important;color:var(--t2)}
+.wtab .x svg{width:12px!important;height:12px!important;fill:currentColor}
+.wbar .icobtn{width:26px!important;height:26px!important;border-radius:8px!important;color:var(--t2)!important;margin-bottom:3px}
+.wbar .icobtn svg{width:14px;height:14px}
+.wtab.melody.on{background:var(--bg-page)!important}
+/* §8 Melody: her body on a faint teal tint, flat replies, your messages on the tint */
+.mchat .pbody,.panel.bottom .pbody.melody-body{background:color-mix(in srgb,var(--info) 6%,var(--bg-2))!important}
+.mline{padding:10px 16px 2px!important}
+.feed{padding:6px 14px 12px!important}
+.you{border-radius:16px 16px 6px 16px!important}
+.composer{margin:0 12px 12px!important}
+.hist .chip{background:transparent!important;box-shadow:none!important}
+.hist .chip.on{background:var(--inverse)!important;color:var(--on-inverse)!important}
+.shead .crumb{font-size:12px!important;line-height:20px!important}
+.mhead{display:none!important}
+.cols{grid-template-columns:280px 1fr 360px}
+
+/* Proposal (amends master §4): no separate titlebar — the traffic lights sit at the top of Sessions and every
+   panel's tab bar rises into that row, so the 32 px strip becomes working space. The row stays the window's drag area. */
+.titlebar{display:none!important}
+.lights{display:flex!important;align-items:center;gap:8px;height:28px;padding:0 4px;margin-bottom:0}
+.lights i{width:12px;height:12px}
+.lights svg{width:15px;height:15px;fill:var(--t3);margin-left:8px}
+.lights .drag{flex:1}
+.sessions{padding-top:5px!important}
+
+body.old-titlebar .titlebar{display:flex!important}
+body.old-titlebar .lights{display:none!important}
+body.old-titlebar .sessions{padding-top:10px!important}
+.theme+.theme{margin-left:6px}
+.theme.on{background:var(--inverse);color:var(--on-inverse)}
+
+/* Folded Sessions: the 56 px strip (master §5, §7 "Folded: the strip, 56 px") */
+.strip{display:none;position:relative;width:56px;background:var(--bg-3);padding:5px 0 10px;flex-direction:column;align-items:center;gap:10px;min-height:0}
+body.folded .sessions{display:none!important}
+body.folded .strip{display:flex}
+body.folded .cols{grid-template-columns:56px 1fr 360px!important}
+.strip .slights{position:absolute;top:5px;left:0;height:28px;display:flex;align-items:center;gap:8px;padding:0 4px 0 10px;z-index:3}
+.strip .slights i{width:12px;height:12px;border-radius:50%;display:inline-block}
+.strip .gap{height:28px;flex:none}
+body.folded .mid .panel:first-child .wbar,body.folded .center .shead{padding-left:64px!important}
+.strip .s{width:32px;height:32px;border-radius:var(--r-control);display:grid;place-items:center;background:var(--bg-page);box-shadow:var(--shadow-sm);position:relative;font-size:11px;color:var(--t2);font-weight:600;flex:none}
+.strip .s .dot{position:absolute;left:-2px;top:-2px;box-shadow:0 0 0 2px var(--bg-3)}
+.strip .s.on{box-shadow:var(--shadow-sm),inset 0 0 0 1px var(--focus-edge),inset 0 0 0 3px var(--info)}
+.strip .emblem{width:32px;height:32px;border-radius:9px;position:relative}
+.strip .emblem svg{width:18px;height:18px}
+.strip .emblem .dot{position:absolute;left:-2px;top:-2px;box-shadow:0 0 0 2px var(--bg-3)}
+.strip .emblem.open{box-shadow:var(--shadow-sm),inset 0 0 0 1.5px var(--inverse)}
+.strip .sb{width:32px;height:32px;border-radius:9px;display:grid;place-items:center;color:var(--t2);flex:none}
+.strip .sb svg{width:16px;height:16px;fill:currentColor}
+.strip .sb:hover{background:var(--bg-page);color:var(--t1)}
+.strip .sb.on{color:var(--info)}
+.strip .sdiv{width:28px;height:1px;background:var(--hair);flex:none}
+.strip .grow{flex:1}
+.lights svg,.strip .sb{cursor:pointer}
+
+/* Folded: the top row reads as one titlebar — the strip's top matches the tab bar and the hairline starts below it,
+   so the traffic lights don't sit on a seam */
+body.folded .strip{background:linear-gradient(var(--bg-2) 0 38px,var(--bg-3) 38px)}
+body.folded .cols>.col.strip+.col{border-left:0;position:relative}
+body.folded .cols>.col.strip+.col::before{content:"";position:absolute;left:0;top:38px;bottom:0;width:1px;background:var(--hair);z-index:1}
+
+/* Folded strip wide enough to hold the traffic lights (72 px): nothing straddles the edge */
+body.folded .strip{width:72px}
+body.folded .cols{grid-template-columns:72px 1fr 360px!important}
+.strip .slights{left:0;right:0;justify-content:center;padding:0}
+body.folded .mid .panel:first-child .wbar,body.folded .center .shead{padding-left:32px!important}
+
+/* Folded: the strip is the Sessions column in miniature — its own ground, square corners, and the full-height
+   hairline back between it and the next panel (the lights now sit wholly inside the strip) */
+body.folded .strip{background:var(--bg-3)!important;border-radius:0!important;border-left:0!important}
+body.folded .cols>.col.strip+.col{border-left:1px solid var(--hair)!important}
+body.folded .cols>.col.strip+.col::before{display:none!important}
+
+/* tabs never wrap; a full bar clips at its end like the master's tab scroller */
+.wtab{white-space:nowrap;flex:none}
+.wbar{overflow:hidden}
+</style>
+</head>
+<body class="t-light">
+<svg width="0" height="0" style="position:absolute" aria-hidden="true">
+  <symbol id="takes" viewBox="0 0 24 24"><rect x="8.7" y="2.5" width="6.6" height="19" rx="2.4"/><rect x="2" y="7.5" width="4.6" height="9" rx="1.7" opacity=".6"/><rect x="17.4" y="7.5" width="4.6" height="9" rx="1.7" opacity=".6"/></symbol>
+  <symbol id="m-harmony" viewBox="0 0 24 24"><rect x="5.2" y="2.5" width="6" height="14.5" rx="2.3"/><rect x="12.8" y="7" width="6" height="14.5" rx="2.3"/></symbol>
+  <symbol id="m-tempo" viewBox="0 0 24 24"><rect x="2.6" y="10.5" width="5.2" height="11" rx="1.9" opacity=".55"/><rect x="9.4" y="6.5" width="5.2" height="11" rx="1.9" opacity=".78"/><rect x="16.2" y="2.5" width="5.2" height="11" rx="1.9"/></symbol>
+  <symbol id="m-chord" viewBox="0 0 24 24"><rect x="4.4" y="2.5" width="6.6" height="19" rx="2.4"/><rect x="13.4" y="4.5" width="6.2" height="6.4" rx="2" opacity=".6"/><rect x="13.4" y="13.1" width="6.2" height="6.4" rx="2" opacity=".6"/></symbol>
+  <!-- solid glyphs, Heroicons 16 solid style -->
+  <symbol id="i-pulse" viewBox="0 0 16 16"><path d="M5.6 2.4a.75.75 0 0 1 1.4.1l1.7 6.3 1-2.3a.75.75 0 0 1 .7-.5H14a.75.75 0 0 1 0 1.5h-3.1l-1.6 3.8a.75.75 0 0 1-1.4-.1L6.2 5 5.2 7.5a.75.75 0 0 1-.7.5H2a.75.75 0 0 1 0-1.5h2L5.6 2.4Z"/></symbol>
+  <symbol id="i-search" viewBox="0 0 16 16"><path fill-rule="evenodd" d="M9.97 11.03a5 5 0 1 1 1.06-1.06l2.75 2.75a.75.75 0 1 1-1.06 1.06l-2.75-2.75ZM10.5 7a3.5 3.5 0 1 1-7 0 3.5 3.5 0 0 1 7 0Z"/></symbol>
+  <symbol id="i-plus" viewBox="0 0 16 16"><path d="M8.75 3.75a.75.75 0 0 0-1.5 0v3.5h-3.5a.75.75 0 0 0 0 1.5h3.5v3.5a.75.75 0 0 0 1.5 0v-3.5h3.5a.75.75 0 0 0 0-1.5h-3.5v-3.5Z"/></symbol>
+  <symbol id="i-dots" viewBox="0 0 16 16"><circle cx="3.5" cy="8" r="1.5"/><circle cx="8" cy="8" r="1.5"/><circle cx="12.5" cy="8" r="1.5"/></symbol>
+  <symbol id="i-panel" viewBox="0 0 16 16"><path fill-rule="evenodd" d="M2 4a2 2 0 0 1 2-2h8a2 2 0 0 1 2 2v8a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V4Zm7.5-.5V12.5H12a.5.5 0 0 0 .5-.5V4a.5.5 0 0 0-.5-.5H9.5Z"/></symbol>
+  <symbol id="i-chat" viewBox="0 0 16 16"><path d="M1 8.74c0 .98.7 1.8 1.66 1.97l.34.06V13a.75.75 0 0 0 1.28.53L6.9 10.9H12a2 2 0 0 0 2-2V4a2 2 0 0 0-2-2H3a2 2 0 0 0-2 2v4.74Z"/></symbol>
+  <symbol id="i-book" viewBox="0 0 16 16"><path d="M7.25 3.69A6.97 6.97 0 0 0 3 2.25c-.53 0-1.04.06-1.54.17a.75.75 0 0 0-.46.73v8.6c0 .5.46.86.95.75A5.5 5.5 0 0 1 7.25 13.4V3.69Zm1.5 9.71a5.5 5.5 0 0 1 5.3-.9c.49.11.95-.25.95-.75v-8.6a.75.75 0 0 0-.46-.73 6.97 6.97 0 0 0-5.79 1.27V13.4Z"/></symbol>
+  <symbol id="i-bolt" viewBox="0 0 16 16"><path d="M9.58 1.08a.75.75 0 0 1 .39.83L9.1 6.25h3.65a.75.75 0 0 1 .56 1.25l-6 6.75a.75.75 0 0 1-1.3-.66l.87-4.34H3.25a.75.75 0 0 1-.56-1.25l6-6.75a.75.75 0 0 1 .89-.17Z"/></symbol>
+  <symbol id="i-cog" viewBox="0 0 16 16"><path fill-rule="evenodd" d="M6.46 1.58a1.5 1.5 0 0 1 3.08 0l.1.5a1.5 1.5 0 0 0 2.08 1.09l.46-.22a1.5 1.5 0 0 1 1.54 2.67l-.39.32a1.5 1.5 0 0 0 0 2.32l.39.32a1.5 1.5 0 0 1-1.54 2.67l-.46-.22a1.5 1.5 0 0 0-2.08 1.09l-.1.5a1.5 1.5 0 0 1-3.08 0l-.1-.5a1.5 1.5 0 0 0-2.08-1.09l-.46.22a1.5 1.5 0 0 1-1.54-2.67l.39-.32a1.5 1.5 0 0 0 0-2.32l-.39-.32a1.5 1.5 0 0 1 1.54-2.67l.46.22a1.5 1.5 0 0 0 2.08-1.09l.1-.5ZM8 10a2 2 0 1 0 0-4 2 2 0 0 0 0 4Z"/></symbol>
+  <symbol id="i-bell" viewBox="0 0 16 16"><path d="M8 1a4.5 4.5 0 0 0-4.5 4.5c0 1.85-.43 3.2-1.07 4.13a.75.75 0 0 0 .62 1.17h9.9a.75.75 0 0 0 .62-1.17c-.64-.93-1.07-2.28-1.07-4.13A4.5 4.5 0 0 0 8 1Zm-1.75 11.25a1.75 1.75 0 0 0 3.5 0h-3.5Z"/></symbol>
+  <symbol id="i-pencil" viewBox="0 0 16 16"><path d="M13.49 3.95a1.75 1.75 0 0 0-2.47-2.47L3.2 9.3a2 2 0 0 0-.5.84l-.7 2.46a.5.5 0 0 0 .62.62l2.46-.7a2 2 0 0 0 .84-.5l7.57-8.07Z"/></symbol>
+  <symbol id="i-alert" viewBox="0 0 16 16"><path fill-rule="evenodd" d="M15 8A7 7 0 1 1 1 8a7 7 0 0 1 14 0ZM8 4a.75.75 0 0 1 .75.75v3.5a.75.75 0 0 1-1.5 0v-3.5A.75.75 0 0 1 8 4Zm0 8a1 1 0 1 0 0-2 1 1 0 0 0 0 2Z"/></symbol>
+  <symbol id="i-up" viewBox="0 0 16 16"><path d="M8 14a.75.75 0 0 1-.75-.75V4.56L4.28 7.53a.75.75 0 0 1-1.06-1.06l4.25-4.25a.75.75 0 0 1 1.06 0l4.25 4.25a.75.75 0 0 1-1.06 1.06L8.75 4.56v8.69A.75.75 0 0 1 8 14Z"/></symbol>
+  <symbol id="i-clock" viewBox="0 0 16 16"><path fill-rule="evenodd" d="M1 8a7 7 0 1 1 14 0A7 7 0 0 1 1 8Zm7.75-4.25a.75.75 0 0 0-1.5 0V8c0 .41.34.75.75.75h3.25a.75.75 0 0 0 0-1.5h-2.5v-3.5Z"/></symbol>
+  <symbol id="i-clip" viewBox="0 0 16 16"><path d="M11.91 3.09a2 2 0 0 0-2.83 0L4.6 7.57a3.25 3.25 0 0 0 4.6 4.6l3.49-3.5a.75.75 0 1 1 1.06 1.07l-3.5 3.49a4.75 4.75 0 0 1-6.71-6.72l4.48-4.48a3.5 3.5 0 0 1 4.95 4.95l-4.48 4.48a2.25 2.25 0 0 1-3.18-3.18l3.5-3.5a.75.75 0 0 1 1.06 1.07l-3.5 3.49a.75.75 0 0 0 1.06 1.06l4.48-4.48a2 2 0 0 0 0-2.83Z"/></symbol>
+
+<symbol id="i-repeat" viewBox="0 0 16 16"><path d="M13.84 6.05a.75.75 0 0 1-1.06.03L11.5 4.86V9.5a3 3 0 0 1-3 3H6a.75.75 0 0 1 0-1.5h2.5A1.5 1.5 0 0 0 10 9.5V4.86L8.72 6.08a.75.75 0 1 1-1.04-1.08l2.57-2.46a.75.75 0 0 1 1.04 0l2.52 2.46c.3.29.31.76.03 1.05ZM2.16 9.95a.75.75 0 0 1 1.06-.03L4.5 11.14V6.5a3 3 0 0 1 3-3H10a.75.75 0 0 1 0 1.5H7.5A1.5 1.5 0 0 0 6 6.5v4.64l1.28-1.22a.75.75 0 1 1 1.04 1.08l-2.57 2.46a.75.75 0 0 1-1.04 0L2.19 11a.75.75 0 0 1-.03-1.05Z"/></symbol>
+<symbol id="i-broom" viewBox="0 0 16 16"><path d="M11.47 1.22a.75.75 0 0 1 1.06 1.06L9.9 4.91l1.2 1.2a1.5 1.5 0 0 1 0 2.12l-.4.4-4.33-4.33.4-.4a1.5 1.5 0 0 1 2.12 0l.26.26 2.32-2.94ZM5.73 5.35l4.92 4.92-.52 3.14a.75.75 0 0 1-.74.63H3.5a.75.75 0 0 1-.53-1.28l.9-.9-.69-.69a.75.75 0 0 1 0-1.06l1.2-1.2-.92-.92 2.27-2.64Z"/></symbol>
+<symbol id="i-archive" viewBox="0 0 16 16"><path d="M2 3a1 1 0 0 1 1-1h10a1 1 0 0 1 1 1v1a1 1 0 0 1-1 1H3a1 1 0 0 1-1-1V3Z"/><path fill-rule="evenodd" d="M3 6h10v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V6Zm3 2.75A.75.75 0 0 1 6.75 8h2.5a.75.75 0 0 1 0 1.5h-2.5A.75.75 0 0 1 6 8.75Z"/></symbol>
+<symbol id="i-users" viewBox="0 0 16 16"><path d="M8 8a2.5 2.5 0 1 0 0-5 2.5 2.5 0 0 0 0 5ZM3.16 13.02C3.6 10.97 5.6 9.5 8 9.5s4.4 1.47 4.84 3.52A.8.8 0 0 1 12.05 14h-8.1a.8.8 0 0 1-.79-.98Z"/></symbol>
+<symbol id="i-chev" viewBox="0 0 16 16"><path d="M6.22 4.22a.75.75 0 0 1 1.06 0l3.25 3.25a.75.75 0 0 1 0 1.06l-3.25 3.25a.75.75 0 0 1-1.06-1.06L8.94 8 6.22 5.28a.75.75 0 0 1 0-1.06Z"/></symbol>
+<symbol id="h-bolt" viewBox="0 0 16 16"><path d="M9.58 1.077a.75.75 0 0 1 .405.82L9.165 6h4.085a.75.75 0 0 1 .567 1.241l-6.5 7.5a.75.75 0 0 1-1.302-.638L6.835 10H2.75a.75.75 0 0 1-.567-1.241l6.5-7.5a.75.75 0 0 1 .897-.182Z"/></symbol><symbol id="h-book" viewBox="0 0 16 16"><path d="M7.25 3.688a8 8 0 0 0-4.5-1.188.75.75 0 0 0-.75.75v8.5c0 .414.336.75.75.75 1.67 0 3.21.52 4.5 1.4V3.688ZM8.75 13.9a7.97 7.97 0 0 1 4.5-1.4.75.75 0 0 0 .75-.75v-8.5a.75.75 0 0 0-.75-.75 8 8 0 0 0-4.5 1.188V13.9Z"/></symbol><symbol id="h-chat" viewBox="0 0 16 16"><path d="M1 8.74c0 .983.713 1.825 1.69 1.943.764.092 1.534.164 2.31.216v2.351a.75.75 0 0 0 1.28.53l2.51-2.51c.155-.153.36-.245.577-.258a41.7 41.7 0 0 0 3.943-.4c.98-.143 1.69-.99 1.69-1.973V4.26c0-.983-.71-1.83-1.69-1.974A41.8 41.8 0 0 0 8 2c-2.1 0-4.143.154-6.31.286C.713 2.43 1 3.277 1 4.26v4.48Z"/></symbol><symbol id="h-clip" viewBox="0 0 16 16"><path d="M11.914 4.086a2 2 0 0 0-2.828 0l-5 5a2 2 0 1 0 2.828 2.828l.556-.555a.75.75 0 0 1 1.06 1.06l-.555.556a3.5 3.5 0 0 1-4.95-4.95l5-5a3.5 3.5 0 0 1 4.95 4.95l-1.972 1.972a2.125 2.125 0 0 1-3.006-3.005L9.97 4.97a.75.75 0 1 1 1.06 1.06L9.058 8.003a.625.625 0 0 0 .884.883l1.972-1.972a2 2 0 0 0 0-2.828Z"/></symbol><symbol id="h-cog" viewBox="0 0 16 16"><path fill-rule="evenodd" clip-rule="evenodd" d="M6.955 1.45A.5.5 0 0 1 7.452 1h1.096a.5.5 0 0 1 .497.45l.17 1.699c.484.12.94.312 1.356.562l1.321-1.081a.5.5 0 0 1 .67.033l.774.775a.5.5 0 0 1 .034.67l-1.08 1.32c.25.417.44.873.561 1.357l1.699.17a.5.5 0 0 1 .45.497v1.096a.5.5 0 0 1-.45.497l-1.699.17c-.12.484-.312.94-.562 1.356l1.082 1.322a.5.5 0 0 1-.034.67l-.774.774a.5.5 0 0 1-.67.033l-1.322-1.08c-.416.25-.872.44-1.356.561l-.17 1.699a.5.5 0 0 1-.497.45H7.452a.5.5 0 0 1-.497-.45l-.17-1.699a4.97 4.97 0 0 1-1.356-.562L4.108 13.37a.5.5 0 0 1-.67-.033l-.774-.775a.5.5 0 0 1-.034-.67l1.08-1.32a4.97 4.97 0 0 1-.561-1.357l-1.699-.17A.5.5 0 0 1 1 8.548V7.452a.5.5 0 0 1 .45-.497l1.699-.17c.12-.484.312-.94.562-1.356L2.629 4.107a.5.5 0 0 1 .034-.67l.774-.774a.5.5 0 0 1 .67-.033L5.43 3.71a4.97 4.97 0 0 1 1.356-.561l.17-1.699ZM6 8c0 .538.212 1.026.558 1.385l.057.057a2 2 0 0 0 2.828-2.828l-.058-.056A2 2 0 0 0 6 8Z"/></symbol><symbol id="h-pencil" viewBox="0 0 16 16"><path d="M13.488 2.513a1.75 1.75 0 0 0-2.475 0L6.75 6.774a2.75 2.75 0 0 0-.596.892l-.848 2.047a.75.75 0 0 0 .98.98l2.047-.848a2.75 2.75 0 0 0 .892-.596l4.261-4.262a1.75 1.75 0 0 0 0-2.474Z"/><path d="M4.75 3.5c-.69 0-1.25.56-1.25 1.25v6.5c0 .69.56 1.25 1.25 1.25h6.5c.69 0 1.25-.56 1.25-1.25V9A.75.75 0 0 1 14 9v2.25A2.75 2.75 0 0 1 11.25 14h-6.5A2.75 2.75 0 0 1 2 11.25v-6.5A2.75 2.75 0 0 1 4.75 2H7a.75.75 0 0 1 0 1.5H4.75Z"/></symbol><symbol id="h-up" viewBox="0 0 16 16"><path d="M8 14a.75.75 0 0 1-.75-.75V4.56L4.03 7.78a.75.75 0 0 1-1.06-1.06l4.5-4.5a.75.75 0 0 1 1.06 0l4.5 4.5a.75.75 0 0 1-1.06 1.06L8.75 4.56v8.69A.75.75 0 0 1 8 14Z"/></symbol><symbol id="h-warn" viewBox="0 0 16 16"><path fill-rule="evenodd" d="M6.701 2.25c.577-1 2.02-1 2.598 0l5.196 9a1.5 1.5 0 0 1-1.299 2.25H2.804a1.5 1.5 0 0 1-1.3-2.25l5.197-9ZM8 4a.75.75 0 0 1 .75.75v3a.75.75 0 1 1-1.5 0v-3A.75.75 0 0 1 8 4Zm0 8a1 1 0 1 0 0-2 1 1 0 0 0 0 2Z"/></symbol><symbol id="h-x" viewBox="0 0 16 16"><path d="M5.28 4.22a.75.75 0 0 0-1.06 1.06L6.94 8l-2.72 2.72a.75.75 0 1 0 1.06 1.06L8 9.06l2.72 2.72a.75.75 0 1 0 1.06-1.06L9.06 8l2.72-2.72a.75.75 0 0 0-1.06-1.06L8 6.94 5.28 4.22Z"/></symbol><symbol id="l-chevron-r" viewBox="0 0 16 16"><path fill-rule="evenodd" clip-rule="evenodd" d="M6.22 4.22a.75.75 0 0 1 1.06 0l3.25 3.25a.75.75 0 0 1 0 1.06l-3.25 3.25a.75.75 0 0 1-1.06-1.06L8.94 8 6.22 5.28a.75.75 0 0 1 0-1.06Z"/></symbol><symbol id="l-ellipsis" viewBox="0 0 16 16"><path d="M2 8a1.5 1.5 0 1 1 3 0 1.5 1.5 0 0 1-3 0ZM6.5 8a1.5 1.5 0 1 1 3 0 1.5 1.5 0 0 1-3 0ZM12.5 6.5a1.5 1.5 0 1 0 0 3 1.5 1.5 0 0 0 0-3Z"/></symbol><symbol id="l-panel-left" viewBox="0 0 16 16"><path fill-rule="evenodd" clip-rule="evenodd" d="M2 4.25A2.25 2.25 0 0 1 4.25 2h7.5A2.25 2.25 0 0 1 14 4.25v7.5A2.25 2.25 0 0 1 11.75 14h-7.5A2.25 2.25 0 0 1 2 11.75v-7.5ZM7 3.5v9h4.75a.75.75 0 0 0 .75-.75v-7.5a.75.75 0 0 0-.75-.75H7Z"/></symbol><symbol id="l-panel-right" viewBox="0 0 16 16"><path fill-rule="evenodd" clip-rule="evenodd" d="M2 4.25A2.25 2.25 0 0 1 4.25 2h7.5A2.25 2.25 0 0 1 14 4.25v7.5A2.25 2.25 0 0 1 11.75 14h-7.5A2.25 2.25 0 0 1 2 11.75v-7.5ZM9 3.5v9H4.25a.75.75 0 0 1-.75-.75v-7.5a.75.75 0 0 1 .75-.75H9Z"/></symbol><symbol id="l-plus" viewBox="0 0 16 16"><path d="M8.75 3.75a.75.75 0 0 0-1.5 0v3.5h-3.5a.75.75 0 0 0 0 1.5h3.5v3.5a.75.75 0 0 0 1.5 0v-3.5h3.5a.75.75 0 0 0 0-1.5h-3.5v-3.5Z"/></symbol><symbol id="l-search" viewBox="0 0 16 16"><path fill-rule="evenodd" clip-rule="evenodd" d="M9.965 11.026a5 5 0 1 1 1.06-1.06l2.755 2.754a.75.75 0 1 1-1.06 1.06l-2.755-2.754ZM10.5 7a3.5 3.5 0 1 1-7 0 3.5 3.5 0 0 1 7 0Z"/></symbol><symbol id="p-agents" viewBox="0 0 16 16"><circle cx="5.5" cy="5" r="2.5"/><circle cx="11.25" cy="5.5" r="2"/><path d="M1 13a4.5 4.5 0 0 1 9 0v.5a.5.5 0 0 1-.5.5h-8a.5.5 0 0 1-.5-.5V13Z"/><path d="M11 14h3.5a.5.5 0 0 0 .5-.5V13a3.5 3.5 0 0 0-5.2-3.06A5.9 5.9 0 0 1 11 13.5v.5Z"/></symbol><symbol id="p-routine" viewBox="0 0 16 16"><path fill-rule="evenodd" d="M1 8a7 7 0 1 1 14 0A7 7 0 0 1 1 8Zm7.75-4.25a.75.75 0 0 0-1.5 0V8c0 .414.336.75.75.75h3.25a.75.75 0 0 0 0-1.5h-2.5v-3.5Z"/></symbol></svg>
+
+<div class="page">
+  <div class="caption">
+    <h1>Team Context</h1><span class="tag">desktop · 1512 × 920 · sample data</span>
+    <p>A rich markdown editor for everyone's memory — Melody's and each companion's — that you and they edit together.</p>
+    <button class="theme" onclick="document.body.classList.toggle('folded')">Sessions: show / fold</button>
+    <button class="theme" id="tbToggle" onclick="document.body.classList.toggle('old-titlebar');this.textContent=document.body.classList.contains('old-titlebar')?'Before: separate titlebar':'After: tabs in the top row'">After: tabs in the top row</button>
+    <button class="theme" onclick="document.body.classList.toggle('t-dark');document.body.classList.toggle('t-light')">Light / Dark</button>
+  </div>
+
+  <div class="win home"><div class="titlebar"><i style="background:#ff5f57"></i><i style="background:#febc2e"></i><i style="background:#28c840"></i><svg><use href="#l-panel-left"/></svg></div><div class="cols">
+    <!-- 1 · Sessions -->
+    <aside class="col sessions">
+      <div class="lights"><i></i><i></i><i></i><svg onclick="document.body.classList.add('folded')"><title>Hide Sessions</title><use href="#l-panel-left"/></svg><span class="drag"></span></div>
+      <div class="pin home"><span class="emblem"><svg><use href="#takes"/></svg></span><span><b>Melody</b><span class="line">6 sessions · 1 needs you</span></span><span class="kbd">⌘J</span></div>
+      <div class="friend"><span class="emblem sm"><svg><use href="#m-harmony"/></svg></span><span><b>Harmony</b><span class="line">melody-agent2 · 3 sessions · running</span></span><span class="dot running"></span></div>
+      <div class="friend"><span class="emblem sm"><svg><use href="#m-tempo"/></svg></span><span><b>Tempo</b><span class="line">compo · 2 sessions · 1 needs you</span></span><span class="dot needs"></span></div>
+      <div class="friend"><span class="emblem sm"><svg><use href="#m-chord"/></svg></span><span><b>Chord</b><span class="line">ux_tests · idle</span></span><span class="dot idle"></span></div>
+      <div class="search"><div class="field"><svg><use href="#l-search"/></svg>Search</div><button class="sqbtn"><svg><use href="#l-plus"/></svg></button></div>
+      <div class="chips"><span class="chip on">All <span class="n">6</span></span><span class="chip">melody-agent2 <span class="n">3</span></span><span class="chip">compo <span class="n">2</span></span><span class="chip">Elsewhere <span class="n">1</span></span></div>
+      <div class="grp"><span>Today</span><span>Recent ▾</span></div>
+      <div class="row"><span class="emblem sm" style="width:16px;height:16px;border-radius:4.5px;grid-row:span 2"><svg style="width:11px;height:11px"><use href="#takes"/></svg></span><span class="title">Melody</span><span class="time">pinned</span><span class="meta">6 sessions · 1 needs you</span></div>
+      <div class="row"><span class="dot needs"></span><span class="title">Fix the compo export bug</span><span class="time">now</span><span class="meta"><span class="emblem sm" style="width:14px;height:14px;border-radius:4px"><svg style="width:10px;height:10px"><use href="#m-tempo"/></svg></span>compo</span></div>
+      <div class="row"><span class="dot running"></span><span class="title">Delegation timeout</span><span class="time">9m</span><span class="meta"><span class="emblem sm" style="width:14px;height:14px;border-radius:4px"><svg style="width:10px;height:10px"><use href="#m-harmony"/></svg></span>melody-agent2</span></div>
+      <div class="row"><span class="dot done"></span><span class="title">Export pipeline</span><span class="time">1h</span><span class="meta">compo</span></div>
+      <div class="row"><span class="dot idle"></span><span class="title">why is CI red</span><span class="time">3h</span><span class="meta">melody-agent2</span></div>
+      <div class="grp"><span>Yesterday</span><span></span></div>
+      <div class="row"><span class="dot failed"></span><span class="title">Quota reset card</span><span class="time">Mon</span><span class="meta">melody-agent2</span></div>
+      <div class="spacer"></div>
+      <div class="tabs"><span class="on"><svg><use href="#h-chat"/></svg>Chats</span><span><svg><use href="#h-book"/></svg>Library</span><span><svg><use href="#h-bolt"/></svg>Automate</span><span><svg><use href="#h-cog"/></svg>Settings</span></div>
+    </aside>
+    <nav class="col strip" aria-label="Sessions (folded)">
+      <div class="slights"><i style="background:#ff5f57"></i><i style="background:#febc2e"></i><i style="background:#28c840"></i></div>
+      <span class="gap"></span>
+      <button class="sb" title="Show Sessions" onclick="document.body.classList.remove('folded')"><svg><use href="#l-panel-left"/></svg></button>
+      <span class="emblem open" title="Melody · 6 sessions · 1 needs you"><svg><use href="#takes"/></svg></span>
+      <span class="emblem" title="Harmony · running"><svg><use href="#m-harmony"/></svg><span class="dot running"></span></span>
+      <span class="emblem" title="Tempo · needs you"><svg><use href="#m-tempo"/></svg><span class="dot needs"></span></span>
+      <span class="emblem" title="Chord · idle"><svg><use href="#m-chord"/></svg></span>
+      <span class="sdiv"></span>
+      <button class="sb" title="New chat"><svg><use href="#l-plus"/></svg></button>
+      <div class="s" title="Fix the compo export bug · Needs you">FC<span class="dot needs"></span></div>
+      <div class="s" title="Delegation timeout · Running">DT<span class="dot running"></span></div>
+      <div class="s" title="Export pipeline · Done">EP<span class="dot done"></span></div>
+      <div class="s" title="why is CI red · Idle">CI</div>
+      <div class="s" title="Quota reset card · Failed">QR<span class="dot failed"></span></div>
+      <span class="grow"></span>
+      <button class="sb on" title="Chats"><svg><use href="#h-chat"/></svg></button>
+      <button class="sb" title="Library"><svg><use href="#h-book"/></svg></button>
+      <button class="sb" title="Automate"><svg><use href="#h-bolt"/></svg></button>
+      <button class="sb" title="Settings"><svg><use href="#h-cog"/></svg></button>
+    </nav>
+
+
+
+    <!-- 2 · Melody's work: Team Context fills the column (bottom tier empty) -->
+    <section class="col mid">
+      <div class="panel full">
+        <div class="wbar">
+          <span class="wtab"><svg><use href="#i-pulse"/></svg>Team health</span>
+          <span class="wtab on"><svg><use href="#h-book"/></svg>Team Context<span class="x"><svg><use href="#h-x"/></svg></span></span>
+          <span class="wtab"><svg><use href="#i-bell"/></svg>Reminders <span class="dot needs"></span><span class="cnt">3</span></span>
+          <span class="wtab"><svg><use href="#i-broom"/></svg>Clean-up <span class="cnt">5</span></span>
+          <span class="wtab"><svg><use href="#p-routine"/></svg>Routines</span>
+          <span class="grow"></span>
+          <button class="icobtn"><svg><use href="#l-plus"/></svg></button><button class="icobtn"><svg><use href="#l-ellipsis"/></svg></button>
+        </div>
+        <div class="nbwrap">
+          <nav class="tree">
+            <div class="who"><span class="emblem" style="background:var(--inverse);color:var(--on-inverse)"><svg><use href="#h-book"/></svg></span>Memories<span class="n">shared · 38</span></div>
+            <div class="f">index</div>
+            <div class="f">projects <span class="m">14</span></div>
+            <div class="f">decisions <span class="m">9</span></div>
+            <div class="f">staging <span class="m">draft</span><span class="dot needs"></span></div>
+            <div class="f">log</div>
+            <div class="who"><span class="emblem"><svg><use href="#takes"/></svg></span>Melody<span class="n">142 / 200</span></div>
+            <div class="f">charter <span class="m">you only</span></div>
+            <div class="f">soul <span class="m">you only</span></div>
+            <div class="f">about you</div>
+            <div class="f">memory</div>
+            <div class="f">notes <span class="m">12</span></div>
+            <div class="f">journal <span class="m">31 days</span></div>
+            <div class="who"><span class="emblem"><svg><use href="#m-harmony"/></svg></span>Harmony<span class="n">31 / 200</span></div>
+            <div class="f">charter</div>
+            <div class="f">memory</div>
+            <div class="who"><span class="emblem"><svg><use href="#m-tempo"/></svg></span>Tempo<span class="n">27 / 200</span></div>
+            <div class="f">charter <span class="dot needs"></span></div>
+            <div class="f on">memory <span class="m">2 suggestions</span></div>
+            <div class="f">notes <span class="m">4</span></div>
+            <div class="who"><span class="emblem"><svg><use href="#m-chord"/></svg></span>Chord<span class="n">18 / 200</span></div>
+            <div class="f">charter</div>
+            <div class="f">memory</div>
+            <div class="newm">+ Add a companion</div>
+          </nav>
+
+          <div class="ed">
+            <div class="edtop">
+              <div class="crumbs"><span class="emblem sm" style="width:16px;height:16px;border-radius:4.5px"><svg style="width:11px;height:11px"><use href="#m-tempo"/></svg></span>Tempo <span>›</span> <b>memory</b></div>
+              <div class="pres" title="You editing · Melody suggesting · Tempo reading">
+                <span class="p you">you</span>
+                <span class="p mel"><svg><use href="#takes"/></svg></span>
+                <span class="p tempo"><svg><use href="#m-tempo"/></svg></span>
+              </div>
+              <div class="mode"><span class="on">Editing</span><span>Suggesting</span><span>Reading</span></div>
+            </div>
+            <div class="tools">
+              <span>H1</span><span>H2</span><span>B</span><span><i>I</i></span><span>•</span><span>☐</span><span>&lt;/&gt;</span>
+              <span class="sep"></span>
+              <span class="tg">stated</span><span class="tg">observed</span><span class="tg">inferred</span>
+              <span class="sep"></span>
+              <span>@</span>
+              <span style="flex:1;min-width:0"></span>
+              <span style="font-weight:500;color:var(--t3)">History</span>
+            </div>
+            <div class="canvas">
+              <div class="doc">
+                <h1>Tempo's memory</h1>
+                <div class="sub">compo · read by Tempo at the start of every job · edited by you, Melody and Tempo</div>
+
+                <h2>Standing decisions</h2>
+                <div class="li"><span>Exports keep the original filenames</span><span class="tagc">stated</span><span class="pill ok">approved by you · 09-19</span></div>
+                <div class="li"><span>Retina: scale at render, not at export</span><span class="tagc">stated</span><span class="date">09-22</span></div>
+
+                <h2>Topics</h2>
+                <div class="li"><span><span class="lnk">Export bug</span> — lives in <span class="del mono">compo/export.ts</span> <span class="ins mono">export/names.ts</span><span class="caret"><i>Melody</i></span></span><span class="tagc">observed</span><span class="date">09-23</span></div>
+                <div class="li"><span><span class="lnk">Render pipeline</span> — one canvas per frame; see the note</span><span class="tagc">observed</span><span class="date">09-20</span></div>
+
+                <h2>Facts</h2>
+                <div class="li"><span>Run <span class="mono">pnpm test:export</span> before saying done</span><span class="tagc">stated</span><span class="date">09-21</span></div>
+                <div class="li stale"><span>CI flakes on Mondays</span><span class="tagc">inferred</span><span class="pill">as of 09-01 · ask before acting</span></div>
+                <div class="typing-line">Staging for compo is <span class="mono">us-west-2</span><span class="caret you"><i style="background:var(--inverse);color:var(--on-inverse)">you</i></span> /</div>
+                <div class="slash">
+                  <div class="hd">Where it came from</div>
+                  <div class="it on"><span class="tagc">stated</span>you said it<span class="k">↵</span></div>
+                  <div class="it"><span class="tagc">observed</span>seen in a file, a run, a test</div>
+                  <div class="it"><span class="tagc">inferred</span>a guess — ask before acting</div>
+                  <div class="hd">Add</div>
+                  <div class="it">Safe until…<span class="k">a date or an event</span></div>
+                  <div class="it">Link a note, a session or a companion<span class="k">@</span></div>
+                </div>
+              </div>
+
+              <aside class="margin">
+                <div class="mc sug">
+                  <div class="h"><span class="emblem"><svg><use href="#takes"/></svg></span><b>Melody</b> suggested · 08:40</div>
+                  Replace the path: the export code moved yesterday. From this morning's check-in.
+                  <div class="a"><button class="sbtn primary">Accept</button><button class="sbtn ghost">Reject</button></div>
+                </div>
+                <div class="mc stl">
+                  <div class="h"><span class="emblem"><svg><use href="#takes"/></svg></span><b>Melody</b> · 08:41</div>
+                  No Monday flake since 09-08. Retire this, or keep it as a guess?
+                  <div class="a"><button class="sbtn ghost">Retire</button><button class="sbtn ghost">Keep</button><button class="sbtn ghost">Reply</button></div>
+                </div>
+                <div class="mc">
+                  <div class="h"><span class="emblem"><svg><use href="#m-tempo"/></svg></span><b>Tempo</b> · yesterday</div>
+                  I added the <span class="mono">pnpm test:export</span> rule after the corrected job on 09-21.
+                </div>
+                <div class="mc">
+                  <div class="h"><b>Staging is also in Harmony's memory</b></div>
+                  Harmony says <span class="mono">us-east-1</span> (08-30). Saving yours will ask to update theirs.
+                  <div class="a"><button class="sbtn ghost">Open Harmony's</button></div>
+                </div>
+              </aside>
+            </div>
+            <div class="edfoot">
+              <span>Saved · <span class="mono">a41c0e2</span> · <span class="mono">~/Melody/tempo/MEMORY.md</span></span>
+              <span class="bar"><i style="width:14%"></i></span><span>27 / 200 lines</span>
+              <span class="grow"></span>
+              <span>Tempo reads this at its next job</span>
+              <span>2 suggestions · 1 stale</span>
+            </div>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- 3 · Melody chat -->
+    <section class="col mchat">
+      <div class="wbar"><span class="wtab on melody"><span class="emblem sm" style="width:16px;height:16px;border-radius:4.5px"><svg style="width:11px;height:11px"><use href="#takes"/></svg></span>Melody<span class="x"><svg><use href="#h-x"/></svg></span></span><span class="grow"></span><button class="icobtn"><svg><use href="#l-ellipsis"/></svg></button></div><div class="mhead"><span class="emblem"><svg><use href="#takes"/></svg></span><span style="flex:1"><b>Melody</b><span class="line">editing Tempo's memory with you</span></span><button class="icobtn"><svg><use href="#l-ellipsis"/></svg></button></div>
+      <div class="pbody">
+        <div class="mline">editing Tempo's memory with you</div>
+        <div class="hist"><span class="chip on">Today</span><span class="chip">Check-in · Sep 16</span><span class="chip t3">All history ▾</span></div>
+        <div class="feed">
+          <div class="origin">Today · 08:40</div>
+          <div class="msg">I opened Tempo's memory with you. Two things from this morning's check-in are in the doc: the export path moved, and the Monday-flake note looks stale. Accept them there, or tell me here.</div>
+          <div class="msg you">accept the path. keep the flake note as a guess</div>
+          <div class="msg">Path accepted. The flake note stays, marked <b>as of 09-01 · ask before acting</b>.</div>
+          <div class="msg you">I'm adding staging for compo now</div>
+          <div class="msg">Harmony's memory says <span class="mono">us-east-1</span> for staging (Aug 30). When you save <span class="mono">us-west-2</span> as <b>stated</b>, I'll suggest the same change in Harmony's memory so they don't disagree.
+            <div class="qchips"><button>Yes, suggest it</button><button>Only Tempo's</button></div></div>
+        </div>
+        <div class="composer"><div class="ph">Ask Melody, or hand her a task…</div><div class="rowc"><span class="attach"><svg><use href="#h-clip"/></svg></span><span class="disc"><svg><use href="#h-up"/></svg></span></div></div>
+      </div>
+    </section>
+  </div>
+  </div>
+
+  <div class="lc" style="grid-template-columns:repeat(4,1fr)">
+    <div class="note"><b>One editor: shared memories + everyone's own</b>
+      <ul><li><b>Memories</b> (top of the tree) is the team's shared bundle, <span class="mono">~/Melody/memories/</span>, in OKF v0.2: one page per concept, drafts until you verify them</li><li>Below it, Melody and each companion: charter, memory, notes, journal — private to each</li><li>Plain markdown on disk; the editor renders tags, dates, trust and staleness as chips</li></ul></div>
+    <div class="note"><b>Editing together</b>
+      <ul><li><b>Editing</b>: you change the text directly. <b>Suggesting</b>: changes show as tracked insert and delete marks to accept. Agents always suggest; only you edit directly</li><li>Presence: who's in the file — you editing, Melody suggesting, Tempo reading</li><li>Comments in the margin, answered here or in her chat</li></ul></div>
+    <div class="note"><b>Memory-aware</b>
+      <ul><li><b>/</b> adds where a line came from (stated · observed · inferred), a safe-until, a link</li><li>Stale lines marked in amber; the footer counts lines against the cap</li><li>Cross-checks: the same fact in two memories is flagged, and saving offers to update the other</li></ul></div>
+    <div class="note"><b>Guard rails</b>
+      <ul><li>Charters are "you only": agents may only suggest there</li><li>Every save is one commit; History shows who changed what, with revert</li><li>A companion reads the new version at its next job, never mid-job</li></ul></div>
+  </div>
+</div>
+<script>
+function fit(){var w=document.documentElement.clientWidth;document.body.style.zoom=w<1600?(w/1600):1}
+addEventListener('resize',fit);fit();
+</script>
+</body>
+</html>

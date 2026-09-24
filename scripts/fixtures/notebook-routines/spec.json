@@ -1,0 +1,17 @@
+{
+  "memory_lines": 170,
+  "journal_archive_days_ago": [120, 100],
+  "journal_keep_days_ago": [60, 30, 1],
+  "branches_merged_old_days_ago": [20, 15, 10],
+  "branches_merged_recent_days_ago": [2],
+  "branches_unmerged_old_days_ago": [30],
+  "memory_pages": [
+    {"name": "export-bug", "stale_after_days_ago": 5},
+    {"name": "ledger-outcomes", "stale_after_days_from_now": 30}
+  ],
+  "proposals": [
+    {"name": "tempo-charter-v2", "created_days_ago": 5},
+    {"name": "chord-charter-v1", "created_days_ago": 0}
+  ],
+  "last_checkin_days_ago": 10
+}

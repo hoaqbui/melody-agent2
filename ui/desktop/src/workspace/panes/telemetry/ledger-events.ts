@@ -13,6 +13,7 @@ import type {
 import type { Delegation } from '../../../acp/delegations';
 import { getToolRequests, getToolResponses, type Message } from '../../../types/message';
 import { verdictOf } from '../review/review-parse';
+import { turnsOf } from './telemetry-now';
 
 const isoOf = (message: Message): string => new Date(message.created * 1000).toISOString();
 
@@ -102,6 +103,44 @@ export function parseFilesChanged(text: string | null): string[] {
   return [...paths];
 }
 
+// The id of the user message that opened the turn holding a tool call — the same split
+// `telemetry-now.ts`'s rows use, so a worker's `turnId` and an `undo` event's `turnId` (266's
+// `undone` rule) agree on what a turn is by construction, not by two splitters staying in sync.
+function turnIdFor(messages: readonly Message[], toolCallId: string): string | undefined {
+  return turnsOf(messages).find((turn) => turn.toolCallIds.has(toolCallId))?.id;
+}
+
+// The `instructions` argument of the `delegate` call a tool-request id names, if the call is
+// still in the transcript.
+function delegateInstructions(messages: readonly Message[], toolCallId: string): string | null {
+  for (const message of messages) {
+    for (const request of getToolRequests(message)) {
+      if (request.id !== toolCallId) continue;
+      const call = request.toolCall as { value?: { arguments?: unknown } };
+      const args = (call.value?.arguments ?? {}) as Record<string, unknown>;
+      return typeof args.instructions === 'string' ? args.instructions : null;
+    }
+  }
+  return null;
+}
+
+const TASK_REF = /\btask\s+(\d+)\b/i;
+
+// The first `task NNN` named in the child's title (sessions the orchestrator starts are named
+// after the task, per this file's own delegation fixtures — `title: 'task 128'`) or, failing
+// that, the delegate call's `instructions` — the pointer back to `tasks.md`. `taskHash` (a hash
+// of that task's card, to catch drift) waits on reading the file, which this pure builder does
+// not do.
+function taskRefOf(delegation: Delegation, messages: readonly Message[]): string | null {
+  const fromTitle = TASK_REF.exec(delegation.title);
+  if (fromTitle) return `task ${fromTitle[1]}`;
+  const instructions = delegation.parentToolCallId
+    ? delegateInstructions(messages, delegation.parentToolCallId)
+    : null;
+  const fromInstructions = instructions ? TASK_REF.exec(instructions) : null;
+  return fromInstructions ? `task ${fromInstructions[1]}` : null;
+}
+
 // A live `DelegationUpdate` carries no timestamp: the worker returned when the parent's
 // `delegate` call answered, so its `at` is the message holding that response; a row seeded
 // from the session record keeps its `updatedAt`; otherwise now.
@@ -130,6 +169,17 @@ export function workerEvent(
     blocked: delegation.status === 'done' && isBlockedReturn(text),
     filesChanged: parseFilesChanged(text),
     parentToolCallId: delegation.parentToolCallId,
+    // Job identity (task 264): turnId and taskRef read from what the transcript already holds;
+    // member stands in for a real team member until M2; charterSha, taskHash and baseSha need a
+    // git read or a run-start capture this pure builder does not have — null, not omitted.
+    turnId: delegation.parentToolCallId
+      ? (turnIdFor(messages, delegation.parentToolCallId) ?? null)
+      : null,
+    member: delegation.source ?? null,
+    charterSha: null,
+    taskRef: taskRefOf(delegation, messages),
+    taskHash: null,
+    baseSha: null,
   };
 }
 
@@ -230,27 +280,35 @@ export function reviewEvent(
 export function undoEvent(
   sessionId: string,
   turnId: string,
-  at = new Date().toISOString()
+  at = new Date().toISOString(),
+  redo = false
 ): UndoEvent {
-  return { kind: 'undo', at, sessionId, turnId };
+  return { kind: 'undo', at, sessionId, turnId, redo };
 }
 
-// The key that makes an event idempotent across re-renders and app restarts.
+// The natural id a kind carries in place of `messageId`, when it has one — mirrors the
+// sidecar's own `NATURAL_ID_FIELD` (`ui/sidecar/src/ledger.ts`) exactly, field for field.
+const NATURAL_ID_FIELD: Partial<Record<LedgerEvent['kind'], string>> = {
+  correction: 'toolCallId',
+  land: 'sha',
+};
+// `undo` has no natural id: an undo and its redo share a turnId (task 266), so they key by `at`.
+
+// task 265: the key the sidecar dedups appends by — (kind, sessionId, workerSessionId,
+// messageId), the last slot falling back to the kind's natural id, then to `at`. This is now
+// only a cache of that key (`useLedgerWriter` skips sending what it already sent this session);
+// the sidecar's own key, computed the same way, is what actually keeps a replay from writing
+// twice.
 export function eventKey(event: LedgerEvent): string {
-  switch (event.kind) {
-    case 'turn':
-      return `turn:${event.sessionId}:${event.messageId ?? event.at}`;
-    case 'worker':
-      return `worker:${event.workerSessionId}`;
-    case 'correction':
-      return `correction:${event.toolCallId}:${event.path}`;
-    case 'review':
-      return `review:${event.sessionId}:${event.at}`;
-    case 'undo':
-      return `undo:${event.turnId}`;
-    default:
-      return `${event.kind}:${event.sessionId}:${event.at}`;
-  }
+  const record = event as unknown as Record<string, unknown>;
+  const workerSessionId = typeof record.workerSessionId === 'string' ? record.workerSessionId : '';
+  const messageId = typeof record.messageId === 'string' ? record.messageId : undefined;
+  const naturalField = NATURAL_ID_FIELD[event.kind];
+  const natural =
+    naturalField && typeof record[naturalField] === 'string'
+      ? (record[naturalField] as string)
+      : undefined;
+  return [event.kind, event.sessionId, workerSessionId, messageId ?? natural ?? event.at].join(':');
 }
 
 // Everything a session's current state implies, minus what was already written.

@@ -4,7 +4,7 @@ Dated 2026-09-23. Question as asked: "we shouldn't need an easy medium hard … 
 
 ## The surprise (lead finding)
 
-**Nesting is refused by session *type*, not depth — so friends can delegate only if they are ordinary sessions, not `delegate` children.** `delegate` is refused when the caller is a `SubAgent` (`crates/goose/src/agents/platform_extensions/summon.rs:1622-1624`) and hidden from it (`:2609-2621`); a child is created as `SessionType::SubAgent` with `parent_session_id` set (`:837-865`). A `User`/`Acp` session keeps `delegate`. So Melody → friend → worker works only if Melody creates each friend as a normal session with a parent link — which today's `delegate` never does.
+**Nesting is refused by session *type*, not depth — so companions can delegate only if they are ordinary sessions, not `delegate` children.** `delegate` is refused when the caller is a `SubAgent` (`crates/goose/src/agents/platform_extensions/summon.rs:1622-1624`) and hidden from it (`:2609-2621`); a child is created as `SessionType::SubAgent` with `parent_session_id` set (`:837-865`). A `User`/`Acp` session keeps `delegate`. So Melody → companion → worker works only if Melody creates each companion as a normal session with a parent link — which today's `delegate` never does.
 
 ## Reframe trail
 
@@ -40,7 +40,7 @@ Spine (`crates/goose/src`):
 Delegation today: the 63 s desktop timeout (`tasks.md:119-120`) was diagnosed the same day as the `claude-code` seat's ~60 s cap on a synchronous delegate call (`tasks.md:121`) and fixed by task 154 (`2f7a4010f`: the bridge carries a 5-min timeout and `claude_code.rs:559-565` passes it as `request_timeout_ms`; forced-sync `goose run` → SLEPT after 2:23; `just walk "rpi strip"` → 1 passed). Child stderr already logs at `info` (`acp/provider.rs:1581`). What remains is task 181: a reconnect mid-turn loses the reply (per-connection `AgentManager`, `acp/server.rs:969`, `:2784`).
 
 Boundary check against `ARCHITECTURE.md`:
-- "delegated work never nests" (`:118`) cites `summon.rs:1369`, `:2163-2170`; the checks now live at `summon.rs:1622-1624`, `:2609-2621` — stale citation; the rule itself (and `.agents/agents/orchestrator.md:61`) already forbids only *worker* nesting, so friends need no relaxation there — only `PRODUCT.md`'s parent/subagent wording needs clarifying
+- "delegated work never nests" (`:118`) cites `summon.rs:1369`, `:2163-2170`; the checks now live at `summon.rs:1622-1624`, `:2609-2621` — stale citation; the rule itself (and `.agents/agents/orchestrator.md:61`) already forbids only *worker* nesting, so companions need no relaxation there — only `PRODUCT.md`'s parent/subagent wording needs clarifying
 - "`agent.rs` and `state_machine/` are not edited in the fork" (`:119`) — the Melody surface must not need them
 - `PRODUCT.md:84` ("star topology, enforced upstream"), `:121`, `:128` — clarify that a manager is an ordinary session that may delegate; `.agents/agents/orchestrator.md:61` ("SubAgent workers must never delegate") holds as written
 
@@ -48,7 +48,7 @@ Boundary check against `ARCHITECTURE.md`:
 
 - the lever — rejected: polishing it (task 164's lever-words mockup, user 2026-09-22 "we shouldn't need an easy medium hard")
 - Melody's place — rejected: a fourth column (user: "Keep to the 3 panel design"); she is a tab in Work
-- friends — rejected: "a view, not an agent" (user 2026-09-23 picked real manager sessions)
+- companions — rejected: "a view, not an agent" (user 2026-09-23 picked real manager sessions)
 - delegation — rejected: building Melody before the desktop delegation path works (user 2026-09-23: fix first)
 - the orchestrator extension as Melody's surface — rejected here: wrong agent manager, drops the parent link, unreachable from `claude-code`
 
@@ -61,20 +61,20 @@ Boundary check against `ARCHITECTURE.md`:
 | C · Melody in the renderer | the UI calls `session/new` and lists; Melody's model only proposes | Melody can't act on her own or while the app is closed; "she knows" becomes UI polling, not her context |
 
 Pick: A (Codex's review, 2026-09-23: keep A; B keeps the orchestrator's defects, C misses Melody acting on her own)
-- Melody and friends become ordinary sessions linked by `parent_session_id`; workers stay `delegate` children (star topology holds below the managers)
+- Melody and companions become ordinary sessions linked by `parent_session_id`; workers stay `delegate` children (star topology holds below the managers)
 - the UI learns of new sessions from a new `SessionCreated` notice on `_goose/unstable/session/update`, replacing the 10 s poll
-- `session/list` gains the parent link and whether a session is Melody or a friend, so the rail can draw pins
+- `session/list` gains the parent link and whether a session is Melody or a companion, so the rail can draw pins
 
 ## Scope — in / out / protected
 
 - in: `crates/goose/src/agents/platform_extensions/` (a Melody surface), `agents/session_bridge.rs` (expose it), `acp/server.rs` + `acp/server/list_sessions.rs` + `custom_notifications` (notice, list fields), `ui/goose-acp-client` (regenerated), `ui/desktop/src/{workspace,acp,components/Layout}` (Work tabbed panels, Melody tab, pin, rows, lever removal), `.agents/agents/` (a Melody role and a manager role), `PRODUCT.md`, `ARCHITECTURE.md`, `DESIGN.md`
 - out: `agent.rs`, `state_machine/` (fork invariant); the phone build (desktop first); onboarding and Settings (later tranche); runtime colour palette (design task, later)
-- protected: workers stay `SubAgent` and never delegate; a friend never edits another repository; Melody never edits files (she manages sessions)
+- protected: workers stay `SubAgent` and never delegate; a companion never edits another repository; Melody never edits files (she manages sessions)
 
-## Conflicts with the memory PRD (parallel work, `docs/2026-09-22-agent-memory-prd-v1.md`)
+## Conflicts with the memory PRD (parallel work, `docs/2026-09-22-agent-memory-prd-v2.md`)
 
-Found by Codex's review, 2026-09-23; for the user and the PRD's author to settle before M2:
-- companions start fresh each time (`:29`) and are capped at three (`:79`) — friends are long-lived, one per repository, with no cap
+Found by Codex's review, 2026-09-23; for the user and the PRD's author to settle before M2. **Settled 2026-09-23** (user: "continue") in `docs/2026-09-23-team-memory-program-plan-v2.md` §Decisions 1 and PRD v2; the line numbers below are v1's:
+- companions start fresh each time (`:29`) and are capped at three (`:79`) — companions are long-lived, one per repository, with no cap
 - companions write journals — this map's "Melody never edits files" means repository files; memory writes need an explicit, separate permission
 - the PRD allows loop changes (`:80`) that `ARCHITECTURE.md:119` forbids — compaction integration must stay outside `agent.rs` and `state_machine/`
 - idle Melody makes no model calls (`:73`) — keep that criterion for managers too
