@@ -129,7 +129,7 @@ describe('turnRows', () => {
 
   it('marks the newest turn running while streaming, and reads outcomes from the ledger', () => {
     const events: LedgerEvent[] = [
-      { kind: 'undo', at: '', sessionId: 's1', turnId: 'u1' },
+      { kind: 'undo', at: '', sessionId: 's1', turnId: 'u1', redo: false },
       {
         kind: 'correction',
         at: '',

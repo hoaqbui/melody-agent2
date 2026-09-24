@@ -280,9 +280,10 @@ export function reviewEvent(
 export function undoEvent(
   sessionId: string,
   turnId: string,
-  at = new Date().toISOString()
+  at = new Date().toISOString(),
+  redo = false
 ): UndoEvent {
-  return { kind: 'undo', at, sessionId, turnId };
+  return { kind: 'undo', at, sessionId, turnId, redo };
 }
 
 // The key that makes an event idempotent across re-renders and app restarts.
@@ -297,7 +298,7 @@ export function eventKey(event: LedgerEvent): string {
     case 'review':
       return `review:${event.sessionId}:${event.at}`;
     case 'undo':
-      return `undo:${event.turnId}`;
+      return `undo:${event.turnId}:${event.redo === true}:${event.at}`;
     default:
       return `${event.kind}:${event.sessionId}:${event.at}`;
   }
