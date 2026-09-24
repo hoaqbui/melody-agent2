@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import type { Delegation } from '../../../acp/delegations';
-import type { LedgerEvent } from '../../../native/ledger';
+import type { LedgerEvent, WorkerEvent } from '../../../native/ledger';
 import type { Message, MessageContent } from '../../../types/message';
 import type { Session } from '../../../types/session';
 import { gateWord, sessionSettings, shortModel, turnRows, turnsOf } from './telemetry-now';
@@ -114,9 +114,31 @@ describe('turnRows', () => {
     msg('user', [text('b')], { id: 'u2', created: T0 + 100 }),
     msg('assistant', [text('…')], { created: T0 + 101, metadata: meta({ inference }) }),
   ];
+  const NOW = new Date('2026-09-20T12:00:00.000Z').getTime();
+  const JOB_AT = '2026-09-20T00:00:00.000Z';
+  // The job outcome fold (266) needs the actual ledger `worker` line to read a job's outcome —
+  // the delegation on the wire carries no filesChanged or turnId.
+  const workerLine = (overrides: Partial<WorkerEvent> = {}): WorkerEvent => ({
+    kind: 'worker',
+    at: JOB_AT,
+    sessionId: 's1',
+    workerSessionId: 'child-1',
+    status: 'done',
+    blocked: false,
+    filesChanged: ['a.ts'],
+    ...overrides,
+  });
+  const landOn = (paths: string[]): LedgerEvent => ({
+    kind: 'land',
+    at: '2026-09-20T00:05:00.000Z',
+    sessionId: 's1',
+    sha: 'abc123',
+    paths,
+    message: 'commit',
+  });
 
   it('gives one session row per turn, newest first, the worker nested under its turn', () => {
-    const rows = turnRows(messages, [delegation], [], false);
+    const rows = turnRows(messages, [delegation], [workerLine(), landOn(['a.ts'])], false, NOW);
     expect(rows.map((r) => [r.id, r.who, r.outcome])).toEqual([
       ['u2', 'session', 'landed'],
       ['worker:child-1', 'worker', 'landed'],
@@ -126,41 +148,60 @@ describe('turnRows', () => {
     expect(rows[1]).toMatchObject({ role: 'implementer', requestedModel: 'claude-sonnet-5' });
   });
 
+  it('done without a land is not landed', () => {
+    // A job on the ledger, status done, no commit ever matched its files.
+    const withJob = turnRows(messages, [delegation], [workerLine()], false, NOW);
+    expect(withJob[1].outcome).toBe('unknown');
+    // Not even written to the ledger yet: same verdict, not a crash.
+    const noJob = turnRows(messages, [delegation], [], false, NOW);
+    expect(noJob[1].outcome).toBe('unknown');
+  });
+
   it('marks the newest turn running while streaming, and reads outcomes from the ledger', () => {
     const events: LedgerEvent[] = [
       { kind: 'undo', at: '', sessionId: 's1', turnId: 'u1', redo: false },
+      workerLine(),
       {
         kind: 'correction',
-        at: '',
+        at: '2026-09-20T00:10:00.000Z',
         sessionId: 's1',
         workerSessionId: 'child-1',
         path: 'a.ts',
         toolCallId: 'e1',
       },
     ];
-    const rows = turnRows(messages, [delegation], events, true);
+    const rows = turnRows(messages, [delegation], events, true, NOW);
     expect(rows[0].outcome).toBe('running');
     expect(rows[1].outcome).toBe('corrected');
     expect(rows[2].outcome).toBe('undone');
     const blocked = turnRows(
       messages,
       [delegation],
-      [
-        {
-          kind: 'worker',
-          at: '',
-          sessionId: 's1',
-          workerSessionId: 'child-1',
-          status: 'done',
-          blocked: true,
-          filesChanged: [],
-        },
-      ],
-      false
+      [workerLine({ blocked: true }), landOn(['a.ts'])],
+      false,
+      NOW
     );
     expect(blocked[1].outcome).toBe('blocked');
-    expect(turnRows(messages, [{ ...delegation, status: 'failed' }], [], false)[1].outcome).toBe(
-      'failed'
-    );
+    expect(
+      turnRows(messages, [{ ...delegation, status: 'failed' }], [], false, NOW)[1].outcome
+    ).toBe('failed');
+  });
+
+  it('a linked later fix reads reworked, never landed', () => {
+    const events: LedgerEvent[] = [
+      workerLine(),
+      landOn(['a.ts']),
+      workerLine({ workerSessionId: 'child-2', at: '2026-09-20T01:00:00.000Z' }),
+      {
+        kind: 'link',
+        at: '2026-09-20T02:00:00.000Z',
+        sessionId: 's1',
+        workerSessionId: 'child-1',
+        by: 'user',
+        fromWorkerSessionId: 'child-2',
+      },
+    ];
+    const rows = turnRows(messages, [delegation], events, false, NOW);
+    expect(rows[1].outcome).toBe('reworked');
   });
 });

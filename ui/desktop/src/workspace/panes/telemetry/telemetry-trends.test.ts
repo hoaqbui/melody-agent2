@@ -40,13 +40,14 @@ const worker = (at: string, overrides: Partial<WorkerEvent> = {}): WorkerEvent =
   ...overrides,
 });
 const label = (s: { model: string }) => s.model;
+const now = NOW.getTime();
 
 describe('trendCandidates', () => {
   it('needs two ranges of turns; with one it says nothing about tokens or cost', () => {
     const events = [turn(daysAgo(1))];
-    expect(trendCandidates(unitsOf([], events), events, rangeEnding('days', NOW), label)).toEqual(
-      []
-    );
+    expect(
+      trendCandidates(unitsOf([], events), events, rangeEnding('days', NOW), label, now)
+    ).toEqual([]);
   });
 
   it('ranks the largest movement first — a seat share that moved beats a flat unit price', () => {
@@ -59,7 +60,7 @@ describe('trendCandidates', () => {
       turn(daysAgo(2), { requestedModel: 'claude-sonnet-5' }),
     ];
     const range = rangeEnding('days', NOW);
-    const trends = topTrends(trendCandidates(unitsOf([], events), events, range, label));
+    const trends = topTrends(trendCandidates(unitsOf([], events), events, range, label, now));
     expect(trends[0].id).toBe('top-seat-share');
     expect(trends[0].parts.map((p) => p.text).join('')).toContain('100% → 50%');
     expect(trends.find((t) => t.id === 'cost-per-turn')?.weight).toBe(0);
@@ -67,11 +68,36 @@ describe('trendCandidates', () => {
   });
 
   it('names a role whose clean-done moved, only with four runs on both sides', () => {
+    // Per the job outcome fold (266), clean-done needs an actual land on the job's files — the
+    // prior fortnight's four runs all land; this fortnight's split two corrected, two landed.
     const events: LedgerEvent[] = [
       turn(daysAgo(20)),
       turn(daysAgo(1)),
-      ...Array.from({ length: 4 }, (_, i) => worker(daysAgo(20 + i))),
-      ...Array.from({ length: 4 }, (_, i) => worker(daysAgo(1 + i), { workerSessionId: `c${i}` })),
+      ...Array.from({ length: 4 }, (_, i) =>
+        worker(daysAgo(20 + i), { filesChanged: ['prior.ts'] })
+      ),
+      {
+        kind: 'land',
+        at: daysAgo(19),
+        sessionId: 's1',
+        sha: 'sha-prior',
+        paths: ['prior.ts'],
+        message: 'commit',
+      },
+      ...Array.from({ length: 4 }, (_, i) =>
+        worker(daysAgo(1 + i), {
+          workerSessionId: `c${i}`,
+          filesChanged: i >= 2 ? ['current.ts'] : [],
+        })
+      ),
+      {
+        kind: 'land',
+        at: daysAgo(0),
+        sessionId: 's1',
+        sha: 'sha-current',
+        paths: ['current.ts'],
+        message: 'commit',
+      },
       {
         kind: 'correction',
         at: daysAgo(1),
@@ -90,7 +116,7 @@ describe('trendCandidates', () => {
       },
     ];
     const range = rangeEnding('days', NOW);
-    const trends = trendCandidates(unitsOf([], events), events, range, label);
+    const trends = trendCandidates(unitsOf([], events), events, range, label, now);
     const role = trends.find((t) => t.id === 'clean-done:implementer');
     expect(role).toBeDefined();
     expect(role!.parts.map((p) => p.text).join('')).toBe(
@@ -98,7 +124,7 @@ describe('trendCandidates', () => {
     );
     const few: LedgerEvent[] = events.filter((e) => e.kind !== 'worker' || e.at > daysAgo(10));
     expect(
-      trendCandidates(unitsOf([], few), few, range, label).some((t) =>
+      trendCandidates(unitsOf([], few), few, range, label, now).some((t) =>
         t.id.startsWith('clean-done')
       )
     ).toBe(false);

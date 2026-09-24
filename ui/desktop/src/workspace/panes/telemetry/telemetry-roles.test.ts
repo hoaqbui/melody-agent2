@@ -58,15 +58,44 @@ describe('flows', () => {
   });
 });
 
+// A `land` for a job's files, on or after its `at` — the only thing the fold (266) reads as a
+// landing. `daysAgo(0)` is `NOW` itself, always after the `worker()` default of `daysAgo(1)`.
+const land = (paths: string[], sha: string, at = daysAgo(0)): LedgerEvent => ({
+  kind: 'land',
+  at,
+  sessionId: 's1',
+  sha,
+  paths,
+  message: 'commit',
+});
+const correctionOn = (workerSessionId: string, at = daysAgo(0)): LedgerEvent => ({
+  kind: 'correction',
+  at,
+  sessionId: 's1',
+  workerSessionId,
+  path: `${workerSessionId}.ts`,
+  toolCallId: `t-${workerSessionId}`,
+});
+
 describe('roleRows and verdicts', () => {
   it('takes BLOCKED and corrected out of clean-done and reads the seat that ran most', () => {
     const workers = [
-      worker({ workerSessionId: 'a' }),
+      worker({ workerSessionId: 'a', filesChanged: ['a.ts'] }),
       worker({ workerSessionId: 'b', blocked: true }),
       worker({ workerSessionId: 'c' }),
-      worker({ workerSessionId: 'd', provider: 'agy', model: 'gemini-3.8-flash-high' }),
+      worker({
+        workerSessionId: 'd',
+        provider: 'agy',
+        model: 'gemini-3.8-flash-high',
+        filesChanged: ['d.ts'],
+      }),
     ];
-    const [row] = roleRows(workers, [{ workerSessionId: 'c' }]);
+    const events: LedgerEvent[] = [
+      land(['a.ts'], 'sha-a'),
+      land(['d.ts'], 'sha-d'),
+      correctionOn('c'),
+    ];
+    const [row] = roleRows(workers, events, NOW.getTime());
     expect(row).toMatchObject({
       source: 'implementer',
       provider: 'claude-code',
@@ -82,8 +111,19 @@ describe('roleRows and verdicts', () => {
     });
   });
 
+  it('blocked is never clean, even when its files land', () => {
+    const workers = [worker({ workerSessionId: 'b', blocked: true, filesChanged: ['b.ts'] })];
+    const events: LedgerEvent[] = [land(['b.ts'], 'sha-b')];
+    const [row] = roleRows(workers, events, NOW.getTime());
+    expect(row).toMatchObject({ runs: 1, blocked: 1, cleanDone: 0, verdict: 'failing' });
+  });
+
   it("reads median minutes and tokens per run from the children's records", () => {
-    const workers = [worker({ workerSessionId: 'a' }), worker({ workerSessionId: 'b' })];
+    const workers = [
+      worker({ workerSessionId: 'a', filesChanged: ['a.ts'] }),
+      worker({ workerSessionId: 'b', filesChanged: ['b.ts'] }),
+    ];
+    const events: LedgerEvent[] = [land(['a.ts'], 'sha-a'), land(['b.ts'], 'sha-b')];
     const children = new Map([
       [
         'a',
@@ -112,7 +152,7 @@ describe('roleRows and verdicts', () => {
         }),
       ],
     ]);
-    const [row] = roleRows(workers, [], children);
+    const [row] = roleRows(workers, events, NOW.getTime(), children);
     expect(row.medianMinutes).toBe(20);
     expect(row.tokensPerRun).toBe(84_000);
     expect(row.verdict).toBe('effective');
@@ -146,7 +186,7 @@ describe('passRate and weeklyCleanDone', () => {
       worker({ at: daysAgo(1), workerSessionId: 'y', blocked: true }),
       worker({ at: daysAgo(30), workerSessionId: 'z', source: 'researcher' }),
     ];
-    const lines = weeklyCleanDone(events, [{ workerSessionId: 'x' }], NOW);
+    const lines = weeklyCleanDone(events, NOW);
     expect(lines.map((l) => l.source)).toEqual(['implementer', 'researcher']);
     const impl = lines[0];
     expect(impl.points[impl.points.length - 1]).toBe(0);

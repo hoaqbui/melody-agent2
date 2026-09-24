@@ -311,16 +311,9 @@ Order: 184 (migration) → 183 (identity); 185 ∥ 186 ∥ 187 ∥ 189 ∥ 190 �
 
 ### docs/2026-09-23-melody-program-plan-v3.md — Melody, the main agent: M0 (approved 2026-09-23, user: "approved and start ochestrating"; v3 scope 2026-09-23: "do must should and could, and we should be v0.9 and ready for alpha testing")
 
-Order: 198 (rework) → 200 (199 runs beside M1b); 197 done 2026-09-23 (one server-owned AgentManager, running agents pinned; `task181_shared_ownership` → 3 passed). 196 done 2026-09-23 (forced-sync delegate → SLEPT after 183 s; `just walk "rpi strip"` → 1 passed). 181 is the umbrella; its plan: `docs/2026-09-23-task181-shared-run-plan-v1.md`. M1a is planned at 200's gate. 201 done 2026-09-23 (two stale expectations: the list meta's accumulated usage fields from task 125, and the Melody rename's import message; `test_list_sessions` → 7 passed, `apply_onboarding_imports_continues_after_candidate_failure` → 1 passed, clippy clean).
+Order: 200 next (199 runs beside M1b); 198 done 2026-09-23 (rework merged 297e67b02 after a Claude opus review → rework and three Codex reviews → PASS: reattach replays exactly once, a run keeps going with no client, permissions and elicitations survive a dropped client and settle on a client error, an overflowed run refuses a partial replay, ending a run can't clobber its successor or drop its steers; confirm rerun: `task181_reconnect` 12 passed (4 scenarios + overflow + permission error, both loops), `acp_server_test` 71, lib 371 incl. task181_/steer/execution::/acp::, clippy and fmt clean); 197 done 2026-09-23 (one server-owned AgentManager, running agents pinned; `task181_shared_ownership` → 3 passed). 196 done 2026-09-23 (forced-sync delegate → SLEPT after 183 s; `just walk "rpi strip"` → 1 passed). 181 is the umbrella; its plan: `docs/2026-09-23-task181-shared-run-plan-v1.md`. M1a is planned at 200's gate. 201 done 2026-09-23 (two stale expectations: the list meta's accumulated usage fields from task 125, and the Melody rename's import message; `test_list_sessions` → 7 passed, `apply_onboarding_imports_continues_after_candidate_failure` → 1 passed, clippy clean).
 
 
-
-- 198. The server owns each run; a load re-attaches to it without gaps (181, step 2)
-  - status: doing · agent: session's worker (claude, wt/t198, 2026-09-23 — resuming the rework from 655130d6d) · worker: high
-  - progress: first pass 98f2fcf85 merged 2026-09-23 on the user's call ("merge as-is now") — `task181_reconnect` 2 passed, `acp_server_test` 61, lib `acp::` 342 / `execution::` 21, clippy clean; the opus review said rework (stale permission replay, no user prompt on reload, producer blocks on delivery and cancels at 10 min, any error treated as a disconnect, weak tests): review and rework brief in `docs/2026-09-23-task198-review-v1.md`; the rework WIP 655130d6d on wt/t198 (Codex hit its usage limit mid-run, resets 18:44; unverified, adds permission reconnect tests) must pass `task181_reconnect` → 8 passed (4 scenarios × 2 loops), the full `acp_server_test`, clippy, and a second review before 198 closes
-  - card: as the user, I want a long reply to keep coming after my laptop sleeps or the Wi-Fi drops, so that Melody's long turns are never lost (FURPS R · MoSCoW Must)
-  - context: plan §The change, bullets 2–5; `acp/server.rs:2409`, `:2251`, `:266`, `:2373`; `load_session.rs:392-467`; tests on the duplex harness `tests/acp_fixtures/mod.rs:332`, `acp_fixtures/server.rs:236`
-  - confirm: `cargo test -p goose --test acp_server_test task181_reconnect` → 2 passed, one per agent loop (connection A drops after BEFORE; B loads and gets the prefix once, then AFTER and the end; one turn persisted; `Arc::ptr_eq` on the agent) — today the run is cancelled
 
 - 199. Two clients, cancel, close, permission hand-over and isolation on a shared run (181, step 3; beside M1b)
   - status: todo · agent: — · worker: high
@@ -329,7 +322,7 @@ Order: 198 (rework) → 200 (199 runs beside M1b); 197 done 2026-09-23 (one serv
   - confirm: `cargo test -p goose --test acp_server_test task181_multi_connection` → 6 passed
 
 - 200. The desktop recovers a turn mid-reconnect, and a walk proves it (181, step 4)
-  - status: todo · agent: — · worker: high
+  - status: doing · agent: session's worker (2026-09-23) · worker: high
   - card: as the user, I want the reply to show once and Stop to still work after a reconnect, so that recovery is visible (FURPS R U · MoSCoW Must)
   - context: `chatSessionController.ts:145`, `chatSessionStore.ts:230`, `:684`; the walk calls `import('/src/acp/acpConnection.ts').then(m => m.reconnectAcpAfterSystemResume())` mid-turn (dev walk only), extending `tests/e2e/agents-pane.spec.ts`
   - confirm: `just walk "reconnect during a Hard turn"` → 1 passed with the parent's reply exactly once (today: the reply never lands); `just smoke` → passes; then 181 closes
@@ -616,7 +609,7 @@ T0 done 2026-09-23: 202 (`~/Melody` committed, `83f5f23`); 203 (health check + l
 
 ### docs/2026-09-23-team-memory-program-plan-v2.md — T1: outcomes the scorecard can trust (drafted 2026-09-23; beside M1a, shares P1's ledger work)
 
-Order: 264 → 265 ∥ 266 ∥ 267 ∥ 268 → 269. 266 done 2026-09-23 (`ledger-outcome.ts`: `outcomeOf`, `jobsOf`; `UndoEvent` gained `redo` — 267 records a redo as `undo` with `redo: true`; `now` is ms; confirm rerun: ledger-outcome 19 passed, with ledger-events and telemetry 54; lint clean). 265 done 2026-09-23 (sidecar dedup by kind · session · worker · message-or-natural-id, duplicates answer `{ok, duplicate}`; confirm rerun: 1 passed, sidecar 100, desktop ledger-events 12, both typechecks clean). 264 done 2026-09-23 (kinds `land · verdict · link · gap` in both lists; `worker` carries `turnId`, `member`, `charterSha`, `taskRef`, `taskHash`, `baseSha` — charter, hash and base stay null until their writers exist; confirm rerun: `'land'` 1 each, sidecar 1 passed, desktop 1 passed, sidecar suite 98 passed). 267 edits `ChangesBar.tsx`, `WorkspaceShell.tsx`, `ledger-writer.ts` and lands alone on them. The T1 → T4 gate is 266's vitest + 268's walk.
+Order: 264 → 265 ∥ 266 ∥ 267 ∥ 268 → 269. 269 done 2026-09-23 (Telemetry's Now, Roles and Trends read `outcomeOf`; `reworked` and `unknown` shown; confirm rerun: 2 passed, telemetry 57, lint clean; walks `telemetry pane`/`telemetry roles` to run at T1's gate). 266 done 2026-09-23 (`ledger-outcome.ts`: `outcomeOf`, `jobsOf`; `UndoEvent` gained `redo` — 267 records a redo as `undo` with `redo: true`; `now` is ms; confirm rerun: ledger-outcome 19 passed, with ledger-events and telemetry 54; lint clean). 265 done 2026-09-23 (sidecar dedup by kind · session · worker · message-or-natural-id, duplicates answer `{ok, duplicate}`; confirm rerun: 1 passed, sidecar 100, desktop ledger-events 12, both typechecks clean). 264 done 2026-09-23 (kinds `land · verdict · link · gap` in both lists; `worker` carries `turnId`, `member`, `charterSha`, `taskRef`, `taskHash`, `baseSha` — charter, hash and base stay null until their writers exist; confirm rerun: `'land'` 1 each, sidecar 1 passed, desktop 1 passed, sidecar suite 98 passed). 267 edits `ChangesBar.tsx`, `WorkspaceShell.tsx`, `ledger-writer.ts` and lands alone on them. The T1 → T4 gate is 266's vitest + 268's walk.
 
 - 267. The missing writers: `land` from the Changes bar commit, `undo` from Undo this turn, `gap` on launch
   - status: doing · agent: session's worker (2026-09-23) · worker: medium
@@ -629,12 +622,6 @@ Order: 264 → 265 ∥ 266 ∥ 267 ∥ 268 → 269. 266 done 2026-09-23 (`ledger
   - card: as the user, I want to judge a job in one tap and say which earlier job it fixes, so that the test set and rework come from my word and not a guess (FURPS U R · MoSCoW Must)
   - context: after 264; the row `AgentRow.tsx:75-124` (`agents-row` `:83`) — a done row gets three buttons, "why" after `wrong`; the tap calls `appendLedger` directly; the latest verdict wins in 266; "Fixes…" lists this repository's earlier jobs, file overlap shown as a hint, never written as a link; walk `tests/e2e/job-verdict.spec.ts` seeds a done delegation through the dev module (task 200's trick), no seat
   - confirm: `just walk "job verdict"` → 1 passed: one tap → one `verdict` event, a re-render adds none, "Fixes…" writes one `link` (today: no spec)
-
-- 269. Telemetry reads the fold: clean means landed, blocked is never clean, unknown shows as unknown
-  - status: doing · agent: session's worker (2026-09-23) · worker: medium
-  - card: as the user, I want Telemetry's clean-done to agree with the scorecard's rule, so that one job never reads two ways (FURPS R · MoSCoW Should)
-  - context: after 266; `telemetry-now.ts:98` (`OUTCOMES` gains `reworked`, `unknown`), `:214-228`; `telemetry-roles.ts:110-153`, `:202-219`; `telemetry-trends.ts:134-149`
-  - confirm: `cd ui/desktop && pnpm vitest run telemetry-now telemetry-roles -t "blocked is never clean|done without a land is not landed"` → 2 passed (today a done, unblocked worker reads landed, `telemetry-now.ts:226`)
 
 ### docs/2026-09-23-team-memory-program-plan-v2.md — T2: Team health, Usage, Team Context (gated on M1b + M3; decision 2a: Work tabs first)
 

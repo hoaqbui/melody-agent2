@@ -5876,11 +5876,17 @@
   "telemetryNow.outcomeLanded": {
     "defaultMessage": "landed"
   },
+  "telemetryNow.outcomeReworked": {
+    "defaultMessage": "reworked"
+  },
   "telemetryNow.outcomeRunning": {
     "defaultMessage": "running"
   },
   "telemetryNow.outcomeUndone": {
     "defaultMessage": "undone"
+  },
+  "telemetryNow.outcomeUnknown": {
+    "defaultMessage": "unknown"
   },
   "telemetryNow.session": {
     "defaultMessage": "Session"
