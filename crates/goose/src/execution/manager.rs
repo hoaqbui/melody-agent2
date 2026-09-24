@@ -124,7 +124,7 @@ impl AgentManager {
         }
     }
 
-    fn pinned_agent(&self, session_id: &str) -> Option<Arc<Agent>> {
+    pub(crate) fn pinned_agent(&self, session_id: &str) -> Option<Arc<Agent>> {
         self.pinned
             .lock()
             .expect("pinned agents lock poisoned")

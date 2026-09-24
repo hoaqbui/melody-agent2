@@ -14,6 +14,115 @@ use crate::action_required_manager::ElicitationOutcome;
 use crate::session::SessionManager;
 
 impl super::GooseAcpAgent {
+    /// Sends a held elicitation to the run's current connection. `Ok(false)`
+    /// means this connection can never answer it (no elicitation support, a URL
+    /// or an unreadable schema), and the caller settles it as cancelled, as a
+    /// directly sent elicitation would be.
+    pub(super) fn send_run_elicitation_request(
+        &self,
+        cx: &ConnectionTo<Client>,
+        attachment: &Arc<super::RunAttachment>,
+        session_id: &str,
+        elicitation: &super::PendingRunElicitation,
+        generation: u64,
+    ) -> Result<bool, agent_client_protocol::Error> {
+        if !self.supports_acp_elicitation() {
+            warn!(
+                session_id,
+                elicitation_id = %elicitation.id,
+                "ACP client does not support form elicitation"
+            );
+            return Ok(false);
+        }
+        if elicitation
+            .requested_schema
+            .get("url")
+            .and_then(|url| url.as_str())
+            .is_some()
+        {
+            warn!(
+                session_id,
+                elicitation_id = %elicitation.id,
+                "ACP URL elicitation is not supported"
+            );
+            return Ok(false);
+        }
+        let schema =
+            match serde_json::from_value::<ElicitationSchema>(elicitation.requested_schema.clone())
+            {
+                Ok(schema) => schema,
+                Err(error) => {
+                    warn!(
+                        session_id,
+                        elicitation_id = %elicitation.id,
+                        %error,
+                        "Failed to parse ACP elicitation schema"
+                    );
+                    return Ok(false);
+                }
+            };
+        let request = CreateElicitationRequest::new(
+            ElicitationFormMode::new(ElicitationSessionScope::new(session_id.to_string()), schema),
+            elicitation.message.clone(),
+        )
+        .meta(elicitation.meta.clone());
+        let weak_attachment = Arc::downgrade(attachment);
+        let session_manager = Arc::clone(&self.session_manager);
+        let session_id = session_id.to_string();
+        let elicitation_id = elicitation.id.clone();
+        cx.send_request(CreateElicitationRequestMessage(request))
+            .on_receiving_result(move |result| async move {
+                let Some(attachment) = weak_attachment.upgrade() else {
+                    return Ok(());
+                };
+                let response = match result {
+                    Ok(response) => elicitation_response_from_acp(response.0),
+                    Err(error) if agent_client_protocol::is_incoming_transport_closed(&error) => {
+                        attachment.lock().detach(generation);
+                        return Ok(());
+                    }
+                    Err(error) => {
+                        warn!(
+                            error = %error,
+                            session_id = %session_id,
+                            elicitation_id = %elicitation_id,
+                            "ACP elicitation request failed"
+                        );
+                        ElicitationOutcome::Cancel
+                    }
+                };
+                let answered = attachment
+                    .lock()
+                    .take_elicitation(&elicitation_id, generation);
+                if answered {
+                    record_acp_elicitation_response(
+                        &session_manager,
+                        &session_id,
+                        &elicitation_id,
+                        response,
+                    )
+                    .await;
+                }
+                Ok(())
+            })?;
+        Ok(true)
+    }
+
+    pub(super) fn cancel_run_elicitations(&self, session_id: String, elicitation_ids: Vec<String>) {
+        let session_manager = Arc::clone(&self.session_manager);
+        tokio::spawn(async move {
+            for elicitation_id in elicitation_ids {
+                record_acp_elicitation_response(
+                    &session_manager,
+                    &session_id,
+                    &elicitation_id,
+                    ElicitationOutcome::Cancel,
+                )
+                .await;
+            }
+        });
+    }
+
     pub(super) async fn handle_form_elicitation(
         &self,
         cx: &ConnectionTo<Client>,
