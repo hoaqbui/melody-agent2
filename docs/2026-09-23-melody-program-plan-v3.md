@@ -38,7 +38,7 @@ User direction (2026-09-23): a vertical slice first; companions are real manager
 - **M2 → M4:** `just walk "friend"`: a companion is reused on the second request in its repository, delegates, is reachable as an ordinary session, and a worker's attempt to delegate is refused.
 - **M3 → M4:** `DESIGN.md`'s checks green; `theme-tokens.test.ts` green; screenshot checks of the settled design's window states (§4) at 1512 px in both themes.
 - **M4 → A:** a fresh profile walks first run → seats (one signed in) → Melody's first message.
-- **A done (v0.9 alpha):** every Must, Should and Could task closed in `tasks.md`, and team memory T1–T4's gates passed; `just test-full` green; `gh release view v0.9.0-alpha.1 --repo hoaqbui/melody-agent2` shows the build; the installed alpha opens on Melody and an update from `0.9.0-alpha.1` to `.2` arrives through the updater.
+- **A done (v0.9 alpha):** every Must, Should and Could task closed in `tasks.md`, and team memory T1–T4's gates passed; `just test-full` and `just test-phone` green (the phone walks, added 2026-09-24, task 298); `gh release view v0.9.0-alpha.1 --repo hoaqbui/melody-agent2` shows the build; the installed alpha opens on Melody and an update from `0.9.0-alpha.1` to `.2` arrives through the updater.
 
 ## Out of scope
 

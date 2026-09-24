@@ -576,7 +576,7 @@ Order: 254 first (the seat row and sign-in) → 253 ∥ 255 → 256 (after 255, 
 
 ### docs/2026-09-23-melody-program-plan-v3.md — A v0.9 alpha (195 is A's first task; publishing only on the user's word each time)
 
-Order: 195 → 258 ∥ 259. 259's confirm is the A-done gate (plan v3 `:41`).
+Order: 195 → 258 ∥ 298 → 259. 259's confirm is the A-done gate (plan v3 `:41`). 298 added 2026-09-24 (user: "A" — the phone walk joins the gate; no hand check on a real phone).
 
 - 258. The alpha checklist: who tests, how to install (fresh, with the quarantine step), what to try, known issues, where feedback goes
   - status: todo (after 195) · agent: — · worker: low
@@ -584,11 +584,17 @@ Order: 195 → 258 ∥ 259. 259's confirm is the A-done gate (plan v3 `:41`).
   - context: plan v3 `:30`; 1.52.0 installs don't see 0.9 as newer, so testers install fresh; an unsigned first download is quarantined; "what to try" follows first run → seats → Melody's first message → a session she starts; known issues from open `tasks.md` entries at release time; who tests and where feedback goes are the user's answers (default: GitHub issues on `hoaqbui/melody-agent2`)
   - confirm: `f=$(ls docs/*-melody-alpha-checklist-v1.md) && grep -cE "^## (Who tests|Install|What to try|Known issues|Where feedback goes)" "$f"` → 5 (today: no file)
 
+- 298. `just test-phone`: the phone walks run unattended and join the A gate beside `test-full`
+  - status: todo · agent: — · worker: medium
+  - card: as the user, I want the phone build checked before every alpha tag, so that desktop work can't silently break Melody on my phone (FURPS R · MoSCoW Should)
+  - context: `test-full` runs only the `walks` project (`Justfile:255-260`); the `phone` project (`playwright.config.ts:45-56`, `tests/e2e/phone.spec.ts`) needs a sidecar serving `dist-web/` on :3285 and proxying `/acp` to a `goose serve`, both started out of band, with the sidecar's `?key=` in `WEB_BUILD_URL` (`phone.spec.ts:1-8`); `build:web` is `ui/desktop/package.json:25`; the recipe starts both under a throwaway `GOOSE_PATH_ROOT` (as the walks do, `fixtures.ts:130`), runs the project, and stops them on any exit; `Justfile:248-251`'s "run by hand" comment updated; plan v3 `:41` gains `just test-phone`
+  - confirm: `just test-phone` → the `phone` project passes with nothing started beforehand and no `:3285` listener left after (`lsof -iTCP:3285 -sTCP:LISTEN | wc -l` → 0); `grep -c "test-phone" docs/2026-09-23-melody-program-plan-v3.md` → ≥ 1 (0 today)
+
 - 259. v0.9 alpha, done: `v0.9.0-alpha.1` published and installed fresh, it opens on Melody, and `v0.9.0-alpha.2` arrives through the updater
-  - status: todo (after the M4 → A gate, 195 and 258; each `gh release create` on the user's word) · agent: — · worker: medium
+  - status: todo (after the M4 → A gate, 195, 258 and 298; each `gh release create` on the user's word) · agent: — · worker: medium
   - card: as the user, I want an installed alpha to pull down the next build by itself, so that testers stay current without reinstalling (FURPS R S · MoSCoW Must)
   - context: the gate is plan v3 `:41` (every Must/Should/Could closed, T1–T4's gates passed); `just test-full` before each tag; the swap path `githubUpdater.ts:229-240`, `:358`; log lines `GitHubUpdater: Update available:` (`:515`), `Current app version` (`:468`); the user's hand checks: opens on Melody's tab; Settings › Updates offers alpha.2; About reads `0.9.0-alpha.2` after relaunch
-  - confirm: `gh release view v0.9.0-alpha.1 --repo hoaqbui/melody-agent2 --json tagName -q .tagName` → `v0.9.0-alpha.1` (not found today); `gh release view v0.9.0-alpha.2 --repo hoaqbui/melody-agent2 --json assets -q '[.assets[].name]|sort|join(",")'` → `Melody.zip,mac-update-requirements.json`; `grep -c "Update available: true" ~/Library/Logs/Melody/main.log` → ≥ 1; `just test-full` → green
+  - confirm: `gh release view v0.9.0-alpha.1 --repo hoaqbui/melody-agent2 --json tagName -q .tagName` → `v0.9.0-alpha.1` (not found today); `gh release view v0.9.0-alpha.2 --repo hoaqbui/melody-agent2 --json assets -q '[.assets[].name]|sort|join(",")'` → `Melody.zip,mac-update-requirements.json`; `grep -c "Update available: true" ~/Library/Logs/Melody/main.log` → ≥ 1; `just test-full` and `just test-phone` → green
 
 ### docs/2026-09-23-team-memory-program-plan-v2.md — team memory and growth: T0 (approved 2026-09-23, user: "continue" on the plan's decision 1 and 2 recommendations)
 
