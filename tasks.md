@@ -321,7 +321,7 @@ Order: M0 done 2026-09-23 — 200 done (the desktop follows a turn across a reco
   - confirm: `cargo test -p goose --test acp_server_test task284` → a re-attached client's idle update carries `cancelled` after Stop (0 today)
 
 - 285. Cancelling a parent ends its delegates: a Done/Failed update per child and no orphaned process (found by 200's walk)
-  - status: todo · agent: — · worker: high
+  - status: doing · agent: session's worker (2026-09-23) · worker: high
   - card: as the user, I want Stop to stop the whole tree, so that no delegate row stays "running" and no shell keeps working after I stopped it (FURPS R · MoSCoW Must)
   - context: 200's walk saw, after Stop, the delegate row still `running` (no terminal delegation update sent) and the Claude Code child's `zsh`/`python3` alive past the cancel and past app teardown; the delegate's process group must be killed on cancel, and a `failed`/`cancelled` delegation update sent
   - confirm: `just walk "reconnect during a Hard turn"` extended → after Stop the delegate row leaves `running` within 10 s and `pgrep -f "time.sleep(307)"` finds nothing (today: row running, process alive)
