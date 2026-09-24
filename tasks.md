@@ -113,7 +113,7 @@ Approved 2026-09-18 on the user's delegation; all 17 gate decisions as recommend
   - confirm: `cd ui/desktop && pnpm vitest run src/components/ToolCallConfirmation.test.tsx -t "renders the adapter diff" 2>&1 | grep -E 'Tests'` → contains `1 passed` (untouched: `0` matching); `grep -c "workspace-config-mode-note" src/workspace/SessionControls.tsx` → `1` (untouched: `0`); `just walk "approve mode"` → 1 passed (untouched: no spec)
 
 - 96. The plan-gate walk and the live overrun count: `tests/e2e/plan-gate.spec.ts` per task 90's UX test plan (steps 1–7 + phone width); then ten live Hard runs on `claude-code` with the gate on, recorded in `docs/2026-09-18-plan-gate-runs-v1.md` (overrun count, wall clock, the model); > 1 overrun in ten → the spine gate (plan-mode research option (ii)) becomes a task — decision 13.
-  - status: doing · agent: session's worker (wt/t224, 2026-09-23) · worker: medium
+  - status: todo · agent: — · worker: medium
   - card: as the user, know the gate holds in practice, not only in a rule (plan-mode research §8 "the walk catches the overrun")
   - context: the walk needs a signed-in `claude`; the ten runs cost ten Hard turns on Claude Max — the seven-day utilization read 0.87 (`allowed_warning`) during the approve-mode probes on 2026-09-18, so schedule them after the window resets
     - from 90 (2026-09-18): the `rpi strip` walk (a live Hard session that must delegate to the researcher) fails on main today at 'Research active' after 120 s — and fails the same way with the plan gate off, with the orchestrator role's gate line removed, and with the desktop sources checked out at 3317f25ba (before wave 1); the Claude seat answers `claude -p` in 5 s. Not a regression of 79/90; the live orchestrate path needs its own look before this walk is written
@@ -201,7 +201,7 @@ One branch, one remote, merged worktrees gone, every open workstream handed to i
   - card: as the user, see the dozen calls that are mine in one screen instead of forty lines of checks, so that a sitting with the app answers them all
   - confirm: `awk '/^### Notes and hand checks/{f=1} /^## Ownership/{f=0} f' tasks.md | grep -c "^- "` → `≤ 20` (untouched: 55)
 - 145. (next, B) Fold the walks that prove only a render into unit tests and retire them: turn-undo's button, the dock/pane-store walks re-proving `pane-store.test.ts`, loading-state — target 39 → ~27 specs.
-  - status: doing · agent: session's worker (wt/t264, 2026-09-23) · worker: medium
+  - status: todo · agent: — · worker: medium
   - card: as the session, spend a launch only where a launch proves something a unit test cannot, so that `test-full` fits in a coffee
   - confirm: `ls ui/desktop/tests/e2e/*.spec.ts | wc -l` → `≤ 30` (untouched: 39); `just test-full` → green
 - 147. Walks on their own profile: the dev app under test and the user's running Goose.app share `~/Library/Application Support/Goose` (Electron `userData` — Local Storage, the dock, the theme) and goosed's `~/.local/share/goose/sessions.db` — the user's sidebar fills with the walks' "Respond with the single" sessions, and two Electron instances on one profile is the best remaining explanation for windows closing 2–5 s after launch (139a: no IPC, navigation or crash behind them). The fixture points the app at a scratch profile — `GOOSE_PATH_ROOT=<scratch>` for goosed with the user's `config.yaml` copied in at `walk-prep`, and a `GOOSE_USER_DATA` (or `--user-data-dir`) the main process honours under `ENABLE_PLAYWRIGHT` — so a walk never writes where the user reads.
@@ -210,7 +210,7 @@ One branch, one remote, merged worktrees gone, every open workstream handed to i
   - card: as the user, run the app while walks run and see only my own sessions, so that testing never shows up in my sidebar or my window
   - confirm: `sqlite3 ~/.local/share/goose/sessions/sessions.db "select count(*) from sessions where name like 'Respond with the single%'"` unchanged across a `just smoke` (untouched: grows by 3+); `just smoke` × 3 → 0 "relaunching" lines
 - 146. (later, C) Walks in parallel: a per-app sidecar port (the fixture hands each launch its own, the renderer reads it from the sidecar URL it already gets), `workers: 3` in `playwright.config.ts` — when the tag gate starts to hurt.
-  - status: doing · agent: session's worker (wt/t279, 2026-09-23) · worker: medium
+  - status: todo · agent: — · worker: medium
   - card: as the session, run the tag gate in under ten minutes, so that a tag is cheap enough to cut often
   - confirm: `grep -n "workers:" ui/desktop/playwright.config.ts` → `3`; `just test-full` → green in under 12 min
 
@@ -426,7 +426,7 @@ Order: 224 can start now, beside M1a (it needs none of M1a's tools). After M1a's
   - confirm: `cd ui/desktop && grep -c "export function withMelodyFirst" src/workspace/sidebar-sessions.ts && pnpm exec vitest run src/workspace/sidebar-sessions.test.ts` → 1 and passes (0 today); `just walk "melody pin"` → 1 passed
 
 - 224. The lever retired: Easy's row is attach · send, and a new Easy session starts on the orchestrator setup
-  - status: todo · agent: — · worker: medium
+  - status: doing · agent: session's worker (wt/t224, 2026-09-23) · worker: medium
   - card: as the user, I want no difficulty to pick before I type, so that every session starts ready to delegate (FURPS U · MoSCoW Must; design §10, §18; plan §M1b)
   - context: can start now; edits `WorkspaceShell.tsx` so it lands apart from 221/222; today Easy's chips are the lever (`WorkspaceShell.tsx:1313-1327`), triples in `LEVER` (`session-controls.ts:157-177`), a new Easy session is Sonnet direct (`WorkspaceShell.tsx:583`, `:1554-1582`); after: `LEVER.hard` + `orchestratorRecipe` (`session-controls.ts:78`) when the folder has an orchestrator role, else direct Opus; removed: `Lever.tsx`, `STOP_MESSAGES`, the palette's lever group (`palette-state.ts:137-143`, `CommandPalette.tsx:30`, `:36`, test `palette-state.test.ts:56-73`), Telemetry's Lever row (`telemetry-now.ts:36`, `:47-51`), the i18n keys; `DESIGN.md`'s lever lines (`:10`, `:33`, `:91-92`, `:189`) amended; walks that click Hard start on the default (`rpi-strip.spec.ts:36`, `agents-pane.spec.ts:49-50`, `artifact-pane.spec.ts:40`; `easy-mode.spec.ts:9-10` rewritten)
   - confirm: `cd ui/desktop && test ! -e src/workspace/Lever.tsx && ! grep -rq "workspace-lever" src tests && pnpm run test:light` → exit 0 (today exit 1: the file exists, 10 hits in 4 walks); then `just walk "rpi strip"` → 1 passed
@@ -624,7 +624,7 @@ T0 done 2026-09-23: 202 (`~/Melody` committed, `83f5f23`); 203 (health check + l
 Order: 264 → 265 ∥ 266 ∥ 267 ∥ 268 → 269. 267 edits `ChangesBar.tsx`, `WorkspaceShell.tsx`, `ledger-writer.ts` and lands alone on them. The T1 → T4 gate is 266's vitest + 268's walk.
 
 - 264. Ledger schema for jobs: new kinds `land · verdict · link · gap`, and job identity on the `worker` event
-  - status: todo · agent: — · worker: medium
+  - status: doing · agent: session's worker (wt/t264, 2026-09-23) · worker: medium
   - card: as the user, I want every delegated run recorded as one job, with who ran it, under which charter, for which task and from which base, so that its outcome can be traced and rerun later (FURPS R · MoSCoW Must)
   - context: kinds listed twice — `ui/sidecar/src/ledger.ts:13-21`, `ui/desktop/src/native/ledger.ts:7-15`; `requireEvent` 400s any other kind (`sidecar ledger.ts:56-58`); `worker` (`native/ledger.ts:42-55`) gains `turnId` (the user message holding `parentToolCallId`, `telemetry-now.ts:122-149`), `member` (`delegation.source` until M2), `charterSha` (the role file's blob sha until M2's `~/Melody/<name>/charter.md`), `taskRef` (first `task NNN` in the delegate args), `taskHash`, `baseSha` (HEAD when the row first shows running); builder `ledger-events.ts:108-134`; payloads `land {sha, paths, message}`, `verdict {workerSessionId, verdict: good|fixed|wrong, why?}`, `link {workerSessionId, by: user|melody, fromWorkerSessionId?|fromSha?}`, `gap {from, to}`; `ARCHITECTURE.md:93`'s kind list amended in the same commit
   - confirm: `grep -c "'land'" ui/sidecar/src/ledger.ts ui/desktop/src/native/ledger.ts` → 1 each (0 today); `cd ui/sidecar && pnpm vitest run ledger -t "accepts land, verdict, link and gap"` → 1 passed; `cd ui/desktop && pnpm vitest run ledger-events -t "job identity"` → 1 passed (0 today)
@@ -722,7 +722,7 @@ Order: 276 ∥ 277 (both `scheduler.rs`, one lands before the other) ∥ 279 →
   - confirm: `python3 scripts/melody-tidy-guard.py --fixture scripts/fixtures/notebook-tidy/ok` → `journal identical · dropped 12% · 1 dream`, exit 0; `…/journal-edited` → exit 1, reverted; `…/dropped-40` → exit 1 (today: no script)
 
 - 279. The routine scripts: cap check, journal archive, worktree sweep, backup push, reminders
-  - status: todo · agent: — · worker: medium
+  - status: doing · agent: session's worker (wt/t279, 2026-09-23) · worker: medium
   - card: as the user, I want the notebook kept within its cap, archived, backed up and reminding me what's due, at no model cost, so that upkeep happens without my asking (FURPS R P · MoSCoW Should)
   - context: `scripts/melody-routines.py <routine>` — `cap-check` warns past 160/200 lines or 60 k boot characters, never cuts; `archive` `git mv`s journal days past 90 into `journal/archive/YYYY-MM/`; `sweep` lists merged `wt/*` older than 7 days, removes nothing; `backup` pushes when a remote exists, else "no remote set" exit 0; `reminders` writes `~/Melody/REMINDERS.md` from `memories/**` `stale_after`, proposals pending ≥ 2 days, and "check-in due" 7 days after the last `memory: check-in` commit
   - confirm: `python3 scripts/melody-routines.py --fixture scripts/fixtures/notebook-routines all` → `cap 170/200 warn · archived 2 · sweep 3 listed · backup: no remote set · reminders 3`, exit 0 (today: no script)
