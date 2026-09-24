@@ -381,6 +381,7 @@ impl GooseAcpAgent {
         session_id: &str,
         input: String,
     ) -> Result<String, String> {
+        let _steering = self.active_runs.lock_steering().await;
         let Some((_, agent)) = self.active_runs.agent_run(session_id) else {
             return Err("The task could not receive the latest instruction.".into());
         };

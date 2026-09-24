@@ -296,6 +296,7 @@ struct PendingRunElicitation {
     issued_generation: Option<u64>,
 }
 
+#[derive(Clone, Copy)]
 enum RunOutcome {
     Completed,
     Cancelled,
@@ -471,18 +472,22 @@ impl Drop for ActiveRunDropGuard {
         self.cancel_token.cancel();
         let session_id = std::mem::take(&mut self.session_id);
         let run_id = std::mem::take(&mut self.run_id);
-        let agent = self
-            .registry
-            .remove_agent_run_and_then(&session_id, &run_id, |agent| {
-                self.agent_manager.unpin(&session_id, agent)
-            });
-        if let Ok(handle) = tokio::runtime::Handle::try_current() {
-            if let Some(agent) = agent {
-                handle.spawn(async move {
-                    agent.discard_pending_steers(&session_id).await;
+        let Ok(handle) = tokio::runtime::Handle::try_current() else {
+            self.registry
+                .remove_agent_run_and_then(&session_id, &run_id, |agent| {
+                    self.agent_manager.unpin(&session_id, agent)
                 });
-            }
-        }
+            return;
+        };
+        let registry = self.registry.clone();
+        let agent_manager = self.agent_manager.clone();
+        handle.spawn(async move {
+            registry
+                .end_agent_run(&session_id, &run_id, |agent| {
+                    agent_manager.unpin(&session_id, agent)
+                })
+                .await;
+        });
     }
 }
 
@@ -1440,19 +1445,23 @@ impl GooseAcpAgent {
         outcome: RunOutcome,
     ) {
         let idle = RunDelivery::session(Self::active_run_notification(acp_session_id, None));
-        let agent = {
-            let mut state = attachment.lock();
+        let end = |state: &mut RunAttachmentState| {
             state.outcome = Some(outcome);
             state.pending_permissions.clear();
             state.pending_elicitations.clear();
-            self.active_runs
-                .remove_agent_run_and_then(session_id, run_id, |agent| {
-                    self.agent_manager.unpin(session_id, agent);
-                    state.send_live(&idle);
-                })
         };
-        if let Some(agent) = agent {
-            agent.discard_pending_steers(session_id).await;
+        let owned = self
+            .active_runs
+            .end_agent_run(session_id, run_id, |agent| {
+                self.agent_manager.unpin(session_id, agent);
+                let mut state = attachment.lock();
+                end(&mut state);
+                state.send_live(&idle);
+            })
+            .await
+            .is_some();
+        if !owned {
+            end(&mut attachment.lock());
         }
         self.remove_closed_session_agent(session_id).await;
     }
@@ -2668,17 +2677,11 @@ impl GooseAcpAgent {
     }
 
     async fn clear_active_run(&self, session_id: &str, run_id: &str) {
-        let agent = self
-            .active_runs
-            .remove_agent_run_and_then(session_id, run_id, |agent| {
+        self.active_runs
+            .end_agent_run(session_id, run_id, |agent| {
                 self.agent_manager.unpin(session_id, agent)
-            });
-
-        // Discard steers on the agent that owned the run; under roaming it may
-        // not be this connection's agent.
-        if let Some(agent) = agent {
-            agent.discard_pending_steers(session_id).await;
-        }
+            })
+            .await;
         self.remove_closed_session_agent(session_id).await;
     }
 
@@ -3203,6 +3206,7 @@ impl GooseAcpAgent {
             );
         }
 
+        let steering = self.active_runs.lock_steering().await;
         // Route to the agent that owns the run, not this connection's agent:
         // under roaming the steering client may be a different connection than
         // the one running the prompt.
@@ -3219,6 +3223,7 @@ impl GooseAcpAgent {
         let message_id = format!("steer_{}", Uuid::new_v4());
         let message = message.with_id(message_id.clone());
         agent.steer(&req.session_id, message).await;
+        drop(steering);
 
         if let Some(cx) = self.client_cx.get() {
             let _ = Self::send_queued_steer_update(
