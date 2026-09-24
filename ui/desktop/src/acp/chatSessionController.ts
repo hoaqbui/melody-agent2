@@ -13,6 +13,7 @@ import {
 import {
   acpChatSessionActions,
   acpChatSessionStore,
+  subscribeToAcpChatSessionDeletions,
   type AcpChatSessionSnapshot,
 } from './chatSessionStore';
 import { isAcpRecovering } from './acpConnection';
@@ -156,6 +157,23 @@ export const RUN_REPLAY_RETRY_MS = 5_000;
 // run has ended and the load succeeds.
 const heldRunSessionIds = new Set<string>();
 const runReplayRetryTimers = new Map<string, ReturnType<typeof setTimeout>>();
+// Bumped when a session's snapshot is deleted, so a load already in flight drops its result
+// instead of recreating the session.
+const sessionDeletions = new Map<string, number>();
+let watchingDeletions = false;
+
+function watchSessionDeletions(): void {
+  if (watchingDeletions) {
+    return;
+  }
+  watchingDeletions = true;
+  subscribeToAcpChatSessionDeletions((sessionId) => {
+    clearTimeout(runReplayRetryTimers.get(sessionId));
+    runReplayRetryTimers.delete(sessionId);
+    heldRunSessionIds.delete(sessionId);
+    sessionDeletions.set(sessionId, (sessionDeletions.get(sessionId) ?? 0) + 1);
+  });
+}
 
 function scheduleRunReplayRetry(sessionId: string): void {
   clearTimeout(runReplayRetryTimers.get(sessionId));
@@ -173,8 +191,11 @@ async function loadSessionFromServer(
   options: AcpLoadSessionOptions = {},
   { quiet = false }: { quiet?: boolean } = {}
 ): Promise<void> {
+  watchSessionDeletions();
   clearTimeout(runReplayRetryTimers.get(sessionId));
   runReplayRetryTimers.delete(sessionId);
+  const deletions = sessionDeletions.get(sessionId) ?? 0;
+  const deletedSinceStart = () => (sessionDeletions.get(sessionId) ?? 0) !== deletions;
   const visibleMessages = acpChatSessionStore.getSnapshot(sessionId)?.messages ?? [];
   if (!isAcpSessionLoadInFlight(sessionId)) {
     if (quiet) {
@@ -186,15 +207,29 @@ async function loadSessionFromServer(
 
   try {
     const { sessionInfo, meta } = await acpLoadSession(sessionId);
+    if (deletedSinceStart()) {
+      return;
+    }
 
     heldRunSessionIds.delete(sessionId);
     showExtensionLoadResults(meta.extensionResults);
     window.dispatchEvent(
       new CustomEvent(AppEvents.SESSION_EXTENSIONS_LOADED, { detail: { sessionId } })
     );
-    acpChatSessionActions.finishSessionLoad(sessionId, sessionInfoToSession(sessionInfo, meta));
+    const loaded = acpChatSessionActions.finishSessionLoad(
+      sessionId,
+      sessionInfoToSession(sessionInfo, meta)
+    );
+    // A Stop sent on a socket that then dropped may never have reached the server; the run
+    // is still live, so send it again (a second cancel of a cancelling run is harmless).
+    if (loaded.pendingCancelPromptAttemptId !== null && loaded.activeRunId !== null) {
+      sendCancel(sessionId);
+    }
     options.onSessionLoaded?.();
   } catch (error) {
+    if (deletedSinceStart()) {
+      return;
+    }
     if (isRunReplayOverflowError(error)) {
       heldRunSessionIds.add(sessionId);
       acpChatSessionActions.holdRunningTurn(sessionId, visibleMessages);
@@ -280,6 +315,10 @@ async function awaitPromptOrItsRun(
     ) {
       throw error;
     }
+    // The reconnect that reloads open sessions has already landed: reload for this turn.
+    if (!error.recoveryPending) {
+      void loadSessionFromServer(sessionId);
+    }
     const failure = await acpChatSessionActions.waitForDetachedPromptAttempt(
       sessionId,
       promptAttemptId
@@ -290,6 +329,12 @@ async function awaitPromptOrItsRun(
   }
 }
 
+function sendCancel(sessionId: string): void {
+  acpCancelPrompt(sessionId).catch((error) => {
+    console.warn('Failed to cancel ACP prompt:', error);
+  });
+}
+
 function stop(sessionId: string): void {
   const storedPromptAttemptId = acpChatSessionStore.getSnapshot(sessionId)?.activePromptAttemptId;
   const hasStoredAcpPrompt = storedPromptAttemptId !== null && storedPromptAttemptId !== undefined;
@@ -298,18 +343,16 @@ function stop(sessionId: string): void {
     acpChatSessionActions.startPromptCancellation(sessionId, storedPromptAttemptId);
     cancelAcpPermissionRequestsForSession(sessionId);
     cancelAcpElicitationRequestsForSession(sessionId);
-    acpCancelPrompt(sessionId).catch((error) => {
-      console.warn('Failed to cancel ACP prompt:', error);
-    });
+    sendCancel(sessionId);
     return;
   }
 
   // A held run this window did not start (its replay was refused) is still the server's
   // to cancel; the retry then loads it once it has ended.
   if (heldRunSessionIds.has(sessionId)) {
-    acpCancelPrompt(sessionId).catch((error) => {
-      console.warn('Failed to cancel ACP prompt:', error);
-    });
+    acpChatSessionActions.cancelHeldRun(sessionId);
+    sendCancel(sessionId);
+    return;
   }
   acpChatSessionActions.setChatState(sessionId, ChatState.Idle);
 }

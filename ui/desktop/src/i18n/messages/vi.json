@@ -257,6 +257,9 @@
   "baseChat.retry": {
     "defaultMessage": "Thử lại"
   },
+  "baseChat.runReplayHeld": {
+    "defaultMessage": "Vẫn đang chạy — câu trả lời sẽ hiển thị đầy đủ khi hoàn tất"
+  },
   "board.columnDone": {
     "defaultMessage": "Done"
   },

@@ -51,6 +51,12 @@ export function isAcpRecovering(): boolean {
   return recovering;
 }
 
+// Whether the loss of `client` is still to be followed by a recovery (which reloads every
+// open session), rather than one that has already landed.
+export function isAcpRecoveryPendingFor(client: GooseAcpClient): boolean {
+  return recovering || currentConnection?.client === client;
+}
+
 export function subscribeToAcpRecovery(listener: AcpRecoveryListener): () => void {
   recoveryListeners.add(listener);
   return () => {

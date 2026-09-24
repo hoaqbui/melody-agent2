@@ -57,10 +57,15 @@ export function isRunReplayOverflowError(error: unknown): boolean {
 }
 
 // A request lost with its socket: the server may still be running what it started.
+// `recoveryPending` is false when the reconnect that reloads open sessions has already
+// landed, so the caller must reload for itself.
 export class AcpConnectionLostError extends Error {
-  constructor(cause: unknown) {
+  readonly recoveryPending: boolean;
+
+  constructor(cause: unknown, recoveryPending: boolean) {
     super(errorMessage(cause), { cause });
     this.name = 'AcpConnectionLostError';
+    this.recoveryPending = recoveryPending;
   }
 }
 

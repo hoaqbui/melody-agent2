@@ -9,7 +9,8 @@ import {
   acpChatSessionActions,
   acpPermissionUserInputRequestId,
   acpChatSessionStore,
-  RUN_REPLAY_HELD_MESSAGE,
+  RUN_REPLAY_HELD_PROGRESS,
+  subscribeToAcpChatSessionDeletions,
   useAcpChatSessionSnapshot,
 } from '../chatSessionStore';
 import type { AcpElicitationRequest } from '../elicitationRequests';
@@ -868,6 +869,37 @@ describe('acpChatSessionStore turn recovery after a reconnect', () => {
     expect(settlement).toEqual({ settled: true, failure: 'Session not found' });
   });
 
+  it('keeps a Stopped held run idle through refused reloads until one succeeds', () => {
+    const currentSessionId = sessionId('session-1');
+    acpChatSessionActions.holdRunningTurn(currentSessionId, []);
+
+    const stopped = acpChatSessionActions.cancelHeldRun(currentSessionId);
+    expect(stopped.chatState).toBe(ChatState.Idle);
+
+    acpChatSessionActions.startSessionLoad(currentSessionId);
+    const refusedAgain = acpChatSessionActions.holdRunningTurn(currentSessionId, []);
+    expect(refusedAgain.chatState).toBe(ChatState.Idle);
+    expect(refusedAgain.progressMessage).toBeUndefined();
+
+    acpChatSessionActions.finishSessionLoad(currentSessionId, session(currentSessionId));
+    expect(acpChatSessionActions.holdRunningTurn(currentSessionId, []).chatState).toBe(
+      ChatState.Streaming
+    );
+  });
+
+  it('tells deletion listeners when a snapshot is deleted', () => {
+    const currentSessionId = sessionId('session-1');
+    const deleted: string[] = [];
+    const unsubscribe = subscribeToAcpChatSessionDeletions((id) => deleted.push(id));
+
+    acpChatSessionActions.setChatState(currentSessionId, ChatState.Idle);
+    acpChatSessionActions.deleteSnapshot(currentSessionId);
+    unsubscribe();
+    acpChatSessionActions.deleteSnapshot(currentSessionId);
+
+    expect(deleted).toEqual([currentSessionId]);
+  });
+
   it('holds the visible turn through refused quiet reloads and replaces it once on success', () => {
     const currentSessionId = sessionId('session-1');
     const partial: Message[] = [
@@ -879,7 +911,7 @@ describe('acpChatSessionStore turn recovery after a reconnect', () => {
     const held = acpChatSessionActions.holdRunningTurn(currentSessionId, partial);
     expect(held).toMatchObject({
       chatState: ChatState.Streaming,
-      progressMessage: RUN_REPLAY_HELD_MESSAGE,
+      progressMessage: RUN_REPLAY_HELD_PROGRESS,
       sessionLoadError: undefined,
     });
     expect(held.messages).toEqual(partial);

@@ -1,4 +1,4 @@
-import type { Page } from '@playwright/test';
+import type { Locator, Page } from '@playwright/test';
 import {
   test,
   expect,
@@ -155,8 +155,13 @@ test.describe('agents pane', { tag: '@seat' }, () => {
 
       const hubInput = goosePage.locator('[data-testid="chat-input"]');
       await expect(hubInput).toHaveCount(1, { timeout: 15000 });
+      // The reply token is never written out in the prompt, so every copy of it in the
+      // transcript is the orchestrator's; a replayed duplicate would show a second one.
       const firstPrompt =
-        "Delegate exactly once to the spike-echo role with instructions 'say hello', then reply DONE";
+        "Delegate exactly once to the spike-echo role with instructions 'say hello'. Write " +
+        'nothing before or while delegating. When it returns, reply with only the word made ' +
+        "by joining 'RECON' and 'OK' with a hyphen.";
+      const replyToken = /RECON-OK/g;
       await hubInput.fill(firstPrompt);
       await hubInput.press('Enter');
       await trustRecipeIfAsked(goosePage);
@@ -169,11 +174,13 @@ test.describe('agents pane', { tag: '@seat' }, () => {
         .filter({ has: goosePage.locator('[data-testid="chat-input"]') });
       const stop = chat.getByRole('button', { name: 'Stop', exact: true });
       const turnFailure = chat.locator('[data-testid="turn-failure-card"]');
-      const assistantMessages = chat.locator('[data-testid="message-container"].assistant');
+      const transcript = chat.locator('[data-testid="message-container"]');
       const userMessages = chat.locator('[data-testid="message-container"].user');
+      const transcriptText = async () => (await transcript.allInnerTexts()).join('\n');
 
       // Mid-turn: the parent's run is inside its delegate call.
       await expect(runningRow).toHaveCount(1, { timeout: 120000 });
+      await logSeat(goosePage, sessionId, runningRow, 'turn 1');
       await expect(stop).toBeVisible();
       await reconnectMidTurn(goosePage);
 
@@ -184,34 +191,51 @@ test.describe('agents pane', { tag: '@seat' }, () => {
       await expect(stop).toBeVisible();
       await goosePage.screenshot({ path: test.info().outputPath('reconnect-streaming.png') });
 
-      // The orchestrator may say "then reply DONE" before delegating, so the reply is the
-      // last message; exactly once means no replayed message shows twice.
-      await expect(assistantMessages.last()).toContainText(/DONE/, { timeout: 180000 });
+      await expect
+        .poll(async () => (await transcriptText()).match(replyToken)?.length ?? 0, {
+          timeout: 180000,
+        })
+        .toBeGreaterThan(0);
       await expect(stop).toHaveCount(0, { timeout: 30000 });
-      await expect(userMessages.filter({ hasText: firstPrompt })).toHaveCount(1);
-      const replies = (await assistantMessages.allInnerTexts())
-        .map((text) => text.trim())
-        .filter(Boolean);
-      expect(new Set(replies).size).toBe(replies.length);
+      expect((await transcriptText()).match(replyToken)?.length).toBe(1);
+      await expect(userMessages.filter({ hasText: 'say hello' })).toHaveCount(1);
       await expect(turnFailure).toHaveCount(0);
       await goosePage.screenshot({ path: test.info().outputPath('reconnect-reply-once.png') });
 
-      // Stop on a turn recovered from a reconnect cancels the server's run.
+      // Turn 2 can only end by a cancel inside the window below: its delegate sleeps for
+      // 300 s. A Stop that reached the server brings the run to idle within 90 s.
       const chatInput = chat.locator('[data-testid="chat-input"]');
       await chatInput.fill(
-        "Delegate exactly once to the spike-echo role with instructions 'say goodbye', then reply BYE"
+        "Delegate exactly once to the spike-echo role with instructions 'use the Bash tool " +
+          'with timeout 600000 to run the command sleep 300 in the foreground, then say ' +
+          "goodbye'. When it returns, reply with only the word made by joining 'LATE' and " +
+          "'BYE' with a hyphen."
       );
       await chatInput.press('Enter');
       await expect(runningRow).toHaveCount(1, { timeout: 120000 });
+      const delegateStartedAt = Date.now();
+      await logSeat(goosePage, sessionId, runningRow, 'turn 2');
       await reconnectMidTurn(goosePage);
       await expect
         .poll(() => goosePage.evaluate(chatFollowingRunScript(sessionId)), { timeout: 30000 })
         .toBe(true);
+      // Still sleeping well after it began, so the run cannot end on its own soon.
+      await goosePage.waitForTimeout(Math.max(0, 30000 - (Date.now() - delegateStartedAt)));
+      await expect(runningRow).toHaveCount(1);
+      await expect(stop).toBeVisible();
+      const stoppedAt = Date.now();
       await stop.click();
       await expect(stop).toHaveCount(0);
       await expect
-        .poll(() => goosePage.evaluate(chatRunSettledScript(sessionId)), { timeout: 120000 })
+        .poll(() => goosePage.evaluate(chatRunSettledScript(sessionId)), { timeout: 90000 })
         .toBe(true);
+      const settledAfterMs = Date.now() - stoppedAt;
+      const sinceDelegateMs = Date.now() - delegateStartedAt;
+      console.log(
+        `turn 2: idle ${settledAfterMs} ms after Stop, ${sinceDelegateMs} ms after the delegate began`
+      );
+      expect(sinceDelegateMs).toBeLessThan(300000);
+      expect(await transcriptText()).not.toMatch(/LATE-BYE/);
       await expect(turnFailure).toHaveCount(0);
       await goosePage.screenshot({ path: test.info().outputPath('reconnect-stopped.png') });
     } finally {
@@ -220,6 +244,21 @@ test.describe('agents pane', { tag: '@seat' }, () => {
     }
   });
 });
+
+// Which seat and role ran the turn, from the delegate's row and the parent's session.
+async function logSeat(page: Page, sessionId: string, row: Locator, label: string) {
+  const provider = await row.getAttribute('data-provider');
+  const role = await row.locator('[data-testid="agents-row-role"]').innerText();
+  const parent = await page.evaluate(`import('/src/acp/chatSessionStore.ts').then((m) => {
+    const session = m.acpChatSessionStore.getSnapshot(${JSON.stringify(sessionId)})?.session;
+    return JSON.stringify({
+      provider: session?.provider_name ?? null,
+      model: session?.model_config?.model_name ?? null,
+      recipe: session?.recipe?.title ?? null,
+    });
+  })`);
+  console.log(`${label}: parent ${String(parent)}; delegate role ${role} on ${provider}`);
+}
 
 // Evaluated as strings so Playwright's transform leaves the dev server's module URLs alone.
 const ACP_CONNECTION_MODULE = "import('/src/acp/acpConnection.ts')";

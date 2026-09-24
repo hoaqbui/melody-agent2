@@ -4,15 +4,21 @@ import type {
   SteerSessionResponse_unstable,
 } from '@aaif/goose-acp-client';
 import type { Message } from '../types/message';
-import { getAcpClient } from './acpConnection';
+import { getAcpClient, isAcpRecoveryPendingFor } from './acpConnection';
 import { AcpConnectionLostError } from './errors';
 
 export async function acpPromptSession(
   sessionId: string,
   message: Message
 ): Promise<PromptResponse> {
-  const client = await getAcpClient();
   const useLegacyAgentLoop = await window.electron.getSetting('useLegacyAgentLoop');
+  let client = await getAcpClient();
+  // A socket that closed before the prompt went out never started a run: wait for its
+  // recovery and send it on the new one.
+  if (client.connection.signal.aborted) {
+    await client.connection.closed;
+    client = await getAcpClient();
+  }
   try {
     return await client.connection.agent.request(methods.agent.session.prompt, {
       sessionId,
@@ -22,7 +28,7 @@ export async function acpPromptSession(
   } catch (error) {
     // The server owns the run, so a closed socket loses only this response, not the turn.
     if (client.connection.signal.aborted) {
-      throw new AcpConnectionLostError(error);
+      throw new AcpConnectionLostError(error, isAcpRecoveryPendingFor(client));
     }
     throw error;
   }
