@@ -9,10 +9,11 @@ import type { Message } from '../../../types/message';
 import { heartbeatAtLaunch } from '../../project-storage';
 import { eventKey, gapEvent, pendingEvents } from './ledger-events';
 
-// Task 267's gap: checked once per app launch, at whichever session's ledger seeds first — a
-// second workspace tab seeding later must not report the same closed hours again. A fresh
-// launch reloads this module, so the flag needs no explicit reset.
-let gapCheckedThisLaunch = false;
+// Task 267's gap: checked once per cwd per app launch, at whichever session in that cwd seeds
+// first — a second session in the same repository seeding later must not report the same closed
+// hours again, but a different repository's own gap still needs its turn. A fresh launch reloads
+// this module, so the set needs no explicit reset.
+const gapCheckedForCwd = new Set<string>();
 
 export function useLedgerWriter(
   sessionId: string,
@@ -39,8 +40,8 @@ export function useLedgerWriter(
             for (const event of events)
               if (event.sessionId === sessionId) state.keys.add(eventKey(event));
             state.seeded = true;
-            if (!gapCheckedThisLaunch) {
-              gapCheckedThisLaunch = true;
+            if (!gapCheckedForCwd.has(cwd)) {
+              gapCheckedForCwd.add(cwd);
               // `heartbeatAtLaunch` caches this cwd's pre-launch heartbeat the first time
               // anything reads it, so it is unaffected by whether this or the heartbeat
               // effect's own write happens first.
