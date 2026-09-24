@@ -157,6 +157,7 @@ function createAcpChatSessionStoreInternal(): AcpChatSessionStoreInternal {
   const sessionsById = new Map<string, StoreEntry>();
   const listenersBySessionId = new Map<string, Set<SnapshotListener>>();
   const deletionListeners = new Set<(sessionId: string) => void>();
+  const deletedSessionIds = new Set<string>();
 
   const getSnapshot: AcpChatSessionStore['getSnapshot'] = (sessionId) => {
     const entry = sessionsById.get(sessionId);
@@ -202,6 +203,7 @@ function createAcpChatSessionStoreInternal(): AcpChatSessionStoreInternal {
       settleDetached(entry, undefined);
     }
     sessionsById.delete(sessionId);
+    deletedSessionIds.add(sessionId);
     for (const listener of deletionListeners) {
       listener(sessionId);
     }
@@ -220,7 +222,19 @@ function createAcpChatSessionStoreInternal(): AcpChatSessionStoreInternal {
       return existing;
     }
 
-    const entry: StoreEntry = {
+    deletedSessionIds.delete(sessionId);
+    const entry = createEntry();
+    sessionsById.set(sessionId, entry);
+    return entry;
+  };
+
+  // Server notifications for a deleted session (a replay still in flight) are dropped
+  // rather than bringing the session back; an explicit action on it does bring it back.
+  const entryForNotification = (sessionId: string): StoreEntry | undefined =>
+    deletedSessionIds.has(sessionId) ? undefined : getOrCreateEntry(sessionId);
+
+  const createEntry = (): StoreEntry => {
+    return {
       session: undefined,
       messages: [],
       tokenState: { ...initialTokenState },
@@ -243,8 +257,6 @@ function createAcpChatSessionStoreInternal(): AcpChatSessionStoreInternal {
       heldRunCancelled: false,
       adapter: createAcpSessionNotificationAdapter(),
     };
-    sessionsById.set(sessionId, entry);
-    return entry;
   };
 
   const notify = (sessionId: string, entry: StoreEntry): AcpChatSessionSnapshot => {
@@ -604,7 +616,10 @@ function createAcpChatSessionStoreInternal(): AcpChatSessionStoreInternal {
   const applyAcpSessionNotification: AcpChatSessionActions['applyAcpSessionNotification'] = (
     notification
   ) => {
-    const entry = getOrCreateEntry(notification.sessionId);
+    const entry = entryForNotification(notification.sessionId);
+    if (!entry) {
+      return snapshotFromEntry(createEntry());
+    }
     beginPendingReplay(notification.sessionId, entry);
     if (shouldClearProgressMessage(notification)) {
       entry.progressMessage = undefined;
@@ -634,7 +649,10 @@ function createAcpChatSessionStoreInternal(): AcpChatSessionStoreInternal {
 
   const applyAcpGooseSessionNotification: AcpChatSessionActions['applyAcpGooseSessionNotification'] =
     (notification) => {
-      const entry = getOrCreateEntry(notification.sessionId);
+      const entry = entryForNotification(notification.sessionId);
+      if (!entry) {
+        return snapshotFromEntry(createEntry());
+      }
       beginPendingReplay(notification.sessionId, entry);
       const changes = entry.adapter.applyGoose(notification);
       // Same session-load replay fast path as applyAcpSessionNotification.

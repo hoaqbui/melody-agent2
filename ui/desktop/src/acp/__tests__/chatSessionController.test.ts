@@ -37,7 +37,7 @@ vi.mock('../chatSessionStore', () => ({
     startQuietSessionLoad: vi.fn(),
     finishSessionLoad: vi.fn(() => ({ pendingCancelPromptAttemptId: null, activeRunId: null })),
     failSessionLoad: vi.fn(),
-    holdRunningTurn: vi.fn(),
+    holdRunningTurn: vi.fn(() => ({ chatState: 'streaming' })),
     cancelHeldRun: vi.fn(),
     detachPromptAttempt: vi.fn(),
     waitForDetachedPromptAttempt: vi.fn(),
@@ -534,6 +534,30 @@ describe('acpChatSessionController after a reconnect (task 200)', () => {
 
     expect(acpChatSessionActions.detachPromptAttempt).not.toHaveBeenCalled();
     expect(onFinish).toHaveBeenCalledWith('provider exploded');
+  });
+
+  it('resends a Stop when the reload of the stopped run is refused', async () => {
+    vi.useFakeTimers();
+    vi.mocked(acpLoadSession).mockRejectedValueOnce(runReplayOverflow);
+    vi.mocked(acpChatSessionActions.holdRunningTurn).mockReturnValueOnce({
+      ...snapshotWithActivePrompt(null),
+      pendingCancelPromptAttemptId: 'attempt-1',
+      chatState: ChatState.Idle,
+    });
+
+    await acpChatSessionController.restoreSession(SESSION_ID);
+
+    expect(acpCancelPrompt).toHaveBeenCalledWith(SESSION_ID);
+  });
+
+  it('does not cancel a refused run nobody stopped', async () => {
+    vi.useFakeTimers();
+    vi.mocked(acpLoadSession).mockRejectedValueOnce(runReplayOverflow);
+
+    await acpChatSessionController.restoreSession(SESSION_ID);
+
+    expect(acpChatSessionActions.holdRunningTurn).toHaveBeenCalled();
+    expect(acpCancelPrompt).not.toHaveBeenCalled();
   });
 
   it('holds the visible turn and reloads on a timer when the run replay is refused', async () => {

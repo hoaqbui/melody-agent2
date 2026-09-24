@@ -1,3 +1,4 @@
+import { execFileSync } from 'node:child_process';
 import type { Locator, Page } from '@playwright/test';
 import {
   test,
@@ -202,49 +203,95 @@ test.describe('agents pane', { tag: '@seat' }, () => {
       await expect(turnFailure).toHaveCount(0);
       await goosePage.screenshot({ path: test.info().outputPath('reconnect-reply-once.png') });
 
-      // Turn 2 can only end by a cancel inside the window below: its delegate waits 300 s.
-      // A Stop that reached the server brings the run to idle within 90 s. (Claude Code
-      // refuses a bare foreground `sleep`, so the wait is a Python one.)
+      // Turn 2 can only end early by a cancel: its delegate runs a 307 s Python wait (Claude
+      // Code refuses a bare foreground `sleep`), which the walk sees as a live process.
       const chatInput = chat.locator('[data-testid="chat-input"]');
       await chatInput.fill(
         "Delegate exactly once to the spike-echo role with instructions 'use the Bash tool " +
-          'with timeout 600000 to run python3 -c "import time; time.sleep(300)" and wait ' +
-          "for it to finish, then say goodbye'. When it returns, reply with only the word " +
+          `with timeout 600000 to run python3 -c "import time; time.sleep(${LONG_WAIT_S})" and ` +
+          "wait for it to finish, then say goodbye'. When it returns, reply with only the word " +
           "made by joining 'LATE' and 'BYE' with a hyphen."
       );
       await chatInput.press('Enter');
       await expect(runningRow).toHaveCount(1, { timeout: 120000 });
-      const delegateStartedAt = Date.now();
       await logSeat(goosePage, sessionId, runningRow, 'turn 2');
+      await expect.poll(() => longWaitProcesses().length, { timeout: 120000 }).toBeGreaterThan(0);
+      console.log(`turn 2: delegate's wait is running: ${longWaitProcesses().join(' | ')}`);
       await reconnectMidTurn(goosePage);
       await expect
         .poll(() => goosePage.evaluate(chatFollowingRunScript(sessionId)), { timeout: 30000 })
         .toBe(true);
-      // Still sleeping well after it began, so the run cannot end on its own soon.
-      await goosePage.waitForTimeout(Math.max(0, 30000 - (Date.now() - delegateStartedAt)));
+      expect(longWaitProcesses().length).toBeGreaterThan(0);
       await expect(runningRow).toHaveCount(1);
-      await expect(stop).toBeVisible();
       const stoppedAt = Date.now();
       await stop.click();
       await expect(stop).toHaveCount(0);
       await expect
         .poll(() => goosePage.evaluate(chatRunSettledScript(sessionId)), { timeout: 90000 })
         .toBe(true);
-      const settledAfterMs = Date.now() - stoppedAt;
-      const sinceDelegateMs = Date.now() - delegateStartedAt;
+      console.log(`turn 2: idle ${Date.now() - stoppedAt} ms after Stop`);
+      // The run ended while its delegate's wait was still running, so it did not finish: it
+      // was cancelled. (The delegate's shell outlives the cancel; it is killed here.)
+      const survivors = longWaitProcesses();
+      console.log(`turn 2: at idle the delegate's wait is still running: ${survivors.length}`);
+      expect(survivors.length).toBeGreaterThan(0);
+      killLongWaitProcesses();
       console.log(
-        `turn 2: idle ${settledAfterMs} ms after Stop, ${sinceDelegateMs} ms after the delegate began`
+        `turn 2: delegate row ${await pane.locator('[data-testid="agents-row"]').last().getAttribute('data-status')}`
       );
-      expect(sinceDelegateMs).toBeLessThan(300000);
       expect(await transcriptText()).not.toMatch(/LATE-BYE/);
       await expect(turnFailure).toHaveCount(0);
+      // What the server kept, read back through a fresh load: no run left on the session and
+      // no reply to turn 2, whose prompt is the last message — the turn did not finish.
+      await reconnectMidTurn(goosePage);
+      await expect
+        .poll(() => goosePage.evaluate(chatRunSettledScript(sessionId)), { timeout: 30000 })
+        .toBe(true);
+      const persistedTail = JSON.parse(
+        String(await goosePage.evaluate(chatSnapshotTailScript(sessionId)))
+      ) as Array<{ role: string; text: string }>;
+      console.log(`turn 2 persisted tail: ${JSON.stringify(persistedTail)}`);
+      expect(persistedTail.at(-1)?.role).toBe('user');
+      expect(persistedTail.at(-1)?.text).toContain(`time.sleep(${LONG_WAIT_S})`);
       await goosePage.screenshot({ path: test.info().outputPath('reconnect-stopped.png') });
     } finally {
+      killLongWaitProcesses();
       await setAdvancedControls(goosePage, false);
       await emptyDock(goosePage);
     }
   });
 });
+
+const LONG_WAIT_S = 307;
+
+// The delegate's Python wait, found by its command line (pgrep exits 1 on no match).
+function longWaitProcesses(): string[] {
+  try {
+    return execFileSync('pgrep', ['-fl', `time.sleep\\(${LONG_WAIT_S}\\)`], { encoding: 'utf8' })
+      .split('\n')
+      .filter(Boolean);
+  } catch {
+    return [];
+  }
+}
+
+function killLongWaitProcesses(): void {
+  try {
+    execFileSync('pkill', ['-f', `time.sleep\\(${LONG_WAIT_S}\\)`]);
+  } catch {
+    // none left
+  }
+}
+
+function chatSnapshotTailScript(sessionId: string): string {
+  return `import('/src/acp/chatSessionStore.ts').then((m) => {
+    const snapshot = m.acpChatSessionStore.getSnapshot(${JSON.stringify(sessionId)});
+    return JSON.stringify((snapshot ? snapshot.messages.slice(-3) : []).map((message) => ({
+      role: message.role,
+      text: message.content.map((part) => part.text ?? '').join(' '),
+    })));
+  })`;
+}
 
 // Which seat and role ran the turn, from the delegate's row and the parent's session.
 async function logSeat(page: Page, sessionId: string, row: Locator, label: string) {

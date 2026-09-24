@@ -232,7 +232,13 @@ async function loadSessionFromServer(
     }
     if (isRunReplayOverflowError(error)) {
       heldRunSessionIds.add(sessionId);
-      acpChatSessionActions.holdRunningTurn(sessionId, visibleMessages);
+      const held = acpChatSessionActions.holdRunningTurn(sessionId, visibleMessages);
+      // A refused replay means the run is still live, so a Stop recorded against it (a pending
+      // cancel, or a cancelled held run: both leave the held turn idle) may have been lost with
+      // an earlier socket. Send it again; the retry loads the run once it has ended.
+      if (held.chatState === ChatState.Idle) {
+        sendCancel(sessionId);
+      }
       scheduleRunReplayRetry(sessionId);
       return;
     }

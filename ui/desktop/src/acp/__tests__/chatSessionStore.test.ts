@@ -452,7 +452,8 @@ describe('acpChatSessionStore', () => {
   });
 
   it('stores active run ids from session info notifications', () => {
-    const currentSessionId = sessionId('session-1');
+    // Never deleted: notifications for a deleted session are dropped.
+    const currentSessionId = sessionId('session-run-ids');
 
     const snapshot = acpChatSessionActions.applyAcpSessionNotification(
       activeRunNotification(currentSessionId, 'run-1')
@@ -495,7 +496,8 @@ describe('acpChatSessionStore', () => {
   });
 
   it('stores ACP tool notifications and clears them for a new prompt attempt', () => {
-    const currentSessionId = sessionId('session-1');
+    // Never deleted: notifications for a deleted session are dropped.
+    const currentSessionId = sessionId('session-tool-notifications');
 
     const snapshot = acpChatSessionActions.applyAcpSessionNotification(
       toolProgressNotification(currentSessionId)
@@ -885,6 +887,27 @@ describe('acpChatSessionStore turn recovery after a reconnect', () => {
     expect(acpChatSessionActions.holdRunningTurn(currentSessionId, []).chatState).toBe(
       ChatState.Streaming
     );
+  });
+
+  it('drops replayed notifications for a deleted session until it is used again', () => {
+    const currentSessionId = sessionId('session-deleted-mid-replay');
+    acpChatSessionActions.startSessionLoad(currentSessionId);
+    acpChatSessionActions.deleteSnapshot(currentSessionId);
+
+    acpChatSessionActions.applyAcpSessionNotification(
+      agentMessageChunkNotification(currentSessionId, 'reply-1', 'late replay')
+    );
+    expect(acpChatSessionStore.getSnapshot(currentSessionId)).toBeUndefined();
+
+    acpChatSessionActions.startSessionLoad(currentSessionId);
+    acpChatSessionActions.applyAcpSessionNotification(
+      agentMessageChunkNotification(currentSessionId, 'reply-1', 'fresh')
+    );
+    const loaded = acpChatSessionActions.finishSessionLoad(
+      currentSessionId,
+      session(currentSessionId)
+    );
+    expect(loaded.messages.map((m) => m.content)).toEqual([[{ type: 'text', text: 'fresh' }]]);
   });
 
   it('tells deletion listeners when a snapshot is deleted', () => {
