@@ -417,7 +417,7 @@ release-melody:
     cd ..
     just make-ui
     bundle_dir="ui/desktop/out/Melody-darwin-arm64"
-    node ui/desktop/scripts/mac-update-requirements.js "${bundle_dir}/Melody.app" "${bundle_dir}/Melody.zip.macos.json"
+    MACOSX_DEPLOYMENT_TARGET="${MACOSX_DEPLOYMENT_TARGET:-12.0}" node ui/desktop/scripts/mac-update-requirements.js "${bundle_dir}/Melody.app" "${bundle_dir}/Melody.zip.macos.json"
     node ui/desktop/scripts/generate-mac-update-manifest.js --version "${new_version}" --directory "${bundle_dir}"
 
     release_cmd=(gh release create "v${new_version}" --prerelease --repo hoaqbui/melody-agent2 "${bundle_dir}/Melody.zip" "${bundle_dir}/mac-update-requirements.json")
