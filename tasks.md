@@ -600,28 +600,22 @@ Order: 264 → 265 ∥ 266 ∥ 267 ∥ 268 → 269. T1 done 2026-09-23; gate pas
 
 ### docs/2026-09-23-team-memory-program-plan-v2.md — T2: Team health, Usage, Team Context (gated on M1b + M3; decision 2a: Work tabs first)
 
-Order: 270 (draftable now) → 271 ∥ 272 → 273 ∥ 274; 275 after use.
-
-- 270. T2a PRD: Team health and Usage as Work tabs
-  - status: doing · agent: session's worker (2026-09-23) · worker: medium
-  - card: as the user, I want the two tabs' behaviour, states and criteria written and approved before any code, so that T2a builds what I picked (FURPS U · MoSCoW Must)
-  - context: mockups `docs/mockups/2026-09-23-team-health-panel.html` and `2026-09-23-usage-versions.html` version D; must decide how the tabs read `~/Melody` and other repositories' ledgers (the sidecar has one cwd, `main.ts:1315-1316`; `/ledger/*`, `/fs/*` 400 outside it, `sidecar ledger.ts:95-114`), where seat windows come from (`planLimits` is supplied nowhere, `UsageRing.tsx:46`, `:57`), what fixture the `team health` walk loads; template `docs/2026-09-22-agent-memory-prd-v2.md`
-  - confirm: `ls docs/*-team-tabs-prd-v1.md | wc -l && grep -c "^- \[ \]" docs/*-team-tabs-prd-v1.md` → 1 file, ≥ 6 criteria (0 today); then the user's approval
+Order: 270 → 271 ∥ 272 → 273 ∥ 274; 275 after use. 270 done 2026-09-24: `docs/2026-09-23-team-tabs-prd-v1.md` approved (user: "Approved"), every decision on its recommendation — data sources 1–4 all A, open questions 1–5 as recommended; the PRD's `ARCHITECTURE.md` amendment text is approved for 271 to apply.
 
 - 271. Read-only paths to the notebook and to every ledger
-  - status: blocked — 270's pick and an `ARCHITECTURE.md` §Invariants amendment the user approves · agent: — · worker: medium
+  - status: todo (PRD approved 2026-09-24, amendment text in its §Data sources 1) · agent: — · worker: medium
   - card: as the user, I want Team health to see `~/Melody` and every companion's ledger from any project, so that the numbers aren't limited to the open repository (FURPS F · MoSCoW Must)
   - context: `/notebook/read {path}` under a second root fixed at spawn (`~/Melody`, realpath, read-only, `..` refused); `/ledger/list` over `*.jsonl` in `defaultLedgerDir()` (`sidecar ledger.ts:32-37`); registered beside `ledgerRoutes` (`sidecar index.ts:80-85`); `/fs/*` unchanged
   - confirm: `cd ui/sidecar && pnpm vitest run notebook` → reads a fixture file, refuses an escape and any write, lists two ledgers (today: no test file)
 
 - 272. Seat windows reach the renderer: each plan window's used, max and reset
-  - status: blocked — 270's pick; with or after task 182 (a spine patch) · agent: — · worker: high
+  - status: todo (with or after task 182, a spine patch) · agent: — · worker: high
   - card: as the user, I want each seat's 5-hour, weekly and monthly windows with their reset times, so that Usage can say when one closes and the tidy-up can skip a seat that's nearly full (FURPS F · MoSCoW Should)
   - context: goose folds rate limits into `CreditsExhausted` with no reset (`acp/provider.rs:183-207`); claude-agent-acp's `rate_limit_info` and codex-acp's `resetsAt` are never forwarded (task 182); the desktop reads `usage_update` only for context (`sessionNotificationAdapter.ts:109`); target type `UsageLimit` (`usage-ring.ts:4-12`); feeding `planLimits` also lights the send disc's ring
   - confirm: `cargo test -p goose --lib acp:: -- seat_window` → a claude `rate_limit_info` and a codex `resetsAt` each reach the client as a window (0 match today)
 
 - 273. Team health tab
-  - status: blocked — M1b, M3, 270 approved, 271 · agent: — · worker: high
+  - status: blocked — M1b, M3, 271 · agent: — · worker: high
   - card: as the user, I want the team's vital signs in one Work tab, and the check-in one click away, so that I see what's due without asking (FURPS U · MoSCoW Must)
   - context: `PaneId` `'team-health'` (`pane-store.ts:4-29`), label/icon `WorkspaceShell.tsx:206`, `:221`; five tiles (memory lines vs cap, chats with a note — `scripts/melody-notebook-week.py`'s logic, waiting on you, jobs done clean from 266, stale notes); member cards from 266; "Start check-in" sends "check-in" to Melody's session (M1b); links to Team Context (T2b)
   - confirm: `just walk "team health"` → 1 passed: opens from +, tiles read the fixture ledger and notebook, Start check-in reaches Melody's tab (today: no spec)

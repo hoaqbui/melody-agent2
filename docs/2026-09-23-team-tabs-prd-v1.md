@@ -1,6 +1,6 @@
 # PRD — Team health and Usage as Work tabs (T2a)
 
-Dated 2026-09-23. **v1, draft for the user's approval** (task 270). The plan owns the order and the gate: `docs/2026-09-23-team-memory-program-plan-v2.md` T2a (`:44`), gate `:57`, decision 2a — Work tabs first, 2b — these two tabs only (`:22-23`). The walk behind the tabs is `docs/2026-09-22-agent-memory-prd-v2.md` (steps 5–6, the notebook layout). Mockups: `docs/mockups/2026-09-23-team-health-panel.html` (content only — its 1·1·2 layout is decision 2a's rejected option), `2026-09-23-usage-versions.html` **version D** (the merged one), `2026-09-23-melody-home.html` (the tab row). Names and states cite `DESIGN.md`. Downstream: tasks 271 (routes), 272 (seat windows), 273 (Team health), 274 (Usage) build to §Data sources and §Criteria below.
+Dated 2026-09-23. **v1, approved 2026-09-24** (task 270; user: "Approved" — every decision and open question takes its recommended answer). The plan owns the order and the gate: `docs/2026-09-23-team-memory-program-plan-v2.md` T2a (`:44`), gate `:57`, decision 2a — Work tabs first, 2b — these two tabs only (`:22-23`). The walk behind the tabs is `docs/2026-09-22-agent-memory-prd-v2.md` (steps 5–6, the notebook layout). Mockups: `docs/mockups/2026-09-23-team-health-panel.html` (content only — its 1·1·2 layout is decision 2a's rejected option), `2026-09-23-usage-versions.html` **version D** (the merged one), `2026-09-23-melody-home.html` (the tab row). Names and states cite `DESIGN.md`. Downstream: tasks 271 (routes), 272 (seat windows), 273 (Team health), 274 (Usage) build to §Data sources and §Criteria below.
 
 ## Problem
 
@@ -114,6 +114,8 @@ The sidecar has one root, fixed at spawn: `cwd: workingDir` (`ui/desktop/src/mai
 - protected: the notebook is never written by a tab or a `/notebook/*` route; `/fs/*` and `/git/*` containment unchanged; `USER.md` is never read by either tab; the ledger is read-only here — no new kinds; idle means no reads while a tab is hidden; `agent.rs` and `state_machine/` untouched (`ARCHITECTURE.md:119`)
 
 ## Open questions for the user
+
+Settled 2026-09-24 on the recommendations: 1 yours + together; 2 delete once after 271; 3 `localStorage`; 4 yes; 5 left out.
 
 1. **"Waiting on you"** — recommended: yours = pending proposals + `unknown` jobs with no verdict; together = stale notes + chats without a note, counted only when a check-in is due. Or count only yours?
 2. **The 72 walk ledgers already in `~/.local/state/goose/ledger/`** — delete them once after 271 lands (recommended; every name is a walk's temp dir, `goose-<spec>-<random>`), or leave them?
