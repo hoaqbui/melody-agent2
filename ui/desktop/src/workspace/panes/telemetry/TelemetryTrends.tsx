@@ -45,7 +45,9 @@ export function TelemetryTrends({
     const units = unitsOf(data.sessions, data.events);
     const label = (s: { provider: string; model: string }) =>
       `${runtimeLabel(s.provider, providers)} · ${shortModel(s.model)}`;
-    return topTrends(trendCandidates(units, data.events, rangeEnding(grain, now()), label));
+    return topTrends(
+      trendCandidates(units, data.events, rangeEnding(grain, now()), label, now().getTime())
+    );
   }, [data, grain, now, providers]);
   const span = GRAIN_SPAN[grain].chip;
   return (

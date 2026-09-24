@@ -5,6 +5,7 @@
 import type { LedgerEvent, ReviewEvent, WorkerEvent } from '../../../native/ledger';
 import type { SessionListItem } from '../../../acp/sessions';
 import { bucketKey, bucketStart, bucketStep, type Range } from './telemetry-buckets';
+import { outcomeOf } from './ledger-outcome';
 
 export interface Flow {
   source: string;
@@ -56,7 +57,7 @@ export interface RoleRow {
   failed: number;
   blocked: number;
   corrected: number;
-  // (done − blocked − corrected) ÷ runs.
+  // Landed jobs ÷ runs, per the job outcome fold (266) — a commit matched the job's files.
   cleanDone: number;
   // Median wall clock per run in minutes; null until the children's records are known.
   medianMinutes: number | null;
@@ -104,10 +105,10 @@ export function verdictOf(
 
 export function roleRows(
   workers: readonly WorkerEvent[],
-  corrections: readonly { workerSessionId: string }[],
+  events: readonly LedgerEvent[],
+  now: number,
   children: ReadonlyMap<string, ChildRecord> = new Map()
 ): RoleRow[] {
-  const correctedWorkers = new Set(corrections.map((c) => c.workerSessionId));
   const by = new Map<string, WorkerEvent[]>();
   for (const w of workers) {
     const list = by.get(roleOf(w)) ?? [];
@@ -124,10 +125,14 @@ export function roleRows(
       const [provider, model] = (
         [...seats.entries()].sort((a, b) => b[1] - a[1])[0]?.[0] ?? '|'
       ).split('|');
+      // The fold (266): one outcome per job — blocked, undone and reworked never count as
+      // corrected too, and clean means landed, not merely done-and-unflagged.
+      const readings = list.map((w) => outcomeOf(w, events, now));
       const done = list.filter((w) => w.status === 'done').length;
       const failed = list.filter((w) => w.status === 'failed').length;
-      const blocked = list.filter((w) => w.status === 'done' && w.blocked).length;
-      const corrected = list.filter((w) => correctedWorkers.has(w.workerSessionId)).length;
+      const blocked = readings.filter((r) => r.outcome === 'blocked').length;
+      const corrected = readings.filter((r) => r.outcome === 'corrected').length;
+      const landed = readings.filter((r) => r.clean).length;
       const runs = list.length;
       const minutes: number[] = [];
       const tokens: number[] = [];
@@ -140,7 +145,7 @@ export function roleRows(
         }
         if (child.tokens !== undefined) tokens.push(child.tokens);
       }
-      const cleanDone = runs ? (done - blocked - corrected) / runs : 0;
+      const cleanDone = runs ? landed / runs : 0;
       const row: RoleRow = {
         source,
         provider,
@@ -188,18 +193,15 @@ export interface TrendLine {
   labels: string[];
 }
 
-// Clean-done per role per week over the quarter holding `now`.
-export function weeklyCleanDone(
-  events: readonly LedgerEvent[],
-  corrections: readonly { workerSessionId: string }[],
-  now: Date
-): TrendLine[] {
+// Clean-done per role per week over the quarter holding `now`, read from the fold (266):
+// clean means landed — a blocked, undone, reworked or still-unknown job never counts.
+export function weeklyCleanDone(events: readonly LedgerEvent[], now: Date): TrendLine[] {
   const q0 = bucketStart('quarters', now);
   const starts: Date[] = [];
   for (let start = bucketStart('weeks', q0); start <= now; start = bucketStep('weeks', start, 1))
     starts.push(start);
   const labels = starts.map((_, i) => `W${i + 1}`);
-  const corrected = new Set(corrections.map((c) => c.workerSessionId));
+  const nowMs = now.getTime();
   const workers = events.filter(
     (e): e is WorkerEvent => e.kind === 'worker' && new Date(e.at) >= q0
   );
@@ -213,9 +215,7 @@ export function weeklyCleanDone(
         (w) => roleOf(w) === source && bucketKey('weeks', new Date(w.at)) === key
       );
       if (!inWeek.length) return null;
-      const clean = inWeek.filter(
-        (w) => w.status === 'done' && !w.blocked && !corrected.has(w.workerSessionId)
-      ).length;
+      const clean = inWeek.filter((w) => outcomeOf(w, events, nowMs).clean).length;
       return Math.round((clean / inWeek.length) * 100);
     }),
   }));

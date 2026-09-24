@@ -80,16 +80,16 @@ const COLUMN_WHY: Record<string, { why: string; from: string }> = {
     from: 'count DelegationUpdate per source',
   },
   done: {
-    why: 'Returned text without error. Includes BLOCKED returns and diffs the session then rewrote — the next two columns take those out.',
+    why: 'Returned text without error. Includes BLOCKED returns, jobs the session rewrote, and done runs no commit has matched yet — clean-done is the number that takes those out.',
     from: 'DelegationUpdate.status = done',
   },
   blocked: {
-    why: "Returned BLOCKED: the plan's assumption failed against the tree. A failure of the plan, not the seat.",
-    from: 'the child return text starts BLOCKED',
+    why: "Returned BLOCKED: the plan's assumption failed against the tree. A failure of the plan, not the seat. Never clean, even if its files later land.",
+    from: 'the job outcome fold: job.blocked, outcome = blocked',
   },
   corrected: {
-    why: "The session edited the worker's files after it returned Done. The one number that says the seat cost more than it saved.",
-    from: "session write/edit after Done ∩ the return's Files Changed",
+    why: "The session edited the worker's files after it returned Done, and nothing else about the job outranks it. The one number that says the seat cost more than it saved.",
+    from: 'the job outcome fold: correction or a "fixed it" verdict, outcome = corrected',
   },
   pass: {
     why: "The range's review verdicts as one rate — branch-level, not attributed to a role: a worker carries no branch on the wire.",
@@ -101,8 +101,8 @@ const COLUMN_WHY: Record<string, { why: string; from: string }> = {
     from: 'child session totals ÷ runs',
   },
   trend: {
-    why: 'Clean-done, weekly: done, not blocked, not corrected.',
-    from: '(done − blocked − corrected) ÷ runs per week',
+    why: 'Clean-done, weekly, per the job outcome fold: landed, and nothing else — a done run with no matching commit yet reads unknown, not clean.',
+    from: 'landed jobs ÷ runs per week',
   },
   verdict: {
     why: 'Effective: clean-done ≥ 80% (and PASS ≥ 80% when attributed). Watch: below either. Failing: corrected ≥ half the runs, or clean-done under 50%.',
@@ -412,7 +412,7 @@ function TrendLines({
             <Why
               as="g"
               why={`${first}% → ${last}% clean-done across the quarter (${last - first >= 0 ? '+' : ''}${last - first} pts).`}
-              from="(done − blocked − corrected) ÷ runs per week"
+              from="landed jobs ÷ runs per week"
               head={line.source}
             >
               {segments.map((points, s) => (
@@ -503,14 +503,11 @@ export function TelemetryRoles({ grain, now = defaultNow }: { grain: Grain; now?
     const at = now();
     const range = rangeEnding(grain, at);
     const workers = workersIn(loaded.events, range);
-    const corrections = loaded.events.filter(
-      (e): e is Extract<LedgerEvent, { kind: 'correction' }> => e.kind === 'correction'
-    );
     return {
       flows: flows(workers),
-      rows: roleRows(workers, corrections, loaded.children),
+      rows: roleRows(workers, loaded.events, at.getTime(), loaded.children),
       pass: passRate(loaded.events, range),
-      lines: weeklyCleanDone(loaded.events, corrections, at),
+      lines: weeklyCleanDone(loaded.events, at),
     };
   }, [loaded, grain, now]);
 
@@ -735,7 +732,7 @@ export function TelemetryRoles({ grain, now = defaultNow }: { grain: Grain; now?
           as="h2"
           className={h2}
           why="Clean-done rate per role, weekly, across the quarter. A line that bends after a routing change is the change working or not."
-          from="(done − blocked − corrected) ÷ runs per role per week"
+          from="landed jobs ÷ runs per role per week"
         >
           <span>{intl.formatMessage(i18n.trend)}</span>
           <span className={small}>{intl.formatMessage(i18n.weekly)}</span>

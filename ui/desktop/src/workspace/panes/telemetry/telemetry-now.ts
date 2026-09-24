@@ -11,6 +11,7 @@ import { modeOfSession, runtimeLabel, stopOfSession } from '../../session-contro
 import type { ProviderDetails } from '../../../types/providers';
 import { getToolRequests } from '../../../types/message';
 import { fmtK } from './charts';
+import { jobsOf, outcomeOf } from './ledger-outcome';
 
 export { fmtK };
 
@@ -95,7 +96,16 @@ export function gateWord(mode: Session['goose_mode'] | undefined): string {
   }
 }
 
-export const OUTCOMES = ['running', 'landed', 'corrected', 'blocked', 'undone', 'failed'] as const;
+export const OUTCOMES = [
+  'running',
+  'landed',
+  'reworked',
+  'corrected',
+  'blocked',
+  'undone',
+  'failed',
+  'unknown',
+] as const;
 export type Outcome = (typeof OUTCOMES)[number];
 
 export interface TurnRow {
@@ -153,21 +163,15 @@ export function turnRows(
   messages: readonly Message[],
   delegations: readonly Delegation[],
   events: readonly LedgerEvent[],
-  streaming: boolean
+  streaming: boolean,
+  now: number
 ): TurnRow[] {
   const undone = new Set(
     events.filter((e) => e.kind === 'undo').map((e) => (e as { turnId: string }).turnId)
   );
-  const corrected = new Set(
-    events
-      .filter((e) => e.kind === 'correction')
-      .map((e) => (e as { workerSessionId: string }).workerSessionId)
-  );
-  const blocked = new Set(
-    events
-      .filter((e) => e.kind === 'worker' && (e as { blocked?: boolean }).blocked)
-      .map((e) => (e as { workerSessionId: string }).workerSessionId)
-  );
+  // The job outcome fold (266): a worker row reads whatever the ledger decided for its job —
+  // never landed just because DelegationUpdate says done.
+  const jobs = jobsOf(events);
   const turns = turnsOf(messages);
   const rows: TurnRow[] = [];
   turns.forEach((turn, index) => {
@@ -208,6 +212,7 @@ export function turnRows(
       if (!delegation.parentToolCallId || !turn.toolCallIds.has(delegation.parentToolCallId))
         continue;
       const worker = delegation.subagentSessionId;
+      const job = jobs.find((j) => j.workerSessionId === worker);
       rows.push({
         id: `worker:${worker}`,
         at: last?.created ?? turn.at,
@@ -220,11 +225,9 @@ export function turnRows(
             ? 'failed'
             : delegation.status !== 'done'
               ? 'running'
-              : corrected.has(worker)
-                ? 'corrected'
-                : blocked.has(worker)
-                  ? 'blocked'
-                  : 'landed',
+              : job
+                ? outcomeOf(job, events, now).outcome
+                : 'unknown',
         workerSessionId: worker,
       });
     }
