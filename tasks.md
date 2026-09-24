@@ -631,13 +631,13 @@ Order: 264 → 265 ∥ 266 ∥ 267 ∥ 268 → 269. 266 done 2026-09-23 (`ledger
   - confirm: `grep -c "appendLedger(" ui/desktop/src/workspace/ChangesBar.tsx ui/desktop/src/workspace/WorkspaceShell.tsx` → ≥ 1 each (0 today); `cd ui/desktop && pnpm vitest run ledger-events -t "land paths|Fixes-job trailer|gap after"` → 3 passed; `just walk "changes bar"` → 1 passed with one `land` whose sha is the Committed banner's
 
 - 268. One-tap verdict on the worker row (good · fixed it · wrong, optional why), and "Fixes…" to link a job
-  - status: todo · agent: — · worker: medium
+  - status: doing · agent: session's worker (2026-09-23) · worker: medium
   - card: as the user, I want to judge a job in one tap and say which earlier job it fixes, so that the test set and rework come from my word and not a guess (FURPS U R · MoSCoW Must)
   - context: after 264; the row `AgentRow.tsx:75-124` (`agents-row` `:83`) — a done row gets three buttons, "why" after `wrong`; the tap calls `appendLedger` directly; the latest verdict wins in 266; "Fixes…" lists this repository's earlier jobs, file overlap shown as a hint, never written as a link; walk `tests/e2e/job-verdict.spec.ts` seeds a done delegation through the dev module (task 200's trick), no seat
   - confirm: `just walk "job verdict"` → 1 passed: one tap → one `verdict` event, a re-render adds none, "Fixes…" writes one `link` (today: no spec)
 
 - 269. Telemetry reads the fold: clean means landed, blocked is never clean, unknown shows as unknown
-  - status: todo · agent: — · worker: medium
+  - status: doing · agent: session's worker (2026-09-23) · worker: medium
   - card: as the user, I want Telemetry's clean-done to agree with the scorecard's rule, so that one job never reads two ways (FURPS R · MoSCoW Should)
   - context: after 266; `telemetry-now.ts:98` (`OUTCOMES` gains `reworked`, `unknown`), `:214-228`; `telemetry-roles.ts:110-153`, `:202-219`; `telemetry-trends.ts:134-149`
   - confirm: `cd ui/desktop && pnpm vitest run telemetry-now telemetry-roles -t "blocked is never clean|done without a land is not landed"` → 2 passed (today a done, unblocked worker reads landed, `telemetry-now.ts:226`)
@@ -687,7 +687,7 @@ Order: 270 (draftable now) → 271 ∥ 272 → 273 ∥ 274; 275 after use.
 Order: 276 ∥ 277 (both `scheduler.rs`, one lands before the other) ∥ 279 → 278 → 280. 279 done 2026-09-23 (`scripts/melody-routines.py`, fixture `cap 170/200 warn · archived 2 · sweep 3 listed · backup: no remote set · reminders 3` exit 0; a non-repository exits 1; archive idempotent; proposals live at `proposals/YYYY-MM-DD-<name>.md` — a new notebook convention). Only the tidy-up calls a model, within its budget; the tidy-up's limits are enforced by a script after the run, not by the prompt.
 
 - 276. The scheduler runs a script job with no model call
-  - status: todo · agent: — · worker: high
+  - status: doing · agent: session's worker (2026-09-23) · worker: high
   - card: as the user, I want upkeep that needs no judgement to run on the scheduler without calling any model, so that idle means no model call (FURPS P R · MoSCoW Must)
   - context: `execute_job` always builds an Agent and a provider (`scheduler.rs:1133-1310`); add recipe `Settings.command: Option<Vec<String>>` (`recipe/mod.rs:99-124`) — run the argv with no shell in `working_dir`, record `RunOutcome` (`scheduler.rs:1015-1025`), never build a provider; test with a mock provider factory counting calls over a simulated idle hour
   - confirm: `cargo test -p goose --lib scheduler -- command_job_makes_no_model_call` → 1 passed (today: no such test)
