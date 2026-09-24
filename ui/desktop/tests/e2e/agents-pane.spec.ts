@@ -202,14 +202,15 @@ test.describe('agents pane', { tag: '@seat' }, () => {
       await expect(turnFailure).toHaveCount(0);
       await goosePage.screenshot({ path: test.info().outputPath('reconnect-reply-once.png') });
 
-      // Turn 2 can only end by a cancel inside the window below: its delegate sleeps for
-      // 300 s. A Stop that reached the server brings the run to idle within 90 s.
+      // Turn 2 can only end by a cancel inside the window below: its delegate waits 300 s.
+      // A Stop that reached the server brings the run to idle within 90 s. (Claude Code
+      // refuses a bare foreground `sleep`, so the wait is a Python one.)
       const chatInput = chat.locator('[data-testid="chat-input"]');
       await chatInput.fill(
         "Delegate exactly once to the spike-echo role with instructions 'use the Bash tool " +
-          'with timeout 600000 to run the command sleep 300 in the foreground, then say ' +
-          "goodbye'. When it returns, reply with only the word made by joining 'LATE' and " +
-          "'BYE' with a hyphen."
+          'with timeout 600000 to run python3 -c "import time; time.sleep(300)" and wait ' +
+          "for it to finish, then say goodbye'. When it returns, reply with only the word " +
+          "made by joining 'LATE' and 'BYE' with a hyphen."
       );
       await chatInput.press('Enter');
       await expect(runningRow).toHaveCount(1, { timeout: 120000 });
