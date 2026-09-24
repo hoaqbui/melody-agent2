@@ -257,6 +257,9 @@
   "baseChat.retry": {
     "defaultMessage": "Yeniden dene"
   },
+  "baseChat.runReplayHeld": {
+    "defaultMessage": "Hâlâ çalışıyor — yanıt bittiğinde tamamı gösterilecek"
+  },
   "board.columnDone": {
     "defaultMessage": "Done"
   },

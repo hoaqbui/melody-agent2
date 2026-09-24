@@ -9,6 +9,8 @@ import {
   acpChatSessionActions,
   acpPermissionUserInputRequestId,
   acpChatSessionStore,
+  RUN_REPLAY_HELD_PROGRESS,
+  subscribeToAcpChatSessionDeletions,
   useAcpChatSessionSnapshot,
 } from '../chatSessionStore';
 import type { AcpElicitationRequest } from '../elicitationRequests';
@@ -450,7 +452,8 @@ describe('acpChatSessionStore', () => {
   });
 
   it('stores active run ids from session info notifications', () => {
-    const currentSessionId = sessionId('session-1');
+    // Never deleted: notifications for a deleted session are dropped.
+    const currentSessionId = sessionId('session-run-ids');
 
     const snapshot = acpChatSessionActions.applyAcpSessionNotification(
       activeRunNotification(currentSessionId, 'run-1')
@@ -493,7 +496,8 @@ describe('acpChatSessionStore', () => {
   });
 
   it('stores ACP tool notifications and clears them for a new prompt attempt', () => {
-    const currentSessionId = sessionId('session-1');
+    // Never deleted: notifications for a deleted session are dropped.
+    const currentSessionId = sessionId('session-tool-notifications');
 
     const snapshot = acpChatSessionActions.applyAcpSessionNotification(
       toolProgressNotification(currentSessionId)
@@ -672,6 +676,291 @@ describe('acpChatSessionStore', () => {
         isCancelled: true,
       },
     });
+  });
+});
+
+function userChunkNotification(
+  sessionId: string,
+  messageId: string,
+  text: string
+): SessionNotification {
+  return {
+    sessionId,
+    update: {
+      sessionUpdate: 'user_message_chunk',
+      messageId,
+      content: { type: 'text', text },
+    },
+  };
+}
+
+// Task 200: a reconnect loses the prompt's response but not its run; the reload's replay
+// decides whether the turn is still running, and the run's idle update ends it.
+describe('acpChatSessionStore turn recovery after a reconnect', () => {
+  const sessionIds = new Set<string>();
+  const sessionId = (id: string): string => {
+    sessionIds.add(id);
+    return id;
+  };
+
+  afterEach(() => {
+    for (const id of sessionIds) {
+      acpChatSessionActions.deleteSnapshot(id);
+    }
+    sessionIds.clear();
+  });
+
+  function trackSettlement(currentSessionId: string, promptAttemptId: string) {
+    const settlement: { settled: boolean; failure: string | undefined } = {
+      settled: false,
+      failure: undefined,
+    };
+    void acpChatSessionActions
+      .waitForDetachedPromptAttempt(currentSessionId, promptAttemptId)
+      .then((failure) => {
+        settlement.settled = true;
+        settlement.failure = failure;
+      });
+    return settlement;
+  }
+
+  function reloadWithRunningTurn(currentSessionId: string, activeRunId: string | null) {
+    acpChatSessionActions.startSessionLoad(currentSessionId);
+    acpChatSessionActions.applyAcpSessionNotification(
+      userChunkNotification(currentSessionId, 'user-1', 'Delegate, then reply DONE')
+    );
+    acpChatSessionActions.applyAcpSessionNotification(
+      agentMessageChunkNotification(currentSessionId, 'reply-1', 'Delegating')
+    );
+    if (activeRunId) {
+      acpChatSessionActions.applyAcpSessionNotification(
+        activeRunNotification(currentSessionId, activeRunId)
+      );
+    }
+    return acpChatSessionActions.finishSessionLoad(currentSessionId, session(currentSessionId));
+  }
+
+  it('detaches only the current prompt attempt', () => {
+    const currentSessionId = sessionId('session-1');
+    acpChatSessionActions.startPromptAttempt(currentSessionId, 'attempt-1');
+
+    expect(acpChatSessionActions.detachPromptAttempt(currentSessionId, 'attempt-0')).toBe(false);
+    expect(acpChatSessionActions.detachPromptAttempt(currentSessionId, 'attempt-1')).toBe(true);
+  });
+
+  it('keeps a detached turn streaming, with its reply once, when the reload finds its run', async () => {
+    const currentSessionId = sessionId('session-1');
+    acpChatSessionActions.startPromptAttempt(currentSessionId, 'attempt-1');
+    acpChatSessionActions.applyAcpSessionNotification(
+      agentMessageChunkNotification(currentSessionId, 'reply-1', 'Delegat')
+    );
+    acpChatSessionActions.detachPromptAttempt(currentSessionId, 'attempt-1');
+    const settlement = trackSettlement(currentSessionId, 'attempt-1');
+
+    const snapshot = reloadWithRunningTurn(currentSessionId, 'run-1');
+    await Promise.resolve();
+
+    expect(snapshot.chatState).toBe(ChatState.Streaming);
+    expect(snapshot.activePromptAttemptId).toBe('attempt-1');
+    expect(snapshot.activeRunId).toBe('run-1');
+    expect(snapshot.messages.map((m) => [m.role, m.content])).toEqual([
+      ['user', [{ type: 'text', text: 'Delegate, then reply DONE' }]],
+      ['assistant', [{ type: 'text', text: 'Delegating' }]],
+    ]);
+    expect(settlement.settled).toBe(false);
+  });
+
+  it('ends a detached turn on the run idle update after the reload, appending the rest once', async () => {
+    const currentSessionId = sessionId('session-1');
+    acpChatSessionActions.startPromptAttempt(currentSessionId, 'attempt-1');
+    acpChatSessionActions.detachPromptAttempt(currentSessionId, 'attempt-1');
+    const settlement = trackSettlement(currentSessionId, 'attempt-1');
+
+    reloadWithRunningTurn(currentSessionId, 'run-1');
+    acpChatSessionActions.applyAcpSessionNotification(
+      agentMessageChunkNotification(currentSessionId, 'reply-1', ', then DONE')
+    );
+    const idle = acpChatSessionActions.applyAcpSessionNotification(
+      activeRunNotification(currentSessionId, null)
+    );
+    await Promise.resolve();
+
+    expect(settlement).toEqual({ settled: true, failure: undefined });
+    expect(idle.messages.filter((m) => m.role === 'assistant')).toHaveLength(1);
+    expect(idle.messages[1].content).toEqual([{ type: 'text', text: 'Delegating, then DONE' }]);
+  });
+
+  it('ignores an idle update that arrives before the reload', async () => {
+    const currentSessionId = sessionId('session-1');
+    acpChatSessionActions.startPromptAttempt(currentSessionId, 'attempt-1');
+    acpChatSessionActions.detachPromptAttempt(currentSessionId, 'attempt-1');
+    const settlement = trackSettlement(currentSessionId, 'attempt-1');
+
+    acpChatSessionActions.applyAcpSessionNotification(
+      activeRunNotification(currentSessionId, null)
+    );
+    await Promise.resolve();
+
+    expect(settlement.settled).toBe(false);
+  });
+
+  it('ends a detached turn when the reload finds its run already finished', async () => {
+    const currentSessionId = sessionId('session-1');
+    acpChatSessionActions.startPromptAttempt(currentSessionId, 'attempt-1');
+    acpChatSessionActions.detachPromptAttempt(currentSessionId, 'attempt-1');
+    const settlement = trackSettlement(currentSessionId, 'attempt-1');
+
+    const snapshot = reloadWithRunningTurn(currentSessionId, null);
+    await Promise.resolve();
+
+    expect(snapshot.chatState).toBe(ChatState.Idle);
+    expect(snapshot.messages).toHaveLength(2);
+    expect(settlement).toEqual({ settled: true, failure: undefined });
+  });
+
+  it('keeps Stop on a detached turn pending until the reloaded run goes idle', async () => {
+    const currentSessionId = sessionId('session-1');
+    acpChatSessionActions.startPromptAttempt(currentSessionId, 'attempt-1');
+    acpChatSessionActions.detachPromptAttempt(currentSessionId, 'attempt-1');
+    const settlement = trackSettlement(currentSessionId, 'attempt-1');
+    acpChatSessionActions.startPromptCancellation(currentSessionId, 'attempt-1');
+
+    const snapshot = reloadWithRunningTurn(currentSessionId, 'run-1');
+
+    expect(snapshot.chatState).toBe(ChatState.Idle);
+    expect(snapshot.pendingCancelPromptAttemptId).toBe('attempt-1');
+
+    acpChatSessionActions.applyAcpSessionNotification(
+      activeRunNotification(currentSessionId, null)
+    );
+    await Promise.resolve();
+
+    expect(settlement.settled).toBe(true);
+    expect(
+      acpChatSessionActions.clearPromptCancellation(currentSessionId, 'attempt-1')
+    ).toMatchObject({ pendingCancelPromptAttemptId: null });
+  });
+
+  it('shows a re-issued permission request as waiting once the reload finishes', () => {
+    const currentSessionId = sessionId('session-1');
+    acpChatSessionActions.startPromptAttempt(currentSessionId, 'attempt-1');
+    acpChatSessionActions.detachPromptAttempt(currentSessionId, 'attempt-1');
+
+    acpChatSessionActions.startSessionLoad(currentSessionId);
+    acpChatSessionActions.applyAcpSessionNotification(
+      activeRunNotification(currentSessionId, 'run-1')
+    );
+    acpChatSessionActions.applyPermissionRequest(permissionRequest(currentSessionId));
+    const snapshot = acpChatSessionActions.finishSessionLoad(
+      currentSessionId,
+      session(currentSessionId)
+    );
+
+    expect(snapshot.chatState).toBe(ChatState.WaitingForUserInput);
+  });
+
+  it('passes a reload failure to the detached turn', async () => {
+    const currentSessionId = sessionId('session-1');
+    acpChatSessionActions.startPromptAttempt(currentSessionId, 'attempt-1');
+    acpChatSessionActions.detachPromptAttempt(currentSessionId, 'attempt-1');
+    const settlement = trackSettlement(currentSessionId, 'attempt-1');
+
+    acpChatSessionActions.settleDetachedPromptAttempt(currentSessionId, 'Session not found');
+    await Promise.resolve();
+
+    expect(settlement).toEqual({ settled: true, failure: 'Session not found' });
+  });
+
+  it('keeps a Stopped held run idle through refused reloads until one succeeds', () => {
+    const currentSessionId = sessionId('session-1');
+    acpChatSessionActions.holdRunningTurn(currentSessionId, []);
+
+    const stopped = acpChatSessionActions.cancelHeldRun(currentSessionId);
+    expect(stopped.chatState).toBe(ChatState.Idle);
+
+    acpChatSessionActions.startSessionLoad(currentSessionId);
+    const refusedAgain = acpChatSessionActions.holdRunningTurn(currentSessionId, []);
+    expect(refusedAgain.chatState).toBe(ChatState.Idle);
+    expect(refusedAgain.progressMessage).toBeUndefined();
+
+    acpChatSessionActions.finishSessionLoad(currentSessionId, session(currentSessionId));
+    expect(acpChatSessionActions.holdRunningTurn(currentSessionId, []).chatState).toBe(
+      ChatState.Streaming
+    );
+  });
+
+  it('drops replayed notifications for a deleted session until it is used again', () => {
+    const currentSessionId = sessionId('session-deleted-mid-replay');
+    acpChatSessionActions.startSessionLoad(currentSessionId);
+    acpChatSessionActions.deleteSnapshot(currentSessionId);
+
+    acpChatSessionActions.applyAcpSessionNotification(
+      agentMessageChunkNotification(currentSessionId, 'reply-1', 'late replay')
+    );
+    expect(acpChatSessionStore.getSnapshot(currentSessionId)).toBeUndefined();
+
+    acpChatSessionActions.startSessionLoad(currentSessionId);
+    acpChatSessionActions.applyAcpSessionNotification(
+      agentMessageChunkNotification(currentSessionId, 'reply-1', 'fresh')
+    );
+    const loaded = acpChatSessionActions.finishSessionLoad(
+      currentSessionId,
+      session(currentSessionId)
+    );
+    expect(loaded.messages.map((m) => m.content)).toEqual([[{ type: 'text', text: 'fresh' }]]);
+  });
+
+  it('tells deletion listeners when a snapshot is deleted', () => {
+    const currentSessionId = sessionId('session-1');
+    const deleted: string[] = [];
+    const unsubscribe = subscribeToAcpChatSessionDeletions((id) => deleted.push(id));
+
+    acpChatSessionActions.setChatState(currentSessionId, ChatState.Idle);
+    acpChatSessionActions.deleteSnapshot(currentSessionId);
+    unsubscribe();
+    acpChatSessionActions.deleteSnapshot(currentSessionId);
+
+    expect(deleted).toEqual([currentSessionId]);
+  });
+
+  it('holds the visible turn through refused quiet reloads and replaces it once on success', () => {
+    const currentSessionId = sessionId('session-1');
+    const partial: Message[] = [
+      message('user-1', 'Delegate, then reply DONE'),
+      { ...message('reply-1', 'Delegat'), role: 'assistant' },
+    ];
+    acpChatSessionActions.startPromptAttempt(currentSessionId, 'attempt-1');
+
+    const held = acpChatSessionActions.holdRunningTurn(currentSessionId, partial);
+    expect(held).toMatchObject({
+      chatState: ChatState.Streaming,
+      progressMessage: RUN_REPLAY_HELD_PROGRESS,
+      sessionLoadError: undefined,
+    });
+    expect(held.messages).toEqual(partial);
+
+    acpChatSessionActions.startQuietSessionLoad(currentSessionId);
+    acpChatSessionActions.holdRunningTurn(currentSessionId, partial);
+    expect(acpChatSessionStore.getSnapshot(currentSessionId)?.messages).toEqual(partial);
+
+    acpChatSessionActions.startQuietSessionLoad(currentSessionId);
+    expect(acpChatSessionStore.getSnapshot(currentSessionId)?.chatState).toBe(ChatState.Streaming);
+    acpChatSessionActions.applyAcpSessionNotification(
+      userChunkNotification(currentSessionId, 'user-1', 'Delegate, then reply DONE')
+    );
+    acpChatSessionActions.applyAcpSessionNotification(
+      agentMessageChunkNotification(currentSessionId, 'reply-1', 'Delegating, then DONE')
+    );
+    const loaded = acpChatSessionActions.finishSessionLoad(
+      currentSessionId,
+      session(currentSessionId)
+    );
+
+    expect(loaded.progressMessage).toBeUndefined();
+    expect(loaded.messages.map((m) => [m.id, m.content])).toEqual([
+      ['user-1', [{ type: 'text', text: 'Delegate, then reply DONE' }]],
+      ['reply-1', [{ type: 'text', text: 'Delegating, then DONE' }]],
+    ]);
   });
 });
 

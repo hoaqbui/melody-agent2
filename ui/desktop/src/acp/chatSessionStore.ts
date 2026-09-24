@@ -42,6 +42,15 @@ interface StoreEntry extends AcpChatSessionSnapshot {
   pendingUserInputRequestIds: Set<string>;
   pendingLocalSteerMessageIds: Set<string>;
   preConfirmedSteerMessageIds: Set<string>;
+  // A prompt attempt whose response was lost with its socket. The server still owns the
+  // run, so the turn ends when a reload finds no run, or on the idle update after one did.
+  detachedPromptAttemptId: string | null;
+  detachedReloaded: boolean;
+  detachedWaiters: Array<(failure: string | undefined) => void>;
+  // A quiet reload keeps the visible turn until the server starts replaying, so a refused
+  // reload leaves it untouched.
+  resetOnReplay: boolean;
+  heldRunCancelled: boolean;
   // Cached result of the last notify(); reused while a session-load replay is
   // in flight so per-notification reads don't deep-clone the growing message
   // array (see applyAcpSessionNotification / getSnapshot).
@@ -83,8 +92,10 @@ export interface AcpChatSessionActions {
 
   setSessionMetadata(sessionId: string, session: Session | undefined): AcpChatSessionSnapshot;
   startSessionLoad(sessionId: string): AcpChatSessionSnapshot;
+  startQuietSessionLoad(sessionId: string): void;
   finishSessionLoad(sessionId: string, session: Session): AcpChatSessionSnapshot;
   failSessionLoad(sessionId: string, sessionLoadError: string): AcpChatSessionSnapshot;
+  holdRunningTurn(sessionId: string, messages: Message[]): AcpChatSessionSnapshot;
   setSessionLoadError(
     sessionId: string,
     sessionLoadError: string | undefined
@@ -120,15 +131,33 @@ export interface AcpChatSessionActions {
   finishPromptAttemptIfCurrent(sessionId: string, promptAttemptId: string): boolean;
   clearActivePromptAttempt(sessionId: string): AcpChatSessionSnapshot | undefined;
   isCurrentPromptAttempt(sessionId: string, promptAttemptId: string): boolean;
+
+  detachPromptAttempt(sessionId: string, promptAttemptId: string): boolean;
+  // Resolves when the detached attempt's run has ended: undefined when it did, the
+  // reason when the session could not be reloaded to find out.
+  waitForDetachedPromptAttempt(
+    sessionId: string,
+    promptAttemptId: string
+  ): Promise<string | undefined>;
+  settleDetachedPromptAttempt(sessionId: string, failure: string): void;
+  // Stop on a held run no prompt attempt of this window started: stays idle through
+  // refused reloads until one succeeds.
+  cancelHeldRun(sessionId: string): AcpChatSessionSnapshot;
 }
+
+// A progress key rather than text: BaseChat shows it through the i18n catalog.
+export const RUN_REPLAY_HELD_PROGRESS = 'acp:run-replay-held';
 
 interface AcpChatSessionStoreInternal extends AcpChatSessionStore, AcpChatSessionActions {
   subscribe(sessionId: string, listener: (snapshot: AcpChatSessionSnapshot) => void): () => void;
+  subscribeToDeletions(listener: (sessionId: string) => void): () => void;
 }
 
 function createAcpChatSessionStoreInternal(): AcpChatSessionStoreInternal {
   const sessionsById = new Map<string, StoreEntry>();
   const listenersBySessionId = new Map<string, Set<SnapshotListener>>();
+  const deletionListeners = new Set<(sessionId: string) => void>();
+  const deletedSessionIds = new Set<string>();
 
   const getSnapshot: AcpChatSessionStore['getSnapshot'] = (sessionId) => {
     const entry = sessionsById.get(sessionId);
@@ -169,7 +198,22 @@ function createAcpChatSessionStoreInternal(): AcpChatSessionStoreInternal {
   };
 
   const deleteSnapshot: AcpChatSessionActions['deleteSnapshot'] = (sessionId) => {
+    const entry = sessionsById.get(sessionId);
+    if (entry) {
+      settleDetached(entry, undefined);
+    }
     sessionsById.delete(sessionId);
+    deletedSessionIds.add(sessionId);
+    for (const listener of deletionListeners) {
+      listener(sessionId);
+    }
+  };
+
+  const subscribeToDeletions: AcpChatSessionStoreInternal['subscribeToDeletions'] = (listener) => {
+    deletionListeners.add(listener);
+    return () => {
+      deletionListeners.delete(listener);
+    };
   };
 
   const getOrCreateEntry = (sessionId: string): StoreEntry => {
@@ -178,7 +222,19 @@ function createAcpChatSessionStoreInternal(): AcpChatSessionStoreInternal {
       return existing;
     }
 
-    const entry: StoreEntry = {
+    deletedSessionIds.delete(sessionId);
+    const entry = createEntry();
+    sessionsById.set(sessionId, entry);
+    return entry;
+  };
+
+  // Server notifications for a deleted session (a replay still in flight) are dropped
+  // rather than bringing the session back; an explicit action on it does bring it back.
+  const entryForNotification = (sessionId: string): StoreEntry | undefined =>
+    deletedSessionIds.has(sessionId) ? undefined : getOrCreateEntry(sessionId);
+
+  const createEntry = (): StoreEntry => {
+    return {
       session: undefined,
       messages: [],
       tokenState: { ...initialTokenState },
@@ -194,10 +250,13 @@ function createAcpChatSessionStoreInternal(): AcpChatSessionStoreInternal {
       pendingUserInputRequestIds: new Set(),
       pendingLocalSteerMessageIds: new Set(),
       preConfirmedSteerMessageIds: new Set(),
+      detachedPromptAttemptId: null,
+      detachedReloaded: false,
+      detachedWaiters: [],
+      resetOnReplay: false,
+      heldRunCancelled: false,
       adapter: createAcpSessionNotificationAdapter(),
     };
-    sessionsById.set(sessionId, entry);
-    return entry;
   };
 
   const notify = (sessionId: string, entry: StoreEntry): AcpChatSessionSnapshot => {
@@ -220,6 +279,7 @@ function createAcpChatSessionStoreInternal(): AcpChatSessionStoreInternal {
 
   const startSessionLoad: AcpChatSessionActions['startSessionLoad'] = (sessionId) => {
     const entry = getOrCreateEntry(sessionId);
+    entry.resetOnReplay = false;
     resetReplayState(entry);
     entry.sessionLoadError = undefined;
     entry.progressMessage = undefined;
@@ -227,16 +287,43 @@ function createAcpChatSessionStoreInternal(): AcpChatSessionStoreInternal {
     return notify(sessionId, entry);
   };
 
+  const startQuietSessionLoad: AcpChatSessionActions['startQuietSessionLoad'] = (sessionId) => {
+    getOrCreateEntry(sessionId).resetOnReplay = true;
+  };
+
+  const beginPendingReplay = (sessionId: string, entry: StoreEntry): void => {
+    if (!entry.resetOnReplay) {
+      return;
+    }
+    entry.resetOnReplay = false;
+    resetReplayState(entry);
+    entry.chatState = ChatState.LoadingConversation;
+    notify(sessionId, entry);
+  };
+
   const finishSessionLoad: AcpChatSessionActions['finishSessionLoad'] = (sessionId, session) => {
     const entry = getOrCreateEntry(sessionId);
+    if (entry.resetOnReplay) {
+      entry.resetOnReplay = false;
+      resetReplayState(entry);
+    }
     entry.session = session;
     entry.sessionLoadError = undefined;
     entry.progressMessage = undefined;
+    entry.heldRunCancelled = false;
     // Materialize the replayed conversation in one pass (the per-notification
     // fast path above skips message copies while loading).
     entry.messages = entry.adapter.getMessages();
     retainPendingLocalSteerMessageIds(entry);
-    entry.chatState = entry.activePromptAttemptId ? ChatState.Streaming : ChatState.Idle;
+    // The replay carries the server's active run, if any: a detached turn whose run is gone
+    // ended while the socket was down; one whose run is still going keeps streaming.
+    if (entry.detachedPromptAttemptId !== null && entry.activeRunId === null) {
+      settleDetached(entry, undefined);
+      entry.chatState = ChatState.Idle;
+    } else {
+      entry.detachedReloaded = entry.detachedPromptAttemptId !== null;
+      entry.chatState = entry.activePromptAttemptId ? runningChatState(entry) : ChatState.Idle;
+    }
     return notify(sessionId, entry);
   };
 
@@ -245,7 +332,29 @@ function createAcpChatSessionStoreInternal(): AcpChatSessionStoreInternal {
     sessionLoadError
   ) => {
     const entry = getOrCreateEntry(sessionId);
+    entry.resetOnReplay = false;
     entry.sessionLoadError = sessionLoadError;
+    entry.progressMessage = undefined;
+    entry.chatState = ChatState.Idle;
+    return notify(sessionId, entry);
+  };
+
+  const holdRunningTurn: AcpChatSessionActions['holdRunningTurn'] = (sessionId, messages) => {
+    const entry = getOrCreateEntry(sessionId);
+    entry.resetOnReplay = false;
+    entry.messages = cloneMessages(messages);
+    retainPendingLocalSteerMessageIds(entry);
+    entry.adapter = createAdapterForEntry(entry);
+    entry.sessionLoadError = undefined;
+    const stopped = entry.pendingCancelPromptAttemptId !== null || entry.heldRunCancelled;
+    entry.progressMessage = stopped ? undefined : RUN_REPLAY_HELD_PROGRESS;
+    entry.chatState = stopped ? ChatState.Idle : ChatState.Streaming;
+    return notify(sessionId, entry);
+  };
+
+  const cancelHeldRun: AcpChatSessionActions['cancelHeldRun'] = (sessionId) => {
+    const entry = getOrCreateEntry(sessionId);
+    entry.heldRunCancelled = true;
     entry.progressMessage = undefined;
     entry.chatState = ChatState.Idle;
     return notify(sessionId, entry);
@@ -328,6 +437,8 @@ function createAcpChatSessionStoreInternal(): AcpChatSessionStoreInternal {
     promptAttemptId
   ) => {
     const entry = getOrCreateEntry(sessionId);
+    settleDetached(entry, undefined);
+    entry.heldRunCancelled = false;
     discardPendingLocalSteerMessages(entry);
     entry.activePromptAttemptId = promptAttemptId;
     entry.activeRunId = null;
@@ -464,10 +575,58 @@ function createAcpChatSessionStoreInternal(): AcpChatSessionStoreInternal {
     promptAttemptId
   ) => sessionsById.get(sessionId)?.activePromptAttemptId === promptAttemptId;
 
+  const detachPromptAttempt: AcpChatSessionActions['detachPromptAttempt'] = (
+    sessionId,
+    promptAttemptId
+  ) => {
+    const entry = sessionsById.get(sessionId);
+    // A Stop pressed before the socket dropped may not have reached the server either, so
+    // an attempt awaiting its cancel is followed too: the reload resends that cancel.
+    if (
+      !entry ||
+      (entry.activePromptAttemptId !== promptAttemptId &&
+        entry.pendingCancelPromptAttemptId !== promptAttemptId)
+    ) {
+      return false;
+    }
+
+    entry.detachedPromptAttemptId = promptAttemptId;
+    entry.detachedReloaded = false;
+    return true;
+  };
+
+  const waitForDetachedPromptAttempt: AcpChatSessionActions['waitForDetachedPromptAttempt'] = (
+    sessionId,
+    promptAttemptId
+  ) => {
+    const entry = sessionsById.get(sessionId);
+    if (!entry || entry.detachedPromptAttemptId !== promptAttemptId) {
+      return Promise.resolve(undefined);
+    }
+
+    return new Promise((resolve) => {
+      entry.detachedWaiters.push(resolve);
+    });
+  };
+
+  const settleDetachedPromptAttempt: AcpChatSessionActions['settleDetachedPromptAttempt'] = (
+    sessionId,
+    failure
+  ) => {
+    const entry = sessionsById.get(sessionId);
+    if (entry) {
+      settleDetached(entry, failure);
+    }
+  };
+
   const applyAcpSessionNotification: AcpChatSessionActions['applyAcpSessionNotification'] = (
     notification
   ) => {
-    const entry = getOrCreateEntry(notification.sessionId);
+    const entry = entryForNotification(notification.sessionId);
+    if (!entry) {
+      return snapshotFromEntry(createEntry());
+    }
+    beginPendingReplay(notification.sessionId, entry);
     if (shouldClearProgressMessage(notification)) {
       entry.progressMessage = undefined;
     }
@@ -484,12 +643,23 @@ function createAcpChatSessionStoreInternal(): AcpChatSessionStoreInternal {
       return entry.lastSnapshot;
     }
     applyChatStateChanges(entry, changes);
+    if (
+      entry.detachedPromptAttemptId !== null &&
+      entry.detachedReloaded &&
+      changes.some((change) => change.type === 'sessionInfo' && change.activeRunId === null)
+    ) {
+      settleDetached(entry, undefined);
+    }
     return notify(notification.sessionId, entry);
   };
 
   const applyAcpGooseSessionNotification: AcpChatSessionActions['applyAcpGooseSessionNotification'] =
     (notification) => {
-      const entry = getOrCreateEntry(notification.sessionId);
+      const entry = entryForNotification(notification.sessionId);
+      if (!entry) {
+        return snapshotFromEntry(createEntry());
+      }
+      beginPendingReplay(notification.sessionId, entry);
       const changes = entry.adapter.applyGoose(notification);
       // Same session-load replay fast path as applyAcpSessionNotification.
       if (entry.chatState === ChatState.LoadingConversation && entry.lastSnapshot) {
@@ -505,6 +675,7 @@ function createAcpChatSessionStoreInternal(): AcpChatSessionStoreInternal {
 
   const applyPermissionRequest: AcpChatSessionActions['applyPermissionRequest'] = (request) => {
     const entry = getOrCreateEntry(request.request.sessionId);
+    beginPendingReplay(request.request.sessionId, entry);
     const changes = entry.adapter.applyPermissionRequest(request);
     applyChatStateChanges(entry, changes);
     entry.pendingUserInputRequestIds.add(
@@ -532,6 +703,7 @@ function createAcpChatSessionStoreInternal(): AcpChatSessionStoreInternal {
 
   const applyElicitationRequest: AcpChatSessionActions['applyElicitationRequest'] = (request) => {
     const entry = getOrCreateEntry(request.sessionId);
+    beginPendingReplay(request.sessionId, entry);
     const changes = entry.adapter.applyElicitationRequest(request);
     applyChatStateChanges(entry, changes);
     entry.pendingUserInputRequestIds.add(acpElicitationUserInputRequestId(request.id));
@@ -564,8 +736,10 @@ function createAcpChatSessionStoreInternal(): AcpChatSessionStoreInternal {
     deleteSnapshot,
     setSessionMetadata,
     startSessionLoad,
+    startQuietSessionLoad,
     finishSessionLoad,
     failSessionLoad,
+    holdRunningTurn,
     setSessionLoadError,
     setTurnFailure,
     setMessages,
@@ -580,6 +754,11 @@ function createAcpChatSessionStoreInternal(): AcpChatSessionStoreInternal {
     finishPromptAttemptIfCurrent,
     clearActivePromptAttempt,
     isCurrentPromptAttempt,
+    detachPromptAttempt,
+    waitForDetachedPromptAttempt,
+    settleDetachedPromptAttempt,
+    cancelHeldRun,
+    subscribeToDeletions,
     applyAcpSessionNotification,
     applyAcpGooseSessionNotification,
     applyPermissionRequest,
@@ -598,6 +777,12 @@ export const acpChatSessionStore: AcpChatSessionStore = storeFromInternal(
 export const acpChatSessionActions: AcpChatSessionActions = actionsFromStore(
   acpChatSessionStoreInternal
 );
+
+export function subscribeToAcpChatSessionDeletions(
+  listener: (sessionId: string) => void
+): () => void {
+  return acpChatSessionStoreInternal.subscribeToDeletions(listener);
+}
 
 interface AcpChatSessionSnapshotState {
   sessionId: string;
@@ -645,8 +830,10 @@ function actionsFromStore(store: AcpChatSessionStoreInternal): AcpChatSessionAct
     setElicitationStatus: store.setElicitationStatus,
     setSessionMetadata: store.setSessionMetadata,
     startSessionLoad: store.startSessionLoad,
+    startQuietSessionLoad: store.startQuietSessionLoad,
     finishSessionLoad: store.finishSessionLoad,
     failSessionLoad: store.failSessionLoad,
+    holdRunningTurn: store.holdRunningTurn,
     setSessionLoadError: store.setSessionLoadError,
     setTurnFailure: store.setTurnFailure,
     setMessages: store.setMessages,
@@ -661,6 +848,10 @@ function actionsFromStore(store: AcpChatSessionStoreInternal): AcpChatSessionAct
     finishPromptAttemptIfCurrent: store.finishPromptAttemptIfCurrent,
     clearActivePromptAttempt: store.clearActivePromptAttempt,
     isCurrentPromptAttempt: store.isCurrentPromptAttempt,
+    detachPromptAttempt: store.detachPromptAttempt,
+    waitForDetachedPromptAttempt: store.waitForDetachedPromptAttempt,
+    settleDetachedPromptAttempt: store.settleDetachedPromptAttempt,
+    cancelHeldRun: store.cancelHeldRun,
   };
 }
 
@@ -714,12 +905,34 @@ function resetReplayState(entry: StoreEntry): void {
   entry.notifications = [];
   entry.progressMessage = undefined;
   entry.activeRunId = null;
-  entry.pendingCancelPromptAttemptId = null;
-  entry.promptCancellationRestoreState = null;
+  // A Stop pressed on a detached turn waits for the reload to confirm its run ended.
+  if (entry.pendingCancelPromptAttemptId !== entry.detachedPromptAttemptId) {
+    entry.pendingCancelPromptAttemptId = null;
+    entry.promptCancellationRestoreState = null;
+  }
   entry.pendingUserInputRequestIds.clear();
   entry.pendingLocalSteerMessageIds.clear();
   entry.preConfirmedSteerMessageIds.clear();
   entry.adapter = createAcpSessionNotificationAdapter();
+}
+
+function settleDetached(entry: StoreEntry, failure: string | undefined): void {
+  if (entry.detachedPromptAttemptId === null) {
+    return;
+  }
+  entry.detachedPromptAttemptId = null;
+  entry.detachedReloaded = false;
+  const waiters = entry.detachedWaiters;
+  entry.detachedWaiters = [];
+  for (const resolve of waiters) {
+    resolve(failure);
+  }
+}
+
+function runningChatState(entry: StoreEntry): ChatState {
+  return entry.pendingUserInputRequestIds.size > 0
+    ? ChatState.WaitingForUserInput
+    : ChatState.Streaming;
 }
 
 export function acpPermissionUserInputRequestId(toolCallId: string): string {

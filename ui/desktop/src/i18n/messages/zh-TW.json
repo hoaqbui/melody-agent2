@@ -257,6 +257,9 @@
   "baseChat.retry": {
     "defaultMessage": "重試"
   },
+  "baseChat.runReplayHeld": {
+    "defaultMessage": "仍在執行中 — 完成後會顯示完整回覆"
+  },
   "board.columnDone": {
     "defaultMessage": "Done"
   },

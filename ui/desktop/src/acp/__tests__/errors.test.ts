@@ -4,8 +4,29 @@ import {
   AUTH_REQUIRED_MESSAGE,
   classifyTurnError,
   formatAcpError,
+  isRunReplayOverflowError,
   parseAcpCreditsExhaustedError,
 } from '../errors';
+
+describe('isRunReplayOverflowError', () => {
+  it('recognises the refusal to re-attach an overflowed run', () => {
+    expect(
+      isRunReplayOverflowError(
+        new RequestError(-32603, 'Internal error', {
+          reason: 'active_run_replay_overflow',
+          message: 'load it again after the run ends',
+        })
+      )
+    ).toBe(true);
+  });
+
+  it('ignores other load failures', () => {
+    expect(isRunReplayOverflowError(new RequestError(-32603, 'Internal error', 'boom'))).toBe(
+      false
+    );
+    expect(isRunReplayOverflowError(new Error('ACP connection closed'))).toBe(false);
+  });
+});
 
 describe('formatAcpError', () => {
   it('explains how to recover from an authentication error', () => {

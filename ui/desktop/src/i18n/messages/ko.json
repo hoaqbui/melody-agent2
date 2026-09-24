@@ -257,6 +257,9 @@
   "baseChat.retry": {
     "defaultMessage": "다시 시도"
   },
+  "baseChat.runReplayHeld": {
+    "defaultMessage": "아직 실행 중입니다 — 완료되면 응답이 모두 표시됩니다"
+  },
   "board.columnDone": {
     "defaultMessage": "Done"
   },

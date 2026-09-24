@@ -1,13 +1,15 @@
-import { beforeEach, describe, expect, it, vi } from 'vitest';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import type { Message } from '../../types/message';
 import { ChatState } from '../../types/chatState';
 import type { Session } from '../../types/session';
-import { acpChatSessionController } from '../chatSessionController';
+import { isAcpRecovering } from '../acpConnection';
+import { acpChatSessionController, RUN_REPLAY_RETRY_MS } from '../chatSessionController';
 import {
   acpChatSessionActions,
   acpChatSessionStore,
   type AcpChatSessionSnapshot,
 } from '../chatSessionStore';
+import { AcpConnectionLostError } from '../errors';
 import { acpCancelPrompt, acpPromptSession } from '../prompt';
 import {
   acpLoadSession,
@@ -20,14 +22,26 @@ vi.mock('../../utils/extensionErrorUtils', () => ({
   showExtensionLoadResults: vi.fn(),
 }));
 
+const deletionListeners = vi.hoisted(() => [] as Array<(sessionId: string) => void>);
+
 vi.mock('../chatSessionStore', () => ({
+  subscribeToAcpChatSessionDeletions: (listener: (sessionId: string) => void) => {
+    deletionListeners.push(listener);
+    return () => {};
+  },
   acpChatSessionStore: {
     getSnapshot: vi.fn(),
   },
   acpChatSessionActions: {
     startSessionLoad: vi.fn(),
-    finishSessionLoad: vi.fn(),
+    startQuietSessionLoad: vi.fn(),
+    finishSessionLoad: vi.fn(() => ({ pendingCancelPromptAttemptId: null, activeRunId: null })),
     failSessionLoad: vi.fn(),
+    holdRunningTurn: vi.fn(() => ({ chatState: 'streaming' })),
+    cancelHeldRun: vi.fn(),
+    detachPromptAttempt: vi.fn(),
+    waitForDetachedPromptAttempt: vi.fn(),
+    settleDetachedPromptAttempt: vi.fn(),
     startPromptAttempt: vi.fn(),
     finishPromptAttemptIfCurrent: vi.fn(),
     isCurrentPromptAttempt: vi.fn(),
@@ -50,6 +64,10 @@ vi.mock('../sessions', () => ({
   sessionInfoToSession: vi.fn(),
   acpForkSession: vi.fn(),
   acpTruncateSessionConversation: vi.fn(),
+}));
+
+vi.mock('../acpConnection', () => ({
+  isAcpRecovering: vi.fn(() => false),
 }));
 
 vi.mock('../prompt', () => ({
@@ -409,5 +427,281 @@ describe('acpChatSessionController.updateMessage', () => {
       SESSION_ID,
       'attempt-1'
     );
+  });
+});
+
+describe('acpChatSessionController after a reconnect (task 200)', () => {
+  const socketClosed = (recoveryPending = true) =>
+    new AcpConnectionLostError(new Error('ACP connection closed'), recoveryPending);
+  const runReplayOverflow = {
+    message: 'Internal error',
+    data: { reason: 'active_run_replay_overflow', message: 'load it again after the run ends' },
+  };
+
+  beforeEach(() => {
+    vi.clearAllMocks();
+    vi.mocked(acpChatSessionStore.getSnapshot).mockReturnValue(snapshotWithActivePrompt(null));
+    vi.mocked(acpChatSessionActions.clearPromptCancellation).mockReturnValue(undefined);
+    vi.mocked(acpChatSessionActions.finishPromptAttemptIfCurrent).mockReturnValue(true);
+    vi.mocked(acpChatSessionActions.detachPromptAttempt).mockReturnValue(true);
+    vi.mocked(acpChatSessionActions.waitForDetachedPromptAttempt).mockResolvedValue(undefined);
+    vi.mocked(isAcpRecovering).mockReturnValue(false);
+    vi.mocked(isAcpSessionLoadInFlight).mockReturnValue(false);
+    vi.mocked(sessionInfoToSession).mockReturnValue(loadedSession());
+    vi.mocked(acpCancelPrompt).mockResolvedValue(undefined);
+  });
+
+  afterEach(() => {
+    vi.useRealTimers();
+  });
+
+  it('follows the run when the prompt socket closes and finishes the turn once', async () => {
+    vi.mocked(acpPromptSession).mockRejectedValue(socketClosed());
+    const onFinish = vi.fn();
+
+    await acpChatSessionController.submitMessage(SESSION_ID, userMessage(), {
+      getCurrentSnapshot: () => snapshotWithActivePrompt(null),
+      onFinish,
+    });
+
+    const [, promptAttemptId] = vi.mocked(acpChatSessionActions.startPromptAttempt).mock.calls[0];
+    expect(acpChatSessionActions.detachPromptAttempt).toHaveBeenCalledWith(
+      SESSION_ID,
+      promptAttemptId
+    );
+    expect(acpChatSessionActions.waitForDetachedPromptAttempt).toHaveBeenCalledWith(
+      SESSION_ID,
+      promptAttemptId
+    );
+    expect(onFinish).toHaveBeenCalledTimes(1);
+    expect(onFinish).toHaveBeenCalledWith();
+  });
+
+  it('ends a followed turn quietly when Stop cancelled it', async () => {
+    vi.mocked(acpPromptSession).mockRejectedValue(socketClosed());
+    vi.mocked(acpChatSessionActions.clearPromptCancellation).mockReturnValueOnce(
+      snapshotWithActivePrompt(null)
+    );
+    const onFinish = vi.fn();
+
+    await acpChatSessionController.submitMessage(SESSION_ID, userMessage(), {
+      getCurrentSnapshot: () => snapshotWithActivePrompt(null),
+      onFinish,
+    });
+
+    expect(acpChatSessionActions.waitForDetachedPromptAttempt).toHaveBeenCalled();
+    expect(acpChatSessionActions.finishPromptAttemptIfCurrent).not.toHaveBeenCalled();
+    expect(onFinish).not.toHaveBeenCalled();
+  });
+
+  it('reports why a followed turn could not be reloaded', async () => {
+    vi.mocked(acpPromptSession).mockRejectedValue(socketClosed());
+    vi.mocked(acpChatSessionActions.waitForDetachedPromptAttempt).mockResolvedValue(
+      'Session not found'
+    );
+    const onFinish = vi.fn();
+
+    await acpChatSessionController.submitMessage(SESSION_ID, userMessage(), {
+      getCurrentSnapshot: () => snapshotWithActivePrompt(null),
+      onFinish,
+    });
+
+    expect(onFinish).toHaveBeenCalledWith('Session not found');
+  });
+
+  it('fails the turn on a closed socket when its attempt is no longer current', async () => {
+    vi.mocked(acpPromptSession).mockRejectedValue(socketClosed());
+    vi.mocked(acpChatSessionActions.detachPromptAttempt).mockReturnValue(false);
+    const onFinish = vi.fn();
+
+    await acpChatSessionController.submitMessage(SESSION_ID, userMessage(), {
+      getCurrentSnapshot: () => snapshotWithActivePrompt(null),
+      onFinish,
+    });
+
+    expect(acpChatSessionActions.waitForDetachedPromptAttempt).not.toHaveBeenCalled();
+    expect(onFinish).toHaveBeenCalledWith('ACP connection closed');
+  });
+
+  it('does not follow a run for an ordinary prompt failure', async () => {
+    vi.mocked(acpPromptSession).mockRejectedValue(new Error('provider exploded'));
+    const onFinish = vi.fn();
+
+    await acpChatSessionController.submitMessage(SESSION_ID, userMessage(), {
+      getCurrentSnapshot: () => snapshotWithActivePrompt(null),
+      onFinish,
+    });
+
+    expect(acpChatSessionActions.detachPromptAttempt).not.toHaveBeenCalled();
+    expect(onFinish).toHaveBeenCalledWith('provider exploded');
+  });
+
+  it('resends a Stop when the reload of the stopped run is refused', async () => {
+    vi.useFakeTimers();
+    vi.mocked(acpLoadSession).mockRejectedValueOnce(runReplayOverflow);
+    vi.mocked(acpChatSessionActions.holdRunningTurn).mockReturnValueOnce({
+      ...snapshotWithActivePrompt(null),
+      pendingCancelPromptAttemptId: 'attempt-1',
+      chatState: ChatState.Idle,
+    });
+
+    await acpChatSessionController.restoreSession(SESSION_ID);
+
+    expect(acpCancelPrompt).toHaveBeenCalledWith(SESSION_ID);
+  });
+
+  it('does not cancel a refused run nobody stopped', async () => {
+    vi.useFakeTimers();
+    vi.mocked(acpLoadSession).mockRejectedValueOnce(runReplayOverflow);
+
+    await acpChatSessionController.restoreSession(SESSION_ID);
+
+    expect(acpChatSessionActions.holdRunningTurn).toHaveBeenCalled();
+    expect(acpCancelPrompt).not.toHaveBeenCalled();
+  });
+
+  it('holds the visible turn and reloads on a timer when the run replay is refused', async () => {
+    vi.useFakeTimers();
+    const visible = [userMessage()];
+    vi.mocked(acpChatSessionStore.getSnapshot).mockReturnValue({
+      ...snapshotWithActivePrompt('attempt-1'),
+      messages: visible,
+    });
+    vi.mocked(acpLoadSession)
+      .mockRejectedValueOnce(runReplayOverflow)
+      .mockResolvedValueOnce(mockLoadResult());
+
+    await acpChatSessionController.restoreSession(SESSION_ID);
+
+    expect(acpChatSessionActions.holdRunningTurn).toHaveBeenCalledWith(SESSION_ID, visible);
+    expect(acpChatSessionActions.failSessionLoad).not.toHaveBeenCalled();
+    expect(acpChatSessionActions.settleDetachedPromptAttempt).not.toHaveBeenCalled();
+    expect(acpChatSessionActions.finishSessionLoad).not.toHaveBeenCalled();
+
+    await vi.advanceTimersByTimeAsync(RUN_REPLAY_RETRY_MS);
+
+    expect(acpChatSessionActions.startQuietSessionLoad).toHaveBeenCalledWith(SESSION_ID);
+    expect(acpChatSessionActions.startSessionLoad).toHaveBeenCalledTimes(1);
+    expect(acpChatSessionActions.finishSessionLoad).toHaveBeenCalledWith(
+      SESSION_ID,
+      loadedSession()
+    );
+  });
+
+  it('cancels a held run it did not start when Stop is pressed', async () => {
+    vi.useFakeTimers();
+    vi.mocked(acpLoadSession).mockRejectedValueOnce(runReplayOverflow);
+    await acpChatSessionController.restoreSession(SESSION_ID);
+
+    acpChatSessionController.stop(SESSION_ID);
+
+    expect(acpCancelPrompt).toHaveBeenCalledWith(SESSION_ID);
+    expect(acpChatSessionActions.cancelHeldRun).toHaveBeenCalledWith(SESSION_ID);
+    expect(acpChatSessionActions.setChatState).not.toHaveBeenCalled();
+  });
+
+  it('reloads a followed turn itself when the reconnect had already landed', async () => {
+    vi.mocked(acpPromptSession).mockRejectedValue(socketClosed(false));
+    vi.mocked(acpLoadSession).mockResolvedValue(mockLoadResult());
+
+    await acpChatSessionController.submitMessage(SESSION_ID, userMessage(), {
+      getCurrentSnapshot: () => snapshotWithActivePrompt(null),
+      onFinish: vi.fn(),
+    });
+
+    expect(acpChatSessionActions.startSessionLoad).toHaveBeenCalledWith(SESSION_ID);
+    expect(acpLoadSession).toHaveBeenCalledWith(SESSION_ID);
+  });
+
+  it('leaves the reload to a reconnect that is still to land', async () => {
+    vi.mocked(acpPromptSession).mockRejectedValue(socketClosed(true));
+
+    await acpChatSessionController.submitMessage(SESSION_ID, userMessage(), {
+      getCurrentSnapshot: () => snapshotWithActivePrompt(null),
+      onFinish: vi.fn(),
+    });
+
+    expect(acpLoadSession).not.toHaveBeenCalled();
+  });
+
+  it('resends a Stop the dropped socket may have lost once the reload shows the run live', async () => {
+    vi.mocked(acpLoadSession).mockResolvedValue(mockLoadResult());
+    vi.mocked(acpChatSessionActions.finishSessionLoad).mockReturnValueOnce({
+      ...snapshotWithActivePrompt(null),
+      pendingCancelPromptAttemptId: 'attempt-1',
+      activeRunId: 'run-1',
+    });
+
+    await acpChatSessionController.restoreSession(SESSION_ID);
+
+    expect(acpCancelPrompt).toHaveBeenCalledWith(SESSION_ID);
+  });
+
+  it('does not resend a Stop once the reload shows the run ended', async () => {
+    vi.mocked(acpLoadSession).mockResolvedValue(mockLoadResult());
+    vi.mocked(acpChatSessionActions.finishSessionLoad).mockReturnValueOnce({
+      ...snapshotWithActivePrompt(null),
+      pendingCancelPromptAttemptId: 'attempt-1',
+      activeRunId: null,
+    });
+
+    await acpChatSessionController.restoreSession(SESSION_ID);
+
+    expect(acpCancelPrompt).not.toHaveBeenCalled();
+  });
+
+  it('drops a held run retry when the session is deleted', async () => {
+    vi.useFakeTimers();
+    vi.mocked(acpLoadSession).mockRejectedValueOnce(runReplayOverflow);
+    await acpChatSessionController.restoreSession(SESSION_ID);
+
+    for (const listener of deletionListeners) listener(SESSION_ID);
+    await vi.advanceTimersByTimeAsync(RUN_REPLAY_RETRY_MS * 2);
+    acpChatSessionController.stop(SESSION_ID);
+
+    expect(acpLoadSession).toHaveBeenCalledTimes(1);
+    expect(acpChatSessionActions.startQuietSessionLoad).not.toHaveBeenCalled();
+    expect(acpCancelPrompt).not.toHaveBeenCalled();
+  });
+
+  it('ignores a load that lands after its session was deleted', async () => {
+    let resolveLoad: (result: Awaited<ReturnType<typeof acpLoadSession>>) => void = () => {};
+    vi.mocked(acpLoadSession).mockReturnValue(
+      new Promise((resolve) => {
+        resolveLoad = resolve;
+      })
+    );
+
+    const restoring = acpChatSessionController.restoreSession(SESSION_ID);
+    for (const listener of deletionListeners) listener(SESSION_ID);
+    resolveLoad(mockLoadResult());
+    await restoring;
+
+    expect(acpChatSessionActions.finishSessionLoad).not.toHaveBeenCalled();
+    expect(acpChatSessionActions.failSessionLoad).not.toHaveBeenCalled();
+  });
+
+  it('ends a followed turn with the reload failure outside a reconnect', async () => {
+    vi.mocked(acpLoadSession).mockRejectedValue(new Error('Session not found'));
+
+    await acpChatSessionController.restoreSession(SESSION_ID);
+
+    expect(acpChatSessionActions.failSessionLoad).toHaveBeenCalledWith(
+      SESSION_ID,
+      'Session not found'
+    );
+    expect(acpChatSessionActions.settleDetachedPromptAttempt).toHaveBeenCalledWith(
+      SESSION_ID,
+      'Session not found'
+    );
+  });
+
+  it('keeps following the turn when the reload fails because another reconnect began', async () => {
+    vi.mocked(acpLoadSession).mockRejectedValue(new Error('ACP connection closed'));
+    vi.mocked(isAcpRecovering).mockReturnValue(true);
+
+    await acpChatSessionController.restoreSession(SESSION_ID);
+
+    expect(acpChatSessionActions.settleDetachedPromptAttempt).not.toHaveBeenCalled();
   });
 });

@@ -257,6 +257,9 @@
   "baseChat.retry": {
     "defaultMessage": "Tentar novamente"
   },
+  "baseChat.runReplayHeld": {
+    "defaultMessage": "Ainda em execução — a resposta aparece completa quando terminar"
+  },
   "board.columnDone": {
     "defaultMessage": "Done"
   },

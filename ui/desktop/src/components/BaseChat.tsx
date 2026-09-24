@@ -36,6 +36,7 @@ import { Goose } from './icons';
 import EnvironmentBadge from './GooseSidebar/EnvironmentBadge';
 import SessionActionsHeader from './SessionActionsHeader';
 import { isAcpRecovering, subscribeToAcpRecovery } from '../acp/acpConnection';
+import { RUN_REPLAY_HELD_PROGRESS } from '../acp/chatSessionStore';
 import type { LiveVoiceAvailabilityResponse_unstable } from '@aaif/goose-acp-client';
 import { acpGetLiveVoiceAvailability } from '../acp/liveVoice';
 import type { LiveVoiceController } from '../liveVoice/useLiveVoice';
@@ -58,6 +59,10 @@ const i18n = defineMessages({
   reconnecting: {
     id: 'baseChat.reconnecting',
     defaultMessage: 'Connection lost. Reconnecting…',
+  },
+  runReplayHeld: {
+    id: 'baseChat.runReplayHeld',
+    defaultMessage: 'Still running — the reply shows in full when it finishes',
   },
 });
 
@@ -591,7 +596,14 @@ export default function BaseChat({
 
           {chatState !== ChatState.Idle && (
             <div className="absolute bottom-1 left-4 z-20 pointer-events-none">
-              <LoadingGoose chatState={chatState} message={progressMessage} />
+              <LoadingGoose
+                chatState={chatState}
+                message={
+                  progressMessage === RUN_REPLAY_HELD_PROGRESS
+                    ? intl.formatMessage(i18n.runReplayHeld)
+                    : progressMessage
+                }
+              />
             </div>
           )}
         </div>
