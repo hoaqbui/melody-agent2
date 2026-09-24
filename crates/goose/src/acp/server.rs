@@ -1318,8 +1318,12 @@ impl GooseAcpAgent {
                         return Ok(());
                     }
                     Err(error) => {
-                        error!(error = ?error, "permission request failed");
-                        Permission::Cancel
+                        warn!(
+                            ?error,
+                            request_id,
+                            "Permission request got no answer; held for the next attach"
+                        );
+                        return Ok(());
                     }
                 };
                 let (agent, session_id) = {
