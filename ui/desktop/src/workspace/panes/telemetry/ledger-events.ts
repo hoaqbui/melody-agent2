@@ -280,9 +280,10 @@ export function reviewEvent(
 export function undoEvent(
   sessionId: string,
   turnId: string,
-  at = new Date().toISOString()
+  at = new Date().toISOString(),
+  redo = false
 ): UndoEvent {
-  return { kind: 'undo', at, sessionId, turnId };
+  return { kind: 'undo', at, sessionId, turnId, redo };
 }
 
 // The natural id a kind carries in place of `messageId`, when it has one — mirrors the
@@ -290,8 +291,8 @@ export function undoEvent(
 const NATURAL_ID_FIELD: Partial<Record<LedgerEvent['kind'], string>> = {
   correction: 'toolCallId',
   land: 'sha',
-  undo: 'turnId',
 };
+// `undo` has no natural id: an undo and its redo share a turnId (task 266), so they key by `at`.
 
 // task 265: the key the sidecar dedups appends by — (kind, sessionId, workerSessionId,
 // messageId), the last slot falling back to the kind's natural id, then to `at`. This is now

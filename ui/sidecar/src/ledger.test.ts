@@ -212,6 +212,29 @@ describe('ledgerRoutes', () => {
     expect(lines).toHaveLength(cases.length);
   });
 
+  it('keeps a redo that shares its undo turnId', async () => {
+    const cwd = path.join(scratch, 'undo-redo');
+    await mkdir(cwd, { recursive: true });
+    await sh(cwd, ['init', '-q', '-b', 'main']);
+    const undoRoutes = ledgerRoutes(cwd, ledgerDir);
+    const undo = {
+      at: '2026-09-23T13:10:00Z',
+      kind: 'undo',
+      sessionId: 's1',
+      turnId: 'turn1',
+      redo: false,
+    };
+    const redo = { ...undo, at: '2026-09-23T13:11:00Z', redo: true };
+    expect(await undoRoutes['POST /ledger/append']({ event: undo })).not.toHaveProperty(
+      'duplicate'
+    );
+    expect(await undoRoutes['POST /ledger/append']({ event: redo })).not.toHaveProperty(
+      'duplicate'
+    );
+    const lines = (await readFile(ledgerFileFor(ledgerDir, cwd), 'utf8')).trim().split('\n');
+    expect(lines).toHaveLength(2);
+  });
+
   it('reads an empty list when no ledger exists yet and drops a torn last line', async () => {
     expect(await readLedger(path.join(scratch, 'missing.jsonl'))).toEqual([]);
     const torn = path.join(scratch, 'torn.jsonl');

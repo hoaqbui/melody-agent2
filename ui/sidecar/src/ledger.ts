@@ -93,8 +93,8 @@ const requireEvent = (body: Record<string, unknown>): LedgerEvent => {
 const NATURAL_ID_FIELD: Partial<Record<EventKind, string>> = {
   correction: 'toolCallId',
   land: 'sha',
-  undo: 'turnId',
 };
+// `undo` has no natural id: an undo and its redo share a turnId (task 266), so they key by `at`.
 
 // The key task 265 dedups appends by: (kind, sessionId, workerSessionId, messageId), with the
 // last slot falling back to the kind's natural id, then to `at`, when the event has no

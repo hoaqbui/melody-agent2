@@ -82,9 +82,12 @@ export interface ReviewEvent extends LedgerEventBase {
   base?: string;
 }
 
+// Undo this turn, or its Redo (`redo: true`) — the latest of the two for a turn decides whether
+// the turn's jobs read undone (266). Lines written before the flag existed read as undos.
 export interface UndoEvent extends LedgerEventBase {
   kind: 'undo';
   turnId: string;
+  redo: boolean;
 }
 
 // Task 264's four new kinds — a commit that took a job's files (written by 267), the user's
